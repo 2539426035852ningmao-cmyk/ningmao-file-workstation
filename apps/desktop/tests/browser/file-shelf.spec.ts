@@ -30,8 +30,10 @@ test("拖入路由、绑定目录、复制进度、取消与失败反馈",async(
   await page.goto("/tests/harness.html");
   await page.evaluate(()=>window.testHarness.drop(["SYNTHETIC/drop.txt"]));
   await expect(page.getByRole("button",{name:"选择 drop.txt",exact:true})).toBeVisible();
+  await page.getByRole("button",{name:"选择 drop.txt",exact:true}).click();
   await page.getByRole("button",{name:"绑定文件夹",exact:true}).click();
   await expect(page.getByRole("heading",{name:"测试绑定目录",exact:true})).toBeVisible();
+  await expect(page.getByRole("button",{name:"拖出复制",exact:true})).toHaveCount(0);
   await page.getByRole("button",{name:"添加并复制",exact:true}).click();
   await expect(page.getByRole("progressbar",{name:"当前文件复制进度"})).toBeVisible();
   await page.getByRole("button",{name:"取消复制",exact:true}).click();

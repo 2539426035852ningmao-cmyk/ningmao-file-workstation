@@ -81,6 +81,7 @@ export default function App({backend,native}:{backend:Backend;native:boolean}) {
   const running=data.jobs.find(j=>activeStatus(j.status));
   const inline=details && detailPinned && width>=1000;
   async function refresh() { const value=await backend.snapshot(); setData(value); return value; }
+  function switchShelf(id:number) { setShelfId(id); setSelected(null); setQuery(""); setDetails(false); setPreview(false); }
   async function perform(action:()=>Promise<unknown>) { setError(""); try { await action(); } catch(e) { setError(String(e)); } }
   async function receive(paths:string[]) {
     if(!paths.length) return;
@@ -132,8 +133,8 @@ export default function App({backend,native}:{backend:Backend;native:boolean}) {
       <Button variant="ghost" size="icon" disabled={!native} aria-label="窗口置顶" aria-pressed={topmost} onClick={()=>void perform(async()=>setTopmost(await backend.topmost()))}><Pin size={17}/></Button>
       <Button variant="ghost" disabled={!native} onClick={()=>void perform(()=>backend.quit())}>完整退出</Button>
     </div></header>
-    <div className="shelf-bar"><Tabs value={String(shelfId)} onValueChange={value=>{setShelfId(Number(value));setSelected(null);setQuery("");setDetails(false);}}><TabsList>{data.shelves.map(s=><TabsTrigger key={s.id} value={String(s.id)}>{s.kind==="bound"?<Folder size={14}/>:<Archive size={14}/>}<span>{s.name}</span></TabsTrigger>)}</TabsList></Tabs>
-      <Button variant="outline" disabled={!native || busy || !!running} onClick={()=>void perform(async()=>{const id=await backend.chooseFolder();await refresh();if(id) setShelfId(id);})}><FolderPlus size={15}/>绑定文件夹</Button></div>
+    <div className="shelf-bar"><Tabs value={String(shelfId)} onValueChange={value=>switchShelf(Number(value))}><TabsList>{data.shelves.map(s=><TabsTrigger key={s.id} value={String(s.id)}>{s.kind==="bound"?<Folder size={14}/>:<Archive size={14}/>}<span>{s.name}</span></TabsTrigger>)}</TabsList></Tabs>
+      <Button variant="outline" disabled={!native || busy || !!running} onClick={()=>void perform(async()=>{const id=await backend.chooseFolder();await refresh();if(id) switchShelf(id);})}><FolderPlus size={15}/>绑定文件夹</Button></div>
     <section className="content-heading"><div><h1>{shelf?.name || "文件架"}</h1><p>{bound?"复制到绑定目录 · 保留来源":shelf?.kind==="session"?"本次中转 · 完整退出后只清空引用":"持久收集 · 仅保存引用"}<span>{visible.length} 项</span></p></div><label className="search-box"><Search size={16}/><Input aria-label="搜索文件" placeholder="搜索文件名称…" value={query} onChange={e=>setQuery(e.target.value)}/></label></section>
     {bound && <div className="bound-path" title={shelf.root || ""}>{shelf.available?shelf.root:"绑定目录离线或不可读；保留原记录，请恢复目录后刷新。"}</div>}
     <div className="toolbar"><div className="view-controls"><Button variant="outline" disabled={!native || busy || !!running} onClick={()=>void perform(async()=>receive(await backend.chooseFiles()))}><Plus size={15}/>{bound?"添加并复制":"添加引用"}</Button>
