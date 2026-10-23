@@ -6,8 +6,9 @@
 - 仅操作用户授权的本仓库 `2539426035852ningmao-cmyk/ningmao-file-workstation`；不得擅自修改其他项目。
 - 先读 `docs/product-decisions.md`、`docs/m1-execution-baseline.md` 及当前任务记录，保留全部 43 项决策，不重复大范围产品规划。
 - UI 任务同时阅读根目录 `design.md`，遵循紧凑悬浮架、同心圆圆角与渐进式操作规范；其中草案尺寸需验收，不能以视觉改动破坏文件安全功能。
-- 技术候选为 Tauri 2 + Rust + React + TypeScript + SQLite；M1-02 双基线验证及 M1-04 用户批准前，不宣称最终选型。
-- M1-01、M1-02 已获用户验收；当前获准执行 M1-03 双 UI 验证，完成后等待验收，不自动批准 M1-04 最终主工程与视觉。
+- 所有 Codex 新任务先阅读 `docs/codex-start-here.md` 与 `docs/roadmap.md`，核对当前 PR/CI 状态，避免 README 落后导致重复建设。
+- 已批准独立 Tauri 2 + Rust + React + TypeScript + SQLite 主工程，shadcn/ui 主设计系统，按需复用 SpaceUI FileThumb；工程代码仍在未合并的 Draft #9 及其下游分支。
+- M1-01/02/03 已验收并合入。M1-04 选型已获批准；正式主工程与文件功能在未合并的 #9 → #11 → #13 Draft 链中，仍待精确候选 Windows 实机验收。不得误判 main 的研究原型为正式应用。
 - 采用独立功能分支和 PR，不向 main 直接推送功能修改，不绕过保护规则。
 - 普通、可逆且已授权的工作自主推进；真实文件高风险操作、重大架构和最终视觉方向需要用户验收。
 
