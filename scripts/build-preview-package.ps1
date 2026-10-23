@@ -20,7 +20,7 @@ try {
     if ($msi.Count -ne 1) { throw 'Expected exactly one MSI in clean build directory' }
     $exe = Join-Path $target 'debug/ningmao-file-workstation.exe'
     if ((Get-Item -LiteralPath $exe).VersionInfo.ProductVersion -notmatch '^0\.1\.0($|\+)') { throw 'Unexpected executable version' }
-    $out = Join-Path $repo 'apps/desktop/.preview-package'
+    $out = Join-Path $repo 'apps/desktop/preview-package'
     if ((Test-Path -LiteralPath $out) -and @(Get-ChildItem -LiteralPath $out -Force).Count) { throw 'Output directory must be empty; use a clean checkout' }
     $null = New-Item -ItemType Directory -Path $out -Force
     Copy-Item -LiteralPath $msi[0].FullName -Destination (Join-Path $out 'Ningmao-Preview-0.1.0-x64.msi')
