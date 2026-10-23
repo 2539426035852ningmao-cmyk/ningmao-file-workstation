@@ -4,9 +4,11 @@
 
 Windows 10/11 优先的轻量桌面悬浮文件工作站，支持临时文件引用与真实目录两种文件架，逐步扩展跨设备互联和 AI 文件管理。
 
-当前交付范围为 **M1-03：双 UI 原型验证**。M1-02 已获用户验收并合入；仓库包含 Windows 技术样机和采用固定版本 SpaceUI / shadcn/ui 的同功能原型，尚无正式产品或发行版本。浏览器、CI 和原生实机证据分别记录。
+**当前 main 已合入 M1-01/02/03**，包含 GitHub 基础治理、Windows 技术基线与双 UI 原型。M1-04 已批准独立 Tauri 主工程选型；真实文件操作、预览 MSI 与引用修复分别在未合并的 Draft PR #9 → #11 → #13 中。自动测试已有成果，精确候选的 Windows GUI/安装/多屏/DPI 尚待验收；目前没有正式发行版。
 
-候选技术：Tauri 2、Rust、React、TypeScript、SQLite。最终主工程需经双基线验证与用户验收确定。
+**开发导航：** [Codex 从这里开始](docs/codex-start-here.md) · [设计规范 design.md](design.md) · [阶段路线图](docs/roadmap.md) · [43 项冻结决策](docs/product-decisions.md)。复杂功能放按需管理中心，日常默认是小型悬浮文件架。
+
+已批准技术：Tauri 2、Rust、React、TypeScript、SQLite；UI 以 shadcn/ui 为主，按需复用 SpaceUI FileThumb。主工程目前位于未合并 PR，而非 main。
 
 主仓库许可证为 [Apache-2.0](LICENSE)，官方发行版计划永久免费。第三方组件保留各自许可证。
 
@@ -26,10 +28,10 @@ Windows 10/11 优先的轻量桌面悬浮文件工作站，支持临时文件引
 |---|---|---|
 | M1-01 | 仓库、文档、模板、基础 CI、main 保护 | 已完成，Issue #1 已关闭 |
 | M1-02 | Holdem 与独立 Tauri 2 模板真实技术对比 | 已验收、PR #4 已合入；已知问题和未测项保留 |
-| M1-03 | SpaceUI 与 shadcn/ui 同功能原型比较 | 当前任务，见 Issue #5 和比较报告 |
-| M1-04 | 主工程与设计系统选型 | 未开始，需用户批准 |
-| M1-05 | 真实文件功能闭环 | 未开始 |
-| M1-06 | Windows 实机验收与交付 | 未开始 |
+| M1-03 | SpaceUI 与 shadcn/ui 同功能原型比较 | 已验收、PR #6 已合入 |
+| M1-04 | 主工程与设计系统选型 | 已批准，ADR 与代码随 Draft #9 |
+| M1-05 | 真实文件功能闭环 | 候选代码 + 自动测试在 Draft #9，原生体验未完整验收 |
+| M1-06 | Windows 实机验收与交付 | Draft #11 预览 MSI 与只读检查；真实安装等未测 |
 
 详见 [M1 开发记录](docs/milestones/M1.md)、[M1-03 任务](docs/tasks/M1-03.md)与 [UI 比较报告](docs/research/M1-03-comparison.md)。全部 43 项决策继续保留。
 
@@ -53,4 +55,4 @@ M1-03 的 Windows 构建与浏览器验证分别执行 `scripts/m1-03/build-ui.p
 
 ## English
 
-Ningmao File Workstation is a Windows-first floating file workstation. M1-03 compares pinned SpaceUI and shadcn/ui components with identical sample data and interactions. These are research prototypes, not a production release or approved final architecture. See the Chinese decision baseline for the full scope.
+Ningmao File Workstation is a Windows-first lightweight floating file shelf. The default branch contains accepted M1-01/02/03 research and UI prototypes. A Tauri-based file-operations candidate is still in draft PRs pending real Windows GUI and installer acceptance; this is not a production release. See the Chinese decision baseline for the full scope.
