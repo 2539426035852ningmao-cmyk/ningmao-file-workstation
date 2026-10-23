@@ -11,6 +11,7 @@
 4. `docs/roadmap.md`：当前顺序、阶段交付和插件/网络/AI 边界
 5. `docs/milestones/M1.md` 与当前 Issues/PR：确认已验收、草稿候选及未测项
 6. `docs/m1-execution-baseline.md`：原始 M1 交接基线与验收背景
+7. `GEMINI.md`、`docs/AI_REVIEW_WORKFLOW.md`：双 AI 独立复核，只读 CLI 健康检查和零额外 API 费用约束
 
 **禁止只阅读 README 就宣布已经交付正式软件。** README 和主分支先前曾落后于 Draft PR 的实际研发进展；每次任务启动须核对 default branch、PR base/head、状态和最新 CI，不能将未合入的文件误认为已在 main。
 
@@ -33,6 +34,10 @@
 - [引用修复 Draft #13](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/13)
 - [设计规范 PR #14（已合入）](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/14)
 - [紧凑化工作项 #15](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/issues/15)
+
+## 双 AI 审查接入状态
+
+已复用模块化个人工作站 [PR #22](https://github.com/2539426035852ningmao-cmyk/modular-workstation/pull/22) 的已实测流程。**本项目仅完成规范准备**，本地 Antigravity CLI 是否仍有效、Google AI Pro 账户额度设置与首轮非空响应须由 Windows Codex 重新验证。先读 [双 AI 流程](AI_REVIEW_WORKFLOW.md)、[任务清单](tasks/M1-GEMINI-REVIEW.md)，不可把静态审查冒充 GUI 测试或 API 无限免费。
 
 ## 下一阶段主攻问题
 
