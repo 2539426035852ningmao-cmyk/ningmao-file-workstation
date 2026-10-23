@@ -95,7 +95,7 @@ B 通过成熟库调用 Windows OLE，未自行造原生拖出轮子。只允许
 
 1. 在 Windows 安装 Git、PowerShell 7、Node.js 24、Rust 1.99.1、MSVC Build Tools、Windows SDK、WebView2。工具链仅用于开发，不要求改变系统安全设置。
 2. 从本仓库根目录运行 `pwsh -NoProfile -File scripts/m1-02/build-baselines.ps1 -Baseline Both`。A 获取固定 SHA 到忽略的 `.m1-02-work/holdem`，不重置已有改动；B 读取提交的 npm/Cargo lockfiles。脚本不修改上游远程、不包含本机代理或凭据。
-3. A 仅使用专用合成文件，运行前设置专用 TEMP/TMP；原版有移动来源行为。B 测试过程见 `experiments/m1-02/tauri-baseline/README.md`。先退出当前探针再重新编译，Windows 会锁定运行中的 exe；本轮该情况曾使重建失败，保留准确候选后退出进程并重试，不把失败当成功。
+3. A 仅使用专用合成文件，运行前设置专用 TEMP/TMP；原版有移动来源行为。B 测试过程见 `experiments/m1-02/tauri-baseline/README.md`。先退出当前探针再重新编译，Windows 会锁定运行中的 exe；本轮该情况曾使重建失败，保留准确候选后退出进程并重试，不把失败当成功。A 的 Tauri CLI 会重写 Cargo.toml 换行，第一次构建后 `git status` 会出现只有换行造成的改动提示；脚本已改用 Git 规范化内容比较，允许原样复建，同时拒绝真实源码改动和额外未跟踪文件，不使用强制重置。
 4. B 自动检查：TypeScript/Vite、cargo fmt、cargo test --locked --lib、cargo clippy --locked --all-targets -- -D warnings、Tauri Debug no-bundle 构建。素材单测先验证已存在内容绝不被覆盖。
 5. 人工拖拽由用户鼠标执行；本轮 Windows 自动输入工具禁止跨窗口拖动，未绕过工具限制。事件、来源存在性和 SHA256 交叉核对；不上传含本地路径的原始日志和 Explorer 截图。
 6. CI 的 `Windows baseline A/B` 只编译和运行自动检查，不运行桌面 GUI、不代替以上手工步骤。最终 check-run 链接回写 Issue #3/PR；失败原因如实记录。

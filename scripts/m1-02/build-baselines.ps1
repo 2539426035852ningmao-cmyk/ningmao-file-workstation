@@ -22,8 +22,11 @@ if ($Baseline -in @('A', 'Both')) {
     }
     $head = & git -C $upstream rev-parse HEAD
     if ($LASTEXITCODE -ne 0 -or $head -ne $revision) { throw 'A 源码版本不符；不会覆盖现有目录。' }
-    $dirty = & git -C $upstream status --porcelain
-    if ($LASTEXITCODE -ne 0 -or $dirty) { throw 'A 源码目录有改动；不会重置现有工作。' }
+    # Tauri rewrites Cargo.toml line endings. Compare Git-normalized content,
+    # while still refusing actual staged/unstaged edits and untracked sources.
+    Run git @('-C', $upstream, 'diff', '--quiet', 'HEAD', '--')
+    $untracked = & git -C $upstream ls-files --others --exclude-standard
+    if ($LASTEXITCODE -ne 0 -or $untracked) { throw 'A 源码目录含额外文件；不会覆盖现有工作。' }
     $config = Join-Path $scratch 'holdem-probe-config.json'
     @{
         identifier = 'app.ningmao.m102holdem'
