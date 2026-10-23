@@ -1,0 +1,21 @@
+{
+  "exe_bytes": 12248576,
+  "exe_sha256": "B4BE9CA17C264B6BB82BFD0FD327CC50362D785623566E177D15D759BF94D52D",
+  "browser_pointer_sort_pass": true,
+  "manual_shadcn_sort": "pass: user mouse + UI count 1 + order asset-0002,asset-0003,asset-0001 + backend reorder 1002867ms",
+  "monitors": 1,
+  "manual_spaceui_sort": "pass: user mouse + UI count 1 + order asset-0002,asset-0003,asset-0001 + backend reorder 967524ms",
+  "new_binary_native_dragout": "not retested",
+  "scale": 1.25,
+  "native_drop_enabled_both_windows": true,
+  "new_binary_explorer_drop": "not retested",
+  "automatic_windows_drag_result": "start event observed, end over same item; not accepted as pointer-sort pass",
+  "os": "Windows 11 Home build 22631",
+  "observed_order_first_three": [
+    "asset-0002",
+    "asset-0003",
+    "asset-0001"
+  ],
+  "ui_sort_count_each": 1,
+  "confirmation_date": "2026-10-23 Asia/Hong_Kong"
+}

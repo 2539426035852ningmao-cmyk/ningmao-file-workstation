@@ -1,0 +1,15 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Ningmao M1-03 UI comparison",
+  "version": "0.1.0",
+  "identifier": "app.ningmao.m103ui",
+  "build": { "beforeDevCommand": "npm run dev", "devUrl": "http://localhost:1430", "beforeBuildCommand": "npm run build", "frontendDist": "../dist" },
+  "app": {
+    "windows": [
+      { "label": "main", "title": "柠猫 M1-03 · A SpaceUI", "url": "index.html?variant=spaceui", "width": 1120, "height": 760, "minWidth": 600, "minHeight": 540, "center": true, "dragDropEnabled": true },
+      { "label": "html-probe", "title": "柠猫 M1-03 · B shadcn/ui", "url": "index.html?variant=shadcn", "width": 1120, "height": 760, "minWidth": 600, "minHeight": 540, "center": true, "visible": false, "dragDropEnabled": true }
+    ],
+    "security": { "csp": "default-src 'self'; img-src 'self' data: asset: http://asset.localhost; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost" }
+  },
+  "bundle": { "active": true, "targets": "all", "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.ico"] }
+}

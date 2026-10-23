@@ -1,0 +1,162 @@
+[
+  {
+    "project": "SpaceUI",
+    "url": "https://github.com/spacedriveapp/spaceui",
+    "commit": "a48b17047d3ff1d05268acb6f88a79460ad4fa7b",
+    "source_path": "packages/primitives/src/Button.tsx",
+    "source_sha256": "5CD86C6DB11EDDBA855D8307D61CB2FE2DBEEE57A799B1DC943EE5A9CFCE04A7",
+    "local_path": "ui-comparison/src/components/spaceui/Button.tsx",
+    "changes": "未修改组件源码（Git 规范化换行）",
+    "license": "MIT"
+  },
+  {
+    "project": "SpaceUI",
+    "url": "https://github.com/spacedriveapp/spaceui",
+    "commit": "a48b17047d3ff1d05268acb6f88a79460ad4fa7b",
+    "source_path": "packages/primitives/src/Input.tsx",
+    "source_sha256": "6732F802ADAACD4A7C204E4C887C05EA36B46D1C0ACC017E35B0DFC503049E82",
+    "local_path": "ui-comparison/src/components/spaceui/Input.tsx",
+    "changes": "未修改组件源码（Git 规范化换行）",
+    "license": "MIT"
+  },
+  {
+    "project": "SpaceUI",
+    "url": "https://github.com/spacedriveapp/spaceui",
+    "commit": "a48b17047d3ff1d05268acb6f88a79460ad4fa7b",
+    "source_path": "packages/primitives/src/Tabs.tsx",
+    "source_sha256": "54058A3834538270A933D433A9E60572FE80FE755026E83DE7F2529E89064610",
+    "local_path": "ui-comparison/src/components/spaceui/Tabs.tsx",
+    "changes": "Radix 聚合包导入；旧 radix-state 类名转 Tailwind v4 data selector",
+    "license": "MIT"
+  },
+  {
+    "project": "SpaceUI",
+    "url": "https://github.com/spacedriveapp/spaceui",
+    "commit": "a48b17047d3ff1d05268acb6f88a79460ad4fa7b",
+    "source_path": "packages/primitives/src/ContextMenu.tsx",
+    "source_sha256": "623CF9126A536BE21AF65D6E6927F48F422F8E33E9A47FC30C72CB5F4DFBEEED",
+    "local_path": "ui-comparison/src/components/spaceui/ContextMenu.tsx",
+    "changes": "Radix 聚合包导入；旧 group-radix 类名转 Tailwind v4 data selector",
+    "license": "MIT"
+  },
+  {
+    "project": "SpaceUI",
+    "url": "https://github.com/spacedriveapp/spaceui",
+    "commit": "a48b17047d3ff1d05268acb6f88a79460ad4fa7b",
+    "source_path": "packages/primitives/src/Badge.tsx",
+    "source_sha256": "46BC85135FCB6CD70DA70BA9C1C6C87E1846D39808E9B79D24C783B7D12D74B4",
+    "local_path": "ui-comparison/src/components/spaceui/Badge.tsx",
+    "changes": "未修改组件源码（Git 规范化换行）",
+    "license": "MIT"
+  },
+  {
+    "project": "SpaceUI",
+    "url": "https://github.com/spacedriveapp/spaceui",
+    "commit": "a48b17047d3ff1d05268acb6f88a79460ad4fa7b",
+    "source_path": "packages/explorer/src/GridItem.tsx",
+    "source_sha256": "B1FFC056F93ED4554FFB7C0ECED114E4681B34F9E5417482195ECE8BC544CBFC",
+    "local_path": "ui-comparison/src/components/spaceui/GridItem.tsx",
+    "changes": "未修改组件源码（Git 规范化换行）",
+    "license": "MIT"
+  },
+  {
+    "project": "SpaceUI",
+    "url": "https://github.com/spacedriveapp/spaceui",
+    "commit": "a48b17047d3ff1d05268acb6f88a79460ad4fa7b",
+    "source_path": "packages/explorer/src/FileThumb.tsx",
+    "source_sha256": "7BCE13F05A15D3BA66F3F717538DF539CFCC9F285D435EBBAB4A676225329871",
+    "local_path": "ui-comparison/src/components/spaceui/FileThumb.tsx",
+    "changes": "未修改组件源码（Git 规范化换行）",
+    "license": "MIT"
+  },
+  {
+    "project": "SpaceUI",
+    "url": "https://github.com/spacedriveapp/spaceui",
+    "commit": "a48b17047d3ff1d05268acb6f88a79460ad4fa7b",
+    "source_path": "packages/explorer/src/TagPill.tsx",
+    "source_sha256": "C750A30F9D2FED6DE72BDEB18FEA4BD733DF79C70C656AC3C0846CCA849633B5",
+    "local_path": "ui-comparison/src/components/spaceui/TagPill.tsx",
+    "changes": "未修改组件源码（Git 规范化换行）",
+    "license": "MIT"
+  },
+  {
+    "project": "SpaceUI",
+    "url": "https://github.com/spacedriveapp/spaceui",
+    "commit": "a48b17047d3ff1d05268acb6f88a79460ad4fa7b",
+    "source_path": "packages/tokens/src/css/theme.css",
+    "source_sha256": "771BA85571B9E3CA717C204E234FD4C6EA9E68D4DA1750EB4D9016B491A7DDA9",
+    "local_path": "ui-comparison/src/components/spaceui/tokens/theme.css",
+    "changes": "未修改原始 token；宿主层覆盖蓝色对比度与系统字体",
+    "license": "MIT"
+  },
+  {
+    "project": "SpaceUI",
+    "url": "https://github.com/spacedriveapp/spaceui",
+    "commit": "a48b17047d3ff1d05268acb6f88a79460ad4fa7b",
+    "source_path": "packages/tokens/src/css/themes/light.css",
+    "source_sha256": "AD40BBBD4FFF028902A40C70FDD964F64BB687D8AFE9AF7CDF04C43BC2552E82",
+    "local_path": "ui-comparison/src/components/spaceui/tokens/themes/light.css",
+    "changes": "未修改原始 token；宿主层覆盖蓝色对比度与系统字体",
+    "license": "MIT"
+  },
+  {
+    "project": "shadcn/ui",
+    "url": "https://github.com/shadcn-ui/ui",
+    "commit": "3d98900e9b73c45f035f8109e9d41ba6a51685e7",
+    "source_path": "apps/v4/registry/new-york-v4/ui/button.tsx",
+    "source_sha256": "79DD6F75F8136394442202D6B8B922FB269EAAD0A5DBA579397C9D5B41F893BB",
+    "local_path": "ui-comparison/src/components/shadcn/button.tsx",
+    "changes": "未修改组件源码；cn 模块由 Vite/TS alias 指向本地 clsx + tailwind-merge 组合",
+    "license": "MIT"
+  },
+  {
+    "project": "shadcn/ui",
+    "url": "https://github.com/shadcn-ui/ui",
+    "commit": "3d98900e9b73c45f035f8109e9d41ba6a51685e7",
+    "source_path": "apps/v4/registry/new-york-v4/ui/input.tsx",
+    "source_sha256": "0C9457181F6DDC80969BCF854E92C362903A55B6E889FBEF3FD85343ECC4AF5B",
+    "local_path": "ui-comparison/src/components/shadcn/input.tsx",
+    "changes": "未修改组件源码；cn 模块由 Vite/TS alias 指向本地 clsx + tailwind-merge 组合",
+    "license": "MIT"
+  },
+  {
+    "project": "shadcn/ui",
+    "url": "https://github.com/shadcn-ui/ui",
+    "commit": "3d98900e9b73c45f035f8109e9d41ba6a51685e7",
+    "source_path": "apps/v4/registry/new-york-v4/ui/tabs.tsx",
+    "source_sha256": "E1DF6E2F95ECE373CA909C1D54B8BA8CF4C47DD425C1784BBB9A01C38DD0936B",
+    "local_path": "ui-comparison/src/components/shadcn/tabs.tsx",
+    "changes": "未修改组件源码；cn 模块由 Vite/TS alias 指向本地 clsx + tailwind-merge 组合",
+    "license": "MIT"
+  },
+  {
+    "project": "shadcn/ui",
+    "url": "https://github.com/shadcn-ui/ui",
+    "commit": "3d98900e9b73c45f035f8109e9d41ba6a51685e7",
+    "source_path": "apps/v4/registry/new-york-v4/ui/context-menu.tsx",
+    "source_sha256": "BCDE5DF1ED9887BB050F0BADABFB5F79912EB53BDC883DBE6C003D05914D99A4",
+    "local_path": "ui-comparison/src/components/shadcn/context-menu.tsx",
+    "changes": "未修改组件源码；cn 模块由 Vite/TS alias 指向本地 clsx + tailwind-merge 组合",
+    "license": "MIT"
+  },
+  {
+    "project": "shadcn/ui",
+    "url": "https://github.com/shadcn-ui/ui",
+    "commit": "3d98900e9b73c45f035f8109e9d41ba6a51685e7",
+    "source_path": "apps/v4/registry/new-york-v4/ui/sheet.tsx",
+    "source_sha256": "EA473D38A26A9B0B879E5A13139899AD45E9782E896B3FA205C7763A6C506876",
+    "local_path": "ui-comparison/src/components/shadcn/sheet.tsx",
+    "changes": "未修改组件源码；cn 模块由 Vite/TS alias 指向本地 clsx + tailwind-merge 组合",
+    "license": "MIT"
+  },
+  {
+    "project": "shadcn/ui",
+    "url": "https://github.com/shadcn-ui/ui",
+    "commit": "3d98900e9b73c45f035f8109e9d41ba6a51685e7",
+    "source_path": "apps/v4/registry/new-york-v4/ui/badge.tsx",
+    "source_sha256": "13A9380DFFF853EE730C14A52DF49F22AECD31F40F2998D7C1E7EC458B6E1650",
+    "local_path": "ui-comparison/src/components/shadcn/badge.tsx",
+    "changes": "未修改组件源码；cn 模块由 Vite/TS alias 指向本地 clsx + tailwind-merge 组合",
+    "license": "MIT"
+  }
+]

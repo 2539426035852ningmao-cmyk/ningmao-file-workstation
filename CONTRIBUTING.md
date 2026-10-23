@@ -1,6 +1,6 @@
 # 贡献指南
 
-感谢参与柠猫文件工作站。先阅读 [43 项决策](docs/product-decisions.md)、[M1 基线](docs/m1-execution-baseline.md)与 [AGENTS.md](AGENTS.md)。当前仅推进 M1-02 技术验证。
+感谢参与柠猫文件工作站。先阅读 [43 项决策](docs/product-decisions.md)、[M1 基线](docs/m1-execution-baseline.md)与 [AGENTS.md](AGENTS.md)。当前仅推进 M1-03 双 UI 比较。
 
 ## 工作流程
 
@@ -25,6 +25,8 @@ pwsh -NoProfile -File scripts/check-repository.ps1
 基础检查在 `windows-latest` 与 `ubuntu-latest` 上运行；M1-02 另有 Windows A/B 构建。改动 B 样机时运行 `scripts/m1-02/build-baselines.ps1 -Baseline B`，包含 TypeScript 构建、Rust 格式、测试、Clippy 和原生构建。原生文件交互仍须单独实机验证。
 
 ## 第三方代码
+
+M1-03 运行 `scripts/m1-03/build-ui.ps1 -Browser` 验证构建、模型行为、两套 UI 交互与虚拟列表；Windows 构建追加 `-Native`。浏览器测试不能代替启用 Tauri 原生接收后的实机排序验证。固定来源的复制组件修改需同步 source-provenance.json。
 
 引入前在 [第三方清单](docs/third-party.md)记录来源、固定版本、许可、修改、署名/NOTICE 义务、兼容性和风险。保留必要原始版权和许可证；主仓库 Apache-2.0 不会自动替代第三方许可证。
 

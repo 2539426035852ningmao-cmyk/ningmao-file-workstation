@@ -3,7 +3,7 @@ node_modules/
 dist/
 build/
 target/
-src-tauri/gen/
+**/src-tauri/gen/
 coverage/
 *.tsbuildinfo
 
@@ -23,6 +23,9 @@ coverage/
 private/
 local-data/
 .m1-02-work/
+.m1-03-work/
+test-results/
+playwright-report/
 
 # Packaged artifacts
 *.exe

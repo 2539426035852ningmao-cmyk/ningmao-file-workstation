@@ -8,14 +8,20 @@
 | [GitHub CLI](https://github.com/cli/cli) | 本地初始化工具，不随应用发布 | v2.103.0 / windows_amd64.zip | [MIT](https://github.com/cli/cli/blob/v2.103.0/LICENSE)；工具未提交本仓库 | 官方发布便携包，SHA256 `80c846a5b8432672ca6373b34ce9de998c9686aaa1885c845f2e1ee81f713726` 与 release digest 一致；不复制凭据 |
 | [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0) | 主仓库 LICENSE | SPDX Apache-2.0 | 从 [GitHub 许可证 API](https://api.github.com/licenses/apache-2.0)获取标准全文 | 未修改许可条款；目前没有需要继承的第三方 NOTICE 内容 |
 
-## 尚未集成的候选
+## M1-03 实际 UI 来源
 
-以下 UI 候选保留研究入口，未集成、未批准最终采用。M1-02 已实际验证的技术来源单独列在后文。
+以下只用于实验，不代表批准最终设计系统。逐文件原始 SHA256 和改动见 [source-provenance.json](../experiments/m1-03/source-provenance.json)。
 
-| 候选 | 后续任务 | 后续必须核查 |
+| 来源 | 固定版本/范围 | 许可与修改、维护风险 |
 |---|---|---|
-| [spacedriveapp/spaceui](https://github.com/spacedriveapp/spaceui) | M1-03 UI 候选 A | 实际许可、组件可分离性、依赖、性能与长期维护 |
-| [shadcn-ui/ui](https://github.com/shadcn-ui/ui) | M1-03 UI 候选 B | 固定版本、源码许可和署名、与拖拽/虚拟列表组合的兼容性 |
+| [SpaceUI](https://github.com/spacedriveapp/spaceui/tree/a48b17047d3ff1d05268acb6f88a79460ad4fa7b) | `a48b17047d3ff1d05268acb6f88a79460ad4fa7b`；Button/Input/Tabs/ContextMenu/Badge/GridItem/FileThumb/TagPill 及 2 个 token 文件 | MIT，保留 Copyright 2024 Spacedrive [全文](../experiments/m1-03/licenses/spaceui-MIT.txt)。两个组件做聚合导入/data-selector 适配；宿主调整对比度、字体。实际源码少于 README 所述组件范围；不引入整个应用级 Dialog 管理器和无关依赖 |
+| [shadcn/ui](https://github.com/shadcn-ui/ui/tree/3d98900e9b73c45f035f8109e9d41ba6a51685e7) | `3d98900e9b73c45f035f8109e9d41ba6a51685e7`；new-york-v4 Radix 版本 button/input/tabs/context-menu/sheet/badge | MIT，保留 Copyright 2023 shadcn [全文](../experiments/m1-03/licenses/shadcn-MIT.txt)。组件源码不改；cn 模块通过 alias 连接 clsx/tailwind-merge；选定版本不等于把未核实的迁移传言当结论 |
+| [dnd-kit](https://github.com/clauderic/dnd-kit) | core 6.3.1、sortable 10.0.0、utilities 3.2.2 | MIT，[原始许可](../experiments/m1-03/licenses/dnd-kit-MIT.txt)；使用稳定 npm 版本，非将当前仓库 main 冒充这些发布源码；基于 pointer 排序，原生环境仍需单独实测 |
+| [TanStack Virtual](https://github.com/TanStack/virtual) | @tanstack/react-virtual 3.14.22 | MIT，[原始许可](../experiments/m1-03/licenses/tanstack-virtual-MIT.txt)；两套共用，React 19 关闭 useFlushSync，固定行高并记录真实挂载量 |
+| Radix / Lucide / Phosphor / Tailwind / React / Playwright 等 | npm 锁文件固定；[190 条元数据清单](research/m1-03-evidence/npm-license-metadata.json)含可选平台记录 | 各自许可保留在包内；初筛无缺失或 GPL/AGPL 字段，不等于全部二进制分发/漏洞审计。Playwright 仅为开发测试工具，无用户登录浏览器会话 |
+| [actions/setup-node](https://github.com/actions/setup-node/tree/949feb2413d6458794dcd2491c4babbbce0c15c1) | v7.1.0 / `949feb2413d6458794dcd2491c4babbbce0c15c1` | MIT；仅引用 Action，固定 SHA，Node.js 24；与只读 checkout 配合，不持久化 GitHub 凭据 |
+
+M1-03 原生后端及模板源自本仓 M1-02，create-tauri-app/drag-rs MIT 全文同样保留在本实验 licenses/。Cargo 锁版本沿用 M1-02，完整传递许可与 NOTICE 审核仍属于正式分发前工作。当前没有公共二进制 Release。
 
 ## M1-02 实际来源及使用范围
 

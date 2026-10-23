@@ -13,7 +13,12 @@ try {
         'docs/tasks/M1-02.md', 'docs/research/M1-02-comparison.md',
         '.github/workflows/m1-02-windows.yml', 'scripts/m1-02/build-baselines.ps1',
         'experiments/m1-02/tauri-baseline/package-lock.json',
-        'experiments/m1-02/tauri-baseline/src-tauri/Cargo.lock'
+        'experiments/m1-02/tauri-baseline/src-tauri/Cargo.lock',
+        'PRODUCT.md', 'docs/tasks/M1-03.md', 'docs/research/M1-03-comparison.md',
+        '.github/workflows/m1-03-ui.yml', 'scripts/m1-03/build-ui.ps1',
+        'experiments/m1-03/source-provenance.json',
+        'experiments/m1-03/ui-comparison/package-lock.json',
+        'experiments/m1-03/ui-comparison/src-tauri/Cargo.lock'
     )
     foreach ($path in $required) {
         if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "缺少必需文件：$path" }
