@@ -1,0 +1,11 @@
+{
+  "scope": "Inbound event only; no production reference persistence",
+  "fixture_sha256": "5717B9E5F107D48B2B0C55A2FE2637E2C1B21B5987B021F06376DDE28DF10DDF",
+  "event_ms": 767322,
+  "source_sha256": "5717B9E5F107D48B2B0C55A2FE2637E2C1B21B5987B021F06376DDE28DF10DDF",
+  "observed_local_time": "2026-10-23T17:05:53+08:00",
+  "file": "probe.txt",
+  "observed_event": "native-drop",
+  "hash_matches": true,
+  "source_still_exists": true
+}

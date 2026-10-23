@@ -1,0 +1,122 @@
+[
+  {
+    "detail": "Tauri template + drag 2.1.0 / Copy only",
+    "kind": "startup",
+    "ms": 1318
+  },
+  {
+    "detail": "show / quit",
+    "kind": "tray-created",
+    "ms": 1348
+  },
+  {
+    "detail": "Tauri template + drag 2.1.0 / Copy only",
+    "kind": "startup",
+    "ms": 1259
+  },
+  {
+    "detail": "show / quit",
+    "kind": "tray-created",
+    "ms": 1294
+  },
+  {
+    "detail": "0",
+    "kind": "native-drag-start",
+    "ms": 77270
+  },
+  {
+    "detail": "Dropped",
+    "kind": "native-drag-result",
+    "ms": 79742
+  },
+  {
+    "detail": "0",
+    "kind": "native-drag-start",
+    "ms": 121676
+  },
+  {
+    "detail": "Dropped",
+    "kind": "native-drag-result",
+    "ms": 123771
+  },
+  {
+    "detail": "false",
+    "kind": "always-on-top",
+    "ms": 197978
+  },
+  {
+    "detail": "true",
+    "kind": "always-on-top",
+    "ms": 198604
+  },
+  {
+    "detail": "false",
+    "kind": "always-on-top",
+    "ms": 201913
+  },
+  {
+    "detail": "true",
+    "kind": "always-on-top",
+    "ms": 202582
+  },
+  {
+    "detail": "1",
+    "kind": "native-drag-start",
+    "ms": 248644
+  },
+  {
+    "detail": "Dropped",
+    "kind": "native-drag-result",
+    "ms": 250815
+  },
+  {
+    "detail": "probe.txt",
+    "kind": "native-drop",
+    "ms": 767322
+  },
+  {
+    "detail": "none",
+    "kind": "html-drag-end",
+    "ms": 1208858
+  },
+  {
+    "detail": "none",
+    "kind": "html-drag-end",
+    "ms": 1238580
+  },
+  {
+    "detail": "Ctrl+Alt+Shift+F12",
+    "kind": "shortcut-registered",
+    "ms": 1281074
+  },
+  {
+    "detail": "Ctrl+Alt+Shift+F12",
+    "kind": "shortcut-fired",
+    "ms": 1296303
+  },
+  {
+    "detail": "none",
+    "kind": "html-drag-end",
+    "ms": 1342418
+  },
+  {
+    "detail": "none",
+    "kind": "html-drag-end",
+    "ms": 1347993
+  },
+  {
+    "detail": "Gamma: Alpha",
+    "kind": "html-drop-target",
+    "ms": 1354355
+  },
+  {
+    "detail": "Beta → Alpha → Gamma",
+    "kind": "html-reorder",
+    "ms": 1354356
+  },
+  {
+    "detail": "move",
+    "kind": "html-drag-end",
+    "ms": 1354363
+  }
+]

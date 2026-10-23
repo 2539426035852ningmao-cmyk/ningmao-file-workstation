@@ -22,6 +22,7 @@ coverage/
 *.log
 private/
 local-data/
+.m1-02-work/
 
 # Packaged artifacts
 *.exe

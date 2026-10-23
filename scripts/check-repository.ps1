@@ -9,7 +9,11 @@ try {
         '.github/ISSUE_TEMPLATE/bug_report.yml', '.github/ISSUE_TEMPLATE/feature_request.yml',
         '.github/ISSUE_TEMPLATE/config.yml', '.github/pull_request_template.md',
         'docs/README.md', 'docs/product-decisions.md', 'docs/m1-execution-baseline.md',
-        'docs/milestones/M1.md', 'docs/tasks/M1-01.md', 'docs/third-party.md'
+        'docs/milestones/M1.md', 'docs/tasks/M1-01.md', 'docs/third-party.md',
+        'docs/tasks/M1-02.md', 'docs/research/M1-02-comparison.md',
+        '.github/workflows/m1-02-windows.yml', 'scripts/m1-02/build-baselines.ps1',
+        'experiments/m1-02/tauri-baseline/package-lock.json',
+        'experiments/m1-02/tauri-baseline/src-tauri/Cargo.lock'
     )
     foreach ($path in $required) {
         if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "缺少必需文件：$path" }
@@ -24,6 +28,8 @@ try {
             $path -match '\.(pem|key|pfx|p12|sqlite3?|db|exe|msi|zip)$') {
             throw "禁止跟踪本地数据、凭据或构建产物：$path"
         }
+        # Template icons are binary; keep strict UTF-8 validation for source and configuration.
+        if ([IO.Path]::GetExtension($path).ToLowerInvariant() -in @('.png', '.jpg', '.jpeg', '.ico', '.icns')) { continue }
         $text = $utf8.GetString([IO.File]::ReadAllBytes((Join-Path (Get-Location) $path)))
         if ($text -match '(?<![A-Za-z0-9])(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,})' -or
             $text -match '-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----') {

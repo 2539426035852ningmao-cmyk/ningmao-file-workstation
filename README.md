@@ -4,7 +4,7 @@
 
 Windows 10/11 优先的轻量桌面悬浮文件工作站，支持临时文件引用与真实目录两种文件架，逐步扩展跨设备互联和 AI 文件管理。
 
-当前交付范围为 **M1-01：公开仓库初始化**。本仓库尚无可运行应用或发行版本；基础 CI 通过不代表 Windows 文件操作已通过验收。
+当前交付范围为 **M1-02：双技术基线验证**。仓库包含可构建的 Windows 技术样机；尚无正式产品或发行版本。基础 CI 与原生拖放的实机结果分别记录。
 
 候选技术：Tauri 2、Rust、React、TypeScript、SQLite。最终主工程需经双基线验证与用户验收确定。
 
@@ -24,14 +24,14 @@ Windows 10/11 优先的轻量桌面悬浮文件工作站，支持临时文件引
 
 | 任务 | 范围 | 状态 |
 |---|---|---|
-| M1-01 | 仓库、文档、模板、基础 CI、main 保护 | 本轮交付，待用户验收 |
-| M1-02 | Holdem 与独立 Tauri 2 模板真实技术对比 | 未开始 |
+| M1-01 | 仓库、文档、模板、基础 CI、main 保护 | 已完成，Issue #1 已关闭 |
+| M1-02 | Holdem 与独立 Tauri 2 模板真实技术对比 | 已有双构建及实机证据；存在兼容问题和未测项，待验收 |
 | M1-03 | SpaceUI 与 shadcn/ui 同功能原型比较 | 未开始 |
 | M1-04 | 主工程与设计系统选型 | 未开始，需用户批准 |
 | M1-05 | 真实文件功能闭环 | 未开始 |
 | M1-06 | Windows 实机验收与交付 | 未开始 |
 
-详见 [M1 开发记录](docs/milestones/M1.md)及 [M1-01 验收记录](docs/tasks/M1-01.md)。
+详见 [M1 开发记录](docs/milestones/M1.md)、[M1-02 任务](docs/tasks/M1-02.md)与 [技术比较报告](docs/research/M1-02-comparison.md)。全部 43 项决策继续保留。
 
 ## 仓库检查
 
@@ -41,10 +41,16 @@ Windows 10/11 优先的轻量桌面悬浮文件工作站，支持临时文件引
 pwsh -NoProfile -File scripts/check-repository.ps1
 ```
 
-GitHub Actions 在 Windows 和 Ubuntu 上运行相同的检查。当前不安装应用依赖，不执行尚不存在的 TypeScript/Rust 构建。
+GitHub Actions 在 Windows 和 Ubuntu 上运行基础检查，另设 Windows A/B 原生构建工作流。Windows 本机构建与复测命令：
+
+```powershell
+pwsh -NoProfile -File scripts/m1-02/build-baselines.ps1 -Baseline Both
+```
+
+环境、锁定版本和合成文件操作步骤见 [基线 B 说明](experiments/m1-02/tauri-baseline/README.md)。A 原版同盘拖出可能移动来源；只用于专用合成文件测试。尚未进入 M1-03 UI 对比或 M1-05 正式文件功能。
 
 贡献前请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)、[AGENTS.md](AGENTS.md)、[行为准则](CODE_OF_CONDUCT.md)与 [安全政策](SECURITY.md)。文档入口见 [docs/](docs/README.md)。
 
 ## English
 
-Ningmao File Workstation is a Windows-first floating file workstation. This repository currently contains project governance and documentation only. Application development starts after M1-01 acceptance. See the Chinese decision baseline for the full approved scope.
+Ningmao File Workstation is a Windows-first floating file workstation. M1-02 contains research prototypes, reproducible Windows builds and measured limitations. It is not a production release or an approved architecture. See the Chinese decision baseline for the full scope.
