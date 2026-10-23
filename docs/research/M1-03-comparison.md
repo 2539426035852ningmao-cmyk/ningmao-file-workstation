@@ -47,7 +47,7 @@ SpaceUI 当前源码的 Explorer 实际为 GridItem、FileThumb、TagPill、Rena
 | 自适应导航 | 通过 | 通过 | 640px 自动收起，按钮重新展开与收回；不等于物理屏幕/DPI 实测 |
 | Pointer 排序及中途反馈 | 浏览器通过 | 浏览器通过 | 保留中途浮层截图、最终顺序断言和计数；手柄命中使用 pointerWithin，键盘回退 closestCenter |
 | 500/2000 项虚拟列表 | 通过有限 DOM 门槛 | 同左 | 两视图 8 组程序滚动数据，见下表；不把未测帧率写通过 |
-| Windows 原生构建/启动 | 已构建并启动 | 同一可执行文件的 B 独立窗口 | 准确文件身份和原生交互结果另存证据；浏览器结果不替代原生测试 |
+| Windows 原生构建/启动及鼠标排序 | 通过 | 通过 | 用户分别操作；两窗计数均为 1、顺序均为 2/3/1，后台各有对应 reorder；接收配置均开启 |
 
 自动检查：1 个 Node 原生测试覆盖确定性素材、唯一 ID、过滤、保持源集合和安全重排；4 个 Playwright Test 用例覆盖两套交互与采样；Rust 素材防覆盖测试、fmt、Clippy `-D warnings`、Debug no-bundle 构建通过。使用独立官方 Playwright Test CLI；本机没有配置 Playwright MCP，不把两者混称。
 
@@ -86,7 +86,9 @@ Windows 11、同机独立 Chromium 156 headless、生产前端预览、1120×760
 
 M1-02 中 Tauri 原生接收开启后 HTML DnD 未完成排序。本轮改为 dnd-kit PointerSensor，不设置 HTML draggable，继续使用原生接收，不为排序丢弃真实文件入口。当前原生程序 SHA256 为 `B4BE9CA17C264B6BB82BFD0FD327CC50362D785623566E177D15D759BF94D52D`，12248576 bytes；准确交互结果与限制以 `m1-03-evidence/native-verification.json` 为准。
 
-自动 Windows 输入能触发 pointer 拖动开始，但释放时仍命中原项，因此不据自动输入把原生排序标通过；已请用户用实际鼠标核对 A/B。若没有对应回报和事件，不得把浏览器成功写成原生成功。本轮探针原生拖入仅记事件；M1-02 的实际拖入/安全拖出证据保留，本轮未实测的跨应用步骤不继承为新二进制已通过。
+自动 Windows 输入能触发 pointer 拖动开始，但释放时仍命中原项，因此没有据自动输入把原生排序标通过。随后用户实际操作 A/B 并确认“是的”，两窗截图及 UI 状态核对均显示“排序 1”、前三项 `asset-0002,asset-0003,asset-0001`；后台分别在 967524ms、1002867ms 记录 `asset-0001 → asset-0003`。据此本机 Windows 11 单屏 125% 下，开启 Tauri 原生接收的两套 UI pointer 排序通过。脱敏事件见 `m1-03-evidence/native-sort-events.json`，失败的自动输入记录仍保留，不改写成成功。
+
+该结果解决本轮 M1-02 HTML DnD 排序障碍的验证点，不表示所有系统或跨应用行为均已通过。本轮探针原生拖入仅记事件；M1-02 的实际拖入/安全拖出证据保留，本轮未实测的跨应用步骤不继承为新二进制已通过。
 
 ## 维护、许可和风险
 
