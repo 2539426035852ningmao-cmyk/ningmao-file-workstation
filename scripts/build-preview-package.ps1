@@ -10,6 +10,7 @@ Push-Location $repo
 try {
     Run node @('--test','scripts/collect-licenses.test.mjs')
     & ./scripts/inspect-msi.test.ps1
+    & ./scripts/verify-preview-package.test.ps1
     Run node @('scripts/collect-licenses.mjs')
     Push-Location apps/desktop
     try {
@@ -42,5 +43,6 @@ try {
         '{0}  {1}' -f (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant(), $_.Name
     }
     $hashes | Set-Content -LiteralPath (Join-Path $out 'SHA256SUMS.txt') -Encoding utf8
+    & ./scripts/verify-preview-package.ps1 -Directory $out
     Write-Output 'Preview package created and inspected; no installation or application launch performed.'
 } finally { Pop-Location }

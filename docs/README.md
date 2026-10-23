@@ -14,3 +14,4 @@
 - [M1-04 唯一主工程决策](decisions/0001-main-engineering.md)
 - [M1-05 真实文件闭环](tasks/M1-05.md)与[验证记录](research/M1-05-verification.md)
 - [M1-06 后台交付准备](tasks/M1-06.md)与[预览安装包说明](preview-package.md)
+- [M1-06 验证矩阵](research/M1-06-validation-matrix.md)：区分自动检查、精确候选原生验收与未验证异常。

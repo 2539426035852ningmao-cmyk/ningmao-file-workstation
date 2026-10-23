@@ -218,3 +218,120 @@ fn newer_or_invalid_database_is_rejected_without_rewriting_user_data() {
     assert!(Store::open(&invalid).is_err());
     assert_eq!(fs::read(&invalid).unwrap(), original);
 }
+
+// ACL changes apply only to fresh fixture paths, never recursively or to a parent.
+// Drop restores our explicit deny ACE if a copy/assertion fails before normal restoration.
+struct DeniedAccess {
+    path: std::path::PathBuf,
+    active: bool,
+}
+impl DeniedAccess {
+    fn command(path: &std::path::Path, arguments: &[&str]) -> bool {
+        let program = std::path::PathBuf::from(std::env::var_os("SystemRoot").unwrap())
+            .join("System32/icacls.exe");
+        Command::new(program)
+            .arg(path)
+            .args(arguments)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .creation_flags(0x08000000 | 0x00004000)
+            .status()
+            .is_ok_and(|status| status.success())
+    }
+    fn new(path: &std::path::Path, rights: &str) -> Self {
+        let guard = Self {
+            path: path.to_owned(),
+            active: true,
+        };
+        assert!(Self::command(path, &["/deny", rights, "/Q"]));
+        guard
+    }
+    fn restore(&mut self) {
+        assert!(Self::command(&self.path, &["/remove:d", "*S-1-1-0", "/Q"]));
+        self.active = false;
+    }
+}
+impl Drop for DeniedAccess {
+    fn drop(&mut self) {
+        if self.active {
+            let _ = Self::command(&self.path, &["/remove:d", "*S-1-1-0", "/Q"]);
+        }
+    }
+}
+
+#[test]
+fn windows_acl_read_and_create_denials_keep_original_bytes_and_allow_retry() {
+    let root = tempfile::tempdir().unwrap();
+    let source = root.path().join("权限 原件.txt");
+    let target = root.path().join("target");
+    fs::create_dir(&target).unwrap();
+    fs::write(&source, b"preserve-source").unwrap();
+    let existing = target.join("权限 原件.txt");
+    fs::write(&existing, b"preserve-existing-target").unwrap();
+    let mut store = Store::open(&root.path().join("data.sqlite3")).unwrap();
+    let shelf = store.bind_directory(&target).unwrap();
+
+    // Make the production plan first, then revoke read-data access before execute.
+    let plan = store.plan_copy(shelf, &source).unwrap();
+    let mut denied = DeniedAccess::new(&source, "*S-1-1-0:(RD)");
+    assert_eq!(fs::File::open(&source).unwrap_err().raw_os_error(), Some(5));
+    let failure = plan
+        .execute(&AtomicBool::new(false), |_, _| {}, |_| Ok(()))
+        .unwrap_err();
+    assert!(failure.contains("os error 5"));
+    denied.restore();
+    assert_eq!(fs::read(&source).unwrap(), b"preserve-source");
+    assert_eq!(fs::read_dir(&target).unwrap().count(), 1);
+
+    // Deny FILE_ADD_FILE only, leaving traversal/reading and ACL restoration possible.
+    let plan = store.plan_copy(shelf, &source).unwrap();
+    let mut denied = DeniedAccess::new(&target, "*S-1-1-0:(WD)");
+    let failure = plan
+        .execute(&AtomicBool::new(false), |_, _| {}, |_| Ok(()))
+        .unwrap_err();
+    assert!(failure.contains("os error 5"));
+    denied.restore();
+    assert_eq!(fs::read_dir(&target).unwrap().count(), 1);
+    assert_eq!(fs::read(&existing).unwrap(), b"preserve-existing-target");
+    assert_eq!(fs::read(&source).unwrap(), b"preserve-source");
+    let copied = store
+        .copy_one(shelf, &source, &AtomicBool::new(false), |_, _| {})
+        .unwrap();
+    assert_eq!(copied.file_name().unwrap(), "权限 原件 (1).txt");
+    assert_eq!(fs::read(copied).unwrap(), b"preserve-source");
+    assert_eq!(fs::read(existing).unwrap(), b"preserve-existing-target");
+    store.integrity_check().unwrap();
+}
+
+#[test]
+fn windows_paths_over_260_utf16_units_copy_unicode_and_number_conflicts() {
+    use std::os::windows::ffi::OsStrExt;
+    let root = tempfile::tempdir().unwrap();
+    let mut nested = root.path().to_path_buf();
+    while nested.as_os_str().encode_wide().count() < 320 {
+        nested.push("中文 空格 #+[] 😀");
+    }
+    let target = nested.join("用户绑定 (目标)");
+    fs::create_dir_all(&target).unwrap();
+    let source = nested.join("特殊 #+[] 😀.txt");
+    fs::write(&source, b"long-unicode-source").unwrap();
+    fs::write(target.join(source.file_name().unwrap()), b"existing-target").unwrap();
+    assert!(source.as_os_str().encode_wide().count() > 260);
+    assert!(target.as_os_str().encode_wide().count() > 260);
+    let mut store = Store::open(&root.path().join("data.sqlite3")).unwrap();
+    store.add_reference(1, &source).unwrap();
+    let shelf = store.bind_directory(&target).unwrap();
+    let copied = store
+        .copy_one(shelf, &source, &AtomicBool::new(false), |_, _| {})
+        .unwrap();
+    assert_eq!(copied.file_name().unwrap(), "特殊 #+[] 😀 (1).txt");
+    assert_eq!(fs::read(copied).unwrap(), b"long-unicode-source");
+    assert_eq!(fs::read(&source).unwrap(), b"long-unicode-source");
+    assert_eq!(
+        fs::read(target.join(source.file_name().unwrap())).unwrap(),
+        b"existing-target"
+    );
+    assert_eq!(store.snapshot().unwrap().items[0].status, "normal");
+    store.integrity_check().unwrap();
+}

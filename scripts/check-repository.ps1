@@ -27,7 +27,9 @@ try {
         '.github/workflows/preview-package.yml', 'apps/desktop/src-tauri/tauri.preview.conf.json',
         'scripts/build-preview-package.ps1', 'scripts/inspect-msi.ps1',
         'scripts/inspect-msi.test.ps1', 'scripts/collect-licenses.mjs',
-        'scripts/collect-licenses.test.mjs', 'licenses/package-overrides.json'
+        'scripts/collect-licenses.test.mjs', 'licenses/package-overrides.json',
+        'scripts/verify-preview-package.ps1', 'scripts/verify-preview-package.test.ps1',
+        'docs/research/M1-06-validation-matrix.md'
     )
     foreach ($path in $required) {
         if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "缺少必需文件：$path" }

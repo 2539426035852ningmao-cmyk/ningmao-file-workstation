@@ -12,6 +12,7 @@
 - 未增加开机自启、提权更新任务、系统右键注册或用户数据删除动作；检查脚本不属于通用恶意安装包扫描。
 - EXE 与 MSI 使用预览配置重新构建；与 M1-05 的原候选是不同文件，不能继承旧哈希的原生验收结果。EXE 不宣称便携模式；直接运行时也使用预览标识的数据目录。
 - SHA256SUMS.txt 覆盖其余全部交付文件；build-manifest.json 保存实际构建源码提交。GitHub PR 构建提交可能是 head 与 base 的临时合并提交。
+- 上传前强制运行 verify-preview-package.ps1：核对 9 文件白名单、全部校验条目、PE32+ x64 与产品/版本、未签名状态、构建身份、MSI 载荷大小及保存检查结果一致，并再次核对检查后文件字节未变。相应夹具拒绝篡改、遗漏、重复、路径越界和额外载荷；不提取 CAB 字节，因此不冒充嵌入文件逐字节证明。验证矩阵见 docs/research/M1-06-validation-matrix.md。
 
 ## 许可资料
 
@@ -26,6 +27,8 @@ THIRD_PARTY_NOTICES.txt 归集 Windows normal Cargo 运行依赖（排除 build 
 ```powershell
 ./scripts/build-desktop.ps1 -Native
 ./scripts/build-preview-package.ps1
+# 对已存在的预览交付目录仅做只读核验，不重新构建或运行程序：
+./scripts/verify-preview-package.ps1 -Directory <已有预览交付目录>
 ```
 
 GitHub Actions 只上传明确白名单输出，保留 7 天，不创建 Release。输出目录非空时拒绝覆盖；重新构建使用干净 checkout。安装/卸载、Win10/11、DPI、多屏、原生拖拽及异常条件尚未逐项完成，待用户方便后集中安排。当前不合并依赖 PR、不删除主候选、不操作用户工作数据库。源码改动通过独立 PR revert 回滚；未来卸载数据策略需实际验证，不能承诺卸载会清除或保存所有内容。

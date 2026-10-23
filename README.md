@@ -29,7 +29,7 @@ M1-01～M1-03 已获用户验收。M1-04 已批准独立 Tauri 2 主工程与 sh
 | M1-03 | SpaceUI 与 shadcn/ui 同功能原型比较 | 已验收，PR #6 已合入，Issue #5 关闭 |
 | M1-04 | 主工程与设计系统选型 | 用户已批准推荐方案，见 Issue #7 |
 | M1-05 | 真实文件功能闭环 | 当前任务，见 Issue #8 |
-| M1-06 | Windows 实机验收与交付 | 后台打包准备中，见 Issue #10；原生与安装验收未完成 |
+| M1-06 | Windows 实机验收与交付 | 预览 MSI 已构建，后台安全/交付检查持续完善，见 Issue #10 / PR #11；原生与安装未验收 |
 
 详见 [M1 开发记录](docs/milestones/M1.md)、[M1-03 任务](docs/tasks/M1-03.md)与 [UI 比较报告](docs/research/M1-03-comparison.md)。全部 43 项决策继续保留。
 
