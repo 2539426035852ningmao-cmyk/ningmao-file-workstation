@@ -5,6 +5,7 @@
 - 中文名称：柠猫文件工作站；英文名称：Ningmao File Workstation。
 - 仅操作用户授权的本仓库 `2539426035852ningmao-cmyk/ningmao-file-workstation`；不得擅自修改其他项目。
 - 先读 `docs/product-decisions.md`、`docs/m1-execution-baseline.md` 及当前任务记录，保留全部 43 项决策，不重复大范围产品规划。
+- UI 任务同时阅读根目录 `design.md`，遵循紧凑悬浮架、同心圆圆角与渐进式操作规范；其中草案尺寸需验收，不能以视觉改动破坏文件安全功能。
 - 技术候选为 Tauri 2 + Rust + React + TypeScript + SQLite；M1-02 双基线验证及 M1-04 用户批准前，不宣称最终选型。
 - M1-01、M1-02 已获用户验收；当前获准执行 M1-03 双 UI 验证，完成后等待验收，不自动批准 M1-04 最终主工程与视觉。
 - 采用独立功能分支和 PR，不向 main 直接推送功能修改，不绕过保护规则。
