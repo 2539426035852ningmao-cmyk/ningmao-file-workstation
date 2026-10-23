@@ -1,0 +1,35 @@
+[
+  {
+    "file": "alloc-stdlib-0.3.0-LICENSE.txt",
+    "source": "https://github.com/dropbox/rust-alloc-no-stdlib/blob/0a81fd6928ea3b33c8cd484aa4575d50ffb98012/LICENSE",
+    "name": "alloc-stdlib",
+    "sha256": "c0c56f26d9c051cac4d200c34c84e7ae9aaa853e01a982a1df08b09931e518ae",
+    "version": "0.3.0",
+    "ecosystem": "cargo"
+  },
+  {
+    "file": "webview2-com-0.39.1-LICENSE.txt",
+    "source": "https://github.com/wravery/webview2-rs/blob/edc2caf886175ccaebe86078c9cfe1ae2a187328/LICENSE",
+    "name": "webview2-com",
+    "sha256": "0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73",
+    "version": "0.39.1",
+    "ecosystem": "cargo"
+  },
+  {
+    "file": "webview2-com-0.39.1-LICENSE.txt",
+    "source": "https://github.com/wravery/webview2-rs/blob/edc2caf886175ccaebe86078c9cfe1ae2a187328/LICENSE",
+    "name": "webview2-com-sys",
+    "sha256": "0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73",
+    "version": "0.39.1",
+    "ecosystem": "cargo"
+  },
+  {
+    "file": "react-remove-scroll-bar-2.3.8-LICENSE.txt",
+    "version": "2.3.8",
+    "note": "Supplemental upstream MIT notice added 2025-05-21; npm 2.3.8 declares MIT, but its gitHead b3b1287aad81def2e2ae707274b74531b61ddbaf is unavailable in the declared repository. Exact release-source mapping remains unverified; do not treat as release clearance.",
+    "name": "react-remove-scroll-bar",
+    "ecosystem": "npm",
+    "sha256": "a79aae0c0f21990d9d963bb3c5a79cdcea9a46f8523ba55c58d7fe776b6ebc84",
+    "source": "https://github.com/theKashey/react-remove-scroll-bar/blob/7301c160fda44cb8cf2b9fdfde61efad35736196/LICENSE"
+  }
+]

@@ -1,0 +1,54 @@
+name: Preview package
+on:
+  pull_request:
+    paths:
+      - 'apps/desktop/**'
+      - 'licenses/**'
+      - 'scripts/*'
+      - 'docs/preview-package.md'
+      - '.github/workflows/preview-package.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: preview-package-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  windows:
+    name: Preview MSI build and read-only inspection
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      RUSTUP_TOOLCHAIN: '1.99.1'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
+      CARGO_BUILD_JOBS: '4'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - name: Repository checks
+        shell: pwsh
+        run: ./scripts/check-repository.ps1
+      - name: Prepare Rust
+        shell: pwsh
+        run: |
+          rustup toolchain install 1.99.1 --profile minimal --component rustfmt --component clippy
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: File safety regressions and native compilation
+        shell: pwsh
+        run: ./scripts/build-desktop.ps1 -Native
+      - name: Build preview MSI and inspect without installation
+        shell: pwsh
+        run: ./scripts/build-preview-package.ps1
+      - name: Upload temporary preview artifacts
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: ningmao-preview-windows-x64
+          path: apps/desktop/.preview-package/
+          if-no-files-found: error
+          retention-days: 7

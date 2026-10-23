@@ -2,6 +2,17 @@
 
 核验日期：2026-10-23。主项目 Apache-2.0 不替代第三方各自许可证。
 
+## M1-06 预览打包与许可归集
+
+- 打包直接使用锁文件中的 Tauri CLI **2.12.4**；官方 tag tauri-cli-v2.12.4 对应提交 [993038c49185307dfc895ab7657d77ca0d5ed7c7](https://github.com/tauri-apps/tauri/tree/993038c49185307dfc895ab7657d77ca0d5ed7c7)。复用该版本 crates/tauri-bundler/src/bundle/windows/msi/main.wxs，不复制或修改模板。官方工具为 MIT OR Apache-2.0，工具不随应用分发。预览配置跳过 WebView2 安装引导，不生成提权更新任务，标准 per-machine 和完成页启动选项在说明中明确。
+- CI artifact 使用 [actions/upload-artifact v7.0.0](https://github.com/actions/upload-artifact/tree/bbbca2ddaa5d8feaa63e36b76fdaad77386f024f)，固定 SHA；MIT，仅引用 Action、不复制源码，保留 7 天、只读仓库权限，不创建 Release。
+- scripts/collect-licenses.mjs 使用 Node 标准库，按 Cargo Windows normal/no-proc-macro 依赖图及 npm 非 dev 锁记录归集原文与 NOTICE，保留相对路径、原文字节 SHA256。范围为保守超集，既不是逐字节 SBOM，也不是完整分发审计；Rust 标准库原始 COPYRIGHT-library.html 和工具链许可同样归集。
+- alloc-stdlib 0.3.0 的包缺原文，从其 .cargo_vcs_info.json 对应 [0a81fd6928ea3b33c8cd484aa4575d50ffb98012/LICENSE](https://github.com/dropbox/rust-alloc-no-stdlib/blob/0a81fd6928ea3b33c8cd484aa4575d50ffb98012/LICENSE) 原样补齐 BSD-3-Clause。
+- webview2-com / webview2-com-sys 0.39.1 同样从各自 VCS 元数据对应 [edc2caf886175ccaebe86078c9cfe1ae2a187328/LICENSE](https://github.com/wravery/webview2-rs/blob/edc2caf886175ccaebe86078c9cfe1ae2a187328/LICENSE) 补入 MIT，未修改版权与条款。
+- react-remove-scroll-bar 2.3.8 包声明 MIT 但不含 LICENSE。npm gitHead b3b1287aad81def2e2ae707274b74531b61ddbaf 在声明仓库查询 404；后续上游 [7301c160fda44cb8cf2b9fdfde61efad35736196/LICENSE](https://github.com/theKashey/react-remove-scroll-bar/blob/7301c160fda44cb8cf2b9fdfde61efad35736196/LICENSE) 是 2025-05-21 添加的 MIT 原文，仅作为补充声明，不能冒充精确 2.3.8 源码提交。此缺口保留在清单 warnings，正式发行前仍需核对。
+- 三份原文及版本/URL/hash 映射在 licenses/package-overrides.json。仅补许可原文，没有复制这些上游项目代码，也没有修改用户未授权的仓库。传递嵌入原生组件、完整义务与正式签名/发行仍待审查。
+- 安装包只读查询使用 Windows Installer OpenDatabase(mode=0)，依据 [Microsoft 原始 API 说明](https://learn.microsoft.com/en-us/windows/win32/msi/installer-opendatabase)。不调用安装、卸载或 Commit；结构检查不能证明实际卸载行为。
+
 ## M1-04 / M1-05 主工程来源
 
 主工程 apps/desktop 复用本仓已验收 M1-02 B 模板与 M1-03 组件，而非另造通用控件。6 个 shadcn/ui 组件、1 个 SpaceUI FileThumb 源码不改，移入主工程路径，逐文件来源和 SHA256 见 [source-provenance.json](../apps/desktop/source-provenance.json)。主工程只使用 shadcn 主题，未加载第二套 SpaceUI tokens。

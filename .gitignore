@@ -4,6 +4,8 @@ dist-test/
 dist/
 build/
 target/
+.license-bundle/
+.preview-package/
 **/src-tauri/gen/
 coverage/
 *.tsbuildinfo

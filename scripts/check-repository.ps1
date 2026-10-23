@@ -23,7 +23,11 @@ try {
         'docs/tasks/M1-05.md', 'docs/research/M1-05-verification.md',
         'apps/desktop/package-lock.json', 'apps/desktop/src-tauri/Cargo.lock',
         'apps/desktop/source-provenance.json', 'scripts/build-desktop.ps1',
-        '.github/workflows/desktop.yml'
+        '.github/workflows/desktop.yml', 'docs/tasks/M1-06.md', 'docs/preview-package.md',
+        '.github/workflows/preview-package.yml', 'apps/desktop/src-tauri/tauri.preview.conf.json',
+        'scripts/build-preview-package.ps1', 'scripts/inspect-msi.ps1',
+        'scripts/inspect-msi.test.ps1', 'scripts/collect-licenses.mjs',
+        'scripts/collect-licenses.test.mjs', 'licenses/package-overrides.json'
     )
     foreach ($path in $required) {
         if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "缺少必需文件：$path" }
