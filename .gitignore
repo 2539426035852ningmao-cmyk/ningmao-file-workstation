@@ -1,0 +1,40 @@
+# Dependencies and builds
+node_modules/
+dist/
+build/
+target/
+src-tauri/gen/
+coverage/
+*.tsbuildinfo
+
+# Runtime data and credentials
+.env
+.env.*
+*.pem
+*.key
+*.pfx
+*.p12
+*.sqlite
+*.sqlite3
+*.db
+*.db-shm
+*.db-wal
+*.log
+private/
+local-data/
+
+# Packaged artifacts
+*.exe
+*.msi
+*.msix
+*.zip
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+
+# Keep application lockfiles tracked once an application exists.
