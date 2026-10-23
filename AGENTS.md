@@ -7,6 +7,7 @@
 - 先读 `docs/product-decisions.md`、`docs/m1-execution-baseline.md` 及当前任务记录，保留全部 43 项决策，不重复大范围产品规划。
 - UI 任务同时阅读根目录 `design.md`，遵循紧凑悬浮架、同心圆圆角与渐进式操作规范；其中草案尺寸需验收，不能以视觉改动破坏文件安全功能。
 - 所有 Codex 新任务先阅读 `docs/codex-start-here.md` 与 `docs/roadmap.md`，核对当前 PR/CI 状态，避免 README 落后导致重复建设。
+- Gemini 独立审查按 `GEMINI.md` 和 `docs/AI_REVIEW_WORKFLOW.md` 实施。先核验官方 CLI、费用设置和只读权限，不得因历史成功而宣称当前联调通过；Gemini 不得替代 Codex 实测或人工验收。
 - 已批准独立 Tauri 2 + Rust + React + TypeScript + SQLite 主工程，shadcn/ui 主设计系统，按需复用 SpaceUI FileThumb；工程代码仍在未合并的 Draft #9 及其下游分支。
 - M1-01/02/03 已验收并合入。M1-04 选型已获批准；正式主工程与文件功能在未合并的 #9 → #11 → #13 Draft 链中，仍待精确候选 Windows 实机验收。不得误判 main 的研究原型为正式应用。
 - 采用独立功能分支和 PR，不向 main 直接推送功能修改，不绕过保护规则。
