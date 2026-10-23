@@ -6,7 +6,7 @@ import "../src/style.css";
 const item=(id:number,name:string,shelf_id=1):Item=>({id,name,shelf_id,path:"SYNTHETIC/"+name,kind:"txt",bytes:200,modified:1,status:"normal",tags:[]});
 const initial:Snapshot={shelves:[{id:1,name:"灵感收集",kind:"persistent",root:null,available:true},{id:2,name:"本次中转",kind:"session",root:null,available:true}],items:[item(1,"Alpha.txt"),item(2,"中文 文件.txt"),item(3,"Gamma.txt")],jobs:[]};
 let state:Snapshot=JSON.parse(localStorage.getItem("test-state") || JSON.stringify(initial));
-let events:Events;let fail="";let snapshotFailure="";let next=10;let cancelRelocation=false;const calls:string[]=[];
+let events:Events;let fail="";let snapshotFailure="";let next=10;let cancelRelocation=false;let cancelOpening=false;const calls:string[]=[];
 const save=()=>localStorage.setItem("test-state",JSON.stringify(state));
 const backend:Backend={
   async snapshot(){if(snapshotFailure){const message=snapshotFailure;snapshotFailure="";throw new Error(message);}return structuredClone(state);},
@@ -21,6 +21,7 @@ const backend:Backend={
     return {added:0,job_id:1,errors:[]};
   },
   async remove(id){calls.push("remove:"+id);state.items=state.items.filter(i=>i.id!==id);save();},
+  async open(id){calls.push("open:"+id);if(cancelOpening){cancelOpening=false;return false;}if(fail){const message=fail;fail="";throw new Error(message);}return true;},
   async relocate(id,directory){
     calls.push("relocate:"+id+":"+directory);
     if(cancelRelocation){cancelRelocation=false;return false;}
@@ -37,12 +38,13 @@ const backend:Backend={
   async topmost(){return true;},async quit(){calls.push("quit");},
   async subscribe(value){events=value;return()=>{};},
 };
-declare global { interface Window { testHarness:{drop:(paths:string[])=>void;fail:(message:string)=>void;failNextSnapshot:(message:string)=>void;missing:(id:number)=>void;image:(id:number)=>void;cancelRelocation:()=>void;calls:()=>string[];complete:()=>void} } }
+declare global { interface Window { testHarness:{drop:(paths:string[])=>void;fail:(message:string)=>void;failNextSnapshot:(message:string)=>void;missing:(id:number)=>void;image:(id:number)=>void;cancelRelocation:()=>void;cancelOpening:()=>void;calls:()=>string[];complete:()=>void} } }
 window.testHarness={
   drop:paths=>events.drop(paths),fail:message=>{fail=message;},
   missing:id=>{state.items.find(i=>i.id===id)!.status="missing";save();},
   image:id=>{const value=state.items.find(i=>i.id===id)!;value.name="Alpha.png";value.path="SYNTHETIC/Alpha.png";value.kind="png";save();},
   cancelRelocation:()=>{cancelRelocation=true;},
+  cancelOpening:()=>{cancelOpening=true;},
   failNextSnapshot:message=>{snapshotFailure=message;},
   calls:()=>calls,
   complete:()=>{state.items.push(item(next++,"新增文件 (1).txt",3));state.jobs[0].status="completed";state.jobs[0].message="复制完成；来源保留";save();events.finished(state.jobs[0].message);},

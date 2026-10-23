@@ -20,6 +20,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-dialog = "=2.8.3"
+open = { version = "=5.4.5", features = ["shellexecute-on-windows"] }
 drag = "=2.1.0"
 rusqlite = { version = "=0.40.2", features = ["bundled"] }
 tempfile = "=3.27.0"

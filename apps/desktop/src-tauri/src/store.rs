@@ -387,6 +387,16 @@ impl Store {
             .map(PathBuf::from)
             .ok_or("文件记录不存在。".into())
     }
+    /// Resolve only an existing registered local file/directory, never a frontend URL or command.
+    pub fn opening_target(&self, id: i64) -> Result<PathBuf> {
+        canonical_user_path(&self.item_path(id)?)
+    }
+    pub fn validate_opening_target(&self, id: i64, expected: &Path) -> Result<()> {
+        if self.opening_target(id)? != expected {
+            return Err("文件引用已更改，请重新选择后打开。".into());
+        }
+        Ok(())
+    }
     pub fn begin_job(&mut self, shelf: i64, message: &str) -> Result<i64> {
         self.shelf(shelf)?;
         self.db
@@ -455,6 +465,39 @@ fn path_text(path: &Path) -> Result<String> {
     path.to_str()
         .map(str::to_owned)
         .ok_or("路径不是有效 Unicode。".into())
+}
+/// A warning for common active content; file extensions cannot establish content safety.
+pub fn needs_open_confirmation(path: &Path) -> bool {
+    matches!(
+        path.extension()
+            .and_then(|v| v.to_str())
+            .unwrap_or_default()
+            .to_ascii_lowercase()
+            .as_str(),
+        "exe"
+            | "com"
+            | "bat"
+            | "cmd"
+            | "ps1"
+            | "psm1"
+            | "vbs"
+            | "vbe"
+            | "js"
+            | "jse"
+            | "wsf"
+            | "wsh"
+            | "hta"
+            | "scr"
+            | "pif"
+            | "lnk"
+            | "url"
+            | "msi"
+            | "msp"
+            | "reg"
+            | "cpl"
+            | "msc"
+            | "appref-ms"
+    )
 }
 pub fn canonical_user_path(path: &Path) -> Result<PathBuf> {
     let text = path_text(path)?;

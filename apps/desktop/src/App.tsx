@@ -36,32 +36,33 @@ function Thumb({item,backend,size=80}:{item:Item;backend:Backend;size?:number}) 
   },[backend,item.id,item.kind,item.status,key]);
   return <div className="thumb" style={{width:size,height:size}}>{thumb ? <FileThumb key={key} iconSrc={thumb} thumbnailSrc={thumb} size={size} frameClassName="rounded object-contain"/> : item.kind==="folder" ? <Folder size={size*.6}/> : <File size={size*.6}/>}</div>;
 }
-function Asset({item,backend,selected,list,size,disabled,select,inspect,tag,remove,bound}:{item:Item;backend:Backend;selected:boolean;list:boolean;size:number;disabled:boolean;select:()=>void;inspect:()=>void;tag:()=>void;remove:()=>void;bound:boolean}) {
+function Asset({item,backend,selected,list,size,disabled,select,inspect,open,tag,remove,bound}:{item:Item;backend:Backend;selected:boolean;list:boolean;size:number;disabled:boolean;select:()=>void;inspect:()=>void;open:()=>void;tag:()=>void;remove:()=>void;bound:boolean}) {
   const sortable=useSortable({id:item.id,disabled});
   return <ContextMenu><ContextMenuTrigger asChild><div ref={sortable.setNodeRef} data-item-id={item.id}
     className={`asset ${list?"asset-row":"asset-grid"} ${selected?"selected":""} ${sortable.isDragging?"dragging":""}`}
     style={{transform:CSS.Transform.toString(sortable.transform),transition:sortable.transition}}>
     <button ref={sortable.setActivatorNodeRef} className="drag-handle" disabled={disabled} aria-label={`调整 ${item.name} 顺序`} {...sortable.attributes} {...sortable.listeners}><GripVertical size={15}/></button>
-    <button className="asset-select" aria-label={`选择 ${item.name}`} aria-pressed={selected} onClick={select} onDoubleClick={inspect}>
+    <button className="asset-select" aria-label={`选择 ${item.name}`} aria-pressed={selected} onClick={select} onDoubleClick={open} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();if(!e.repeat)open();}}}>
       <Thumb item={item} backend={backend} size={list?30:size}/><span className="asset-name" title={item.name}>{item.name}</span>
       <span className="asset-meta">{item.status!=="normal" ? states[item.status] : item.kind.toUpperCase()}{item.tags.includes("精选") && <Star size={12}/>}</span>
       {list && <span className="asset-bytes">{sizes(item.bytes)}</span>}
     </button>
   </div></ContextMenuTrigger><ContextMenuContent>
+    <ContextMenuItem onSelect={open}>用系统默认程序打开</ContextMenuItem>
     <ContextMenuItem onSelect={inspect}>文件详情与预览</ContextMenuItem>
     <ContextMenuItem onSelect={tag}>{item.tags.includes("精选")?"移除精选标签":"标记精选"}</ContextMenuItem>
     <ContextMenuSeparator/><ContextMenuItem disabled={item.status!=="normal"} onSelect={()=>void backend.reveal(item.id).catch(()=>{})}>在资源管理器中定位</ContextMenuItem>
     <ContextMenuItem disabled={bound} onSelect={remove}>仅移除引用（保留原文件）</ContextMenuItem>
   </ContextMenuContent></ContextMenu>;
 }
-function VirtualFiles(props:{items:Item[];backend:Backend;selected:number|null;list:boolean;size:number;disabled:boolean;select:(id:number)=>void;inspect:(id:number)=>void;tag:(item:Item)=>void;remove:(id:number)=>void;bound:boolean}) {
+function VirtualFiles(props:{items:Item[];backend:Backend;selected:number|null;list:boolean;size:number;disabled:boolean;select:(id:number)=>void;inspect:(id:number)=>void;open:(id:number)=>void;tag:(item:Item)=>void;remove:(id:number)=>void;bound:boolean}) {
   const scroll=useRef<HTMLDivElement>(null);
   const [width,setWidth]=useState(600);
   useEffect(()=>{ const observer=new ResizeObserver(entries=>setWidth(entries[0].contentRect.width)); if(scroll.current) observer.observe(scroll.current); return ()=>observer.disconnect(); },[]);
   const columns=props.list?1:Math.max(1,Math.floor(width/(props.size+64)));
   const virtual=useVirtualizer({count:Math.ceil(props.items.length/columns),getScrollElement:()=>scroll.current,estimateSize:()=>props.list?50:props.size+104,overscan:2,useFlushSync:false});
   return <SortableContext items={props.items.map(i=>i.id)} strategy={rectSortingStrategy}><div ref={scroll} className="file-scroll" data-testid="file-scroll" tabIndex={0} aria-label="文件内容"><div className="virtual-space" style={{height:virtual.getTotalSize()}}>{virtual.getVirtualItems().map(row=><div className="virtual-row" key={row.key} style={{transform:`translateY(${row.start}px)`,height:row.size,gridTemplateColumns:`repeat(${columns},minmax(0,1fr))`}}>
-    {props.items.slice(row.index*columns,(row.index+1)*columns).map(item=><Asset key={item.id} item={item} backend={props.backend} list={props.list} size={props.size} selected={item.id===props.selected} disabled={props.disabled} bound={props.bound} select={()=>props.select(item.id)} inspect={()=>props.inspect(item.id)} tag={()=>props.tag(item)} remove={()=>props.remove(item.id)}/>)}
+    {props.items.slice(row.index*columns,(row.index+1)*columns).map(item=><Asset key={item.id} item={item} backend={props.backend} list={props.list} size={props.size} selected={item.id===props.selected} disabled={props.disabled} bound={props.bound} select={()=>props.select(item.id)} inspect={()=>props.inspect(item.id)} open={()=>props.open(item.id)} tag={()=>props.tag(item)} remove={()=>props.remove(item.id)}/>)}
   </div>)}</div></div></SortableContext>;
 }
 export default function App({backend,native}:{backend:Backend;native:boolean}) {
@@ -85,6 +86,12 @@ export default function App({backend,native}:{backend:Backend;native:boolean}) {
   async function refresh() { const value=await backend.snapshot(); setData(value); return value; }
   function switchShelf(id:number) { setShelfId(id); setSelected(null); setQuery(""); setDetails(false); setPreview(false); }
   async function perform(action:()=>Promise<unknown>) { setError(""); try { await action(); } catch(e) { setError(String(e)); } }
+  async function open(id:number) {
+    setSelected(id);
+    setError("");
+    try {const opened=await backend.open(id);setMessage(opened?"已请求系统默认程序打开。":"已取消打开，文件引用保持不变。");}
+    catch(e) {setError(String(e));setMessage("打开未完成，请检查错误提示。");}
+  }
   async function receive(paths:string[]) {
     if(!paths.length) return;
     setBusy(true); setError("");
@@ -176,7 +183,7 @@ export default function App({backend,native}:{backend:Backend;native:boolean}) {
         if(from<0 || to<0) return;
         void perform(async()=>{await backend.reorder(shelfId,arrayMove(ids,from,to));await refresh();setMessage("手动顺序已保存，磁盘文件保持不变。");});
       }}>
-        {visible.length?<VirtualFiles items={visible} backend={backend} selected={selected} list={list} size={size} disabled={sort!=="manual" || !!query} bound={!!bound} select={setSelected} inspect={id=>{setSelected(id);setDetails(true);}} tag={item=>void tag(item)} remove={id=>void remove(id)}/>:<div className="empty-state"><Folder size={32}/><h2>{query?"没有匹配的文件":bound?"将文件拖入这里，安全复制到目录":"将文件拖入这里，建立引用"}</h2><p>{query?"更换搜索词或清空筛选。":bound?"同名文件自动编号，原文件和已有目标均保留。":"不会移动、复制或删除原文件。也可以点击“添加引用”。"}</p>{query && <Button variant="outline" onClick={()=>setQuery("")}>清除搜索</Button>}</div>}
+        {visible.length?<VirtualFiles items={visible} backend={backend} selected={selected} list={list} size={size} disabled={sort!=="manual" || !!query} bound={!!bound} select={setSelected} inspect={id=>{setSelected(id);setDetails(true);}} open={id=>void open(id)} tag={item=>void tag(item)} remove={id=>void remove(id)}/>:<div className="empty-state"><Folder size={32}/><h2>{query?"没有匹配的文件":bound?"将文件拖入这里，安全复制到目录":"将文件拖入这里，建立引用"}</h2><p>{query?"更换搜索词或清空筛选。":bound?"同名文件自动编号，原文件和已有目标均保留。":"不会移动、复制或删除原文件。也可以点击“添加引用”。"}</p>{query && <Button variant="outline" onClick={()=>setQuery("")}>清除搜索</Button>}</div>}
         <DragOverlay>{dragItem && <div className="drag-preview" data-testid="drag-preview"><Thumb item={dragItem} backend={backend} size={45}/><span>{dragItem.name}</span><small>调整引用顺序</small></div>}</DragOverlay>
       </DndContext>}
     </main>{inline && current && <aside className="inspector"><header><h2>文件详情</h2><Button variant="ghost" size="icon" aria-label="关闭详情" onClick={()=>setDetails(false)}><X size={15}/></Button></header>{detail}</aside>}</div>

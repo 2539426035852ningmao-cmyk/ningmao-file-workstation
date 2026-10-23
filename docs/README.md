@@ -1,5 +1,8 @@
 # 文档目录
 
+- [项目记忆](../MEMORY.md)：继续工作的权威文档、完整路线与当前验收边界。
+- [双击系统默认打开修复](tasks/default-file-opening.md)：第 6 项交互偏差与后台验证。
+
 - [43 项产品与工程决策](product-decisions.md)：逐项保留用户选择，第 25 项保留补充说明。
 - [M1 原始执行基线](m1-execution-baseline.md)：共享记录中的正式交接文本。
 - [M1 开发任务记录](milestones/M1.md)：顺序、验收门槛和当前状态。

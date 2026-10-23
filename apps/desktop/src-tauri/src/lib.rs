@@ -319,6 +319,25 @@ async fn thumbnail(app: tauri::AppHandle, id: i64) -> Result<Option<String>> {
     .map_err(error)?
 }
 #[tauri::command]
+async fn open_item(app: tauri::AppHandle, window: tauri::WebviewWindow, id: i64) -> Result<bool> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<Runtime>();
+        let target = state.store.lock().map_err(error)?.opening_target(id)?;
+        if target.is_file() && store::needs_open_confirmation(&target) && !app.dialog()
+            .message(format!("此文件可能运行程序、脚本或快捷方式：\n{}\n\n仅在信任文件来源时继续。是否交给系统打开？", target.display()))
+            .title("确认打开可执行内容").parent(&window)
+            .buttons(tauri_plugin_dialog::MessageDialogButtons::OkCancelCustom("继续打开".into(), "取消".into()))
+            .blocking_show() {
+            return Ok(false);
+        }
+        // The picker/confirmation never holds the database lock. Recheck after user interaction.
+        state.store.lock().map_err(error)?.validate_opening_target(id, &target)?;
+        // Windows ShellExecuteExW receives the path as data, with no command shell or custom app.
+        open::that_detached(&target).map_err(|e| format!("无法请求系统打开，请检查文件关联或访问权限：{e}"))?;
+        Ok(true)
+    }).await.map_err(error)?
+}
+#[tauri::command]
 async fn reveal_item(app: tauri::AppHandle, id: i64) -> Result<()> {
     let path = database(app, move |s| s.item_path(id)).await?;
     #[cfg(windows)]
@@ -463,6 +482,7 @@ pub fn run() {
             set_tags,
             reorder,
             thumbnail,
+            open_item,
             reveal_item,
             start_native_drag,
             toggle_topmost,

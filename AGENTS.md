@@ -2,6 +2,8 @@
 
 ## 需求与阶段
 
+- 继续工作前读取根目录 MEMORY.md，并核对 main 的 design.md、docs/codex-start-here.md、docs/roadmap.md；记忆是交接索引，不能覆盖冻结需求或将待验收写成通过。
+
 - 中文名称：柠猫文件工作站；英文名称：Ningmao File Workstation。
 - 仅操作用户授权的本仓库 `2539426035852ningmao-cmyk/ningmao-file-workstation`；不得擅自修改其他项目。
 - 先读 `docs/product-decisions.md`、`docs/m1-execution-baseline.md` 及当前任务记录，保留全部 43 项决策，不重复大范围产品规划。

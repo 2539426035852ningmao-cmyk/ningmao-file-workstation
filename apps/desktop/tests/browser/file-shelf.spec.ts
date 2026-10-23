@@ -1,9 +1,47 @@
 import { test,expect } from "@playwright/test";
 import path from "node:path";
 const screenshots=process.env.M105_SCREENSHOTS;
+test("单击选中、空格预览、双击请求系统默认程序",async({page})=>{
+  await page.goto("/tests/harness.html");
+  const file=page.getByRole("button",{name:"选择 Alpha.txt",exact:true});
+  await file.click();
+  await expect(page.getByRole("dialog")).not.toBeVisible();
+  await page.keyboard.press("Space");
+  await expect(page.getByRole("dialog")).toContainText("快速预览");
+  await page.keyboard.press("Escape");
+  expect(await page.evaluate(()=>window.testHarness.calls())).not.toContain("open:1");
+  await file.dblclick();
+  await expect(page.getByRole("dialog")).not.toBeVisible();
+  await expect(page.locator(".file-status")).toContainText("已请求系统默认程序打开");
+  expect((await page.evaluate(()=>window.testHarness.calls())).filter(c=>c==="open:1")).toHaveLength(1);
+});
 async function settle(page:import("@playwright/test").Page) {
   await page.evaluate(async()=>{await new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve())));await Promise.all(document.getAnimations().map(a=>a.finished.catch(()=>{})));});
 }
+
+test("默认打开的取消、错误和键盘入口保留引用与手动顺序",async({page})=>{
+  await page.goto("/tests/harness.html");
+  const file=page.getByRole("button",{name:"选择 Alpha.txt",exact:true});
+  await file.click({button:"right"});
+  await page.getByRole("menuitem",{name:"标记精选",exact:true}).click();
+  await page.evaluate(()=>window.testHarness.cancelOpening());
+  await file.click({button:"right"});
+  await page.getByRole("menuitem",{name:"用系统默认程序打开",exact:true}).click();
+  await expect(page.locator(".file-status")).toContainText("已取消打开");
+  await page.evaluate(()=>window.testHarness.fail("模拟文件关联或权限错误"));
+  await file.dblclick();
+  await expect(page.getByRole("alert")).toContainText("模拟文件关联或权限错误");
+  await expect(page.locator(".file-status")).toContainText("打开未完成");
+  await file.focus();await page.keyboard.press("Enter");
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(page.locator(".file-status")).toContainText("已请求系统默认程序打开");
+  expect((await page.evaluate(()=>window.testHarness.calls())).filter(c=>c==="open:1")).toHaveLength(3);
+  await page.reload();
+  await expect(page.locator("[data-item-id]")).toHaveCount(3);
+  expect(await page.locator("[data-item-id]").evaluateAll(nodes=>nodes.map(n=>n.getAttribute("data-item-id")))).toEqual(["1","2","3"]);
+  await file.click({button:"right"});await page.getByRole("menuitem",{name:"文件详情与预览",exact:true}).click();
+  await expect(page.getByRole("dialog")).toContainText("精选");
+});
 test("引用、标签、失效状态、预览与移除语义",async({page})=>{
   const errors:string[]=[];page.on("pageerror",e=>errors.push(e.message));
   await page.goto("/tests/harness.html");
@@ -69,7 +107,8 @@ test("手动排序中途反馈、持久顺序、深浅主题与窄窗详情",asy
   await settle(page);
   if(screenshots)await page.screenshot({path:path.join(screenshots,"desktop-light.png")});
   await page.setViewportSize({width:640,height:720});
-  await page.getByRole("button",{name:"选择 Alpha.txt",exact:true}).dblclick();
+  await page.getByRole("button",{name:"选择 Alpha.txt",exact:true}).click({button:"right"});
+  await page.getByRole("menuitem",{name:"文件详情与预览",exact:true}).click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await expect(page.getByRole("dialog")).toContainText("SYNTHETIC/Alpha.txt");
   await settle(page);
@@ -89,7 +128,8 @@ test("失效引用重新定位的取消、失败、成功、缩略图与重载",
   await row.getByRole("button",{name:"选择 Alpha.png",exact:true}).click({button:"right"});
   await page.getByRole("menuitem",{name:"标记精选",exact:true}).click();
   await page.evaluate(()=>window.testHarness.missing(1));await page.getByLabel("刷新文件状态").click();
-  await row.getByRole("button",{name:"选择 Alpha.png",exact:true}).dblclick();
+  await row.getByRole("button",{name:"选择 Alpha.png",exact:true}).click({button:"right"});
+  await page.getByRole("menuitem",{name:"文件详情与预览",exact:true}).click();
   const dialog=page.getByRole("dialog");
   await expect(dialog.getByRole("button",{name:"重新定位文件",exact:true})).toBeVisible({timeout:1500});
   await expect(dialog).toContainText("精选");
@@ -116,7 +156,8 @@ test("失效引用重新定位的取消、失败、成功、缩略图与重载",
   await expect(page.getByRole("button",{name:"选择 已重新定位.png",exact:true})).toBeVisible();
   expect(await page.evaluate(()=>window.testHarness.calls())).not.toContain("remove:1");
   await page.evaluate(()=>window.testHarness.missing(3));await page.getByLabel("刷新文件状态").click();
-  await page.getByRole("button",{name:"选择 Gamma.txt",exact:true}).dblclick();
+  await page.getByRole("button",{name:"选择 Gamma.txt",exact:true}).click({button:"right"});
+  await page.getByRole("menuitem",{name:"文件详情与预览",exact:true}).click();
   await page.evaluate(()=>window.testHarness.failNextSnapshot("模拟刷新失败"));
   await page.getByRole("button",{name:"重新定位文件",exact:true}).click();
   await expect(page.getByRole("dialog").getByRole("alert")).toContainText("引用已更新，但刷新失败");
@@ -128,11 +169,13 @@ test("失效引用重新定位的取消、失败、成功、缩略图与重载",
 
 test("文件夹修复入口、正常引用和绑定目录边界",async({page})=>{
   await page.goto("/tests/harness.html");
-  await page.getByRole("button",{name:"选择 中文 文件.txt",exact:true}).dblclick();
+  await page.getByRole("button",{name:"选择 中文 文件.txt",exact:true}).click({button:"right"});
+  await page.getByRole("menuitem",{name:"文件详情与预览",exact:true}).click();
   await expect(page.getByRole("button",{name:"重新定位文件夹",exact:true})).toHaveCount(0);
   await page.keyboard.press("Escape");
   await page.evaluate(()=>window.testHarness.missing(2));await page.getByLabel("刷新文件状态").click();
-  await page.getByRole("button",{name:"选择 中文 文件.txt",exact:true}).dblclick();
+  await page.getByRole("button",{name:"选择 中文 文件.txt",exact:true}).click({button:"right"});
+  await page.getByRole("menuitem",{name:"文件详情与预览",exact:true}).click();
   await page.getByRole("button",{name:"重新定位文件夹",exact:true}).click();
   await expect(page.getByRole("dialog")).toContainText("已重新定位的文件夹");
   expect(await page.evaluate(()=>window.testHarness.calls())).toContain("relocate:2:true");
@@ -141,7 +184,8 @@ test("文件夹修复入口、正常引用和绑定目录边界",async({page})=>
   await page.getByRole("button",{name:"添加并复制",exact:true}).click();
   await page.evaluate(()=>window.testHarness.complete());
   await page.evaluate(()=>window.testHarness.missing(10));await page.getByLabel("刷新文件状态").click();
-  await page.getByRole("button",{name:"选择 新增文件 (1).txt",exact:true}).dblclick();
+  await page.getByRole("button",{name:"选择 新增文件 (1).txt",exact:true}).click({button:"right"});
+  await page.getByRole("menuitem",{name:"文件详情与预览",exact:true}).click();
   await expect(page.getByRole("button",{name:"重新定位文件",exact:true})).toHaveCount(0);
   await expect(page.getByRole("button",{name:"重新定位文件夹",exact:true})).toHaveCount(0);
 });

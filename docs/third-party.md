@@ -2,6 +2,13 @@
 
 核验日期：2026-10-23。主项目 Apache-2.0 不替代第三方各自许可证。
 
+## 2026-10-24 系统默认打开
+
+- 新增直接依赖 [open 5.4.5](https://github.com/Byron/open-rs/tree/v5.4.5)，精确版本及校验和写入 Cargo.lock，MIT；保留 Sebastian Thiel 版权及完整 [许可证](../licenses/open-rs-MIT.txt)。不复制或修改库源码，没有额外 NOTICE 要求；实际分发仍由许可归集清单覆盖。
+- 发布包 .cargo_vcs_info.json 指向 `a60a9d508e24417d62e924fb133aaeec0e96f222`。本机包 src/windows.rs、src/lib.rs、LICENSE.md 与 GitHub v5.4.5 tag 的 Git blob 分别核对一致：`1597d3896eead576f6c9c2b89960c4789b7c6eaf`、`1bd29bbb99bb962f77f676a7e2c5d8ad0bd76b9c`、`17daa1e3b39831093699020febfe1411247fa519`。
+- 官方 [tauri-plugin-opener 2.7.2](https://github.com/tauri-apps/plugins-workspace/blob/opener-v2.7.2/plugins/opener/Cargo.toml) 同样复用 open 5 + shellexecute-on-windows；本工程只需要受 ID 约束的后端命令，因此直接复用底层库，避免增加完整插件/前端任意路径权限。启用 Windows ShellExecuteExW 路径，禁用 insecure，未提供自定义程序或 URL 接口。
+- 新增锁记录为 open 5.4.5 及非 Windows 的 is-wsl 0.4.0 / is-docker 0.2.0；Windows dunce 已存在。最低 Rust 1.62，兼容本工程 1.99.1。维护成本为固定依赖的安全/兼容更新核查；不把本轮核查当成完整漏洞审计或原生用户体验验收。
+
 2026-10-24 的手动引用重新定位仅调用已有 tauri-plugin-dialog 2.8.3 原生文件/目录选择与确认 API，后台线程等待、关联调用窗口，未复制或改库源码，无新依赖。Cargo VCS/tag 对应提交 44293a5722efcaf27060504e63b17aeba721b40f，本机 src/lib.rs 与 GitHub blob 7cfad33b1a2301c801d48ed251a1b069d9497d74 一致；MIT 原文沿用既有 licenses/tauri-dialog-MIT.txt。实现/验证边界见 [引用修复任务](tasks/reference-relocation.md)。
 
 ## M1-06 预览打包与许可归集

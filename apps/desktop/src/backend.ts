@@ -19,6 +19,7 @@ export interface Backend {
   reorder(shelf: number, ids: number[]): Promise<void>;
   thumbnail(id: number): Promise<string | null>;
   drag(ids: number[]): Promise<void>;
+  open(id: number): Promise<boolean>;
   reveal(id: number): Promise<void>;
   cancel(id: number): Promise<void>;
   topmost(): Promise<boolean>;
@@ -33,6 +34,7 @@ export const nativeBackend: Backend = {
   relocate: (id,directory) => invoke("relocate_reference", { id,directory }),
   reorder: (shelfId,ids) => invoke("reorder", { shelfId,ids }), thumbnail: id => invoke("thumbnail", { id }),
   drag: ids => invoke("start_native_drag", { ids }), reveal: id => invoke("reveal_item", { id }),
+  open: id => invoke("open_item", { id }),
   cancel: jobId => invoke("cancel_copy", { jobId }), topmost: () => invoke("toggle_topmost"), quit: () => invoke("quit"),
   async subscribe(events) {
     if (!isTauri()) return () => {};
