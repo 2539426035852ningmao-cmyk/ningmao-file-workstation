@@ -25,13 +25,13 @@
 | M1-05 | #9 Draft：真实引用、绑定目录、安全复制/重名保护、SQLite、缩略图、复制任务；已有自动回归 | 精确候选原生运行及真实操作完整验收 |
 | M1-06 | #11 Draft 依赖 #9：预览 MSI、ACL/长路径回归、交付完整性验证 | 实际安装升级卸载、多屏/DPI、签名、正式分发许可审计 |
 | 引用修复 | #13 Draft 依赖 #11：失效引用手动重新定位、保留标签与顺序 | 原生系统文件对话框/鼠标操作实机验收 |
-| 紧凑 UI | #14 Draft：根目录 design.md；Issue #15：下一阶段 UI 方案 | 紧凑界面尚未实现、未完成用户体验验收 |
+| 紧凑 UI | #14 已合入 main：根目录 design.md、Codex 入口和路线图；Issue #15 跟踪 UI 方案 | 规范 Token 仍为待用户体验验收的建议，紧凑界面尚未实现 |
 
 准确入口：
 - [主工程 Draft #9](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/9)
 - [预览包 Draft #11](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/11)
 - [引用修复 Draft #13](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/13)
-- [设计规范 Draft #14](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/14)
+- [设计规范 PR #14（已合入）](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/14)
 - [紧凑化工作项 #15](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/issues/15)
 
 ## 下一阶段主攻问题
