@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 私密报告安全漏洞
+    url: https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/security/advisories/new
+    about: 不要在公开 Issue 上传密钥、私人素材或敏感漏洞细节。

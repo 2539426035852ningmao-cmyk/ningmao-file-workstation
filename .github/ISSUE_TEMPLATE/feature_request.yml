@@ -1,0 +1,33 @@
+name: 功能或工程任务
+description: 关联冻结决策与具体可验收结果
+title: "[Task] "
+body:
+  - type: markdown
+    attributes:
+      value: 先查 43 项决策与 M1 记录，避免重复规划；提案不会自动改变已冻结需求。
+  - type: input
+    id: decision
+    attributes:
+      label: 关联任务或决策编号
+      placeholder: M1-01 / 决策 01
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: 具体问题与范围
+      description: 说明需要解决的用户问题和本次边界。
+    validations:
+      required: true
+  - type: textarea
+    id: reuse
+    attributes:
+      label: 已有实现与复用依据
+      description: 本仓库及 GitHub 候选实现、来源、版本和许可；未研究时如实标注。
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 验收标准
+      description: 给出可以验证通过或失败的行为、所需环境及回滚方法。
+    validations:
+      required: true

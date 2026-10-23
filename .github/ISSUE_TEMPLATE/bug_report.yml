@@ -1,0 +1,34 @@
+name: 缺陷报告
+description: 提供可复现行为、环境与期望结果
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: 请先搜索已有 Issue。当前尚无应用发行版；用合成数据复现，勿上传私人素材、Token 或本地机密路径。
+  - type: input
+    id: version
+    attributes:
+      label: 版本或 Commit SHA
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: 环境
+      description: Windows 版本、DPI、显示器数量；涉及文档或 CI 时填写实际相关环境。
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 最小复现步骤
+      description: 描述输入、操作和可复现条件。
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: 预期与实际结果
+      description: 如涉及文件操作，请说明原始数据是否受到影响；日志需脱敏。
+    validations:
+      required: true
