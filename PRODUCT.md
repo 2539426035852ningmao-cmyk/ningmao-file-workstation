@@ -18,15 +18,15 @@ Windows 资源管理器与桌面创作应用之间的素材接收、整理、预
 
 ## Capabilities and Constraints
 
-当前 M1-03 比较 SpaceUI 与 shadcn/ui：相同样本、尺寸和信息结构，验证深浅主题、网格/列表、缩略图、标签、工具栏、详情抽屉、分组、右键、排序、自适应与 500/2000 项表现。允许明确标记的合成数据；不能冒充正式文件功能。最终主工程和视觉须在 M1-04 获用户批准。
+研究阶段 M1-03 的 SpaceUI 与 shadcn/ui 原型已验收；主工程已获批准采用独立 Tauri 2 / Rust / React / TypeScript / SQLite、shadcn/ui 主系统、SpaceUI FileThumb 按需复用。正式文件闭环及 MSI 仍在未合并 Draft #9/#11/#13，精确构建的原生 GUI、安装、DPI、多屏待验收。默认产品应是小型悬浮架而非 1120×760 大型工作台，见根目录 design.md。
 
 ## Brand Commitments
 
-中文名柠猫文件工作站，英文名 Ningmao File Workstation；深浅双主题，默认蓝色强调色；不改已定产品需求。本轮继承两个已指定设计系统，比较完成前不创立新的最终品牌方向。
+中文名柠猫文件工作站，英文名 Ningmao File Workstation；深浅双主题，默认蓝色强调色；不改已定产品需求。统一采用已获批准的 shadcn/ui 主设计系统，遵循根目录 design.md 的圆角、间距、文字与渐进式操作规范；设计尺寸仍需用户体验验收。
 
 ## Evidence on Hand
 
-已冻结的 43 项选择、M1-02 Windows 实测与准确二进制哈希。没有正式产品发行版、品牌图像或私人测试素材；原型采用本地合成素材。
+已冻结的 43 项选择、M1-02/03 Windows 研究实测和自动 CI 记录、M1-05/06 Draft 自动回归与预览包只读检查。无正式发行版；未审定最终品牌图像；实测不在不同精确二进制之间继承。
 
 ## Product Principles
 
