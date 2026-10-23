@@ -3,7 +3,7 @@ node_modules/
 dist/
 build/
 target/
-src-tauri/gen/
+**/src-tauri/gen/
 coverage/
 *.tsbuildinfo
 
