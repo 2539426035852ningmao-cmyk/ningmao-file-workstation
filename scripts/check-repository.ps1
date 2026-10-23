@@ -13,7 +13,7 @@ try {
     )
     foreach ($path in $required) {
         if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "缺少必需文件：$path" }
-        if ((Get-Item -LiteralPath $path).Length -eq 0) { throw "文件为空：$path" }
+        if ((Get-Item -LiteralPath $path -Force).Length -eq 0) { throw "文件为空：$path" }
     }
     $tracked = @(git -c core.quotepath=false ls-files)
     if ($LASTEXITCODE -ne 0) { throw '无法读取 Git 文件清单' }
