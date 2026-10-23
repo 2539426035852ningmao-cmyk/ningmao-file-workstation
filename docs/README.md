@@ -1,5 +1,8 @@
 # 文档目录
 
+- [Gemini 独立复核工作协议](AI_REVIEW_WORKFLOW.md)：借鉴已完成的双 AI 交叉验证，Gate A/B/C 先核验官方 CLI 与费用再进行只读审查。
+- [M1 Gemini 接入任务](tasks/M1-GEMINI-REVIEW.md)：当前准备完成与待 Windows 实际验证的区分；根目录 [GEMINI.md](../GEMINI.md) 为独立审查规则。
+
 - [轻量悬浮文件架设计规范](../design.md)：窗口尺寸、同心圆圆角、间距、文字层级、扩展入口和阶段验收基线（建议 Token 部分需用户验收）。
 - [Codex 从这里开始](codex-start-here.md)：最新已核查状态、PR 依赖、下一门槛与行动顺序。
 - [阶段路线图](roadmap.md)：P0 核心文件 → P1 小窗 → P2 Dock → P3 网络 → P4 AI 与插件。
