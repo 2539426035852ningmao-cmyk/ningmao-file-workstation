@@ -14,6 +14,7 @@ export interface Backend {
   chooseFolder(): Promise<number | null>;
   importPaths(shelf: number, paths: string[]): Promise<ImportResult>;
   remove(id: number): Promise<void>;
+  relocate(id: number, directory: boolean): Promise<boolean>;
   tags(id: number, tags: string[]): Promise<void>;
   reorder(shelf: number, ids: number[]): Promise<void>;
   thumbnail(id: number): Promise<string | null>;
@@ -29,6 +30,7 @@ export const nativeBackend: Backend = {
   chooseFiles: () => invoke("choose_files"), chooseFolder: () => invoke("choose_folder"),
   importPaths: (shelfId, paths) => invoke("import_paths", { shelfId, paths }),
   remove: id => invoke("remove_reference", { id }), tags: (id,tags) => invoke("set_tags", { id,tags }),
+  relocate: (id,directory) => invoke("relocate_reference", { id,directory }),
   reorder: (shelfId,ids) => invoke("reorder", { shelfId,ids }), thumbnail: id => invoke("thumbnail", { id }),
   drag: ids => invoke("start_native_drag", { ids }), reveal: id => invoke("reveal_item", { id }),
   cancel: jobId => invoke("cancel_copy", { jobId }), topmost: () => invoke("toggle_topmost"), quit: () => invoke("quit"),

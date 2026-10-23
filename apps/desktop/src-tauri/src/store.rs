@@ -168,6 +168,47 @@ impl Store {
         }
         self.insert(shelf, path)
     }
+    pub fn relocation_source(&self, id: i64) -> Result<PathBuf> {
+        let (path, kind): (String, String) = self
+            .db
+            .query_row(
+                "SELECT i.path,s.kind FROM items i JOIN shelves s ON s.id=i.shelf_id WHERE i.id=?1",
+                [id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .optional()
+            .map_err(err)?
+            .ok_or("文件记录不存在，请刷新后重试。")?;
+        if kind == "bound" {
+            return Err("绑定目录中的记录不能改为其他路径，请恢复原目录位置。".into());
+        }
+        if fs::symlink_metadata(&path).is_ok() {
+            return Err("原引用已可访问，请刷新状态；无需重新定位。".into());
+        }
+        Ok(PathBuf::from(path))
+    }
+    pub fn relink_reference(&mut self, id: i64, expected: &Path, replacement: &Path) -> Result<()> {
+        let current = self.relocation_source(id)?;
+        if current != expected {
+            return Err("引用已被更新，请刷新后重试；本次没有修改记录。".into());
+        }
+        let replacement = canonical_user_path(replacement)?;
+        let name = replacement
+            .file_name()
+            .and_then(|n| n.to_str())
+            .ok_or("目标没有有效文件名。")?;
+        // One atomic UPDATE keeps identity, tags and position; UNIQUE refuses silent merging.
+        let changed = self.db.execute("UPDATE items SET path=?1,name=?2 WHERE id=?3 AND path=?4",
+            params![path_text(&replacement)?, name, id, path_text(expected)?]).map_err(|e| {
+                if matches!(&e, rusqlite::Error::SqliteFailure(code, _) if code.code == rusqlite::ErrorCode::ConstraintViolation) {
+                    "目标已在当前文件架中；两条引用和分类均保留，请选择其他目标。".into()
+                } else { err(e) }
+            })?;
+        if changed != 1 {
+            return Err("引用已变化，请刷新后重试。".into());
+        }
+        Ok(())
+    }
     pub fn remove_reference(&mut self, id: i64) -> Result<()> {
         let kind: String = self
             .db

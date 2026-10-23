@@ -2,6 +2,8 @@
 
 核验日期：2026-10-23。主项目 Apache-2.0 不替代第三方各自许可证。
 
+2026-10-24 的手动引用重新定位仅调用已有 tauri-plugin-dialog 2.8.3 原生文件/目录选择与确认 API，后台线程等待、关联调用窗口，未复制或改库源码，无新依赖。Cargo VCS/tag 对应提交 44293a5722efcaf27060504e63b17aeba721b40f，本机 src/lib.rs 与 GitHub blob 7cfad33b1a2301c801d48ed251a1b069d9497d74 一致；MIT 原文沿用既有 licenses/tauri-dialog-MIT.txt。实现/验证边界见 [引用修复任务](tasks/reference-relocation.md)。
+
 ## M1-06 预览打包与许可归集
 
 - 打包直接使用锁文件中的 Tauri CLI **2.12.4**；官方 tag tauri-cli-v2.12.4 对应提交 [993038c49185307dfc895ab7657d77ca0d5ed7c7](https://github.com/tauri-apps/tauri/tree/993038c49185307dfc895ab7657d77ca0d5ed7c7)。复用该版本 crates/tauri-bundler/src/bundle/windows/msi/main.wxs，不复制或修改模板。官方工具为 MIT OR Apache-2.0，工具不随应用分发。预览配置跳过 WebView2 安装引导，不生成提权更新任务，标准 per-machine 和完成页启动选项在说明中明确。

@@ -1,0 +1,42 @@
+{
+  "date": "2026-10-24",
+  "timezone": "Asia/Hong_Kong",
+  "issue": 12,
+  "scope": "Manual relocation of broken persistent/session references; no disk scan or entity file mutation",
+  "environment": {
+    "os": "Windows 11 10.0.22631",
+    "node": "24.18.0",
+    "rust": "1.99.1",
+    "playwright": "1.64.1"
+  },
+  "results": {
+    "rustTests": 15,
+    "browserTests": 5,
+    "clippy": "passed -D warnings",
+    "typescript": "passed",
+    "nativeDialogs": "not run",
+    "nativeApplication": "not launched",
+    "installation": "not run"
+  },
+  "redGreen": [
+    "Store relocation methods absent: compile failure observed before implementation",
+    "Repair entry absent: browser failure observed before UI implementation",
+    "PNG path changes with equal metadata reused old thumbnail: browser failure observed, then path added to cache key"
+  ],
+  "dataSafety": [
+    "ID, shelf, tags and order preserved after reopen",
+    "Duplicate, stale, invalid, restored and bound records rejected",
+    "Folder reference does not bind or enumerate children",
+    "Only-session cleanup retains entity children",
+    "Committed mutation plus failed refresh is reported as updated, not unchanged"
+  ],
+  "uiEvidence": [
+    "desktop-dark.png",
+    "narrow-error.png"
+  ],
+  "limits": [
+    "Browser contract uses an isolated mock backend; no OS dialog confirmation claim",
+    "Native picker/confirmation/focus, DPI/multiple displays, actual install/uninstall remain pending",
+    "No new dependencies, no schema migration, no automatic merges"
+  ]
+}

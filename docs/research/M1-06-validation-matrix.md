@@ -11,6 +11,7 @@
 | NTFS 权限不足 | process_safety.rs：新建夹具中用系统 icacls 添加 Everyone READ_DATA / FILE_ADD_FILE 显式拒绝 | 本机后台已通过错误 5、来源/既有目标保留、无额外暂存、恢复后重试；不等于所有 ACL/网络权限组合 |
 | 真正超过 MAX_PATH 的 Unicode 路径 | process_safety.rs：源文件和绑定目录都断言超过 260 UTF-16 单元；中文/空格/# + [ ]/emoji | 本机后台已通过引用、真实复制、同名编号、来源和既有目标保留；不证明资源管理器或目标软件兼容性 |
 | 较新/损坏数据库 | process_safety.rs | 自动拒绝且原字节不变；不自动降级 |
+| 失效引用手动重新定位（2026-10-24 增量） | reference_relocation.rs；headless 取消/失败/成功/缩略图/已提交但刷新失败/文件夹边界 | 新增 3 项 Rust 和 2 项浏览器，本机底座合计 15/5 通过；实际选择器/确认框仍未验证，见 Issue #12 |
 | 关键前端交互 | 3 项 headless 浏览器回归，M1-05 CI | 已通过原模拟契约范围；非原生 OS 拖拽证据 |
 | 许可原文与 NOTICE | collect-licenses.mjs；266 条记录，缺原文 0、源码映射警告 1 | 原文归集通过；精确源码映射、嵌入子组件与完整分发审核未完成 |
 | MSI 结构与数据清理动作 | inspect-msi.ps1，OpenDatabase(0) | 已只读验证；不执行安装/卸载，不属于通用恶意软件扫描 |

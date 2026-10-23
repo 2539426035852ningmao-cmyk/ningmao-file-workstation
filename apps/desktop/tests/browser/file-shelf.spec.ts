@@ -78,3 +78,70 @@ test("手动排序中途反馈、持久顺序、深浅主题与窄窗详情",asy
   await expect(page.getByRole("dialog")).not.toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
+
+test("失效引用重新定位的取消、失败、成功、缩略图与重载",async({page})=>{
+  const errors:string[]=[];page.on("pageerror",e=>errors.push(e.message));
+  await page.goto("/tests/harness.html");
+  await page.evaluate(()=>window.testHarness.image(1));await page.getByLabel("刷新文件状态").click();
+  const row=page.locator('[data-item-id="1"]');
+  await expect(row.locator("img").last()).toBeVisible();
+  const oldImage=await row.locator("img").last().getAttribute("src");
+  await row.getByRole("button",{name:"选择 Alpha.png",exact:true}).click({button:"right"});
+  await page.getByRole("menuitem",{name:"标记精选",exact:true}).click();
+  await page.evaluate(()=>window.testHarness.missing(1));await page.getByLabel("刷新文件状态").click();
+  await row.getByRole("button",{name:"选择 Alpha.png",exact:true}).dblclick();
+  const dialog=page.getByRole("dialog");
+  await expect(dialog.getByRole("button",{name:"重新定位文件",exact:true})).toBeVisible({timeout:1500});
+  await expect(dialog).toContainText("精选");
+  if(screenshots){await settle(page);await page.screenshot({path:path.join(screenshots,"relocation-dark.png")});}
+  await page.evaluate(()=>window.testHarness.cancelRelocation());
+  await dialog.getByRole("button",{name:"重新定位文件",exact:true}).click();
+  await expect(page.getByRole("status").filter({hasText:"已取消重新定位"})).toContainText("原引用未更改");
+  await expect(dialog).toContainText("SYNTHETIC/Alpha.png");
+  await page.evaluate(()=>window.testHarness.fail("目标已在当前文件架中；分类均保留"));
+  await dialog.getByRole("button",{name:"重新定位文件",exact:true}).click();
+  await expect(dialog.getByRole("alert")).toContainText("目标已在当前文件架");
+  await expect(dialog).toContainText("SYNTHETIC/Alpha.png");
+  await page.setViewportSize({width:640,height:720});
+  if(screenshots){await settle(page);await page.screenshot({path:path.join(screenshots,"relocation-narrow-error.png")});}
+  await dialog.getByRole("button",{name:"重新定位文件",exact:true}).click();
+  await expect(dialog).toContainText("SYNTHETIC/重新定位/已重新定位.png");
+  await expect(dialog).toContainText("精选");
+  await expect(dialog.getByRole("alert")).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(row.locator("img").last()).toBeVisible();
+  await expect(row.locator("img").last()).not.toHaveAttribute("src",oldImage!);
+  await expect.poll(()=>page.locator("[data-item-id]").evaluateAll(nodes=>nodes.map(n=>n.getAttribute("data-item-id")))).toEqual(["1","2","3"]);
+  await page.reload();
+  await expect(page.getByRole("button",{name:"选择 已重新定位.png",exact:true})).toBeVisible();
+  expect(await page.evaluate(()=>window.testHarness.calls())).not.toContain("remove:1");
+  await page.evaluate(()=>window.testHarness.missing(3));await page.getByLabel("刷新文件状态").click();
+  await page.getByRole("button",{name:"选择 Gamma.txt",exact:true}).dblclick();
+  await page.evaluate(()=>window.testHarness.failNextSnapshot("模拟刷新失败"));
+  await page.getByRole("button",{name:"重新定位文件",exact:true}).click();
+  await expect(page.getByRole("dialog").getByRole("alert")).toContainText("引用已更新，但刷新失败");
+  await expect(page.locator(".file-status")).not.toContainText("原引用未更改");
+  await page.keyboard.press("Escape");await page.getByLabel("刷新文件状态").click();
+  await expect(page.getByRole("button",{name:"选择 已重新定位.txt",exact:true})).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test("文件夹修复入口、正常引用和绑定目录边界",async({page})=>{
+  await page.goto("/tests/harness.html");
+  await page.getByRole("button",{name:"选择 中文 文件.txt",exact:true}).dblclick();
+  await expect(page.getByRole("button",{name:"重新定位文件夹",exact:true})).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await page.evaluate(()=>window.testHarness.missing(2));await page.getByLabel("刷新文件状态").click();
+  await page.getByRole("button",{name:"选择 中文 文件.txt",exact:true}).dblclick();
+  await page.getByRole("button",{name:"重新定位文件夹",exact:true}).click();
+  await expect(page.getByRole("dialog")).toContainText("已重新定位的文件夹");
+  expect(await page.evaluate(()=>window.testHarness.calls())).toContain("relocate:2:true");
+  await page.keyboard.press("Escape");
+  await page.getByRole("button",{name:"绑定文件夹",exact:true}).click();
+  await page.getByRole("button",{name:"添加并复制",exact:true}).click();
+  await page.evaluate(()=>window.testHarness.complete());
+  await page.evaluate(()=>window.testHarness.missing(10));await page.getByLabel("刷新文件状态").click();
+  await page.getByRole("button",{name:"选择 新增文件 (1).txt",exact:true}).dblclick();
+  await expect(page.getByRole("button",{name:"重新定位文件",exact:true})).toHaveCount(0);
+  await expect(page.getByRole("button",{name:"重新定位文件夹",exact:true})).toHaveCount(0);
+});

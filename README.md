@@ -33,6 +33,8 @@ M1-01～M1-03 已获用户验收。M1-04 已批准独立 Tauri 2 主工程与 sh
 
 详见 [M1 开发记录](docs/milestones/M1.md)、[M1-03 任务](docs/tasks/M1-03.md)与 [UI 比较报告](docs/research/M1-03-comparison.md)。全部 43 项决策继续保留。
 
+具体功能补充：[手动重新定位失效引用](docs/tasks/reference-relocation.md)（Issue #12），保留 ID、标签与手动顺序，只修改引用。实现与自动检查单独记录，真实系统选择器及精确候选原生验收仍待完成。
+
 ## 主工程与检查
 
 主工程使用 scripts/build-desktop.ps1 -Native / -Browser 构建和验证，详见 [运行说明](apps/desktop/README.md)与 [M1-05 验证记录](docs/research/M1-05-verification.md)。默认只运行后台/headless 测试，不自动弹出原生测试窗口；原生体验另约时间集中验收。

@@ -21,12 +21,13 @@ const states: Record<string,string>={ normal:"正常",missing:"引用失效",unr
 const jobStates: Record<string,string>={queued:"等待中",copying:"复制中",completed:"已完成",partial:"部分完成",failed:"失败",cancelled:"已取消",interrupted:"上次中断"};
 const thumbCache=new Map<string,string|null>();
 function Thumb({item,backend,size=80}:{item:Item;backend:Backend;size?:number}) {
-  const key=`${item.id}:${item.modified}:${item.bytes}`;
+  const key=JSON.stringify([item.id,item.path,item.modified,item.bytes]);
   const [thumb,setThumb]=useState<string|null>(thumbCache.get(key) || null);
   useEffect(() => {
     let live=true;
     if(item.status!=="normal" || !["png","jpg","jpeg","webp"].includes(item.kind)) { setThumb(null); return; }
     if(thumbCache.has(key)) { setThumb(thumbCache.get(key) || null); return; }
+    setThumb(null);
     void backend.thumbnail(item.id).then(value => {
       if(thumbCache.size>=128) thumbCache.delete(thumbCache.keys().next().value!);
       thumbCache.set(key,value); if(live) setThumb(value);
@@ -71,6 +72,7 @@ export default function App({backend,native}:{backend:Backend;native:boolean}) {
   const [topmost,setTopmost]=useState(false),[hover,setHover]=useState(false),[dragging,setDragging]=useState<number|null>(null);
   const [message,setMessage]=useState("正在恢复文件架…"),[error,setError]=useState(""),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
   const [progress,setProgress]=useState<Progress|null>(null),[tasks,setTasks]=useState(false);
+  const [repairFeedback,setRepairFeedback]=useState<{error:boolean;message:string}|null>(null);
   const activeShelf=useRef(shelfId); activeShelf.current=shelfId;
   const importRef=useRef<(paths:string[])=>void>(()=>{});
   const sensors=useSensors(useSensor(PointerSensor,{activationConstraint:{distance:6}}),useSensor(KeyboardSensor,{coordinateGetter:sortableKeyboardCoordinates}));
@@ -123,9 +125,30 @@ export default function App({backend,native}:{backend:Backend;native:boolean}) {
   },[selected,bound,backend]);
   async function tag(item:Item) { await perform(async()=>{await backend.tags(item.id,item.tags.includes("精选")?item.tags.filter(t=>t!=="精选"):[...item.tags,"精选"]);await refresh();}); }
   async function remove(id:number) { await perform(async()=>{await backend.remove(id);setSelected(null);setDetails(false);await refresh();setMessage("已移除引用，原文件保留。");}); }
+  useEffect(()=>setRepairFeedback(null),[selected,shelfId]);
+  async function relocate(id:number,directory:boolean) {
+    setBusy(true);setRepairFeedback(null);
+    let updated=false;
+    try {
+      updated=await backend.relocate(id,directory);
+      await refresh();
+      const message=updated?"引用已重新定位，标签与手动顺序已保留。":"已取消重新定位，原引用未更改。";
+      setMessage(message);if(!updated)setRepairFeedback({error:false,message});
+    } catch(e) {
+      const reason=e instanceof Error?e.message:String(e);
+      setRepairFeedback({error:true,message:updated?`引用已更新，但刷新失败。请关闭详情后刷新状态：${reason}`:reason});
+      setMessage(updated?"引用已更新，但状态刷新失败，请刷新重试。":"重新定位未完成，原引用未更改。");
+    }
+    finally {setBusy(false);}
+  }
   const detail=current && <div className="file-details"><div className="detail-preview"><Thumb item={current} backend={backend} size={preview?260:180}/></div><h3>{current.name}</h3>
     <Badge variant="secondary">{states[current.status] || current.status}</Badge><dl><dt>原始路径</dt><dd>{current.path}</dd><dt>类型</dt><dd>{current.kind.toUpperCase()}</dd><dt>大小</dt><dd>{sizes(current.bytes)}</dd><dt>修改日期</dt><dd>{current.modified?new Date(current.modified*1000).toLocaleString():"不可用"}</dd><dt>标签</dt><dd>{current.tags.join("、") || "无"}</dd></dl>
-    {current.status!=="normal" && <p>记录与标签已保留。恢复原路径后点击刷新；本阶段不自动扫描磁盘修复。</p>}
+    {current.status!=="normal" && <p>{bound?"记录与标签已保留，请恢复绑定目录后刷新；这里不会更改目录绑定。":"记录与标签已保留。恢复原路径后刷新，或手动重新定位；不会自动扫描磁盘。"}</p>}
+    {!bound && ["missing","unreadable"].includes(current.status) && <section className="reference-repair" aria-label="重新定位失效引用" aria-busy={busy}>
+      <p>选择你确认的原文件或文件夹，再核对新位置。只修改引用，标签与顺序保留。</p>
+      <div><Button variant="outline" disabled={!native || busy} onClick={()=>void relocate(current.id,false)}>重新定位文件</Button><Button variant="outline" disabled={!native || busy} onClick={()=>void relocate(current.id,true)}>重新定位文件夹</Button></div>
+      {repairFeedback && <p role={repairFeedback.error?"alert":"status"}>{repairFeedback.message}</p>}
+    </section>}
     <Button variant="outline" onClick={()=>void tag(current)}><Star size={14}/>切换精选标签</Button><p className="muted">图片预览按需加载 PNG / JPEG / WebP；其他类型保留图标。</p></div>;
   return <div className={`workstation ${hover?"drop-active":""}`}>
     <header className="appbar"><div className="brand"><Archive size={21}/><strong>柠猫文件工作站</strong><span>M1-05 候选</span></div><div className="appbar-actions">

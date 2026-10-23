@@ -270,6 +270,35 @@ async fn remove_reference(app: tauri::AppHandle, id: i64) -> Result<()> {
     database(app, move |s| s.remove_reference(id)).await
 }
 #[tauri::command]
+async fn relocate_reference(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    id: i64,
+    directory: bool,
+) -> Result<bool> {
+    let original = database(app.clone(), move |s| s.relocation_source(id)).await?;
+    let pick_app = app.clone();
+    let chosen = tauri::async_runtime::spawn_blocking(move || -> Result<_> {
+        let picker = pick_app.dialog().file().set_parent(&window).set_title("重新定位失效引用：选择目标后仍需确认");
+        let selected = if directory { picker.blocking_pick_folder() } else { picker.blocking_pick_file() };
+        let Some(selected) = selected else { return Ok(None); };
+        let selected = store::canonical_user_path(&selected.into_path().map_err(error)?)?;
+        if selected.is_dir() != directory { return Err("目标类型与选择的文件/文件夹入口不一致。".into()); }
+        let confirmed = pick_app.dialog().message(format!(
+            "原引用：{}\n\n重新定位到：{}\n\n只替换软件内引用，保留标签与手动顺序。不移动、复制或删除实体文件。",
+            original.display(), selected.display()))
+            .title("确认重新定位引用").parent(&window)
+            .buttons(tauri_plugin_dialog::MessageDialogButtons::OkCancelCustom("确认替换引用".into(), "取消".into()))
+            .blocking_show();
+        Ok(confirmed.then_some((original, selected)))
+    }).await.map_err(error)??;
+    let Some((original, chosen)) = chosen else {
+        return Ok(false);
+    };
+    database(app, move |s| s.relink_reference(id, &original, &chosen)).await?;
+    Ok(true)
+}
+#[tauri::command]
 async fn set_tags(app: tauri::AppHandle, id: i64, tags: Vec<String>) -> Result<()> {
     database(app, move |s| s.set_tags(id, tags)).await
 }
@@ -430,6 +459,7 @@ pub fn run() {
             import_paths,
             cancel_copy,
             remove_reference,
+            relocate_reference,
             set_tags,
             reorder,
             thumbnail,

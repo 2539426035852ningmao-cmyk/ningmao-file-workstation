@@ -1,7 +1,6 @@
 name: Desktop application
 on:
   pull_request:
-    branches: [main]
     paths: ['apps/desktop/**', 'scripts/build-desktop.ps1', '.github/workflows/desktop.yml']
   workflow_dispatch:
 permissions:

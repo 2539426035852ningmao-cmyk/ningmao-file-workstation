@@ -176,6 +176,9 @@ h1 { font-size: 22px; line-height: 1.4; font-weight: 630; letter-spacing: -.02em
 .file-details { min-height: 0; flex: 1; }
 .file-details dd { margin: 0; overflow-wrap: anywhere; }
 .file-details p { font-size: 12px; margin-block: 18px; }
+.reference-repair > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.reference-repair { margin-bottom: 18px; }
+.reference-repair p { overflow-wrap: anywhere; }
 .muted { color: var(--muted-text); font-size: 12px; }
 .task-center { flex-shrink: 0; max-height: 240px; overflow: auto; border-top: 1px solid var(--line); background: var(--surface-nav); }
 .task-center summary { padding: 10px 24px; font-size: 12px; }

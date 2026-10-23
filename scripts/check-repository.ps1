@@ -29,7 +29,9 @@ try {
         'scripts/inspect-msi.test.ps1', 'scripts/collect-licenses.mjs',
         'scripts/collect-licenses.test.mjs', 'licenses/package-overrides.json',
         'scripts/verify-preview-package.ps1', 'scripts/verify-preview-package.test.ps1',
-        'docs/research/M1-06-validation-matrix.md'
+        'docs/research/M1-06-validation-matrix.md', 'docs/tasks/reference-relocation.md',
+        'apps/desktop/src-tauri/tests/reference_relocation.rs',
+        'docs/research/reference-relocation-evidence/verification.json'
     )
     foreach ($path in $required) {
         if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "缺少必需文件：$path" }
