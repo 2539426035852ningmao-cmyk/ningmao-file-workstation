@@ -25,7 +25,7 @@ pwsh -NoProfile -File scripts/build-desktop.ps1 -Browser
 
 ## 测试与安全
 
-生产 dist 不包含 tests/harness.html 的模拟后端。浏览器回归使用单独 dist-test，明确标注合成数据；原生复制与数据库由 Rust tests/file_safety.rs 测试。
+生产 dist 不包含 tests/harness.html 的模拟后端。浏览器回归使用单独 dist-test，明确标注合成数据；原生复制与数据库由 Rust tests/file_safety.rs、tests/process_safety.rs 测试。进程恢复测试只启动自己的无窗口 Rust 测试子进程，不打开 Tauri/资源管理器；普通测试有两个 ignored 的夹具入口，其中崩溃子进程入口由父测试自动调用，素材准备为 opt-in。
 
 复制暂存文件由 tempfile 创建，persist_noclobber 发布，同名自动加序号；不静默覆盖。取消不会撤回已完成的文件。SQLite WAL 不能通过单独复制数据库主文件备份；本阶段不提供数据库备份/迁移 UI。较新 schema 拒绝写入。
 
