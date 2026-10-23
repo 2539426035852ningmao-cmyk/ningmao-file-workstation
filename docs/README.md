@@ -1,5 +1,9 @@
 # 文档目录
 
+- [轻量悬浮文件架设计规范](../design.md)：窗口尺寸、同心圆圆角、间距、文字层级、扩展入口和阶段验收基线（建议 Token 部分需用户验收）。
+- [Codex 从这里开始](codex-start-here.md)：最新已核查状态、PR 依赖、下一门槛与行动顺序。
+- [阶段路线图](roadmap.md)：P0 核心文件 → P1 小窗 → P2 Dock → P3 网络 → P4 AI 与插件。
+
 - [43 项产品与工程决策](product-decisions.md)：逐项保留用户选择，第 25 项保留补充说明。
 - [M1 原始执行基线](m1-execution-baseline.md)：共享记录中的正式交接文本。
 - [M1 开发任务记录](milestones/M1.md)：顺序、验收门槛和当前状态。
