@@ -1,0 +1,12 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Ningmao File Workstation",
+  "version": "0.1.0",
+  "identifier": "app.ningmao.fileworkstation",
+  "build": { "beforeDevCommand": "npm run dev", "devUrl": "http://localhost:1431", "beforeBuildCommand": "npm run build", "frontendDist": "../dist" },
+  "app": {
+    "windows": [{ "label": "main", "title": "柠猫文件工作站 · M1-05 候选", "width": 1000, "height": 720, "minWidth": 600, "minHeight": 500, "center": true, "dragDropEnabled": true }],
+    "security": { "csp": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost" }
+  },
+  "bundle": { "active": true, "targets": "all", "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.ico"] }
+}

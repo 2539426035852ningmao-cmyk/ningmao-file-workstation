@@ -10,3 +10,6 @@
 - [第三方代码与工具清单](third-party.md)：来源、版本、许可和审查状态。
 
 需求变更须明确记录并经用户批准。后续技术决策及实机测试记录在实际任务开始时添加；未执行的工作不能标记通过。
+
+- [M1-04 唯一主工程决策](decisions/0001-main-engineering.md)
+- [M1-05 真实文件闭环](tasks/M1-05.md)与[验证记录](research/M1-05-verification.md)

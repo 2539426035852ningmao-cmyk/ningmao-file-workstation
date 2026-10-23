@@ -4,9 +4,9 @@
 
 Windows 10/11 优先的轻量桌面悬浮文件工作站，支持临时文件引用与真实目录两种文件架，逐步扩展跨设备互联和 AI 文件管理。
 
-当前交付范围为 **M1-03：双 UI 原型验证**。M1-02 已获用户验收并合入；仓库包含 Windows 技术样机和采用固定版本 SpaceUI / shadcn/ui 的同功能原型，尚无正式产品或发行版本。浏览器、CI 和原生实机证据分别记录。
+M1-01～M1-03 已获用户验收。M1-04 已批准独立 Tauri 2 主工程与 shadcn/ui 主设计系统；当前在 **M1-05** 实施真实文件引用、SQLite、目录绑定、安全复制与原生拖出，尚无正式发行版本。浏览器、CI 和原生实机证据分别记录。
 
-候选技术：Tauri 2、Rust、React、TypeScript、SQLite。最终主工程需经双基线验证与用户验收确定。
+已批准技术：Tauri 2、Rust、React、TypeScript、SQLite；唯一主工程 [apps/desktop](apps/desktop/README.md)。选型见 [ADR 0001](docs/decisions/0001-main-engineering.md)。
 
 主仓库许可证为 [Apache-2.0](LICENSE)，官方发行版计划永久免费。第三方组件保留各自许可证。
 
@@ -26,14 +26,16 @@ Windows 10/11 优先的轻量桌面悬浮文件工作站，支持临时文件引
 |---|---|---|
 | M1-01 | 仓库、文档、模板、基础 CI、main 保护 | 已完成，Issue #1 已关闭 |
 | M1-02 | Holdem 与独立 Tauri 2 模板真实技术对比 | 已验收、PR #4 已合入；已知问题和未测项保留 |
-| M1-03 | SpaceUI 与 shadcn/ui 同功能原型比较 | 当前任务，见 Issue #5 和比较报告 |
-| M1-04 | 主工程与设计系统选型 | 未开始，需用户批准 |
-| M1-05 | 真实文件功能闭环 | 未开始 |
+| M1-03 | SpaceUI 与 shadcn/ui 同功能原型比较 | 已验收，PR #6 已合入，Issue #5 关闭 |
+| M1-04 | 主工程与设计系统选型 | 用户已批准推荐方案，见 Issue #7 |
+| M1-05 | 真实文件功能闭环 | 当前任务，见 Issue #8 |
 | M1-06 | Windows 实机验收与交付 | 未开始 |
 
 详见 [M1 开发记录](docs/milestones/M1.md)、[M1-03 任务](docs/tasks/M1-03.md)与 [UI 比较报告](docs/research/M1-03-comparison.md)。全部 43 项决策继续保留。
 
-## 仓库检查
+## 主工程与检查
+
+主工程使用 scripts/build-desktop.ps1 -Native / -Browser 构建和验证，详见 [运行说明](apps/desktop/README.md)与 [M1-05 验证记录](docs/research/M1-05-verification.md)。默认只运行后台/headless 测试，不自动弹出原生测试窗口；原生体验另约时间集中验收。
 
 安装 Git 和 PowerShell 7 后，在仓库根目录执行：
 
@@ -53,4 +55,4 @@ M1-03 的 Windows 构建与浏览器验证分别执行 `scripts/m1-03/build-ui.p
 
 ## English
 
-Ningmao File Workstation is a Windows-first floating file workstation. M1-03 compares pinned SpaceUI and shadcn/ui components with identical sample data and interactions. These are research prototypes, not a production release or approved final architecture. See the Chinese decision baseline for the full scope.
+Ningmao File Workstation is a Windows-first floating file workstation. M1-03 was accepted. The approved main application uses Tauri 2, Rust, React, TypeScript, SQLite and shadcn/ui, with selected licensed SpaceUI components. M1-05 implements the first real file workflow; native acceptance and a production release are still pending. See the Chinese decision baseline for the full scope.

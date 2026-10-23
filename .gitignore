@@ -1,5 +1,6 @@
 # Dependencies and builds
 node_modules/
+dist-test/
 dist/
 build/
 target/

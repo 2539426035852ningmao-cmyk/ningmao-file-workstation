@@ -1,0 +1,52 @@
+name: Desktop application
+on:
+  pull_request:
+    branches: [main]
+    paths: ['apps/desktop/**', 'scripts/build-desktop.ps1', '.github/workflows/desktop.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  browser:
+    name: Desktop browser checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - name: Frontend and browser regression
+        shell: pwsh
+        run: ./scripts/build-desktop.ps1 -Browser
+  windows:
+    name: Desktop Windows safety and build
+    runs-on: windows-latest
+    timeout-minutes: 25
+    env:
+      RUSTUP_TOOLCHAIN: '1.99.1'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
+      CARGO_BUILD_JOBS: '4'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - name: Prepare Rust
+        shell: pwsh
+        run: |
+          rustup toolchain install 1.99.1 --profile minimal --component rustfmt --component clippy
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Safety regressions and native build
+        shell: pwsh
+        run: ./scripts/build-desktop.ps1 -Native

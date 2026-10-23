@@ -1,0 +1,36 @@
+[package]
+name = "ningmao-file-workstation"
+version = "0.1.0"
+description = "Ningmao File Workstation Windows vertical slice"
+license = "Apache-2.0"
+edition = "2024"
+
+[lib]
+name = "ningmao_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[features]
+# Tests may also compile the binary: keep it self-contained when launched without Vite.
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-dialog = "=2.8.3"
+drag = "=2.1.0"
+rusqlite = { version = "=0.40.2", features = ["bundled"] }
+tempfile = "=3.27.0"
+image = { version = "=0.25.10", default-features = false, features = ["png", "jpeg", "webp"] }
+base64 = "0.22.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

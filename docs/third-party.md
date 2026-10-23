@@ -2,6 +2,20 @@
 
 核验日期：2026-10-23。主项目 Apache-2.0 不替代第三方各自许可证。
 
+## M1-04 / M1-05 主工程来源
+
+主工程 apps/desktop 复用本仓已验收 M1-02 B 模板与 M1-03 组件，而非另造通用控件。6 个 shadcn/ui 组件、1 个 SpaceUI FileThumb 源码不改，移入主工程路径，逐文件来源和 SHA256 见 [source-provenance.json](../apps/desktop/source-provenance.json)。主工程只使用 shadcn 主题，未加载第二套 SpaceUI tokens。
+
+| 依赖 | 锁定版本 | 原始许可与义务、实际使用范围 |
+|---|---|---|
+| rusqlite / libsqlite3-sys | 0.40.2 / 0.38.2，bundled SQLite | rusqlite MIT 原文见 licenses/rusqlite-MIT.txt；SQLite 本体公有领域，包装与传递库各有许可，不用一个主许可证覆盖全部 |
+| tempfile | 3.27.0 | MIT OR Apache-2.0，选择 MIT，保留 licenses/tempfile-MIT.txt；使用随机暂存及 persist_noclobber，不修改库源码 |
+| image | 0.25.10 | MIT OR Apache-2.0，选择 MIT，保留 licenses/image-MIT.txt；仅启用 png/jpeg/webp，有限额解码，不引入完整默认格式集 |
+| tauri-plugin-dialog | 2.8.3 | MIT OR Apache-2.0，选择 MIT，保留 licenses/tauri-dialog-MIT.txt；仅后端调用官方原生选择器，未给前端通用文件系统写权限 |
+| drag-rs / Tauri / dnd-kit / TanStack / Radix / Lucide 等 | 锁文件为准，drag 2.1.0 | 沿用已核验来源与原始许可，实际副本全文在 licenses/；Windows Copy、pointer 排序、虚拟化均复用成熟实现 |
+
+[Windows Cargo 281 条元数据](research/m1-05-evidence/cargo-license-metadata.json)与 [npm 189 条元数据](research/m1-05-evidence/npm-license-metadata.json)初筛无缺失/GPL/AGPL 字段；含可选平台依赖，不等于实际发行包清单。未宣称完整漏洞或法律审计通过，签名安装和公共二进制发布前仍须逐项核对传递许可、NOTICE 与实际打包内容。本轮不创建公共 Release。
+
 | 项目 | 用途 / 状态 | 固定版本 | 原始许可与义务 | 修改与风险 |
 |---|---|---|---|---|
 | [actions/checkout](https://github.com/actions/checkout) | CI 获取代码，已使用 | v7.0.1 / `3d3c42e5aac5ba805825da76410c181273ba90b1` | [MIT](https://github.com/actions/checkout/blob/3d3c42e5aac5ba805825da76410c181273ba90b1/LICENSE)；仅引用 Action，未复制源码，原许可由上游保留 | 未修改；Node 24，使用 GitHub 托管 Windows/Ubuntu runner；固定 SHA、只读权限、禁持久凭据；Dependabot 每周检查 |

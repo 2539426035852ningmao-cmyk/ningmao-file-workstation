@@ -18,7 +18,12 @@ try {
         '.github/workflows/m1-03-ui.yml', 'scripts/m1-03/build-ui.ps1',
         'experiments/m1-03/source-provenance.json',
         'experiments/m1-03/ui-comparison/package-lock.json',
-        'experiments/m1-03/ui-comparison/src-tauri/Cargo.lock'
+        'experiments/m1-03/ui-comparison/src-tauri/Cargo.lock',
+        'docs/decisions/0001-main-engineering.md', 'docs/tasks/M1-04.md',
+        'docs/tasks/M1-05.md', 'docs/research/M1-05-verification.md',
+        'apps/desktop/package-lock.json', 'apps/desktop/src-tauri/Cargo.lock',
+        'apps/desktop/source-provenance.json', 'scripts/build-desktop.ps1',
+        '.github/workflows/desktop.yml'
     )
     foreach ($path in $required) {
         if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "缺少必需文件：$path" }
