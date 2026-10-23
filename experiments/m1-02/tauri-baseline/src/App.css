@@ -1,0 +1,15 @@
+:root { font-family: "Segoe UI", "Microsoft YaHei", sans-serif; color: #20252c; background: #f6f7f9; font-synthesis: none; }
+body { margin: 0; }
+main { padding: 20px; }
+h1 { margin: 0 0 8px; font-size: 22px; }
+h2 { font-size: 14px; margin: 18px 0 8px; }
+p, .hint { font-size: 12px; line-height: 1.5; color: #505b69; }
+button { padding: 9px 12px; border: 1px solid #b4c0ce; border-radius: 4px; color: inherit; background: white; cursor: pointer; }
+button:focus-visible { outline: 2px solid #1769c2; outline-offset: 2px; }
+.drop-zone { display: flex; flex-direction: column; gap: 5px; border: 2px dashed #849bb7; padding: 20px; font-size: 13px; }
+.drop-zone span { font-size: 12px; }
+.file { display: block; margin: 6px 0; text-align: left; width: 100%; cursor: grab; }
+.sort-list { display: flex; gap: 8px; }
+.sort-item { flex: 1; padding: 10px; background: #e3eaf4; border: 1px solid #b8c9df; cursor: grab; }
+.controls { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 18px; }
+output { display: block; height: 145px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: 10px; background: #edf0f4; font: 11px/1.5 Consolas, monospace; }

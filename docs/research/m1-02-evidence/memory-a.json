@@ -1,0 +1,8 @@
+{
+  "Baseline": "A",
+  "Profile": "debug-unoptimized",
+  "Processes": 8,
+  "WorkingSetMiB": 274.5,
+  "PrivateMemoryMiB": 194.8,
+  "Measurement": "One idle snapshot; includes app and its WebView2 descendants, not comparable to release benchmarks."
+}

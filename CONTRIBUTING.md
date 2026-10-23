@@ -1,6 +1,6 @@
 # 贡献指南
 
-感谢参与柠猫文件工作站。先阅读 [43 项决策](docs/product-decisions.md)、[M1 基线](docs/m1-execution-baseline.md)与 [AGENTS.md](AGENTS.md)。本阶段只完成仓库初始化。
+感谢参与柠猫文件工作站。先阅读 [43 项决策](docs/product-decisions.md)、[M1 基线](docs/m1-execution-baseline.md)与 [AGENTS.md](AGENTS.md)。当前仅推进 M1-02 技术验证。
 
 ## 工作流程
 
@@ -22,7 +22,7 @@ pwsh -NoProfile -File scripts/check-repository.ps1
 
 检查必需文件、UTF-8、被跟踪的本地数据/构建产物、常见 GitHub 凭据与私钥，以及 Git 空白错误。这只是基础防线，不是完整秘密检测器；提交前必须人工核对 `git diff --cached`。
 
-GitHub Actions 在 `windows-latest` 与 `ubuntu-latest` 上运行；M1-01 尚无应用代码，因此没有应用构建或 Windows 功能验收结果。
+基础检查在 `windows-latest` 与 `ubuntu-latest` 上运行；M1-02 另有 Windows A/B 构建。改动 B 样机时运行 `scripts/m1-02/build-baselines.ps1 -Baseline B`，包含 TypeScript 构建、Rust 格式、测试、Clippy 和原生构建。原生文件交互仍须单独实机验证。
 
 ## 第三方代码
 

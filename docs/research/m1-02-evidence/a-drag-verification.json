@@ -1,0 +1,12 @@
+{
+  "file": "probe.txt",
+  "source_was": "target-b/probe.txt",
+  "source_exists": false,
+  "original_fixture_exists": true,
+  "target_exists": true,
+  "expected_sha256": "5717B9E5F107D48B2B0C55A2FE2637E2C1B21B5987B021F06376DDE28DF10DDF",
+  "source_sha256": null,
+  "target_sha256": "5717B9E5F107D48B2B0C55A2FE2637E2C1B21B5987B021F06376DDE28DF10DDF",
+  "target_hash_matches": true,
+  "safe_copy_pass": false
+}

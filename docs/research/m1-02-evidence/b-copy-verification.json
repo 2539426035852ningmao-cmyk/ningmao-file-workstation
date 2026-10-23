@@ -1,0 +1,18 @@
+[
+  {
+    "file": "probe.txt",
+    "source_exists": true,
+    "target_exists": true,
+    "source_sha256": "5717B9E5F107D48B2B0C55A2FE2637E2C1B21B5987B021F06376DDE28DF10DDF",
+    "target_sha256": "5717B9E5F107D48B2B0C55A2FE2637E2C1B21B5987B021F06376DDE28DF10DDF",
+    "hash_matches": true
+  },
+  {
+    "file": "中文 空格样本.txt",
+    "source_exists": true,
+    "target_exists": true,
+    "source_sha256": "A8C29353DCBD82407F4C65EA75ECE08DD9E3CC0271FDB8FA38E8417828A4D9B4",
+    "target_sha256": "A8C29353DCBD82407F4C65EA75ECE08DD9E3CC0271FDB8FA38E8417828A4D9B4",
+    "hash_matches": true
+  }
+]
