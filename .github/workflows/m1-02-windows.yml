@@ -3,6 +3,10 @@ name: M1-02 Windows baselines
 on:
   pull_request:
     branches: [main]
+    paths:
+      - 'experiments/m1-02/**'
+      - 'scripts/m1-02/**'
+      - '.github/workflows/m1-02-windows.yml'
   workflow_dispatch:
 
 permissions:

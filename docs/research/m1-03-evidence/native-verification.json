@@ -1,0 +1,14 @@
+{
+  "exe_bytes": 12248576,
+  "exe_sha256": "B4BE9CA17C264B6BB82BFD0FD327CC50362D785623566E177D15D759BF94D52D",
+  "browser_pointer_sort_pass": true,
+  "manual_shadcn_sort": "pending",
+  "monitors": 1,
+  "manual_spaceui_sort": "pending",
+  "new_binary_native_dragout": "not retested",
+  "scale": 1.25,
+  "native_drop_enabled_both_windows": true,
+  "new_binary_explorer_drop": "not retested",
+  "automatic_windows_drag_result": "start event observed, end over same item; not accepted as pointer-sort pass",
+  "os": "Windows 11 Home build 22631"
+}

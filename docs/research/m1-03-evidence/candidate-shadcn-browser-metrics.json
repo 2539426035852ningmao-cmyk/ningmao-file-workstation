@@ -1,0 +1,54 @@
+[
+  {
+    "system": "shadcn",
+    "theme": "dark",
+    "count": 500,
+    "view": "grid",
+    "viewport": "1120x760",
+    "samples": 88,
+    "p95FrameMs": 16.8,
+    "maxMounted": 35,
+    "durationMs": 1496.3,
+    "native": false,
+    "method": "90 RAF programmatic scroll; not a human-input latency or release benchmark"
+  },
+  {
+    "system": "shadcn",
+    "theme": "dark",
+    "count": 500,
+    "view": "list",
+    "viewport": "1120x760",
+    "samples": 88,
+    "p95FrameMs": 16.7,
+    "maxMounted": 11,
+    "durationMs": 1497.4,
+    "native": false,
+    "method": "90 RAF programmatic scroll; not a human-input latency or release benchmark"
+  },
+  {
+    "system": "shadcn",
+    "theme": "dark",
+    "count": 2000,
+    "view": "grid",
+    "viewport": "1120x760",
+    "samples": 88,
+    "p95FrameMs": 33.3,
+    "maxMounted": 35,
+    "durationMs": 1732.9,
+    "native": false,
+    "method": "90 RAF programmatic scroll; not a human-input latency or release benchmark"
+  },
+  {
+    "system": "shadcn",
+    "theme": "dark",
+    "count": 2000,
+    "view": "list",
+    "viewport": "1120x760",
+    "samples": 88,
+    "p95FrameMs": 16.7,
+    "maxMounted": 11,
+    "durationMs": 1497.6,
+    "native": false,
+    "method": "90 RAF programmatic scroll; not a human-input latency or release benchmark"
+  }
+]
