@@ -6,7 +6,7 @@ Windows 10/11 优先的轻量桌面悬浮文件工作站，支持临时文件引
 
 **当前 main 已合入 M1-01/02/03**，包含 GitHub 基础治理、Windows 技术基线与双 UI 原型。M1-04 已批准独立 Tauri 主工程选型；真实文件操作、预览 MSI 与引用修复分别在未合并的 Draft PR #9 → #11 → #13 中。自动测试已有成果，精确候选的 Windows GUI/安装/多屏/DPI 尚待验收；目前没有正式发行版。
 
-**开发导航：** [Codex 从这里开始](docs/codex-start-here.md) · [设计规范 design.md](design.md) · [阶段路线图](docs/roadmap.md) · [43 项冻结决策](docs/product-decisions.md)。复杂功能放按需管理中心，日常默认是小型悬浮文件架。
+**开发导航：** [Codex 从这里开始](docs/codex-start-here.md) · [设计规范 design.md](design.md) · [阶段路线图](docs/roadmap.md) · [43 项冻结决策](docs/product-decisions.md) · [独立 Gemini 审查流程](docs/AI_REVIEW_WORKFLOW.md)（尚待本机重新核验 CLI）。复杂功能放按需管理中心，日常默认是小型悬浮文件架。
 
 已批准技术：Tauri 2、Rust、React、TypeScript、SQLite；UI 以 shadcn/ui 为主，按需复用 SpaceUI FileThumb。主工程目前位于未合并 PR，而非 main。
 
