@@ -23,6 +23,12 @@ pub struct Shelf {
     pub available: bool,
 }
 #[derive(Clone, Serialize)]
+pub struct ShelfIdentity {
+    pub id: i64,
+    pub name: String,
+    pub kind: String,
+}
+#[derive(Clone, Serialize)]
 pub struct Item {
     pub id: i64,
     pub shelf_id: i64,
@@ -104,6 +110,22 @@ impl Store {
         .map_err(err)?
         .collect::<std::result::Result<Vec<_>, _>>()
         .map_err(err)
+    }
+    // Window hover only needs IDs/names. Never probe bound disks on native drag events.
+    pub fn shelf_catalog(&self) -> Result<Vec<ShelfIdentity>> {
+        self.db
+            .prepare("SELECT id,name,kind FROM shelves ORDER BY id")
+            .map_err(err)?
+            .query_map([], |r| {
+                Ok(ShelfIdentity {
+                    id: r.get(0)?,
+                    name: r.get(1)?,
+                    kind: r.get(2)?,
+                })
+            })
+            .map_err(err)?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(err)
     }
     fn shelf(&self, id: i64) -> Result<Shelf> {
         self.shelves()?

@@ -30,6 +30,21 @@ fn named_shelves_and_atomic_cross_shelf_reference_copy_preserve_sources() {
     assert!(store.create_shelf("项目素材", false).is_err());
     let bound = store.bind_directory(root.path()).unwrap();
     assert!(store.copy_references(bound, &[id]).is_err());
+    let catalog = serde_json::to_value(store.shelf_catalog().unwrap()).unwrap();
+    assert!(
+        catalog
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|s| s["id"] == target)
+    );
+    assert!(
+        catalog
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|s| s.get("root").is_none() && s.get("available").is_none())
+    );
     store.clean_exit().unwrap();
     drop(store);
     let mut store = Store::open(&db).unwrap();

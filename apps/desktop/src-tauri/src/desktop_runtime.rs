@@ -2,7 +2,7 @@ use crate::{
     Runtime,
     desktop::{Layout, Rect, clamp_position},
     error,
-    store::{Result, Shelf},
+    store::{Result, ShelfIdentity},
 };
 use serde::Serialize;
 use std::{
@@ -19,15 +19,9 @@ pub struct Desktop {
     warning: Mutex<Option<String>>,
 }
 #[derive(Serialize, Clone)]
-pub struct Entry {
-    pub id: i64,
-    pub name: String,
-    pub kind: String,
-}
-#[derive(Serialize, Clone)]
 pub struct View {
     pub layout: Layout,
-    pub entries: Vec<Entry>,
+    pub entries: Vec<ShelfIdentity>,
     pub total: usize,
     pub warning: Option<String>,
 }
@@ -93,12 +87,12 @@ impl Desktop {
         result
     }
 }
-fn shelves(app: &tauri::AppHandle) -> Result<Vec<Shelf>> {
+fn shelves(app: &tauri::AppHandle) -> Result<Vec<ShelfIdentity>> {
     app.state::<Runtime>()
         .store
         .lock()
         .map_err(error)?
-        .shelves()
+        .shelf_catalog()
 }
 fn known_shelf(app: &tauri::AppHandle, id: i64) -> Result<()> {
     if shelves(app)?.iter().any(|s| s.id == id) {
@@ -128,11 +122,7 @@ pub fn view(app: &tauri::AppHandle) -> Result<View> {
         .visible_ids()
         .iter()
         .filter_map(|id| catalog.iter().find(|s| s.id == *id))
-        .map(|s| Entry {
-            id: s.id,
-            name: s.name.clone(),
-            kind: s.kind.clone(),
-        })
+        .cloned()
         .collect();
     Ok(View {
         total: layout.collapsed.len(),
