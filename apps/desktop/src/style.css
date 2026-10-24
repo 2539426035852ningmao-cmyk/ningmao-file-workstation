@@ -121,6 +121,10 @@ select { padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; ba
 .details-sheet [data-slot="sheet-description"] { font-size:12px; }
 .details-sheet .sheet-dismiss { position:absolute; top:8px; right:8px; width:32px; height:32px; }
 .task-list { min-height:0; flex:1; overflow:auto; display:flex; flex-direction:column; gap:16px; padding-block:8px; }
+.filter-form { min-height:0; overflow:auto; display:grid; gap:16px; padding:8px 4px; }
+.filter-form label { min-width:0; display:grid; gap:8px; font-size:13px; }
+.filter-form select { width:100%; min-width:0; min-height:36px; border-radius:var(--radius-control); }
+.selection-actions .filter-clear svg { color:var(--blue); }
 .job { display:flex; gap:8px; align-items:flex-start; font-size:12px; flex-wrap:wrap; }
 .job > span:nth-child(2) { flex:1; min-width:120px; overflow-wrap:anywhere; }
 .job p { flex-basis:100%; overflow-wrap:anywhere; }

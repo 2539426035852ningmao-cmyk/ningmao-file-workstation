@@ -15,6 +15,7 @@ import { FileThumb } from "./components/spaceui/FileThumb";
 import type { Backend, Item, Progress, Snapshot } from "./backend";
 import { defaultView,readTheme,readViewMemory,writeTheme,writeViewMemory,type ShelfView } from "./preferences";
 import { isSortMode,sortItems,sortOptions } from "./sorting";
+import { defaultFilters,filterItems,type ShelfFilters } from "./filters";
 
 const collision: CollisionDetection = args => { const hits=pointerWithin(args); return hits.length ? hits : closestCenter(args); };
 const blank: Snapshot={shelves:[],items:[],jobs:[]};
@@ -76,6 +77,8 @@ export default function App({backend,native}:{backend:Backend;native:boolean}) {
   const restoreSearchFocus=useRef(false);
   const [feedback,setFeedback]=useState(false);
   const [query,setQuery]=useState("");
+  const [filters,setFilters]=useState<ShelfFilters>(defaultFilters),[filtersOpen,setFiltersOpen]=useState(false);
+  const filtered=!!(filters.kind || filters.tag || filters.status);
   const [initialViews]=useState(readViewMemory);
   const [views,setViews]=useState(initialViews.views),[viewWarning,setViewWarning]=useState(initialViews.warning);
   const viewDirty=useRef(false);
@@ -92,12 +95,14 @@ export default function App({backend,native}:{backend:Backend;native:boolean}) {
   const sensors=useSensors(useSensor(PointerSensor,{activationConstraint:{distance:6}}),useSensor(KeyboardSensor,{coordinateGetter:sortableKeyboardCoordinates}));
   const shelf=data.shelves.find(s=>s.id===shelfId),bound=shelf?.kind==="bound";
   const items=data.items.filter(item=>item.shelf_id===shelfId);
-  const visible=useMemo(()=>sortItems(data.items.filter(i=>i.shelf_id===shelfId && i.name.toLocaleLowerCase().includes(query.toLocaleLowerCase())),sort),[data.items,shelfId,query,sort]);
-  const current=data.items.find(i=>i.id===selected),dragItem=data.items.find(i=>i.id===dragging);
+  const visible=useMemo(()=>sortItems(filterItems(data.items.filter(i=>i.shelf_id===shelfId),query,filters),sort),[data.items,shelfId,query,filters,sort]);
+  const kinds=[...new Set([...items.map(i=>i.kind),filters.kind].filter(Boolean))].sort((a,b)=>a.localeCompare(b,"zh-CN"));
+  const tags=[...new Set([...items.flatMap(i=>i.tags),filters.tag].filter(Boolean))].sort((a,b)=>a.localeCompare(b,"zh-CN"));
+  const current=visible.find(i=>i.id===selected),dragItem=data.items.find(i=>i.id===dragging);
   const running=data.jobs.find(j=>activeStatus(j.status));
   const inline=details && detailPinned && width>=1000;
   async function refresh() { const value=await backend.snapshot(); setData(value); return value; }
-  function switchShelf(id:number) { setShelfId(id); setSelected(null); setQuery(""); setSearchOpen(false); setDetails(false); setPreview(false); }
+  function switchShelf(id:number) { setShelfId(id); setSelected(null); setQuery(""); setFilters(defaultFilters);setFiltersOpen(false);setSearchOpen(false); setDetails(false); setPreview(false); }
   async function perform(action:()=>Promise<unknown>) { setError(""); try { await action(); } catch(e) { setError(String(e)); } }
   async function open(id:number) {
     setSelected(id);
@@ -144,12 +149,12 @@ export default function App({backend,native}:{backend:Backend;native:boolean}) {
   useEffect(()=>{
     const fn=(e:KeyboardEvent)=>{
       if(e.defaultPrevented || e.isComposing || (e.target instanceof HTMLElement && e.target.closest("input,textarea,select,[contenteditable],.drag-handle,[role=dialog],[role=menu]"))) return;
-      if(e.code==="Space" && selected) {e.preventDefault();setPreview(true);}
+      if(e.code==="Space" && current) {e.preventDefault();setPreview(true);}
       if(e.key==="Escape") {setPreview(false);setDetails(false);}
-      if(e.key==="Delete" && selected && !bound) void perform(async()=>{await backend.remove(selected);setSelected(null);await refresh();setMessage("已移除引用，原文件保留。");});
+      if(e.key==="Delete" && current && !bound) void perform(async()=>{await backend.remove(current.id);setSelected(null);await refresh();setMessage("已移除引用，原文件保留。");});
     };
     window.addEventListener("keydown",fn);return()=>window.removeEventListener("keydown",fn);
-  },[selected,bound,backend]);
+  },[current,bound,backend]);
   useLayoutEffect(()=>{
     if(searchOpen)searchInput.current?.focus();
     else if(restoreSearchFocus.current){restoreSearchFocus.current=false;searchButton.current?.focus();}
@@ -205,6 +210,7 @@ export default function App({backend,native}:{backend:Backend;native:boolean}) {
         <DropdownMenu.Label className="menu-label">显示与排序</DropdownMenu.Label>
         <DropdownMenu.RadioGroup value={list?"list":"grid"} onValueChange={v=>setView({list:v==="list"})}><DropdownMenu.RadioItem value="grid"><Grid2X2 size={16}/>网格视图<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem><DropdownMenu.RadioItem value="list"><List size={16}/>详细列表<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem></DropdownMenu.RadioGroup>
         <DropdownMenu.RadioGroup value={sort} onValueChange={v=>{if(isSortMode(v))setView({sort:v});}}>{sortOptions.map(option=><DropdownMenu.RadioItem key={option.value} value={option.value}>{option.label}<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>)}</DropdownMenu.RadioGroup>
+        <DropdownMenu.Item onSelect={()=>setFiltersOpen(true)}><Search size={16}/>筛选文件</DropdownMenu.Item>
         <DropdownMenu.Label className="menu-label">缩略图大小</DropdownMenu.Label><DropdownMenu.RadioGroup className="thumbnail-choices" aria-label="缩略图大小" value={String(size)} onValueChange={v=>setView({size:v==="60"?60:v==="120"?120:80})}>{[[60,"小"],[80,"中"],[120,"大"]].map(([v,label])=><DropdownMenu.RadioItem key={v} aria-label={label+"缩略图"} value={String(v)}>{label}<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>)}</DropdownMenu.RadioGroup>
         <DropdownMenu.Separator/>
         <DropdownMenu.Item disabled={loading} onSelect={()=>void perform(async()=>{await refresh();setMessage("已刷新文件状态。");})}><RefreshCw size={16}/>刷新文件状态</DropdownMenu.Item>
@@ -214,23 +220,29 @@ export default function App({backend,native}:{backend:Backend;native:boolean}) {
         <DropdownMenu.Separator/><DropdownMenu.Item disabled={!native} onSelect={()=>void perform(()=>backend.quit())}>完整退出</DropdownMenu.Item>
       </ShelfMenu>
     </header>
-    <div className="shelf-context" data-dropping={hover}><span className="shelf-semantics" title={bound?(shelf?.available?shelf.root || "":"绑定目录离线或不可读，保留原记录"):shelf?.kind==="session"?"完整退出后只清空引用，原文件保留":"持久保存引用，原文件保留"}>{hover?(bound?"释放以复制 · 保留来源":"释放以添加引用 · 保留原文件"):bound?"复制到目录 · 保留来源":shelf?.kind==="session"?"本次中转 · 仅保存引用":"仅保存引用"}</span><div className="selection-actions">{current && <><Button variant="ghost" size="sm" aria-label="详情" onClick={()=>setDetails(true)}><Info size={14}/>详情</Button><Button variant="ghost" size="sm" disabled={current.status!=="normal"} title="按住左键拖到目标，默认复制" onPointerDown={e=>{if(e.button===0)void perform(()=>backend.drag([current.id]));}} onKeyDown={e=>{if(e.key==="Enter")setMessage("请用鼠标按住“拖出复制”并拖向目标窗口。");}}><ArrowDownToLine size={14}/>拖出复制</Button></>}</div></div>
+    <div className="shelf-context" data-dropping={hover}><span className="shelf-semantics" title={bound?(shelf?.available?shelf.root || "":"绑定目录离线或不可读，保留原记录"):shelf?.kind==="session"?"完整退出后只清空引用，原文件保留":"持久保存引用，原文件保留"}>{hover?(bound?"释放以复制 · 保留来源":"释放以添加引用 · 保留原文件"):bound?"复制到目录 · 保留来源":shelf?.kind==="session"?"本次中转 · 仅保存引用":"仅保存引用"}</span><div className="selection-actions">{filtered && <Button variant="ghost" size="sm" className="filter-clear" aria-label="清除筛选" title="已启用文件筛选，点击清除" onClick={()=>setFilters(defaultFilters)}>已筛选<X size={12}/></Button>}{current && <><Button variant="ghost" size="sm" aria-label="详情" onClick={()=>setDetails(true)}><Info size={14}/>详情</Button><Button variant="ghost" size="sm" disabled={current.status!=="normal"} title="按住左键拖到目标，默认复制" onPointerDown={e=>{if(e.button===0)void perform(()=>backend.drag([current.id]));}} onKeyDown={e=>{if(e.key==="Enter")setMessage("请用鼠标按住“拖出复制”并拖向目标窗口。");}}><ArrowDownToLine size={14}/>拖出复制</Button></>}</div></div>
     {bound && !shelf.available && <p className="offline-note" role="status">目录离线，记录已保留 · 恢复目录后刷新</p>}
     {preferenceWarning && <div className="error-bar" role="alert"><span>{preferenceWarning}</span><Button variant="ghost" size="icon" aria-label="关闭设置提示" onClick={()=>{setViewWarning("");setThemeWarning("");}}><X size={15}/></Button></div>}
     {error && <div className="error-bar" role="alert"><span>{error}</span><Button variant="ghost" size="icon" aria-label="关闭错误提示" onClick={()=>setError("")}><X size={15}/></Button></div>}
     <div className="explorer-and-details"><main className="explorer-pane">
       {loading?<div className="empty-state"><p>正在恢复本地文件架…</p></div>:<DndContext sensors={sensors} collisionDetection={collision} onDragStart={e=>setDragging(Number(e.active.id))} onDragCancel={()=>setDragging(null)} onDragEnd={event=>{
-        setDragging(null); if(!event.over || event.over.id===event.active.id) return;
+        setDragging(null); if(filtered || query || sort!=="manual" || !event.over || event.over.id===event.active.id) return;
         const ids=items.map(i=>i.id),from=ids.indexOf(Number(event.active.id)),to=ids.indexOf(Number(event.over.id));
         if(from<0 || to<0) return;
         void perform(async()=>{await backend.reorder(shelfId,arrayMove(ids,from,to));await refresh();setMessage("手动顺序已保存，磁盘文件保持不变。");});
       }}>
-        {visible.length?<VirtualFiles items={visible} backend={backend} selected={selected} list={list} size={size} disabled={sort!=="manual" || !!query} bound={!!bound} select={setSelected} inspect={id=>{setSelected(id);setDetails(true);}} open={id=>void open(id)} tag={item=>void tag(item)} remove={id=>void remove(id)}/>:<div className="empty-state"><Folder size={32}/><h2>{query?"没有匹配的文件":bound?"拖入文件，安全复制":"拖入文件，添加引用"}</h2><p>{query?"试试其他名称":bound?"重名自动编号，保留原文件":"保留原文件，或点击右上角添加"}</p>{query && <Button variant="outline" onClick={()=>setQuery("")}>清除搜索</Button>}</div>}
+        {visible.length?<VirtualFiles items={visible} backend={backend} selected={selected} list={list} size={size} disabled={sort!=="manual" || !!query || filtered} bound={!!bound} select={setSelected} inspect={id=>{setSelected(id);setDetails(true);}} open={id=>void open(id)} tag={item=>void tag(item)} remove={id=>void remove(id)}/>:<div className="empty-state"><Folder size={32}/><h2>{query || filtered?"没有匹配的文件":bound?"拖入文件，安全复制":"拖入文件，添加引用"}</h2><p>{filtered?"更改筛选或搜索名称":query?"试试其他名称":bound?"重名自动编号，保留原文件":"保留原文件，或点击右上角添加"}</p>{(query || filtered) && <Button variant="outline" onClick={()=>{setQuery("");setFilters(defaultFilters);}}>{filtered?query?"清除筛选和搜索":"清除筛选":"清除搜索"}</Button>}</div>}
         <DragOverlay>{dragItem && <div className="drag-preview" data-testid="drag-preview"><Thumb item={dragItem} backend={backend} size={45}/><span>{dragItem.name}</span><small>调整引用顺序</small></div>}</DragOverlay>
       </DndContext>}
     </main>{inline && current && <aside className="inspector"><header><h2>文件详情</h2><Button variant="ghost" size="icon" aria-label="关闭详情" onClick={()=>setDetails(false)}><X size={15}/></Button></header>{detail}</aside>}</div>
     {running && <button className="compact-progress" aria-label="查看复制任务" onClick={()=>setTasks(true)}><span>{progress?`复制中 · ${progress.file_index}/${progress.file_count}`:"复制中"}</span><progress aria-label="当前文件复制进度" value={progress?.bytes || 0} max={Math.max(1,progress?.total || 1)}/><span>查看</span></button>}
     <footer className={`file-status ${feedback && !running && !error && !preferenceWarning?"status-toast":"sr-only"}`} role="status">{message}</footer>
+    <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}><SheetContent className="details-sheet" showCloseButton={false}><SheetClose asChild><Button className="sheet-dismiss" variant="ghost" size="icon" aria-label="关闭筛选"><X size={16}/></Button></SheetClose><SheetHeader><SheetTitle>筛选文件</SheetTitle><SheetDescription>仅筛选当前架已有记录，不扫描磁盘</SheetDescription></SheetHeader><div className="filter-form">
+      <label>文件类型<select value={filters.kind} onChange={e=>setFilters(previous=>({...previous,kind:e.target.value}))}><option value="">全部类型</option>{kinds.map(kind=><option key={kind} value={kind}>{kind==="folder"?"文件夹":kind==="file"?"无扩展名或未知":kind==="link"?"链接":kind.toUpperCase()}</option>)}</select></label>
+      <label>标签<select value={filters.tag} onChange={e=>setFilters(previous=>({...previous,tag:e.target.value}))}><option value="">全部标签</option>{tags.map(tag=><option key={tag} value={tag}>{tag}</option>)}</select></label>
+      <label>文件状态<select value={filters.status} onChange={e=>setFilters(previous=>({...previous,status:e.target.value==="normal"?"normal":e.target.value==="issues"?"issues":""}))}><option value="">全部状态</option><option value="normal">正常</option><option value="issues">异常引用</option></select></label>
+      <Button variant="outline" disabled={!filtered} onClick={()=>setFilters(defaultFilters)}>重置筛选</Button><SheetClose asChild><Button>查看结果</Button></SheetClose>
+    </div></SheetContent></Sheet>
     <Sheet open={tasks} onOpenChange={setTasks}><SheetContent className="details-sheet" showCloseButton={false}><SheetClose asChild><Button className="sheet-dismiss" variant="ghost" size="icon" aria-label="关闭复制任务"><X size={16}/></Button></SheetClose><SheetHeader><SheetTitle>复制任务</SheetTitle><SheetDescription>来源保留，失败与中断记录不会自动清理</SheetDescription></SheetHeader><div className="task-list">
       {progress && <div className="copy-progress"><span>{progress.name} · {progress.file_index}/{progress.file_count}</span><progress aria-label="复制任务进度" value={progress.bytes} max={Math.max(1,progress.total)}/><span>{sizes(progress.bytes)} / {sizes(progress.total)}</span></div>}
       {!data.jobs.length && <p className="muted">暂无复制任务</p>}

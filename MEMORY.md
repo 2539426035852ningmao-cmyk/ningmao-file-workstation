@@ -18,13 +18,14 @@
 - #21 默认打开增量已提交 `ccfe586126e60a9d543c28c997d5932a212ecf6b`，18 Rust / 7 浏览器及云端构建通过；r4 候选 CI 提交 `b6ef5b7b24ef43e414fb51d43294deffe19bd2dd` 与其文件树相同，未安装启动。
 - #22 独立紧凑架候选已提交 `cd45b2777555ef37ea96c5358d079704b17b9bec`，18 Rust / 16浏览器和CI通过；r5构建 `6be2d4a2b32087962765579e0712e79b1c773dc5` 文件树相同，未安装启动。[任务与验收边界](docs/tasks/compact-file-shelf.md)保留全部原生检查。
 - #24 / Issue #23 每架视图记忆已提交 `c7aa1bbad5b296d91c7c712530215da9d432929f`，23浏览器/18Rust及云端构建通过；r6候选构建 `6df7813efa0cd60e4de95f1c8c7f78796e0bc7a4` 文件树相同，未安装启动。[任务](docs/tasks/shelf-view-memory.md)保留存储异常与原生重启等边界。
-- 当前 Issue #25 / feat/metadata-sorting 基于 #24：补修改时间、类型、大小显示排序与自然名称；只用现有snapshot元数据，不扫描、不改SQLite顺序。v1设置可读，显式调整写v2，旧版只读保留v2。[任务](docs/tasks/metadata-sorting.md)记录排序规则与回滚/验收。
+- #26 / Issue #25 元数据显示排序已提交 `6c4eeb45fb8348fbd7ed7f4dcde400bd123fc5ee`，27浏览器/18Rust和云端构建通过；r7构建 `178a587cf7ab86ecb4b10f2a157f1ec502087d5a` 文件树相同，未安装启动。v1可读、显式修改写v2，旧版只读保护已验证。[任务](docs/tasks/metadata-sorting.md)。
+- 当前 Issue #27 / feat/shelf-file-filters 基于#26：当前架类型、标签、正常/异常与名称交集筛选，不扫描、不写数据；隐藏的旧选中项不参与Space/Delete，筛选时禁用排序。条件仅内存、切架/重载清除，见[任务](docs/tasks/shelf-file-filters.md)。
 
 ## 完整制作顺序
 
 按 main/roadmap：P0 真实文件基础及精确候选安全验收 → P1 紧凑悬浮文件架 → P2 悬浮球/贴边/Dock/多窗口和管理中心 → P3 局域网后远程 → P4 经授权的 AI/插件。全部 43 项需求保留；不以当前纵向闭环冒充 V0.1 完成。
 
-近期先完成并验收 #21/#22/#24 及 #25 的P1操作闭环，不能凭自动检查跳过精确原生安全门槛。设计建议值仍需验收，禁止混入复制/SQLite/原生拖放重写。
+近期先完成并验收 #21/#22/#24/#26 及 #27 的P1操作闭环，不能凭自动检查跳过精确原生安全门槛。设计建议值仍需验收，禁止混入复制/SQLite/原生拖放重写。
 
 ## 必须一直保留的边界
 

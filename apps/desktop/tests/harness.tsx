@@ -38,7 +38,7 @@ const backend:Backend={
   async topmost(){return true;},async quit(){calls.push("quit");},
   async subscribe(value){events=value;return()=>{};},
 };
-declare global { interface Window { testHarness:{drop:(paths:string[])=>void;hover:(active:boolean)=>void;offline:(id:number)=>void;fail:(message:string)=>void;failNextSnapshot:(message:string)=>void;missing:(id:number)=>void;image:(id:number)=>void;cancelRelocation:()=>void;cancelOpening:()=>void;calls:()=>string[];complete:()=>void} } }
+declare global { interface Window { testHarness:{drop:(paths:string[])=>void;hover:(active:boolean)=>void;offline:(id:number)=>void;fail:(message:string)=>void;failNextSnapshot:(message:string)=>void;missing:(id:number)=>void;image:(id:number)=>void;tags:(id:number,tags:string[])=>Promise<void>;cancelRelocation:()=>void;cancelOpening:()=>void;calls:()=>string[];complete:()=>void} } }
 window.testHarness={
   drop:paths=>events.drop(paths),fail:message=>{fail=message;},
   hover:active=>events.hover(active),offline:id=>{state.shelves.find(s=>s.id===id)!.available=false;save();},
@@ -46,6 +46,7 @@ window.testHarness={
   image:id=>{const value=state.items.find(i=>i.id===id)!;value.name="Alpha.png";value.path="SYNTHETIC/Alpha.png";value.kind="png";save();},
   cancelRelocation:()=>{cancelRelocation=true;},
   cancelOpening:()=>{cancelOpening=true;},
+  tags:(id,tags)=>backend.tags(id,tags),
   failNextSnapshot:message=>{snapshotFailure=message;},
   calls:()=>calls,
   complete:()=>{state.items.push(item(next++,"新增文件 (1).txt",3));state.jobs[0].status="completed";state.jobs[0].message="复制完成；来源保留";save();events.finished(state.jobs[0].message);},
