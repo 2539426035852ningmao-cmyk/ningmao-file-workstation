@@ -32,7 +32,9 @@ r10的Ctrl/Shift/框选和整组Copy、绑定目录3文件复制/重名保护、
 
 ## P2当前实施
 
-最新r13在同一PR #32继续独立文件架拆合、固定窗口归属/局部快照、空主窗新建、逐窗位置/尺寸/置顶/显隐恢复与跨窗视图记忆。写独立v3并保留v1/v2，SQLite仍schema1；受限shelf-*命名空间加Rust登记归属校验，无裸*或新依赖。原生拖入/拖出分别记账，拖放中不拆合/切架/X隐藏/退出。本机61浏览器/31Rust及fmt/Clippy/生产构建/仓库检查通过；云端CI与精确包待收尾，不宣称通过。见docs/stages/P2-detached-shelves.md。新二进制未启动/安装，不继承r10原生结果；全部43项与P0–P4路线保留。以下r12及r11是历史精确候选。
+r13精确候选：功能源码3061d2077a59050eaf6bad643dfbc32869d2a930，CI构建f3212e6a1c6f75bff7373a99561f906fc4548027，完整tree同为461fa002250da7566b37edabbae1c84ee86c08db。61浏览器/31Rust、fmt/Clippy、Windows编译/MSI、双平台仓库检查及本机9文件/8哈希/PE/MSI核验通过。交付名M1-06-preview-package-r13；EXE a7137619ced1e893e1e88931616d1a4a704bb64cf8168b796d6d9a32bdbbc867，MSI 407e1a02aa23c68e7486a57c60f4e98870ea9736aadec438d3c21f83dd8a10ed。精确记录docs/research/P2-detached-shelves-evidence/r13-verification.json。268许可原文缺失0、既有映射警告1，debug未签名、需已有WebView；未启动/安装。P2-acceptance-r3仅Prepare/Verify，5保护对象未变；原生操作仍待用户明确方便。后续文档提交不混用重构建包身份。
+
+最新r13在同一PR #32继续独立文件架拆合、固定窗口归属/局部快照、空主窗新建、逐窗位置/尺寸/置顶/显隐恢复与跨窗视图记忆。写独立v3并保留v1/v2，SQLite仍schema1；受限shelf-*命名空间加Rust登记归属校验，无裸*或新依赖。原生拖入/拖出分别记账，拖放中不拆合/切架/X隐藏/退出。本机61浏览器/31Rust及fmt/Clippy/生产构建/仓库检查通过；云端Windows/MSI、双平台仓库检查及本机精确包核验均已通过。见docs/stages/P2-detached-shelves.md。新二进制未启动/安装，不继承r10原生结果；全部43项与P0–P4路线保留。以下r12及r11是历史精确候选。
 
 r12精确交付：源码cab536baac6bbd6048657f6c81d8ccdb3e6f3a8b，CI构建202e650e28dc1bef2c296d4f5b88befba5cc61e6，完整tree同为a62de247e5786b4417fd3a8ee0a3909b2e800897。58浏览器/27Rust、fmt/Clippy、Windows构建/MSI与双平台仓库检查均通过，本机9文件/8哈希/PE/MSI核验通过；本机交付名M1-06-preview-package-r12。EXE b44a680d81c17afce07047f1721884db14c4b96b068ca735da436563982dae8c，MSI 74f9ea29b6004fa88949367f03b776e6f87f59af74104ed3725bd339a6b57203。精确证据docs/research/P2-management-edge-evidence/r12-verification.json。首轮Linux实际57/58通过，贴边初始断言与导航鼠标时序有关；测试改为加载后移出指针并安排收起fixture后完整通过，没有改产品代码或跳过断言。新候选未启动/安装；P2-acceptance-r2合成材料已Prepare/Verify（5保护对象），未Launch。原生清单仍全部待验，不继承r10结论。
 

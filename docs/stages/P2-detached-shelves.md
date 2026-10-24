@@ -24,6 +24,8 @@ Dock点击和管理中心“打开文件架”按已登记归属打开真实窗�
 
 ## 验证与边界
 
+r13精确功能源码3061d2077a59050eaf6bad643dfbc32869d2a930，CI构建f3212e6a1c6f75bff7373a99561f906fc4548027，完整tree同为461fa002250da7566b37edabbae1c84ee86c08db。云端[Desktop](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/actions/runs/40118543774)、[MSI](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/actions/runs/40118543743)、[Windows/Ubuntu仓库检查](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/actions/runs/40118543530)全部SUCCESS。Artifact12570449176，ZIP SHA256 b7a936e91b64e296169d6fe105d5803b3ead2e2ee9801d036bffe80c4561ab6b；本机r13白名单9文件/8哈希/PE/MSI只读核验通过。EXE18622976字节，SHA256 a7137619ced1e893e1e88931616d1a4a704bb64cf8168b796d6d9a32bdbbc867；MSI6389760字节，SHA256 407e1a02aa23c68e7486a57c60f4e98870ea9736aadec438d3c21f83dd8a10ed。268许可原文缺失0、既有映射警告1；debug未签名、需已有WebView，不是稳定发行。合成P2-acceptance-r3仅Prepare/Verify，5保护对象未变，未Launch。
+
 先新增拆合用例，旧版实际因缺少菜单失败，再实现。当前本机61浏览器、31Rust（另2受控fixture按原设计忽略）、fmt/Clippy、生产构建和仓库检查通过；云端Windows/MSI与精确产物记录见证据。第一轮浏览器57/59通过，两个旧测试把重载后固定回第一个架当成前提；测试改为核对真实恢复的当前架，再明确切架检查原有排序/筛选断言，没有跳过或增设重试。新增回归覆盖全部拆出、空主窗新建、失败保留、独立快照、跨架引用和多窗设置。
 
 以下为无头浏览器中合成数据的画面，不证明真实原生窗口已经打开：

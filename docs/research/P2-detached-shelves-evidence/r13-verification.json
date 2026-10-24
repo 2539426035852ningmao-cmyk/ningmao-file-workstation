@@ -1,18 +1,121 @@
 {
-  "candidate": "r13",
-  "stage": "P2",
+  "schema": 1,
   "date": "2026-10-25",
-  "status": "LOCAL_CHECKS_PASSED_CLOUD_AND_PACKAGE_PENDING",
-  "browser_passed": 61,
-  "rust_passed": 31,
-  "rust_ignored_controlled_fixtures": 2,
-  "format_clippy_production_build": "PASSED",
-  "native_execution": "NOT_RUN",
-  "msi_installation": "NOT_RUN",
-  "gemini_model_requests": 0,
-  "notes": [
-    "Native multi-window, OLE, DPI and monitor recovery need exact candidate acceptance.",
-    "Screenshots contain synthetic data from the headless browser harness.",
-    "Source, CI checkout and artifact identity will be recorded after cloud completion."
-  ]
+  "candidate": "r13",
+  "sourceCommit": "3061d2077a59050eaf6bad643dfbc32869d2a930",
+  "ciMergeCommit": "f3212e6a1c6f75bff7373a99561f906fc4548027",
+  "sourceTree": "461fa002250da7566b37edabbae1c84ee86c08db",
+  "appTree": "d32c4121cf301657c4de0ff2ed435f3bd4d8fe2d",
+  "sourceAndCiEntireTreeEqual": true,
+  "checks": {
+    "browserPassed": 61,
+    "rustPassed": 31,
+    "rustFixturesIgnored": 2,
+    "fmt": "PASS",
+    "clippy": "PASS",
+    "windowsNativeBuild": "PASS",
+    "repositoryWindows": "PASS",
+    "repositoryUbuntu": "PASS",
+    "msiReadOnly": "PASS"
+  },
+  "runs": {
+    "desktop": 40118543774,
+    "package": 40118543743,
+    "repository": 40118543530
+  },
+  "regressions": [
+    {
+      "case": "Prior reload tests assumed first shelf instead of the restored active shelf",
+      "initialLocalPassed": 57,
+      "initialLocalFailed": 2,
+      "resolution": "Assert the restored current shelf, then explicitly switch to keep all sorting/filter assertions; no skips/retries"
+    },
+    {
+      "case": "Focus/storage refresh discarded a temporary view when saving was denied",
+      "redVerified": true,
+      "resolution": "Keep unsaved per-shelf views in memory while merging other windows' stored settings; focused ten-test suite passed",
+      "supersededSource": "1497aea9d0c9022f9b0817564b3803afacd2ab32",
+      "supersededRunsCancelled": [
+        40118339409,
+        40118339374
+      ]
+    }
+  ],
+  "signed": false,
+  "profile": "debug",
+  "installed": false,
+  "launched": false,
+  "nativeAcceptance": "NOT RUN",
+  "syntheticProtectedFiles": 5,
+  "syntheticFilesUnchanged": true,
+  "geminiCalls": 0,
+  "remaining": [
+    "native independent-window OLE/detach/merge/close/restart verification",
+    "automatic edge snapping and configurable global shortcut",
+    "real-time monitor topology handling",
+    "Windows10/mixed DPI/multi-monitor and installation matrix",
+    "large metadata/native resource measurements and management multimedia preview"
+  ],
+  "artifact": {
+    "id": 12570449176,
+    "zipSha256": "b7a936e91b64e296169d6fe105d5803b3ead2e2ee9801d036bffe80c4561ab6b",
+    "zipBytes": 12479864,
+    "retentionDays": 7,
+    "whitelistedFiles": 9,
+    "sha256FilesVerified": 8
+  },
+  "files": [
+    {
+      "name": "build-manifest.json",
+      "bytes": 471,
+      "sha256": "f9e19b217bd5a9fed8c406bc9f907a65202be6e5493b762f3b2b3143569e08d3"
+    },
+    {
+      "name": "license-manifest.json",
+      "bytes": 122632,
+      "sha256": "4ab429897836faa2495f0fd66d20ad705d09f481deed93ca6d071592f64ed36f"
+    },
+    {
+      "name": "LICENSE.txt",
+      "bytes": 11357,
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "name": "msi-inspection.json",
+      "bytes": 9434,
+      "sha256": "9ddf3fe2a3f3b946b06ee5d9ce6c2bd9d5f49be22fd7f747b48bb7010b5741c8"
+    },
+    {
+      "name": "Ningmao-Preview-0.1.0-x64.exe",
+      "bytes": 18622976,
+      "sha256": "a7137619ced1e893e1e88931616d1a4a704bb64cf8168b796d6d9a32bdbbc867"
+    },
+    {
+      "name": "Ningmao-Preview-0.1.0-x64.msi",
+      "bytes": 6389760,
+      "sha256": "407e1a02aa23c68e7486a57c60f4e98870ea9736aadec438d3c21f83dd8a10ed"
+    },
+    {
+      "name": "README.md",
+      "bytes": 3789,
+      "sha256": "f0fcf5c39816bafa6fc56688b5f04dad0a9a647910d7cd1661fff579550dbf2f"
+    },
+    {
+      "name": "THIRD_PARTY_NOTICES.txt",
+      "bytes": 3480905,
+      "sha256": "8e169fb0809053f18490891095d9df548f2fd1dc5a3a3c940ad7ec5cf788cf6e"
+    }
+  ],
+  "license": {
+    "records": 268,
+    "missingTexts": 0,
+    "existingMappingWarnings": 1
+  },
+  "packageInspection": {
+    "architecture": "PE32+ x64",
+    "version": "0.1.0",
+    "embeddedPayloadSizesMatch": true,
+    "savedInspectionMatches": true,
+    "filesUnchangedAfterInspection": true
+  }
 }
