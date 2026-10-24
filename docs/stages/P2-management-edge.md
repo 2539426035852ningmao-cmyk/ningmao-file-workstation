@@ -1,6 +1,6 @@
 # P2 · 按需管理中心与贴边入口（r12）
 
-2026-10-25。沿用PR #32 / feat/p2-desktop-loop，不新建零碎PR。扩展r11，保留r10/r11及其精确证据。源码与无头验证完成，Windows原生体验另验；完整P2仍未完成。
+2026-10-25。沿用PR #32 / feat/p2-desktop-loop，不新建零碎PR。扩展r11，保留r10/r11及其精确证据。源码、58浏览器/27Rust、Windows构建/MSI及本机包只读核验通过，Windows原生体验另验；完整P2仍未完成。[r12精确来源/CI/产物证据](../research/P2-management-edge-evidence/r12-verification.json)。
 
 ## 实际能力与复用
 
@@ -20,7 +20,7 @@ desktop-layout-v2.json保存设置与原有架/位置状态；首次读取v1后�
 
 ## 验证与边界
 
-先补功能测试，旧版实际因缺少管理中心入口失败，再实现。58浏览器回归、本机Rust新增与既有专项、fmt/Clippy及生产构建通过；云端完整检查与EXE/MSI身份在构建完成后记录。以下为无头测试工具中的合成数据画面，不能证明原生窗口已打开：
+先补功能测试，旧版实际因缺少管理中心入口失败，再实现。58浏览器、27Rust、fmt/Clippy、生产构建、Windows编译、MSI与双平台仓库检查通过；本机9文件白名单/8哈希/PE/MSI核验通过，未启动/安装。首轮Linux57项通过、贴边初态断言失败；修改测试为导航后移出指针、显式安排收起fixture再hover，保留全部断言且未改产品代码，随后58项完整通过。失败运行40113284086与修复后的运行均保留，未以重试或跳过掩盖。以下为无头测试工具中的合成数据画面，不能证明原生窗口已打开：
 
 ![管理中心素材，1040×720深色](../research/P2-management-edge-evidence/manager-assets-dark.png)
 ![管理中心设置，760×520浅色](../research/P2-management-edge-evidence/manager-settings-light.png)

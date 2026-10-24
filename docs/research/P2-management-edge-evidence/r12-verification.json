@@ -1,0 +1,105 @@
+{
+  "schema": 1,
+  "date": "2026-10-25",
+  "candidate": "r12",
+  "sourceCommit": "cab536baac6bbd6048657f6c81d8ccdb3e6f3a8b",
+  "ciMergeCommit": "202e650e28dc1bef2c296d4f5b88befba5cc61e6",
+  "sourceTree": "a62de247e5786b4417fd3a8ee0a3909b2e800897",
+  "appTree": "10624e95a4100fd1a4b9f7fe8c9d7381caf27e77",
+  "sourceAndCiEntireTreeEqual": true,
+  "checks": {
+    "browserPassed": 58,
+    "rustPassed": 27,
+    "rustFixturesIgnored": 2,
+    "fmt": "PASS",
+    "clippy": "PASS",
+    "windowsNativeBuild": "PASS",
+    "repositoryWindows": "PASS",
+    "repositoryUbuntu": "PASS",
+    "msiReadOnly": "PASS"
+  },
+  "runs": {
+    "desktop": 40113894571,
+    "package": 40113894705,
+    "repository": 40113893359
+  },
+  "firstBrowserFailure": {
+    "run": 40113284086,
+    "source": "6cbc609969628877744609b791ba76bb01c12c3e",
+    "passed": 57,
+    "failed": 1,
+    "case": "Edge handle initial folded-state assertion",
+    "resolution": "Arrange pointer outside and explicit folded native fixture after navigation; retain all hover/pagination assertions, no retries/skips",
+    "productionSourcesChangedByTestFix": false
+  },
+  "artifact": {
+    "id": 12567981731,
+    "zipSha256": "1ebc442c3dd8cff1494cdb9962862d7384e9409acd3974e81c8bc22f937e5b00",
+    "retentionDays": 7,
+    "whitelistedFiles": 9,
+    "sha256FilesVerified": 8
+  },
+  "files": [
+    {
+      "name": "build-manifest.json",
+      "bytes": 471,
+      "sha256": "1d0996b095c762bdffa2d6a8cbea55392fc17df767c0d4b94d7261add7576090"
+    },
+    {
+      "name": "license-manifest.json",
+      "bytes": 122632,
+      "sha256": "4ab429897836faa2495f0fd66d20ad705d09f481deed93ca6d071592f64ed36f"
+    },
+    {
+      "name": "LICENSE.txt",
+      "bytes": 11357,
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "name": "msi-inspection.json",
+      "bytes": 9434,
+      "sha256": "5abcbe3fe0f2f68d72363270913f0dbce761568b39dba6e65d1f1119aaa58bcd"
+    },
+    {
+      "name": "Ningmao-Preview-0.1.0-x64.exe",
+      "bytes": 18311168,
+      "sha256": "b44a680d81c17afce07047f1721884db14c4b96b068ca735da436563982dae8c"
+    },
+    {
+      "name": "Ningmao-Preview-0.1.0-x64.msi",
+      "bytes": 6295552,
+      "sha256": "74f9ea29b6004fa88949367f03b776e6f87f59af74104ed3725bd339a6b57203"
+    },
+    {
+      "name": "README.md",
+      "bytes": 3789,
+      "sha256": "f0fcf5c39816bafa6fc56688b5f04dad0a9a647910d7cd1661fff579550dbf2f"
+    },
+    {
+      "name": "THIRD_PARTY_NOTICES.txt",
+      "bytes": 3480905,
+      "sha256": "8e169fb0809053f18490891095d9df548f2fd1dc5a3a3c940ad7ec5cf788cf6e"
+    }
+  ],
+  "license": {
+    "records": 268,
+    "missingTexts": 0,
+    "existingMappingWarnings": 1
+  },
+  "signed": false,
+  "profile": "debug",
+  "installed": false,
+  "launched": false,
+  "nativeAcceptance": "NOT RUN",
+  "syntheticProtectedFiles": 5,
+  "syntheticFilesUnchanged": true,
+  "geminiCalls": 0,
+  "remaining": [
+    "native edge hover/OLE/close/restart verification",
+    "independent shelf windows and detach/merge",
+    "automatic edge snapping and per-shelf monitor/position layout",
+    "real-time monitor topology and global shortcut",
+    "Windows10/mixed DPI/multi-monitor and installation matrix",
+    "large metadata and native resource measurements"
+  ]
+}

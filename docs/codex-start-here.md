@@ -16,7 +16,7 @@ P0/P1 r10精确源码8ad5760279e43ba3ab306f49fa8cdbc6f0b87ade，构建779c36c11e
 
 ## 当前开发与完整线路
 
-P2独立分支以76658ecc为基线，继续使用PR #32。r11源码2175ef1与精确包已通过48浏览器/22Rust/Windows/MSI及本机只读核验，保留为历史候选。最新r12新增按需manager窗口、SQL元数据检索/详情/批量标签/任务取消/桌面设置、左右贴边细柄与鼠标唤出/延迟收起、入口置顶/复制状态点和主题同步；v1原件保留、只写v2。58浏览器、本机Rust专项与fmt/Clippy通过，云端精确包另核验；新二进制未启动/安装，不能继承r10结果。多架独立窗口、拆合、全局快捷键与真实DPI/断屏仍待完成，不称完整P2通过。见[P2本轮说明](stages/P2-management-edge.md)、[P2入口](stages/P2-development-entry.md)及[r11证据](research/P2-first-loop-evidence/r11-verification.json)。
+P2独立分支以76658ecc为基线，继续使用PR #32。r11源码2175ef1与精确包已通过48浏览器/22Rust/Windows/MSI及本机只读核验，保留为历史候选。最新r12新增按需manager窗口、SQL元数据检索/详情/批量标签/任务取消/桌面设置、左右贴边细柄与鼠标唤出/延迟收起、入口置顶/复制状态点和主题同步；v1原件保留、只写v2。58浏览器/27Rust、fmt/Clippy、Windows编译/MSI与双平台仓库检查及本机包核验通过，精确记录见research/P2-management-edge-evidence/r12-verification.json；新二进制未启动/安装，不能继承r10结果。多架独立窗口、拆合、全局快捷键与真实DPI/断屏仍待完成，不称完整P2通过。见[P2本轮说明](stages/P2-management-edge.md)、[P2入口](stages/P2-development-entry.md)及[r11证据](research/P2-first-loop-evidence/r11-verification.json)。
 
 继续顺序：P0/P1正式验收与批准独立保留 → P2补齐桌面闭环和管理中心，并集中验收精确新包 → P3先LAN双设备接收确认/受保护字节传输/冲突失败进度/哈希一致，再远程/同步 → P4先授权范围内本地跨架元数据检索，再可选AI建议与操作预览/确认/恢复。全部43项、设计合同和用户操作习惯保留，不用未来接口和模拟数据冒充交付。
 
