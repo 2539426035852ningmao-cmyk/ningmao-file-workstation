@@ -616,12 +616,8 @@ pub fn run() {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
                 if window.label() == "main" {
-                    let app = window.app_handle();
-                    if let Ok(id) = desktop_runtime::active_shelf(app)
-                        && let Err(e) = desktop_runtime::collapse(app, id)
-                    {
-                        let _ = app.emit("desktop-error", e);
-                    }
+                    // Frozen decision 19: X hides to tray. Only explicit collapse creates an orb.
+                    let _ = window.hide();
                 }
             } else if let tauri::WindowEvent::Moved(position) = event
                 && window.label() == "desktop-entry"

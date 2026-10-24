@@ -65,7 +65,7 @@ export const nativeBackend: Backend = {
       cleanups.push(await listen<number>("desktop-activate-shelf",event=>events.activate?.(event.payload)));
       cleanups.push(await listen<DesktopView>("desktop-updated",event=>events.desktop?.(event.payload)));
       cleanups.push(await listen<string>("desktop-error",event=>events.error?.(event.payload)));
-      cleanups.push(await listen<string>("desktop-imported",event=>{events.finished(event.payload);events.changed?.();}));
+      cleanups.push(await listen<string>("desktop-imported",event=>events.finished(event.payload)));
       cleanups.push(await listen("workstation-changed",()=>events.changed?.()));
       return () => cleanups.forEach(fn => fn());
     } catch (error) { cleanups.forEach(fn => fn()); throw error; }
