@@ -2,7 +2,9 @@
 
 本页只补充当前候选的实施状态。产品设计以默认分支的 [根目录 design.md](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/blob/main/design.md) 为准，制作顺序见 [roadmap.md](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/blob/main/docs/roadmap.md)；旧候选分支缺少这些文件时先读取 main，不能另建冲突规范。建议尺寸与最终视觉仍待验收。
 
-交互沿用冻结第 6 项：单击选中，空格预览，双击系统默认程序打开；详情从显式按钮或右键进入。当前修复不改变窗口布局、不批准最终视觉方案。
+交互沿用冻结第 6 项：单击选中，空格预览，双击系统默认程序打开；详情从显式按钮或右键进入。上一增量 #21 仅修复该交互；紧凑布局由下述独立候选承载，最终视觉仍待验收。
+
+Issue #15 的独立紧凑候选在 #21 基础上实现单行顶栏和按需操作；只有预览配置采用 420×520 / 最小340×320，正式窗口参数尚未改动。根规范建议值不因实现候选自动转为批准；三尺寸深浅、任务和错误状态证据见 docs/tasks/compact-file-shelf.md。Rust/SQLite/Copy 语义保持，用户方便时集中原生验收。
 
 模式：Operate。用户已验收 M1-03，并于 2026-10-23 授权按照推荐方案继续。
 

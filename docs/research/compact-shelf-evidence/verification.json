@@ -1,0 +1,136 @@
+{
+  "schema": 1,
+  "date": "2026-10-24",
+  "baseSource": "ccfe586126e60a9d543c28c997d5932a212ecf6b",
+  "branch": "feat/compact-file-shelf",
+  "safetyBackendAndLocksUnchanged": true,
+  "visualReviewRounds": 2,
+  "visualVerdict": "Compact prototype ready for user review; final direction and native acceptance pending",
+  "metrics": [
+    {
+      "file": "dark-340.json",
+      "viewport": {
+        "width": 340,
+        "height": 320
+      },
+      "fileHeight": 246,
+      "headerHeight": 44,
+      "columns": 2,
+      "horizontalOverflow": false,
+      "filenameFont": "13px"
+    },
+    {
+      "file": "dark-420.json",
+      "viewport": {
+        "width": 420,
+        "height": 520
+      },
+      "fileHeight": 446,
+      "headerHeight": 44,
+      "columns": 3,
+      "horizontalOverflow": false,
+      "filenameFont": "13px"
+    },
+    {
+      "file": "dark-640.json",
+      "viewport": {
+        "width": 640,
+        "height": 720
+      },
+      "fileHeight": 646,
+      "headerHeight": 44,
+      "columns": 5,
+      "horizontalOverflow": false,
+      "filenameFont": "13px"
+    },
+    {
+      "file": "light-340.json",
+      "viewport": {
+        "width": 340,
+        "height": 320
+      },
+      "fileHeight": 246,
+      "headerHeight": 44,
+      "columns": 2,
+      "horizontalOverflow": false,
+      "filenameFont": "13px"
+    },
+    {
+      "file": "light-420.json",
+      "viewport": {
+        "width": 420,
+        "height": 520
+      },
+      "fileHeight": 446,
+      "headerHeight": 44,
+      "columns": 3,
+      "horizontalOverflow": false,
+      "filenameFont": "13px"
+    },
+    {
+      "file": "light-640.json",
+      "viewport": {
+        "width": 640,
+        "height": 720
+      },
+      "fileHeight": 646,
+      "headerHeight": 44,
+      "columns": 5,
+      "horizontalOverflow": false,
+      "filenameFont": "13px"
+    }
+  ],
+  "screenshots": [
+    {
+      "file": "copy-340.png",
+      "sha256": "237efcb55d69c61ab4ba58fb5367ba3d63899559ddd54680e1fb3597942b3417"
+    },
+    {
+      "file": "dark-340.png",
+      "sha256": "5beead15d50fb0eff55401e86f3a2e17f20c1a7390b9dda4aec439d3dc579cf1"
+    },
+    {
+      "file": "dark-420.png",
+      "sha256": "e3e36f2cd9ccec6e4afdcbf82aabc10a64a36ea4762c76e6dfdb4fadd9cd175e"
+    },
+    {
+      "file": "dark-640.png",
+      "sha256": "152001a2638742e8448be5e57db2464591092c886a6822ab44f65920d808bb5f"
+    },
+    {
+      "file": "error-340.png",
+      "sha256": "1c2914183b28eaf1979fe2aa2ad56ec4343cb57ecc983ce16e7f3a636ebaab32"
+    },
+    {
+      "file": "light-340.png",
+      "sha256": "3df888e2e8e198d3a87ae750f7dd4c01e0c2327a20062620f777385240a24cc9"
+    },
+    {
+      "file": "light-420.png",
+      "sha256": "21db22398ad1555b78cdc39aa644d447d60ff3d38cd1ccecd89340bdb3ff9a0e"
+    },
+    {
+      "file": "light-640.png",
+      "sha256": "06a87e98ceca63a9ff0c301837559c744a9f089fa48636198771f2907278ebf6"
+    },
+    {
+      "file": "menu-340.png",
+      "sha256": "74f23e6c7d68976b08a710b5808921cdb51df2557a67a0bb6508a480674bc074"
+    },
+    {
+      "file": "offline-error-340.png",
+      "sha256": "13ad30dce602d7c9d8fa01f598edaab3256f8d74714c437ba46dab3fd0482ee1"
+    },
+    {
+      "file": "search-empty-420.png",
+      "sha256": "b65b33b6d307c92db3ad4e104499bcacae2c6fde008da8be5441e44b80d23eda"
+    },
+    {
+      "file": "tasks-340.png",
+      "sha256": "bf2749845d360e400020754e8ffef80934b581610efa7e12809497e910ec30e3"
+    }
+  ],
+  "automated": "16 browser regressions passed before final toast visibility guard; focused guard regression passed after repair. Final full-suite Windows and browser results recorded on PR/Issue.",
+  "native": "Not launched, installed or manually accepted. Browser viewport/reduced-motion checks are not Windows DPI or OLE evidence.",
+  "gemini": "Not called; issue 17 remains blocked"
+}

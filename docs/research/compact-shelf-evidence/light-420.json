@@ -1,0 +1,11 @@
+{
+  "viewport": {
+    "width": 420,
+    "height": 520
+  },
+  "fileHeight": 446,
+  "headerHeight": 44,
+  "columns": 3,
+  "horizontalOverflow": false,
+  "filenameFont": "13px"
+}

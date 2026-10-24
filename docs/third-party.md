@@ -4,6 +4,8 @@
 
 ## 2026-10-24 系统默认打开
 
+同日紧凑架候选只新增原生 Radix DropdownMenu 的薄组合层，复用已安装 radix-ui 1.8.1 / @radix-ui/react-dropdown-menu 2.2.1，MIT 文本已在既有许可归集中，无新增包或锁文件变化。只读研究 [上游实现](https://github.com/radix-ui/primitives/blob/main/packages/react/dropdown-menu/src/dropdown-menu.tsx) blob `5af14f488d45052979625b1c8c69cb8981a91a77`，用于确认 Root/Trigger/Portal/Content 与键盘接口；不复制该源码、不将 main blob 冒充 npm 2.2.1 发布提交。shadcn/SpaceUI 原始组件不改，仅在应用中组合并提供中文关闭按钮；不增加另一套主题。
+
 - 新增直接依赖 [open 5.4.5](https://github.com/Byron/open-rs/tree/v5.4.5)，精确版本及校验和写入 Cargo.lock，MIT；保留 Sebastian Thiel 版权及完整 [许可证](../licenses/open-rs-MIT.txt)。不复制或修改库源码，没有额外 NOTICE 要求；实际分发仍由许可归集清单覆盖。
 - 发布包 .cargo_vcs_info.json 指向 `a60a9d508e24417d62e924fb133aaeec0e96f222`。本机包 src/windows.rs、src/lib.rs、LICENSE.md 与 GitHub v5.4.5 tag 的 Git blob 分别核对一致：`1597d3896eead576f6c9c2b89960c4789b7c6eaf`、`1bd29bbb99bb962f77f676a7e2c5d8ad0bd76b9c`、`17daa1e3b39831093699020febfe1411247fa519`。
 - 官方 [tauri-plugin-opener 2.7.2](https://github.com/tauri-apps/plugins-workspace/blob/opener-v2.7.2/plugins/opener/Cargo.toml) 同样复用 open 5 + shellexecute-on-windows；本工程只需要受 ID 约束的后端命令，因此直接复用底层库，避免增加完整插件/前端任意路径权限。启用 Windows ShellExecuteExW 路径，禁用 insecure，未提供自定义程序或 URL 接口。

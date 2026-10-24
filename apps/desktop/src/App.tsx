@@ -3,13 +3,14 @@ import { DndContext, DragOverlay, KeyboardSensor, PointerSensor, closestCenter, 
 import { SortableContext, rectSortingStrategy, sortableKeyboardCoordinates, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Archive, ArrowDownToLine, File, Folder, FolderPlus, GripVertical, Grid2X2, Info, List, Moon, Pin, Plus, RefreshCw, Search, Star, Sun, X } from "lucide-react";
+import { Archive, ArrowDownToLine, Check, ChevronDown, File, Folder, FolderPlus, GripVertical, Grid2X2, Info, List, Moon, MoreHorizontal, Pin, Plus, RefreshCw, Search, Star, Sun, X } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Badge } from "./components/ui/badge";
-import { Tabs, TabsList, TabsTrigger } from "./components/ui/tabs";
+import { DropdownMenu } from "radix-ui";
+import { ShelfMenu } from "./components/ShelfMenu";
 import { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem, ContextMenuSeparator } from "./components/ui/context-menu";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "./components/ui/sheet";
+import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "./components/ui/sheet";
 import { FileThumb } from "./components/spaceui/FileThumb";
 import type { Backend, Item, Progress, Snapshot } from "./backend";
 
@@ -59,14 +60,18 @@ function VirtualFiles(props:{items:Item[];backend:Backend;selected:number|null;l
   const scroll=useRef<HTMLDivElement>(null);
   const [width,setWidth]=useState(600);
   useEffect(()=>{ const observer=new ResizeObserver(entries=>setWidth(entries[0].contentRect.width)); if(scroll.current) observer.observe(scroll.current); return ()=>observer.disconnect(); },[]);
-  const columns=props.list?1:Math.max(1,Math.floor(width/(props.size+64)));
-  const virtual=useVirtualizer({count:Math.ceil(props.items.length/columns),getScrollElement:()=>scroll.current,estimateSize:()=>props.list?50:props.size+104,overscan:2,useFlushSync:false});
+  const columns=props.list?1:Math.max(1,Math.floor(width/(props.size+40)));
+  const virtual=useVirtualizer({count:Math.ceil(props.items.length/columns),getScrollElement:()=>scroll.current,estimateSize:()=>props.list?44:props.size+80,overscan:2,useFlushSync:false});
+  useEffect(()=>virtual.measure(),[virtual,props.list,props.size,columns]);
   return <SortableContext items={props.items.map(i=>i.id)} strategy={rectSortingStrategy}><div ref={scroll} className="file-scroll" data-testid="file-scroll" tabIndex={0} aria-label="文件内容"><div className="virtual-space" style={{height:virtual.getTotalSize()}}>{virtual.getVirtualItems().map(row=><div className="virtual-row" key={row.key} style={{transform:`translateY(${row.start}px)`,height:row.size,gridTemplateColumns:`repeat(${columns},minmax(0,1fr))`}}>
     {props.items.slice(row.index*columns,(row.index+1)*columns).map(item=><Asset key={item.id} item={item} backend={props.backend} list={props.list} size={props.size} selected={item.id===props.selected} disabled={props.disabled} bound={props.bound} select={()=>props.select(item.id)} inspect={()=>props.inspect(item.id)} open={()=>props.open(item.id)} tag={()=>props.tag(item)} remove={()=>props.remove(item.id)}/>)}
   </div>)}</div></div></SortableContext>;
 }
 export default function App({backend,native}:{backend:Backend;native:boolean}) {
   const [data,setData]=useState<Snapshot>(blank),[shelfId,setShelfId]=useState(1),[selected,setSelected]=useState<number|null>(null);
+  const [searchOpen,setSearchOpen]=useState(false);
+  const searchInput=useRef<HTMLInputElement>(null),searchButton=useRef<HTMLButtonElement>(null);
+  const [feedback,setFeedback]=useState(false);
   const [query,setQuery]=useState(""),[sort,setSort]=useState("manual"),[list,setList]=useState(false),[size,setSize]=useState(80);
   const [theme,setTheme]=useState(()=>localStorage.getItem("ningmao-theme") || "dark");
   const [details,setDetails]=useState(false),[preview,setPreview]=useState(false),[width,setWidth]=useState(innerWidth),[detailPinned,setDetailPinned]=useState(false);
@@ -84,7 +89,7 @@ export default function App({backend,native}:{backend:Backend;native:boolean}) {
   const running=data.jobs.find(j=>activeStatus(j.status));
   const inline=details && detailPinned && width>=1000;
   async function refresh() { const value=await backend.snapshot(); setData(value); return value; }
-  function switchShelf(id:number) { setShelfId(id); setSelected(null); setQuery(""); setDetails(false); setPreview(false); }
+  function switchShelf(id:number) { setShelfId(id); setSelected(null); setQuery(""); setSearchOpen(false); setDetails(false); setPreview(false); }
   async function perform(action:()=>Promise<unknown>) { setError(""); try { await action(); } catch(e) { setError(String(e)); } }
   async function open(id:number) {
     setSelected(id);
@@ -99,7 +104,6 @@ export default function App({backend,native}:{backend:Backend;native:boolean}) {
       const result=await backend.importPaths(activeShelf.current,paths);
       setMessage(result.job_id ? "复制任务已开始；来源保留。" : `已处理 ${result.added} 项引用；原文件保持不变。`);
       if(result.errors.length) setError(result.errors.join("；"));
-      if(result.job_id) setTasks(true);
       await refresh();
     } catch(e) { setError(String(e)); } finally { setBusy(false); }
   }
@@ -130,6 +134,17 @@ export default function App({backend,native}:{backend:Backend;native:boolean}) {
     };
     window.addEventListener("keydown",fn);return()=>window.removeEventListener("keydown",fn);
   },[selected,bound,backend]);
+  useEffect(()=>{if(searchOpen)searchInput.current?.focus();},[searchOpen]);
+  useEffect(()=>{
+    if(message==="文件架已恢复。" || message==="正在恢复文件架…")return;
+    setFeedback(true);const timer=setTimeout(()=>setFeedback(false),4500);return()=>clearTimeout(timer);
+  },[message]);
+  function closeSearch(){setQuery("");setSearchOpen(false);requestAnimationFrame(()=>searchButton.current?.focus());}
+  useEffect(()=>{
+    const fn=(e:KeyboardEvent)=>{if(e.isComposing || e.defaultPrevented || (e.target instanceof HTMLElement && e.target.closest('[role="dialog"],[role="menu"]')))return;
+      if((e.ctrlKey || e.metaKey) && e.key.toLowerCase()==="f"){e.preventDefault();setSearchOpen(true);searchInput.current?.focus();}
+    };window.addEventListener("keydown",fn);return()=>window.removeEventListener("keydown",fn);
+  },[]);
   async function tag(item:Item) { await perform(async()=>{await backend.tags(item.id,item.tags.includes("精选")?item.tags.filter(t=>t!=="精选"):[...item.tags,"精选"]);await refresh();}); }
   async function remove(id:number) { await perform(async()=>{await backend.remove(id);setSelected(null);setDetails(false);await refresh();setMessage("已移除引用，原文件保留。");}); }
   useEffect(()=>setRepairFeedback(null),[selected,shelfId]);
@@ -148,7 +163,7 @@ export default function App({backend,native}:{backend:Backend;native:boolean}) {
     }
     finally {setBusy(false);}
   }
-  const detail=current && <div className="file-details"><div className="detail-preview"><Thumb item={current} backend={backend} size={preview?260:180}/></div><h3>{current.name}</h3>
+  const detail=current && <div className="file-details"><div className="detail-preview"><Thumb item={current} backend={backend} size={preview?220:160}/></div><h3>{current.name}</h3>
     <Badge variant="secondary">{states[current.status] || current.status}</Badge><dl><dt>原始路径</dt><dd>{current.path}</dd><dt>类型</dt><dd>{current.kind.toUpperCase()}</dd><dt>大小</dt><dd>{sizes(current.bytes)}</dd><dt>修改日期</dt><dd>{current.modified?new Date(current.modified*1000).toLocaleString():"不可用"}</dd><dt>标签</dt><dd>{current.tags.join("、") || "无"}</dd></dl>
     {current.status!=="normal" && <p>{bound?"记录与标签已保留，请恢复绑定目录后刷新；这里不会更改目录绑定。":"记录与标签已保留。恢复原路径后刷新，或手动重新定位；不会自动扫描磁盘。"}</p>}
     {!bound && ["missing","unreadable"].includes(current.status) && <section className="reference-repair" aria-label="重新定位失效引用" aria-busy={busy}>
@@ -158,23 +173,30 @@ export default function App({backend,native}:{backend:Backend;native:boolean}) {
     </section>}
     <Button variant="outline" onClick={()=>void tag(current)}><Star size={14}/>切换精选标签</Button><p className="muted">图片预览按需加载 PNG / JPEG / WebP；其他类型保留图标。</p></div>;
   return <div className={`workstation ${hover?"drop-active":""}`}>
-    <header className="appbar"><div className="brand"><Archive size={21}/><strong>柠猫文件工作站</strong><span>M1-05 候选</span></div><div className="appbar-actions">
-      <Button variant="ghost" size="icon" aria-label={theme==="dark"?"切换浅色主题":"切换深色主题"} onClick={()=>setTheme(theme==="dark"?"light":"dark")}>{theme==="dark"?<Sun size={17}/>:<Moon size={17}/>}</Button>
-      <Button variant="ghost" size="icon" disabled={!native} aria-label="窗口置顶" aria-pressed={topmost} onClick={()=>void perform(async()=>setTopmost(await backend.topmost()))}><Pin size={17}/></Button>
-      <Button variant="ghost" disabled={!native} onClick={()=>void perform(()=>backend.quit())}>完整退出</Button>
-    </div></header>
-    <div className="shelf-bar"><Tabs value={String(shelfId)} onValueChange={value=>switchShelf(Number(value))}><TabsList>{data.shelves.map(s=><TabsTrigger key={s.id} value={String(s.id)}>{s.kind==="bound"?<Folder size={14}/>:<Archive size={14}/>}<span>{s.name}</span></TabsTrigger>)}</TabsList></Tabs>
-      <Button variant="outline" disabled={!native || busy || !!running} onClick={()=>void perform(async()=>{const id=await backend.chooseFolder();await refresh();if(id) switchShelf(id);})}><FolderPlus size={15}/>绑定文件夹</Button></div>
-    <section className="content-heading"><div><h1>{shelf?.name || "文件架"}</h1><p>{bound?"复制到绑定目录 · 保留来源":shelf?.kind==="session"?"本次中转 · 完整退出后只清空引用":"持久收集 · 仅保存引用"}<span>{visible.length} 项</span></p></div><label className="search-box"><Search size={16}/><Input aria-label="搜索文件" placeholder="搜索文件名称…" value={query} onChange={e=>setQuery(e.target.value)}/></label></section>
-    {bound && <div className="bound-path" title={shelf.root || ""}>{shelf.available?shelf.root:"绑定目录离线或不可读；保留原记录，请恢复目录后刷新。"}</div>}
-    <div className="toolbar"><div className="view-controls"><Button variant="outline" disabled={!native || busy || !!running} onClick={()=>void perform(async()=>receive(await backend.chooseFiles()))}><Plus size={15}/>{bound?"添加并复制":"添加引用"}</Button>
-      <Button variant="ghost" size="icon" aria-label="刷新文件状态" disabled={loading} onClick={()=>void perform(async()=>{await refresh();setMessage("已刷新文件状态。");})}><RefreshCw size={16}/></Button>
-      <Button variant="ghost" size="icon" aria-label="网格视图" aria-pressed={!list} onClick={()=>setList(false)}><Grid2X2 size={16}/></Button>
-      <Button variant="ghost" size="icon" aria-label="详细列表" aria-pressed={list} onClick={()=>setList(true)}><List size={16}/></Button>
-      <select aria-label="排序方式" value={sort} onChange={e=>setSort(e.target.value)}><option value="manual">手动顺序</option><option value="name">名称排序</option></select>
-      {!list && <input className="size-control" aria-label="缩略图大小" type="range" min="60" max="120" step="10" value={size} onChange={e=>setSize(Number(e.target.value))}/>}
-    </div><div className="selection-actions">{current && <><Button variant="ghost" onClick={()=>setDetails(true)}><Info size={14}/>详情</Button>
-      <Button variant="outline" disabled={current.status!=="normal"} title="按住左键拖到资源管理器空白处，默认复制" onPointerDown={e=>{if(e.button===0) void perform(()=>backend.drag([current.id]));}} onKeyDown={e=>{if(e.key==="Enter")setMessage("请用鼠标按住“拖出复制”并拖向目标窗口。");}}><ArrowDownToLine size={15}/>拖出复制</Button></>}</div></div>
+    <header className="shelf-header" data-tauri-drag-region>
+      {searchOpen ? <div className="shelf-search"><Search size={16}/><Input ref={searchInput} aria-label="搜索文件" placeholder="搜索当前文件架" value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==="Escape" && !e.nativeEvent.isComposing){e.preventDefault();e.stopPropagation();closeSearch();}}}/><Button variant="ghost" size="icon" aria-label="关闭搜索" onClick={closeSearch}><X size={16}/></Button></div> : <>
+        <ShelfMenu label="文件架" align="start" trigger={<Button className="shelf-switch" variant="ghost" aria-label="切换文件架">{bound?<Folder size={16}/>:<Archive size={16}/>}<span>{shelf?.name || "文件架"}</span><ChevronDown size={14}/></Button>}>
+          <DropdownMenu.RadioGroup value={String(shelfId)} onValueChange={id=>switchShelf(Number(id))}>{data.shelves.map(s=><DropdownMenu.RadioItem key={s.id} value={String(s.id)}>{s.kind==="bound"?<Folder size={16}/>:<Archive size={16}/>}<span>{s.name}</span><DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>)}</DropdownMenu.RadioGroup>
+          <DropdownMenu.Separator/><DropdownMenu.Item disabled={!native || busy || !!running} onSelect={()=>void perform(async()=>{const id=await backend.chooseFolder();await refresh();if(id)switchShelf(id);})}><FolderPlus size={16}/>绑定文件夹</DropdownMenu.Item>
+        </ShelfMenu>
+        <Button ref={searchButton} variant="ghost" size="icon" aria-label="搜索文件" title="搜索文件 Ctrl+F" onClick={()=>setSearchOpen(true)}><Search size={16}/></Button>
+      </>}
+      <Button className="add-files" variant="ghost" size="icon" disabled={!native || busy || !!running} aria-label={bound?"添加并复制":"添加引用"} title={bound?"添加并复制，保留来源":"添加引用，保留原文件"} onClick={()=>void perform(async()=>receive(await backend.chooseFiles()))}><Plus size={18}/></Button>
+      <ShelfMenu label="更多操作" trigger={<Button variant="ghost" size="icon" aria-label="更多操作" title="更多操作"><MoreHorizontal size={18}/></Button>}>
+        <DropdownMenu.Label className="menu-label">显示与排序</DropdownMenu.Label>
+        <DropdownMenu.RadioGroup value={list?"list":"grid"} onValueChange={v=>setList(v==="list")}><DropdownMenu.RadioItem value="grid"><Grid2X2 size={16}/>网格视图<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem><DropdownMenu.RadioItem value="list"><List size={16}/>详细列表<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem></DropdownMenu.RadioGroup>
+        <DropdownMenu.RadioGroup value={sort} onValueChange={setSort}><DropdownMenu.RadioItem value="manual">手动顺序<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem><DropdownMenu.RadioItem value="name">名称排序<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem></DropdownMenu.RadioGroup>
+        <DropdownMenu.Label className="menu-label">缩略图大小</DropdownMenu.Label><DropdownMenu.RadioGroup className="thumbnail-choices" aria-label="缩略图大小" value={String(size)} onValueChange={v=>setSize(Number(v))}>{[[60,"小"],[80,"中"],[120,"大"]].map(([v,label])=><DropdownMenu.RadioItem key={v} aria-label={label+"缩略图"} value={String(v)}>{label}<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>)}</DropdownMenu.RadioGroup>
+        <DropdownMenu.Separator/>
+        <DropdownMenu.Item disabled={loading} onSelect={()=>void perform(async()=>{await refresh();setMessage("已刷新文件状态。");})}><RefreshCw size={16}/>刷新文件状态</DropdownMenu.Item>
+        <DropdownMenu.Item onSelect={()=>setTasks(true)}>复制任务</DropdownMenu.Item>
+        <DropdownMenu.Item onSelect={()=>setTheme(theme==="dark"?"light":"dark")}>{theme==="dark"?<Sun size={16}/>:<Moon size={16}/>}切换{theme==="dark"?"浅色":"深色"}主题</DropdownMenu.Item>
+        <DropdownMenu.CheckboxItem disabled={!native} checked={topmost} onCheckedChange={()=>void perform(async()=>setTopmost(await backend.topmost()))}><Pin size={16}/>窗口置顶<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.CheckboxItem>
+        <DropdownMenu.Separator/><DropdownMenu.Item disabled={!native} onSelect={()=>void perform(()=>backend.quit())}>完整退出</DropdownMenu.Item>
+      </ShelfMenu>
+    </header>
+    <div className="shelf-context" data-dropping={hover}><span className="shelf-semantics" title={bound?(shelf?.available?shelf.root || "":"绑定目录离线或不可读，保留原记录"):shelf?.kind==="session"?"完整退出后只清空引用，原文件保留":"持久保存引用，原文件保留"}>{hover?(bound?"释放以复制 · 保留来源":"释放以添加引用 · 保留原文件"):bound?"复制到目录 · 保留来源":shelf?.kind==="session"?"本次中转 · 仅保存引用":"仅保存引用"}</span><div className="selection-actions">{current && <><Button variant="ghost" size="sm" aria-label="详情" onClick={()=>setDetails(true)}><Info size={14}/>详情</Button><Button variant="ghost" size="sm" disabled={current.status!=="normal"} title="按住左键拖到目标，默认复制" onPointerDown={e=>{if(e.button===0)void perform(()=>backend.drag([current.id]));}} onKeyDown={e=>{if(e.key==="Enter")setMessage("请用鼠标按住“拖出复制”并拖向目标窗口。");}}><ArrowDownToLine size={14}/>拖出复制</Button></>}</div></div>
+    {bound && !shelf.available && <p className="offline-note" role="status">目录离线，记录已保留 · 恢复目录后刷新</p>}
     {error && <div className="error-bar" role="alert"><span>{error}</span><Button variant="ghost" size="icon" aria-label="关闭错误提示" onClick={()=>setError("")}><X size={15}/></Button></div>}
     <div className="explorer-and-details"><main className="explorer-pane">
       {loading?<div className="empty-state"><p>正在恢复本地文件架…</p></div>:<DndContext sensors={sensors} collisionDetection={collision} onDragStart={e=>setDragging(Number(e.active.id))} onDragCancel={()=>setDragging(null)} onDragEnd={event=>{
@@ -183,17 +205,17 @@ export default function App({backend,native}:{backend:Backend;native:boolean}) {
         if(from<0 || to<0) return;
         void perform(async()=>{await backend.reorder(shelfId,arrayMove(ids,from,to));await refresh();setMessage("手动顺序已保存，磁盘文件保持不变。");});
       }}>
-        {visible.length?<VirtualFiles items={visible} backend={backend} selected={selected} list={list} size={size} disabled={sort!=="manual" || !!query} bound={!!bound} select={setSelected} inspect={id=>{setSelected(id);setDetails(true);}} open={id=>void open(id)} tag={item=>void tag(item)} remove={id=>void remove(id)}/>:<div className="empty-state"><Folder size={32}/><h2>{query?"没有匹配的文件":bound?"将文件拖入这里，安全复制到目录":"将文件拖入这里，建立引用"}</h2><p>{query?"更换搜索词或清空筛选。":bound?"同名文件自动编号，原文件和已有目标均保留。":"不会移动、复制或删除原文件。也可以点击“添加引用”。"}</p>{query && <Button variant="outline" onClick={()=>setQuery("")}>清除搜索</Button>}</div>}
+        {visible.length?<VirtualFiles items={visible} backend={backend} selected={selected} list={list} size={size} disabled={sort!=="manual" || !!query} bound={!!bound} select={setSelected} inspect={id=>{setSelected(id);setDetails(true);}} open={id=>void open(id)} tag={item=>void tag(item)} remove={id=>void remove(id)}/>:<div className="empty-state"><Folder size={32}/><h2>{query?"没有匹配的文件":bound?"拖入文件，安全复制":"拖入文件，添加引用"}</h2><p>{query?"试试其他名称":bound?"重名自动编号，保留原文件":"保留原文件，或点击右上角添加"}</p>{query && <Button variant="outline" onClick={()=>setQuery("")}>清除搜索</Button>}</div>}
         <DragOverlay>{dragItem && <div className="drag-preview" data-testid="drag-preview"><Thumb item={dragItem} backend={backend} size={45}/><span>{dragItem.name}</span><small>调整引用顺序</small></div>}</DragOverlay>
       </DndContext>}
     </main>{inline && current && <aside className="inspector"><header><h2>文件详情</h2><Button variant="ghost" size="icon" aria-label="关闭详情" onClick={()=>setDetails(false)}><X size={15}/></Button></header>{detail}</aside>}</div>
-    <details className="task-center" open={tasks} onToggle={e=>setTasks(e.currentTarget.open)}><summary>复制任务{running?" · 进行中":` · ${data.jobs.length} 条记录`}</summary><div className="task-list">
-      {progress && <div className="copy-progress"><span>{progress.name} · {progress.file_index}/{progress.file_count}</span><progress aria-label="当前文件复制进度" value={progress.bytes} max={Math.max(1,progress.total)}/><span>{sizes(progress.bytes)} / {sizes(progress.total)}</span></div>}
-      {!data.jobs.length && <p className="muted">复制任务会显示在这里；添加临时引用无需复制。</p>}
+    {running && <button className="compact-progress" aria-label="查看复制任务" onClick={()=>setTasks(true)}><span>{progress?`复制中 · ${progress.file_index}/${progress.file_count}`:"复制中"}</span><progress aria-label="当前文件复制进度" value={progress?.bytes || 0} max={Math.max(1,progress?.total || 1)}/><span>查看</span></button>}
+    <footer className={`file-status ${feedback && !running && !error?"status-toast":"sr-only"}`} role="status">{message}</footer>
+    <Sheet open={tasks} onOpenChange={setTasks}><SheetContent className="details-sheet" showCloseButton={false}><SheetClose asChild><Button className="sheet-dismiss" variant="ghost" size="icon" aria-label="关闭复制任务"><X size={16}/></Button></SheetClose><SheetHeader><SheetTitle>复制任务</SheetTitle><SheetDescription>来源保留，失败与中断记录不会自动清理</SheetDescription></SheetHeader><div className="task-list">
+      {progress && <div className="copy-progress"><span>{progress.name} · {progress.file_index}/{progress.file_count}</span><progress aria-label="复制任务进度" value={progress.bytes} max={Math.max(1,progress.total)}/><span>{sizes(progress.bytes)} / {sizes(progress.total)}</span></div>}
+      {!data.jobs.length && <p className="muted">暂无复制任务</p>}
       {data.jobs.map(job=><div className="job" key={job.id}><Badge variant={["failed","interrupted","partial"].includes(job.status)?"destructive":"secondary"}>{jobStates[job.status] || job.status}</Badge><span>{job.message}</span>{activeStatus(job.status) && <Button variant="outline" onClick={()=>void perform(()=>backend.cancel(job.id))}>取消复制</Button>}{job.status==="interrupted" && job.staging && <p className="muted">上次临时文件位置：{job.staging}（未自动删除）</p>}</div>)}
-    </div></details>
-    <footer className="file-status" role="status"><span>{message}</span><span>{native?"本地文件 · SQLite":"浏览器预览"}</span></footer>
-    <Sheet open={(details && !inline || preview) && !!current} onOpenChange={value=>{if(!value){setDetails(false);setPreview(false);}}}><SheetContent className="details-sheet"><SheetHeader><SheetTitle>{preview?"快速预览":"文件详情"}</SheetTitle><SheetDescription>真实本地文件信息；移除引用保留原文件。</SheetDescription></SheetHeader>{width>=1000 && !preview && <Button variant="ghost" onClick={()=>setDetailPinned(true)}>固定到右侧</Button>}{detail}</SheetContent></Sheet>
-    {hover && <div className="drop-indicator" role="status">{bound?"释放后复制到绑定目录，保留来源":"释放后建立引用，原文件保持不变"}</div>}
+    </div></SheetContent></Sheet>
+    <Sheet open={(details && !inline || preview) && !!current} onOpenChange={value=>{if(!value){setDetails(false);setPreview(false);}}}><SheetContent className="details-sheet" showCloseButton={false}><SheetClose asChild><Button className="sheet-dismiss" variant="ghost" size="icon" aria-label="关闭详情"><X size={16}/></Button></SheetClose><SheetHeader><SheetTitle>{preview?"快速预览":"文件详情"}</SheetTitle><SheetDescription>真实本地文件信息；移除引用保留原文件。</SheetDescription></SheetHeader>{width>=1000 && !preview && <Button variant="ghost" onClick={()=>setDetailPinned(true)}>固定到右侧</Button>}{detail}</SheetContent></Sheet>
   </div>;
 }

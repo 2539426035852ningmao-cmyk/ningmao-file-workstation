@@ -15,12 +15,14 @@
 - [Issue #20](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/issues/20)：独立分支 fix/default-file-opening 修复双击默认打开/空格预览，记录见 [任务](docs/tasks/default-file-opening.md)。新候选不能继承旧二进制的原生验收结论。
 - [Issue #17](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/issues/17) / Draft #19：Gemini 接入未恢复，模型请求为 0；既有代理 HTTPS 可达，但当前实际权限仍 never、登录/Pro/额外点数关闭状态未确认。不能宣称双 AI 审查通过。
 - 用户要求接入受阻时优先继续产品；不绕过策略，不因插件故障阻断所有开发，合并前独立审查与文件安全门槛仍保留。
+- #21 默认打开增量已提交 `ccfe586126e60a9d543c28c997d5932a212ecf6b`，18 Rust / 7 浏览器及云端构建通过；r4 候选 CI 提交 `b6ef5b7b24ef43e414fb51d43294deffe19bd2dd` 与其文件树相同，未安装启动。
+- 当前继续 Issue #15 的独立紧凑架候选，分支 feat/compact-file-shelf 基于 #21；只改前端与预览窗口尺寸，正式窗口参数、文件安全后端不变。[任务与验收边界](docs/tasks/compact-file-shelf.md)保存按需入口、三尺寸深浅截图与未完成原生检查。
 
 ## 完整制作顺序
 
 按 main/roadmap：P0 真实文件基础及精确候选安全验收 → P1 紧凑悬浮文件架 → P2 悬浮球/贴边/Dock/多窗口和管理中心 → P3 局域网后远程 → P4 经授权的 AI/插件。全部 43 项需求保留；不以当前纵向闭环冒充 V0.1 完成。
 
-近期先完成双击交互修复的自动验证与候选记录，再继续 #15 的独立紧凑 UI 原型。设计建议值仍需验收，禁止混入复制/SQLite/原生拖放重写。
+近期先验收 #21 的双击交互与 #15 的紧凑 UI 候选，不能凭自动检查跳过精确原生安全门槛。设计建议值仍需验收，禁止混入复制/SQLite/原生拖放重写。
 
 ## 必须一直保留的边界
 
