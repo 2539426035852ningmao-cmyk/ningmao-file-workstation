@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { DndContext, DragOverlay, KeyboardSensor, PointerSensor, closestCenter, pointerWithin, useSensor, useSensors, type CollisionDetection } from "@dnd-kit/core";
 import { SortableContext, rectSortingStrategy, sortableKeyboardCoordinates, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -14,6 +14,7 @@ import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetDescript
 import { FileThumb } from "./components/spaceui/FileThumb";
 import type { Backend, Item, Progress, Snapshot } from "./backend";
 import { defaultView,readTheme,readViewMemory,writeTheme,writeViewMemory,type ShelfView } from "./preferences";
+import { isSortMode,sortItems,sortOptions } from "./sorting";
 
 const collision: CollisionDetection = args => { const hits=pointerWithin(args); return hits.length ? hits : closestCenter(args); };
 const blank: Snapshot={shelves:[],items:[],jobs:[]};
@@ -72,6 +73,7 @@ export default function App({backend,native}:{backend:Backend;native:boolean}) {
   const [data,setData]=useState<Snapshot>(blank),[shelfId,setShelfId]=useState(1),[selected,setSelected]=useState<number|null>(null);
   const [searchOpen,setSearchOpen]=useState(false);
   const searchInput=useRef<HTMLInputElement>(null),searchButton=useRef<HTMLButtonElement>(null);
+  const restoreSearchFocus=useRef(false);
   const [feedback,setFeedback]=useState(false);
   const [query,setQuery]=useState("");
   const [initialViews]=useState(readViewMemory);
@@ -90,7 +92,7 @@ export default function App({backend,native}:{backend:Backend;native:boolean}) {
   const sensors=useSensors(useSensor(PointerSensor,{activationConstraint:{distance:6}}),useSensor(KeyboardSensor,{coordinateGetter:sortableKeyboardCoordinates}));
   const shelf=data.shelves.find(s=>s.id===shelfId),bound=shelf?.kind==="bound";
   const items=data.items.filter(item=>item.shelf_id===shelfId);
-  const visible=useMemo(()=>{ const filtered=data.items.filter(i=>i.shelf_id===shelfId && i.name.toLocaleLowerCase().includes(query.toLocaleLowerCase())); return sort==="name" ? filtered.sort((a,b)=>a.name.localeCompare(b.name,"zh-CN")):filtered; },[data.items,shelfId,query,sort]);
+  const visible=useMemo(()=>sortItems(data.items.filter(i=>i.shelf_id===shelfId && i.name.toLocaleLowerCase().includes(query.toLocaleLowerCase())),sort),[data.items,shelfId,query,sort]);
   const current=data.items.find(i=>i.id===selected),dragItem=data.items.find(i=>i.id===dragging);
   const running=data.jobs.find(j=>activeStatus(j.status));
   const inline=details && detailPinned && width>=1000;
@@ -148,12 +150,15 @@ export default function App({backend,native}:{backend:Backend;native:boolean}) {
     };
     window.addEventListener("keydown",fn);return()=>window.removeEventListener("keydown",fn);
   },[selected,bound,backend]);
-  useEffect(()=>{if(searchOpen)searchInput.current?.focus();},[searchOpen]);
+  useLayoutEffect(()=>{
+    if(searchOpen)searchInput.current?.focus();
+    else if(restoreSearchFocus.current){restoreSearchFocus.current=false;searchButton.current?.focus();}
+  },[searchOpen]);
   useEffect(()=>{
     if(message==="文件架已恢复。" || message==="正在恢复文件架…")return;
     setFeedback(true);const timer=setTimeout(()=>setFeedback(false),4500);return()=>clearTimeout(timer);
   },[message]);
-  function closeSearch(){setQuery("");setSearchOpen(false);requestAnimationFrame(()=>searchButton.current?.focus());}
+  function closeSearch(){restoreSearchFocus.current=true;setQuery("");setSearchOpen(false);}
   useEffect(()=>{
     const fn=(e:KeyboardEvent)=>{if(e.isComposing || e.defaultPrevented || (e.target instanceof HTMLElement && e.target.closest('[role="dialog"],[role="menu"]')))return;
       if((e.ctrlKey || e.metaKey) && e.key.toLowerCase()==="f"){e.preventDefault();setSearchOpen(true);searchInput.current?.focus();}
@@ -199,7 +204,7 @@ export default function App({backend,native}:{backend:Backend;native:boolean}) {
       <ShelfMenu label="更多操作" trigger={<Button variant="ghost" size="icon" aria-label="更多操作" title="更多操作"><MoreHorizontal size={18}/></Button>}>
         <DropdownMenu.Label className="menu-label">显示与排序</DropdownMenu.Label>
         <DropdownMenu.RadioGroup value={list?"list":"grid"} onValueChange={v=>setView({list:v==="list"})}><DropdownMenu.RadioItem value="grid"><Grid2X2 size={16}/>网格视图<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem><DropdownMenu.RadioItem value="list"><List size={16}/>详细列表<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem></DropdownMenu.RadioGroup>
-        <DropdownMenu.RadioGroup value={sort} onValueChange={v=>setView({sort:v==="name"?"name":"manual"})}><DropdownMenu.RadioItem value="manual">手动顺序<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem><DropdownMenu.RadioItem value="name">名称排序<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem></DropdownMenu.RadioGroup>
+        <DropdownMenu.RadioGroup value={sort} onValueChange={v=>{if(isSortMode(v))setView({sort:v});}}>{sortOptions.map(option=><DropdownMenu.RadioItem key={option.value} value={option.value}>{option.label}<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>)}</DropdownMenu.RadioGroup>
         <DropdownMenu.Label className="menu-label">缩略图大小</DropdownMenu.Label><DropdownMenu.RadioGroup className="thumbnail-choices" aria-label="缩略图大小" value={String(size)} onValueChange={v=>setView({size:v==="60"?60:v==="120"?120:80})}>{[[60,"小"],[80,"中"],[120,"大"]].map(([v,label])=><DropdownMenu.RadioItem key={v} aria-label={label+"缩略图"} value={String(v)}>{label}<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>)}</DropdownMenu.RadioGroup>
         <DropdownMenu.Separator/>
         <DropdownMenu.Item disabled={loading} onSelect={()=>void perform(async()=>{await refresh();setMessage("已刷新文件状态。");})}><RefreshCw size={16}/>刷新文件状态</DropdownMenu.Item>

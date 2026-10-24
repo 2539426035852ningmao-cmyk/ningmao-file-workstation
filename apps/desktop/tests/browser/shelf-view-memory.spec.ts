@@ -39,7 +39,7 @@ for(const raw of ["{broken",'{"version":1,"shelves":{"1":{"list":"bad","sort":["
 }
 
 test("更高版本设置可临时调整但绝不自动降级覆盖",async({page})=>{
-  const raw=JSON.stringify({version:2,shelves:{"1":{future:"preserve"}}});
+  const raw=JSON.stringify({version:3,shelves:{"1":{future:"preserve"}}});
   await page.addInitScript(({key,raw})=>localStorage.setItem(key,raw),{key,raw});
   await page.goto("/tests/harness.html");await expect(page.getByRole("alert")).toContainText("原设置保留");
   await choose(page,"详细列表");await expect(page.locator(".asset-row").first()).toBeVisible();

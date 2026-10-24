@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "date": "2026-10-24",
+  "branch": "feat/metadata-sorting",
+  "baseSource": "c7aa1bbad5b296d91c7c712530215da9d432929f",
+  "backendSchemaCopyDragPermissionsDependenciesAndCssUnchanged": true,
+  "preFix": "New sorting test failed because Recently modified was absent; full suite also exposed an existing delayed search-focus race",
+  "focusRegression": "Existing test retained without sleeps, passed three repeated runs after layout-phase focus restoration",
+  "finalChecks": "Final full suite, source identity and Windows artifact verification recorded on PR and Issue 25",
+  "screenshots": [
+    {"file": "sort-420-dark.png", "sha256": "ae2f5273fd4723903998a77a96964eadd967df3cbbe5760532fed3a34bec0716"},
+    {"file": "sort-340-light.png", "sha256": "85ecde8aeef0c54032cff662c6f6f927a8c509fe1d89858988bbe4e47dbf9918"}
+  ],
+  "nativeInteractionRestartAndInstall": "Not tested; headless checks are not native acceptance",
+  "gemini": "Not called; issue 17 remains unresolved"
+}
