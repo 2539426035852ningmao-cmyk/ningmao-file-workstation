@@ -1,8 +1,12 @@
 # Codex入口 · 柠猫文件工作站
 
+2026-10-25最新实机结果：[r13原生报告](stages/P2-r13-native-results.md)。直接文件闭环、拆合、中心与重启抽样通过；Dock投放FAIL R3，重启置顶菜单FAIL R2，整体P2未验收。候选已正常退出，默认后台修复；后续精确包另验，不再反复拖旧r13。以下旧“未启动/待验”为交付时历史状态。
+
 2026-10-24。唯一主工程apps/desktop，尚无正式稳定发行版。P0/P1为PR #30 / integration/v0.1-p0-p1；P2为Issue #31 / feat/p2-desktop-loop，不向main直接推功能，不自动合并。
 
 ## 开始前读取
+
+先读2026-10-25[最新执行授权](execution/v0.1-p2-acceptance-autonomy-2026-10-25.md)和MEMORY最新段：R0/R1及局部R2按证据/保护规则可自主普通合并；原生生命周期、拖放、归属、取消、DB/素材一律R3，#30/#32阶段合并仍需批准。先集中精确r13原生验收，不以旧CI/旧包结果替代；LAN首次监听/配对需独立授权。
 
 AGENTS.md → MEMORY.md → docs/product-decisions.md（全部43项） → docs/execution/v0.1-p0-p4-2026-10-24.md → design.md与apps/desktop/DESIGN.md → docs/roadmap.md → docs/milestones/M1.md → GEMINI.md与docs/AI_REVIEW_WORKFLOW.md。再查实时Issues、PR base/head和CI，不以旧快照当事实。
 

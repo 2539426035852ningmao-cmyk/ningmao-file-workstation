@@ -2,6 +2,16 @@
 
 更新：2026-10-25。本文件是继续工作的索引，以精确源码、CI、产物与真实操作为准。
 
+## 最新授权与当前验收
+
+用户2026-10-25正式发布docs/execution/v0.1-p2-acceptance-autonomy-2026-10-25.md，全文已原样归档，优先于旧验收/合并措辞。R0/R1及完全局部R2可按检查和GitHub保护规则自主审查验收/普通合并；窗口生命周期、拖放、归属、任务取消、DB状态和用户素材自动R3，#30/#32阶段安全合并/正式发布、LAN监听/配对、隐私AI/付费仍需专项批准。先完成r13集中原生验收，再快速P2→P3/P4，不另堆零散视觉功能。
+
+本次用户明确批准集中验收，r13现已两次通过原生“完整退出”关闭；默认回到后台，不再弹窗。本次仅合成P2-acceptance-r3，未安装MSI。直接拖入、Ctrl/Shift/框选、两项组Copy哈希、Space/Esc/系统打开、拆合/标签/排序、管理中心及正常重启抽样通过。5个保护文件不变，9条持久/绑定记录、非空标签、排序和任务保留；只清1条会话引用，SQLite integrity_check=ok，重启后原生重新采集v3完全相同，合成v1/v2原件保留（未测原生迁移）。实际绑定批次含目录，partial3/4，不能夸称全部成功。
+
+**r13总体FAIL：Dock投放两次无English (2).txt和新任务（R3），固定显示且自动收起关闭的顶部bound-target对照也失败。** 不再要求用户重复拖旧包。另有重启实际置顶true但菜单未勾选（R2）。完整证据docs/stages/P2-r13-native-results.md及docs/research/P2-detached-shelves-evidence/r13-native-acceptance.json。X/托盘、原生任务取消、Win10/DPI/多屏/安装/性能等仍未测。绑定路径扩展前缀曾使字符串比较误报，os.path.samefile确认正确，不是产品放错目录。
+
+后台最小修复同一PR #32：锁定runtime-wry2.12.3将WindowContent拖放发往WindowEvent，r13监听WebviewEvent，改接已有窗口回调，保留唯一导入与原Copy/冻结目标；无新依赖/权限/网络。主窗与所属独立窗的菜单勾选读取各自布局置顶。新增浏览器置顶检查先实际失败后通过；Rust拖放记账测试提取接缝前编译失败，不能称OS复现。下一候选须精确云端包及重新原生验证，不继承r13结果；不合并R3阶段PR、不正式发布。
+
 ## 当前唯一入口
 
 先读AGENTS.md、docs/product-decisions.md（全部43项）、docs/execution/v0.1-p0-p4-2026-10-24.md、design.md、apps/desktop/DESIGN.md、docs/codex-start-here.md、docs/roadmap.md与当前Issues/PR。唯一主工程apps/desktop：Tauri2/Rust/React/TypeScript/SQLite，shadcn/ui主、SpaceUI仅FileThumb。
@@ -30,7 +40,7 @@ r9在用户明确方便后真实启动：4项原生拖入并SQLite核对、PNG�
 
 r10的Ctrl/Shift/框选和整组Copy、绑定目录3文件复制/重名保护、一次完整退出/重启与尺寸恢复，以及用户手柄排序/Space预览/默认打开均已真实通过；源/目标哈希与SQLite快照已核对。见docs/research/P0-P1-multiselection-evidence/r10-native-acceptance.json。下一步后台推进P2，产品验收/合并仍需批准；原生取消/Shift拖动等剩余清单保留。Win10/DPI/多屏/各创作软件、实际安装升级卸载等继续标未验证。目录可引用/原生拖出，向绑定目录递归复制文件夹当前不支持，不夸称完成。
 
-## P2当前实施
+## P2当前实施（以下候选交付时的历史；最新原生结论以上节为准）
 
 r13精确候选：功能源码3061d2077a59050eaf6bad643dfbc32869d2a930，CI构建f3212e6a1c6f75bff7373a99561f906fc4548027，完整tree同为461fa002250da7566b37edabbae1c84ee86c08db。61浏览器/31Rust、fmt/Clippy、Windows编译/MSI、双平台仓库检查及本机9文件/8哈希/PE/MSI核验通过。交付名M1-06-preview-package-r13；EXE a7137619ced1e893e1e88931616d1a4a704bb64cf8168b796d6d9a32bdbbc867，MSI 407e1a02aa23c68e7486a57c60f4e98870ea9736aadec438d3c21f83dd8a10ed。精确记录docs/research/P2-detached-shelves-evidence/r13-verification.json。268许可原文缺失0、既有映射警告1，debug未签名、需已有WebView；未启动/安装。P2-acceptance-r3仅Prepare/Verify，5保护对象未变；原生操作仍待用户明确方便。后续文档提交不混用重构建包身份。
 

@@ -1,5 +1,7 @@
 # P2 · 独立文件架与拆分合并
 
+2026-10-25后续实测更新：[r13原生报告](P2-r13-native-results.md)。直接文件流转、拆合、中心和重启抽样通过，但**Dock入口投放FAIL R3**，置顶菜单恢复显示FAIL R2；总体未验收。下文“未Launch/未启动”为当时构建交付记录，现以该原生报告为准。后台修复继续同一PR #32，不自动合并。
+
 2026-10-25。继续PR #32 / Issue #31，候选r13；不新增零碎PR，不直接改main。扩展r12，保留全部43项和根design.md的Operate设计合同。自动检查与精确包身份在[本轮证据](../research/P2-detached-shelves-evidence/r13-verification.json)记录，未执行的新Windows原生操作继续待验。
 
 ## 已实现的闭环
