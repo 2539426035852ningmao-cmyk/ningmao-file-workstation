@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "date": "2026-10-24",
+  "baseSource": "cd45b2777555ef37ea96c5358d079704b17b9bec",
+  "branch": "feat/shelf-view-memory",
+  "backendSchemaCopyDragPermissionsDependenciesAndCssUnchanged": true,
+  "browserRegression": "22 full suite passed, followed by final 7 focused tests including added oversized-data protection; final 23-test suite recorded on PR/Issue",
+  "screenshots": [
+    {
+      "file": "restored-view.png",
+      "sha256": "ac697f0a8cf180d7f560280006aad1ca43619eefe8f35300c46f5c59853dcd25"
+    },
+    {
+      "file": "save-failed.png",
+      "sha256": "e63fb4c7332667c31126f65e0d8be363953fae1eb4eac029233b105ffea68330"
+    }
+  ],
+  "nativeRestart": "Not tested; browser reload is not a Windows process restart",
+  "gemini": "Not called; issue 17 not passed"
+}

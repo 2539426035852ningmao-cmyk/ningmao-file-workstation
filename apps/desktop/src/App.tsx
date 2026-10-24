@@ -13,6 +13,7 @@ import { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem, C
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "./components/ui/sheet";
 import { FileThumb } from "./components/spaceui/FileThumb";
 import type { Backend, Item, Progress, Snapshot } from "./backend";
+import { defaultView,readTheme,readViewMemory,writeTheme,writeViewMemory,type ShelfView } from "./preferences";
 
 const collision: CollisionDetection = args => { const hits=pointerWithin(args); return hits.length ? hits : closestCenter(args); };
 const blank: Snapshot={shelves:[],items:[],jobs:[]};
@@ -72,8 +73,13 @@ export default function App({backend,native}:{backend:Backend;native:boolean}) {
   const [searchOpen,setSearchOpen]=useState(false);
   const searchInput=useRef<HTMLInputElement>(null),searchButton=useRef<HTMLButtonElement>(null);
   const [feedback,setFeedback]=useState(false);
-  const [query,setQuery]=useState(""),[sort,setSort]=useState("manual"),[list,setList]=useState(false),[size,setSize]=useState(80);
-  const [theme,setTheme]=useState(()=>localStorage.getItem("ningmao-theme") || "dark");
+  const [query,setQuery]=useState("");
+  const [initialViews]=useState(readViewMemory);
+  const [views,setViews]=useState(initialViews.views),[viewWarning,setViewWarning]=useState(initialViews.warning);
+  const viewDirty=useRef(false);
+  const {list,sort,size}=views[String(shelfId)] || defaultView;
+  const [theme,setTheme]=useState(readTheme),[themeWarning,setThemeWarning]=useState("");
+  const preferenceWarning=viewWarning || themeWarning;
   const [details,setDetails]=useState(false),[preview,setPreview]=useState(false),[width,setWidth]=useState(innerWidth),[detailPinned,setDetailPinned]=useState(false);
   const [topmost,setTopmost]=useState(false),[hover,setHover]=useState(false),[dragging,setDragging]=useState<number|null>(null);
   const [message,setMessage]=useState("正在恢复文件架…"),[error,setError]=useState(""),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
@@ -118,7 +124,15 @@ export default function App({backend,native}:{backend:Backend;native:boolean}) {
     void refresh().then(()=>{if(live) {setMessage("文件架已恢复。");setLoading(false);}}).catch(e=>{if(live) {setError(String(e));setLoading(false);}});
     return ()=>{live=false;cleanup?.();};
   },[backend]);
-  useEffect(()=>{ document.documentElement.className=theme;localStorage.setItem("ningmao-theme",theme); },[theme]);
+  useEffect(()=>{ document.documentElement.className=theme;setThemeWarning(writeTheme(theme)); },[theme]);
+  function setView(patch:Partial<ShelfView>) {
+    viewDirty.current=true;
+    setViews(previous=>({...previous,[shelfId]:{...(previous[String(shelfId)] || defaultView),...patch}}));
+  }
+  useEffect(()=>{
+    if(!viewDirty.current)return;
+    viewDirty.current=false;setViewWarning(writeViewMemory(views,initialViews.writable));
+  },[views,initialViews.writable]);
   useEffect(()=>{ const fn=()=>setWidth(innerWidth);window.addEventListener("resize",fn);return()=>window.removeEventListener("resize",fn); },[]);
   useEffect(()=>{
     if(!running) return;
@@ -184,9 +198,9 @@ export default function App({backend,native}:{backend:Backend;native:boolean}) {
       <Button className="add-files" variant="ghost" size="icon" disabled={!native || busy || !!running} aria-label={bound?"添加并复制":"添加引用"} title={bound?"添加并复制，保留来源":"添加引用，保留原文件"} onClick={()=>void perform(async()=>receive(await backend.chooseFiles()))}><Plus size={18}/></Button>
       <ShelfMenu label="更多操作" trigger={<Button variant="ghost" size="icon" aria-label="更多操作" title="更多操作"><MoreHorizontal size={18}/></Button>}>
         <DropdownMenu.Label className="menu-label">显示与排序</DropdownMenu.Label>
-        <DropdownMenu.RadioGroup value={list?"list":"grid"} onValueChange={v=>setList(v==="list")}><DropdownMenu.RadioItem value="grid"><Grid2X2 size={16}/>网格视图<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem><DropdownMenu.RadioItem value="list"><List size={16}/>详细列表<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem></DropdownMenu.RadioGroup>
-        <DropdownMenu.RadioGroup value={sort} onValueChange={setSort}><DropdownMenu.RadioItem value="manual">手动顺序<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem><DropdownMenu.RadioItem value="name">名称排序<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem></DropdownMenu.RadioGroup>
-        <DropdownMenu.Label className="menu-label">缩略图大小</DropdownMenu.Label><DropdownMenu.RadioGroup className="thumbnail-choices" aria-label="缩略图大小" value={String(size)} onValueChange={v=>setSize(Number(v))}>{[[60,"小"],[80,"中"],[120,"大"]].map(([v,label])=><DropdownMenu.RadioItem key={v} aria-label={label+"缩略图"} value={String(v)}>{label}<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>)}</DropdownMenu.RadioGroup>
+        <DropdownMenu.RadioGroup value={list?"list":"grid"} onValueChange={v=>setView({list:v==="list"})}><DropdownMenu.RadioItem value="grid"><Grid2X2 size={16}/>网格视图<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem><DropdownMenu.RadioItem value="list"><List size={16}/>详细列表<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem></DropdownMenu.RadioGroup>
+        <DropdownMenu.RadioGroup value={sort} onValueChange={v=>setView({sort:v==="name"?"name":"manual"})}><DropdownMenu.RadioItem value="manual">手动顺序<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem><DropdownMenu.RadioItem value="name">名称排序<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem></DropdownMenu.RadioGroup>
+        <DropdownMenu.Label className="menu-label">缩略图大小</DropdownMenu.Label><DropdownMenu.RadioGroup className="thumbnail-choices" aria-label="缩略图大小" value={String(size)} onValueChange={v=>setView({size:v==="60"?60:v==="120"?120:80})}>{[[60,"小"],[80,"中"],[120,"大"]].map(([v,label])=><DropdownMenu.RadioItem key={v} aria-label={label+"缩略图"} value={String(v)}>{label}<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>)}</DropdownMenu.RadioGroup>
         <DropdownMenu.Separator/>
         <DropdownMenu.Item disabled={loading} onSelect={()=>void perform(async()=>{await refresh();setMessage("已刷新文件状态。");})}><RefreshCw size={16}/>刷新文件状态</DropdownMenu.Item>
         <DropdownMenu.Item onSelect={()=>setTasks(true)}>复制任务</DropdownMenu.Item>
@@ -197,6 +211,7 @@ export default function App({backend,native}:{backend:Backend;native:boolean}) {
     </header>
     <div className="shelf-context" data-dropping={hover}><span className="shelf-semantics" title={bound?(shelf?.available?shelf.root || "":"绑定目录离线或不可读，保留原记录"):shelf?.kind==="session"?"完整退出后只清空引用，原文件保留":"持久保存引用，原文件保留"}>{hover?(bound?"释放以复制 · 保留来源":"释放以添加引用 · 保留原文件"):bound?"复制到目录 · 保留来源":shelf?.kind==="session"?"本次中转 · 仅保存引用":"仅保存引用"}</span><div className="selection-actions">{current && <><Button variant="ghost" size="sm" aria-label="详情" onClick={()=>setDetails(true)}><Info size={14}/>详情</Button><Button variant="ghost" size="sm" disabled={current.status!=="normal"} title="按住左键拖到目标，默认复制" onPointerDown={e=>{if(e.button===0)void perform(()=>backend.drag([current.id]));}} onKeyDown={e=>{if(e.key==="Enter")setMessage("请用鼠标按住“拖出复制”并拖向目标窗口。");}}><ArrowDownToLine size={14}/>拖出复制</Button></>}</div></div>
     {bound && !shelf.available && <p className="offline-note" role="status">目录离线，记录已保留 · 恢复目录后刷新</p>}
+    {preferenceWarning && <div className="error-bar" role="alert"><span>{preferenceWarning}</span><Button variant="ghost" size="icon" aria-label="关闭设置提示" onClick={()=>{setViewWarning("");setThemeWarning("");}}><X size={15}/></Button></div>}
     {error && <div className="error-bar" role="alert"><span>{error}</span><Button variant="ghost" size="icon" aria-label="关闭错误提示" onClick={()=>setError("")}><X size={15}/></Button></div>}
     <div className="explorer-and-details"><main className="explorer-pane">
       {loading?<div className="empty-state"><p>正在恢复本地文件架…</p></div>:<DndContext sensors={sensors} collisionDetection={collision} onDragStart={e=>setDragging(Number(e.active.id))} onDragCancel={()=>setDragging(null)} onDragEnd={event=>{
@@ -210,7 +225,7 @@ export default function App({backend,native}:{backend:Backend;native:boolean}) {
       </DndContext>}
     </main>{inline && current && <aside className="inspector"><header><h2>文件详情</h2><Button variant="ghost" size="icon" aria-label="关闭详情" onClick={()=>setDetails(false)}><X size={15}/></Button></header>{detail}</aside>}</div>
     {running && <button className="compact-progress" aria-label="查看复制任务" onClick={()=>setTasks(true)}><span>{progress?`复制中 · ${progress.file_index}/${progress.file_count}`:"复制中"}</span><progress aria-label="当前文件复制进度" value={progress?.bytes || 0} max={Math.max(1,progress?.total || 1)}/><span>查看</span></button>}
-    <footer className={`file-status ${feedback && !running && !error?"status-toast":"sr-only"}`} role="status">{message}</footer>
+    <footer className={`file-status ${feedback && !running && !error && !preferenceWarning?"status-toast":"sr-only"}`} role="status">{message}</footer>
     <Sheet open={tasks} onOpenChange={setTasks}><SheetContent className="details-sheet" showCloseButton={false}><SheetClose asChild><Button className="sheet-dismiss" variant="ghost" size="icon" aria-label="关闭复制任务"><X size={16}/></Button></SheetClose><SheetHeader><SheetTitle>复制任务</SheetTitle><SheetDescription>来源保留，失败与中断记录不会自动清理</SheetDescription></SheetHeader><div className="task-list">
       {progress && <div className="copy-progress"><span>{progress.name} · {progress.file_index}/{progress.file_count}</span><progress aria-label="复制任务进度" value={progress.bytes} max={Math.max(1,progress.total)}/><span>{sizes(progress.bytes)} / {sizes(progress.total)}</span></div>}
       {!data.jobs.length && <p className="muted">暂无复制任务</p>}
