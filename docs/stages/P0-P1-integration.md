@@ -75,3 +75,5 @@ P2直接沿用当前Tauri/Store/窗口状态能力，做orb↔shelf、贴边、D
 用户明确方便后，r9已真实启动、接收4项合成拖入并由SQLite核对、显示PNG缩略图；英文/中文/PNG直接拖到Explorer，目标与来源SHA256一致且五个保护对象不变。六点手柄排序用户确认且SQLite顺序核对，完整退出结束进程并保存尺寸文件。见[r9原生记录](../research/P0-P1-stage-evidence/r9-native-acceptance.json)。重启、绑定目录、取消/Shift兼容、DPI/多屏与安装未完成。
 
 **整体验收不通过**：用户发现没有Ctrl点选、Shift连选与空白框选，单个拖出不符合桌面习惯。同一阶段PR补齐选择集合、框选实时反馈/滚动/取消、全选与汇总、可见选中整组Copy及焦点/隐藏项保护；既有Rust/SQLite/64项安全边界不改，不静默截断。44项浏览器和生产构建已在本机通过，新Windows候选仍需构建核验及原生多选回归，不能继承r9结论。[多选证据](../research/P0-P1-multiselection-evidence/README.md)。
+
+当前多选修复精确包为r10：8ad5760279e43ba3ab306f49fa8cdbc6f0b87ade / CI779c36c11e6bd80b6bef608adb9a68ff977ef77c，tree一致；44浏览器/18Rust/Windows/MSI及本机完整性核验已通过。EXE a96c2f9bf2178e90a7378a1c6807de0eabdb1c3fedeb049cf589004006ebffea，MSI 025911c6fd108b308addd4294ac10c062f9c56eb345a6a1f70dfb51a8dfb29f6。来源与包检查见[多选交付](../research/P0-P1-multiselection-evidence/README.md#多选修复精确候选r10)。尚未启动新候选或完成多选原生复测，整体验收/合并仍未批准。

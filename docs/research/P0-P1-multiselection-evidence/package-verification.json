@@ -1,0 +1,56 @@
+{
+  "schema": 1,
+  "architecture": "PE32+ x64",
+  "productName": "Ningmao File Workstation Preview",
+  "version": "0.1.0",
+  "signature": "NotSigned",
+  "sourceCommit": "779c36c11e6bd80b6bef608adb9a68ff977ef77c",
+  "files": [
+    {
+      "name": "build-manifest.json",
+      "bytes": 471,
+      "sha256": "4aa7619b22b322a645599cc258d949c06c44e7ebe9bbd198306d24bb93ece862"
+    },
+    {
+      "name": "license-manifest.json",
+      "bytes": 122632,
+      "sha256": "4ab429897836faa2495f0fd66d20ad705d09f481deed93ca6d071592f64ed36f"
+    },
+    {
+      "name": "LICENSE.txt",
+      "bytes": 11357,
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "name": "msi-inspection.json",
+      "bytes": 9434,
+      "sha256": "a4a118ec7249cd00051f442efc5baae446bebfe4a771c99cd026d4a85b01c3ac"
+    },
+    {
+      "name": "Ningmao-Preview-0.1.0-x64.exe",
+      "bytes": 17748992,
+      "sha256": "a96c2f9bf2178e90a7378a1c6807de0eabdb1c3fedeb049cf589004006ebffea"
+    },
+    {
+      "name": "Ningmao-Preview-0.1.0-x64.msi",
+      "bytes": 6148096,
+      "sha256": "025911c6fd108b308addd4294ac10c062f9c56eb345a6a1f70dfb51a8dfb29f6"
+    },
+    {
+      "name": "README.md",
+      "bytes": 3789,
+      "sha256": "f0fcf5c39816bafa6fc56688b5f04dad0a9a647910d7cd1661fff579550dbf2f"
+    },
+    {
+      "name": "THIRD_PARTY_NOTICES.txt",
+      "bytes": 3480905,
+      "sha256": "8e169fb0809053f18490891095d9df548f2fd1dc5a3a3c940ad7ec5cf788cf6e"
+    }
+  ],
+  "embeddedPayloadSizesMatch": true,
+  "savedInspectionMatches": true,
+  "filesUnchangedAfterInspection": true,
+  "licenseRecords": 268,
+  "licenseWarnings": 1,
+  "boundary": "Read-only checks; embedded file bytes not extracted. No installation, launch, upgrade or uninstall performed; license collection is not complete release clearance."
+}
