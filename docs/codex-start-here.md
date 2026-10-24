@@ -29,4 +29,4 @@ P0/P1已有引用与绑定复制、冲突保护、SQLite、缩略图、默认打
 
 当前精确版本见[阶段PR #30交付证据](stages/P0-P1-integration.md#精确交付r92026-10-24)：功能提交1b15f786/构建715f7d3a的tree一致；38浏览器/18Rust、Windows编译与MSI全绿，本机完整性核验通过、未启动。旧Draft已关闭由#30接替，历史分支与包保留。P2入口[Issue #31](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/issues/31)已明确，不代表悬浮球/Dock实现。
 
-最新r9集中验收已发现基础多选缺失，整体验收不通过；启动、原生拖入/SQLite、三个合成文件直接Copy、手柄排序和完整退出仅为局部通过。PR #30同阶段修复Ctrl/Shift、空白框选、整组Copy、汇总和焦点/隐藏项保护，本机44浏览器与生产构建通过；新二进制仍须单独构建/核验与多选原生验收，见[多选证据](research/P0-P1-multiselection-evidence/README.md)。不自动弹窗或合并。
+最新r9集中验收已发现基础多选缺失，整体验收不通过；启动、原生拖入/SQLite、三个合成文件直接Copy、手柄排序和完整退出仅为局部通过。PR #30同阶段修复Ctrl/Shift、空白框选、整组Copy、汇总和焦点/隐藏项保护，r10源码8ad5760/构建779c36c已通过44浏览器、18Rust、Windows构建/MSI与本机完整性核验；新二进制多选原生验收仍待完成，见[多选证据](research/P0-P1-multiselection-evidence/README.md)。不自动弹窗或合并。
