@@ -32,6 +32,8 @@ r10的Ctrl/Shift/框选和整组Copy、绑定目录3文件复制/重名保护、
 
 ## P2当前实施
 
+最新r13在同一PR #32继续独立文件架拆合、固定窗口归属/局部快照、空主窗新建、逐窗位置/尺寸/置顶/显隐恢复与跨窗视图记忆。写独立v3并保留v1/v2，SQLite仍schema1；受限shelf-*命名空间加Rust登记归属校验，无裸*或新依赖。原生拖入/拖出分别记账，拖放中不拆合/切架/X隐藏/退出。本机61浏览器/31Rust及fmt/Clippy/生产构建/仓库检查通过；云端CI与精确包待收尾，不宣称通过。见docs/stages/P2-detached-shelves.md。新二进制未启动/安装，不继承r10原生结果；全部43项与P0–P4路线保留。以下r12及r11是历史精确候选。
+
 r12精确交付：源码cab536baac6bbd6048657f6c81d8ccdb3e6f3a8b，CI构建202e650e28dc1bef2c296d4f5b88befba5cc61e6，完整tree同为a62de247e5786b4417fd3a8ee0a3909b2e800897。58浏览器/27Rust、fmt/Clippy、Windows构建/MSI与双平台仓库检查均通过，本机9文件/8哈希/PE/MSI核验通过；本机交付名M1-06-preview-package-r12。EXE b44a680d81c17afce07047f1721884db14c4b96b068ca735da436563982dae8c，MSI 74f9ea29b6004fa88949367f03b776e6f87f59af74104ed3725bd339a6b57203。精确证据docs/research/P2-management-edge-evidence/r12-verification.json。首轮Linux实际57/58通过，贴边初始断言与导航鼠标时序有关；测试改为加载后移出指针并安排收起fixture后完整通过，没有改产品代码或跳过断言。新候选未启动/安装；P2-acceptance-r2合成材料已Prepare/Verify（5保护对象），未Launch。原生清单仍全部待验，不继承r10结论。
 
 最新r12在同一PR #32推进：新增按需manager原生窗口（关闭释放）、SQLite只读元数据总览/跨架名称与标签检索/详情/分页、原子批量标签与复制任务取消、真实桌面设置；左/右贴边18×64细柄、鼠标唤出/离开延迟收起、拖入保护、目标DPI定位、置顶与复制状态点。三窗口命名权限，文件操作仍仅main。专用标签通知避免主架间接扫目录；主题跨窗口同步。v1布局原件保留，只写独立v2，保存失败不报已保存。云端全套与精确包已通过，原生体验未验证。见docs/stages/P2-management-edge.md；尚未实现独立多架拆合、全局快捷键、实时断屏重连等，不称完整P2通过。默认继续后台，不启动新窗；原生验收仍等用户明确方便。

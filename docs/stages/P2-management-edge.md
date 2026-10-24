@@ -1,5 +1,7 @@
 # P2 · 按需管理中心与贴边入口（r12）
 
+本页保留r12历史身份和能力；当前r13已在同一PR #32补[独立多架拆合与v3布局](P2-detached-shelves.md)，下文“仅main文件命令”“未实现拆合”等描述仅对应r12。
+
 2026-10-25。沿用PR #32 / feat/p2-desktop-loop，不新建零碎PR。扩展r11，保留r10/r11及其精确证据。源码、58浏览器/27Rust、Windows构建/MSI及本机包只读核验通过，Windows原生体验另验；完整P2仍未完成。[r12精确来源/CI/产物证据](../research/P2-management-edge-evidence/r12-verification.json)。
 
 ## 实际能力与复用

@@ -10,7 +10,12 @@ export type ImportResult = { added: number; job_id: number | null; errors: strin
 export type DesktopPreferences={edge:"free"|"left"|"right";auto_hide:boolean;topmost:boolean};
 export type ManagedReference=Pick<Item,"id"|"shelf_id"|"path"|"name"|"tags">;
 export type ManagementSnapshot={shelves:Pick<Shelf,"id"|"name"|"kind">[];items:ManagedReference[];jobs:Job[]};
-export type DesktopView = {layout:{enabled:boolean;expanded:boolean;active_shelf:number;collapsed:number[];page:number;preferences:DesktopPreferences};entries:{id:number;name:string;kind:string}[];total:number;warning:string|null;copying:boolean;edge_hidden:boolean};
+export type CatalogShelf=Pick<Shelf,"id"|"name"|"kind">;
+export type DesktopView = {layout:{enabled:boolean;expanded:boolean;active_shelf:number;collapsed:number[];page:number;preferences:DesktopPreferences;detached?:{shelf_id:number;visible:boolean;topmost:boolean}[]};entries:{id:number;name:string;kind:string}[];total:number;warning:string|null;copying:boolean;edge_hidden:boolean;catalog?:CatalogShelf[]};
+export function detachedShelfFromLabel(label:string):number|undefined {
+  if(!/^shelf-[1-9]\d*$/.test(label))return undefined;
+  const id=Number(label.slice(6));return Number.isSafeInteger(id)?id:undefined;
+}
 export type Events = { drop: (paths: string[]) => void; hover: (active: boolean) => void; progress: (p: Progress) => void; finished: (message: string) => void; drag: (message: string) => void; activate?:(id:number)=>void; changed?:()=>void; metadata?:()=>void; desktop?:(view:DesktopView)=>void; error?:(message:string)=>void };
 export interface Backend {
   snapshot(): Promise<Snapshot>;
@@ -42,6 +47,8 @@ export interface Backend {
   tagReferences(ids:number[],tag:string,remove:boolean):Promise<number>;
   desktopConfigure(preferences:DesktopPreferences):Promise<boolean>;
   desktopHover(inside:boolean):Promise<void>;
+  desktopDetach(id:number):Promise<void>;
+  desktopMerge(id:number):Promise<void>;
   subscribe(events: Events): Promise<() => void>;
 }
 export const nativeBackend: Backend = {
@@ -61,11 +68,12 @@ export const nativeBackend: Backend = {
   managerOpen:()=>invoke("manager_open"),managementSnapshot:()=>invoke("management_snapshot"),
   tagReferences:(ids,tag,remove)=>invoke("tag_references",{ids,tag,remove}),
   desktopConfigure:preferences=>invoke("desktop_configure",{preferences}),desktopHover:inside=>invoke("desktop_hover",{inside}),
+  desktopDetach:shelfId=>invoke("desktop_detach",{shelfId}),desktopMerge:shelfId=>invoke("desktop_merge",{shelfId}),
   async subscribe(events) {
     if (!isTauri()) return () => {};
     const cleanups: (() => void)[] = [];
     try {
-      if(getCurrentWebviewWindow().label==="main")cleanups.push(await getCurrentWebviewWindow().onDragDropEvent(event => {
+      if(getCurrentWebviewWindow().label==="main" || detachedShelfFromLabel(getCurrentWebviewWindow().label)!==undefined)cleanups.push(await getCurrentWebviewWindow().onDragDropEvent(event => {
         const payload=event.payload;
         events.hover(payload.type === "enter" || payload.type === "over");
         if (payload.type === "drop") events.drop(payload.paths);

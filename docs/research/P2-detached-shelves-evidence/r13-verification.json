@@ -1,0 +1,18 @@
+{
+  "candidate": "r13",
+  "stage": "P2",
+  "date": "2026-10-25",
+  "status": "LOCAL_CHECKS_PASSED_CLOUD_AND_PACKAGE_PENDING",
+  "browser_passed": 61,
+  "rust_passed": 31,
+  "rust_ignored_controlled_fixtures": 2,
+  "format_clippy_production_build": "PASSED",
+  "native_execution": "NOT_RUN",
+  "msi_installation": "NOT_RUN",
+  "gemini_model_requests": 0,
+  "notes": [
+    "Native multi-window, OLE, DPI and monitor recovery need exact candidate acceptance.",
+    "Screenshots contain synthetic data from the headless browser harness.",
+    "Source, CI checkout and artifact identity will be recorded after cloud completion."
+  ]
+}

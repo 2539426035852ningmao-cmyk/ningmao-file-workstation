@@ -1,5 +1,45 @@
 //! Desktop layout contains IDs and geometry only; file bytes remain in Store/Copy.
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
+
+pub fn detached_id(label: &str) -> Option<i64> {
+    let id = label.strip_prefix("shelf-")?.parse::<i64>().ok()?;
+    (id > 0 && label == format!("shelf-{id}")).then_some(id)
+}
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct WindowGeometry {
+    pub x: i32,
+    pub y: i32,
+    pub width: f64,
+    pub height: f64,
+}
+impl WindowGeometry {
+    pub fn validate(&self) -> bool {
+        self.width.is_finite()
+            && self.height.is_finite()
+            && (340.0..=32768.0).contains(&self.width)
+            && (320.0..=32768.0).contains(&self.height)
+    }
+}
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct DetachedShelf {
+    pub shelf_id: i64,
+    pub visible: bool,
+    pub topmost: bool,
+    pub geometry: Option<WindowGeometry>,
+}
+#[derive(Default)]
+pub struct WindowDrags {
+    pub incoming: HashSet<String>,
+    pub outgoing: HashSet<String>,
+}
+impl WindowDrags {
+    pub fn busy(&self) -> bool {
+        !self.incoming.is_empty() || !self.outgoing.is_empty()
+    }
+}
 
 pub const PAGE_SIZE: usize = 5;
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
@@ -52,6 +92,9 @@ pub struct Layout {
     pub page: usize,
     pub entry_position: Option<(i32, i32)>,
     pub preferences: Preferences,
+    pub detached: Vec<DetachedShelf>,
+    pub main_geometry: Option<WindowGeometry>,
+    pub main_topmost: bool,
     #[serde(skip)]
     pub edge_hidden: bool,
     #[serde(skip)]
@@ -60,7 +103,7 @@ pub struct Layout {
 impl Default for Layout {
     fn default() -> Self {
         Self {
-            version: 2,
+            version: 3,
             enabled: false,
             expanded: true,
             active_shelf: 1,
@@ -68,6 +111,9 @@ impl Default for Layout {
             page: 0,
             entry_position: None,
             preferences: Preferences::default(),
+            detached: vec![],
+            main_geometry: None,
+            main_topmost: false,
             edge_hidden: false,
             drag_ids: None,
         }
@@ -75,9 +121,25 @@ impl Default for Layout {
 }
 impl Layout {
     pub fn validate(&self) -> bool {
-        self.version == 2
+        self.version == 3
             && !(self.preferences.edge == Edge::Free && self.preferences.auto_hide)
-            && self.active_shelf > 0
+            && self.active_shelf >= 0
+            && self.detached.len() <= 256
+            && self
+                .detached
+                .iter()
+                .all(|s| s.shelf_id > 0 && s.geometry.as_ref().is_none_or(WindowGeometry::validate))
+            && self
+                .detached
+                .iter()
+                .map(|s| s.shelf_id)
+                .collect::<HashSet<_>>()
+                .len()
+                == self.detached.len()
+            && self
+                .main_geometry
+                .as_ref()
+                .is_none_or(WindowGeometry::validate)
             && self.collapsed.len() <= 256
             && self.collapsed.iter().all(|id| *id > 0)
             && self
@@ -143,6 +205,64 @@ impl Layout {
     }
     pub fn cancel_drag(&mut self) {
         self.drag_ids = None;
+    }
+    pub fn file_scope(&self, label: &str) -> Result<Option<i64>, String> {
+        if label == "main" {
+            return Ok(None);
+        }
+        let id = detached_id(label)
+            .filter(|id| self.detached.iter().any(|s| s.shelf_id == *id))
+            .ok_or("未知或未登记的文件架窗口。")?;
+        Ok(Some(id))
+    }
+    pub fn detach(&mut self, id: i64, catalog: &[i64]) -> Result<(), String> {
+        if !catalog.contains(&id) || self.detached.iter().any(|s| s.shelf_id == id) {
+            return Err("文件架不存在或已经拆出。".into());
+        }
+        if self.detached.len() >= 256 {
+            return Err("本候选最多登记256个独立架；现有数据不会截断。".into());
+        }
+        self.detached.push(DetachedShelf {
+            shelf_id: id,
+            visible: true,
+            topmost: false,
+            geometry: None,
+        });
+        self.collapsed.retain(|s| *s != id);
+        if self.active_shelf == id {
+            self.active_shelf = catalog
+                .iter()
+                .find(|s| !self.detached.iter().any(|d| d.shelf_id == **s))
+                .copied()
+                .unwrap_or(0);
+        }
+        Ok(())
+    }
+    pub fn merge(&mut self, id: i64) -> Result<(), String> {
+        if !self.detached.iter().any(|s| s.shelf_id == id) {
+            return Err("文件架并非独立窗口。".into());
+        }
+        self.detached.retain(|s| s.shelf_id != id);
+        self.collapsed.retain(|s| *s != id);
+        self.active_shelf = id;
+        self.expanded = true;
+        Ok(())
+    }
+    pub fn reconcile(&mut self, catalog: &[i64]) {
+        self.detached.retain(|s| catalog.contains(&s.shelf_id));
+        self.collapsed.retain(|s| catalog.contains(s));
+        if !catalog.contains(&self.active_shelf)
+            || self
+                .detached
+                .iter()
+                .any(|s| s.shelf_id == self.active_shelf)
+        {
+            self.active_shelf = catalog
+                .iter()
+                .find(|s| !self.detached.iter().any(|d| d.shelf_id == **s))
+                .copied()
+                .unwrap_or(0);
+        }
     }
     pub fn fold_entry(&mut self) -> bool {
         if self.edge_hidden

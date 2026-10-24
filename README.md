@@ -2,6 +2,8 @@
 
 **Ningmao File Workstation**
 
+最新候选r13在同一[PR #32](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/32)补独立文件架拆合、按窗口限定快照与逐窗布局恢复。本机61浏览器/31Rust通过，云端与精确包收尾中；原生拆合/多屏/DPI待验，未安装或正式发布。见[实施与完整边界](docs/stages/P2-detached-shelves.md)；下表r10–r12保留历史记录。
+
 Windows 10/11 优先的轻量桌面悬浮文件工作站，支持临时文件引用与真实目录两种文件架，逐步扩展跨设备互联和 AI 文件管理。
 
 目前没有正式稳定发行版。main保留已验收的M1-01～M1-03及设计/AI规范。P0/P1统一在PR #30，r10核心原生复测已通过，等待产品验收与合并批准；本分支 `feat/p2-desktop-loop` 基于该候选，实施P2真实悬浮入口、基础Dock与多架引用闭环，新二进制尚未原生验收。自动检查、原生交互与安装验收分别记录。

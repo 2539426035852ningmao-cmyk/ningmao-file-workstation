@@ -42,6 +42,8 @@ test("旧v1设置不在启动覆盖，修改后升到v2，切架和重载分别�
   await page.getByRole("button",{name:"切换文件架",exact:true}).click();await page.getByRole("menuitemradio",{name:"本次中转",exact:true}).click();
   await page.getByRole("button",{name:"更多操作",exact:true}).click();await expect(page.getByRole("menuitemradio",{name:"名称排序",exact:true})).toHaveAttribute("aria-checked","true");await page.keyboard.press("Escape");
   await choose(page,"类型排序");await page.reload();
+  await page.getByRole("button",{name:"更多操作",exact:true}).click();await expect(page.getByRole("menuitemradio",{name:"类型排序",exact:true})).toHaveAttribute("aria-checked","true");await page.keyboard.press("Escape");
+  await page.getByRole("button",{name:"切换文件架",exact:true}).click();await page.getByRole("menuitemradio",{name:"灵感收集",exact:true}).click();
   await expect.poll(async()=>(await order(page)).slice(0,5)).toEqual([45,43,42,46,41]);
   await page.getByRole("button",{name:"更多操作",exact:true}).click();await expect(page.getByRole("menuitemradio",{name:"最近修改",exact:true})).toHaveAttribute("aria-checked","true");await page.keyboard.press("Escape");
   expect((await page.evaluate(key=>JSON.parse(localStorage.getItem(key)!),key)).shelves["2"].sort).toBe("type");

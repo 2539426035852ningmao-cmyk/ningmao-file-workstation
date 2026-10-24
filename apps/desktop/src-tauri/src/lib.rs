@@ -1,5 +1,6 @@
 pub mod desktop;
 mod desktop_runtime;
+mod shelf_windows;
 pub mod store;
 use serde::Serialize;
 use std::{
@@ -32,18 +33,42 @@ fn main_only(window: &tauri::WebviewWindow) -> Result<()> {
     }
 }
 fn metadata_window(window: &tauri::WebviewWindow) -> Result<()> {
-    if desktop::permits(window.label(), desktop::Scope::Metadata) {
+    if desktop::permits(window.label(), desktop::Scope::Metadata)
+        || shelf_windows::scope(window).is_ok()
+    {
         Ok(())
     } else {
         Err("此操作只允许在文件架或管理中心执行。".into())
     }
 }
 fn desktop_window(window: &tauri::WebviewWindow) -> Result<()> {
-    if desktop::permits(window.label(), desktop::Scope::Desktop) {
+    if desktop::permits(window.label(), desktop::Scope::Desktop)
+        || shelf_windows::scope(window).is_ok()
+    {
         Ok(())
     } else {
         Err("未知桌面窗口。".into())
     }
+}
+fn metadata_scope(window: &tauri::WebviewWindow) -> Result<Option<i64>> {
+    metadata_window(window)?;
+    if window.label() == "manager" {
+        Ok(None)
+    } else {
+        shelf_windows::scope(window)
+    }
+}
+async fn scoped_database<T: Send + 'static>(
+    app: tauri::AppHandle,
+    scope: Option<i64>,
+    ids: Vec<i64>,
+    action: impl FnOnce(&mut Store) -> Result<T> + Send + 'static,
+) -> Result<T> {
+    database(app, move |s| {
+        s.validate_item_scope(scope, &ids)?;
+        action(s)
+    })
+    .await
 }
 async fn database<T: Send + 'static>(
     app: tauri::AppHandle,
@@ -59,15 +84,17 @@ async fn database<T: Send + 'static>(
 }
 #[tauri::command]
 async fn snapshot(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<Snapshot> {
-    main_only(&window)?;
-    database(app, Store::snapshot).await
+    let scope = shelf_windows::scope(&window)?;
+    let excluded = shelf_windows::ids(&app)?;
+    database(app, move |s| s.snapshot_scoped(scope, &excluded)).await
 }
 #[tauri::command]
 async fn choose_files(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<Vec<String>> {
-    main_only(&window)?;
+    shelf_windows::scope(&window)?;
     tauri::async_runtime::spawn_blocking(move || {
         app.dialog()
             .file()
+            .set_parent(&window)
             .set_title("添加文件：收集架保存引用，绑定目录复制文件")
             .blocking_pick_files()
             .unwrap_or_default()
@@ -127,8 +154,8 @@ async fn import_paths(
     shelf_id: i64,
     paths: Vec<String>,
 ) -> Result<ImportResult> {
-    main_only(&window)?;
-    if desktop_runtime::active_shelf(&app)? != shelf_id {
+    let scope = shelf_windows::scope(&window)?;
+    if scope.unwrap_or(desktop_runtime::active_shelf(&app)?) != shelf_id || shelf_id <= 0 {
         return Err("投放目标已切换，请确认当前文件架后重新拖入；未复制任何文件。".into());
     }
     run_import(app, shelf_id, paths).await
@@ -148,11 +175,7 @@ async fn run_import(
     if paths.len() > 256 {
         return Err("一次最多添加 256 项，请分批添加。".into());
     }
-    let shelves = database(app.clone(), |s| s.shelves()).await?;
-    let shelf = shelves
-        .into_iter()
-        .find(|s| s.id == shelf_id)
-        .ok_or("文件架不存在。")?;
+    let shelf = database(app.clone(), move |s| s.shelf(shelf_id)).await?;
     if shelf.kind != "bound" {
         return database(app, move |s| {
             let mut added = 0;
@@ -295,8 +318,13 @@ fn copy_job(
 }
 #[tauri::command]
 fn cancel_copy(app: tauri::AppHandle, window: tauri::WebviewWindow, job_id: i64) -> Result<()> {
-    metadata_window(&window)?;
+    let scope = metadata_scope(&window)?;
     let state = app.state::<Runtime>();
+    state
+        .store
+        .lock()
+        .map_err(error)?
+        .validate_job_scope(scope, job_id)?;
     let active = state.active.lock().map_err(error)?;
     if let Some((id, cancel)) = active.as_ref()
         && *id == job_id
@@ -312,8 +340,8 @@ async fn remove_reference(
     window: tauri::WebviewWindow,
     id: i64,
 ) -> Result<()> {
-    main_only(&window)?;
-    database(app, move |s| s.remove_reference(id)).await
+    let scope = shelf_windows::scope(&window)?;
+    scoped_database(app, scope, vec![id], move |s| s.remove_reference(id)).await
 }
 #[tauri::command]
 async fn relocate_reference(
@@ -322,8 +350,11 @@ async fn relocate_reference(
     id: i64,
     directory: bool,
 ) -> Result<bool> {
-    main_only(&window)?;
-    let original = database(app.clone(), move |s| s.relocation_source(id)).await?;
+    let scope = shelf_windows::scope(&window)?;
+    let original = scoped_database(app.clone(), scope, vec![id], move |s| {
+        s.relocation_source(id)
+    })
+    .await?;
     let pick_app = app.clone();
     let chosen = tauri::async_runtime::spawn_blocking(move || -> Result<_> {
         let picker = pick_app.dialog().file().set_parent(&window).set_title("重新定位失效引用：选择目标后仍需确认");
@@ -342,7 +373,10 @@ async fn relocate_reference(
     let Some((original, chosen)) = chosen else {
         return Ok(false);
     };
-    database(app, move |s| s.relink_reference(id, &original, &chosen)).await?;
+    scoped_database(app, scope, vec![id], move |s| {
+        s.relink_reference(id, &original, &chosen)
+    })
+    .await?;
     Ok(true)
 }
 #[tauri::command]
@@ -352,8 +386,8 @@ async fn set_tags(
     id: i64,
     tags: Vec<String>,
 ) -> Result<()> {
-    main_only(&window)?;
-    database(app.clone(), move |s| s.set_tags(id, tags)).await?;
+    let scope = shelf_windows::scope(&window)?;
+    scoped_database(app.clone(), scope, vec![id], move |s| s.set_tags(id, tags)).await?;
     let _ = app.emit("reference-tags-changed", ());
     Ok(())
 }
@@ -364,7 +398,10 @@ async fn reorder(
     shelf_id: i64,
     ids: Vec<i64>,
 ) -> Result<()> {
-    main_only(&window)?;
+    let scope = shelf_windows::scope(&window)?;
+    if scope.is_some_and(|id| id != shelf_id) {
+        return Err("排序目标不属于当前独立架。".into());
+    }
     database(app, move |s| s.reorder(shelf_id, &ids)).await
 }
 #[tauri::command]
@@ -373,10 +410,14 @@ async fn thumbnail(
     window: tauri::WebviewWindow,
     id: i64,
 ) -> Result<Option<String>> {
-    main_only(&window)?;
+    let scope = shelf_windows::scope(&window)?;
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<Runtime>();
-        let path = state.store.lock().map_err(error)?.item_path(id)?;
+        let path = {
+            let store = state.store.lock().map_err(error)?;
+            store.validate_item_scope(scope, &[id])?;
+            store.item_path(id)?
+        };
         // ponytail: one bounded decoder at a time; use a measured worker pool if throughput needs it.
         let _slot = state.thumbnail.lock().map_err(error)?;
         store::thumbnail(&path)
@@ -386,10 +427,10 @@ async fn thumbnail(
 }
 #[tauri::command]
 async fn open_item(app: tauri::AppHandle, window: tauri::WebviewWindow, id: i64) -> Result<bool> {
-    main_only(&window)?;
+    let scope = shelf_windows::scope(&window)?;
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<Runtime>();
-        let target = state.store.lock().map_err(error)?.opening_target(id)?;
+        let target = {let store=state.store.lock().map_err(error)?;store.validate_item_scope(scope,&[id])?;store.opening_target(id)?};
         if target.is_file() && store::needs_open_confirmation(&target) && !app.dialog()
             .message(format!("此文件可能运行程序、脚本或快捷方式：\n{}\n\n仅在信任文件来源时继续。是否交给系统打开？", target.display()))
             .title("确认打开可执行内容").parent(&window)
@@ -406,8 +447,8 @@ async fn open_item(app: tauri::AppHandle, window: tauri::WebviewWindow, id: i64)
 }
 #[tauri::command]
 async fn reveal_item(app: tauri::AppHandle, window: tauri::WebviewWindow, id: i64) -> Result<()> {
-    main_only(&window)?;
-    let path = database(app, move |s| s.item_path(id)).await?;
+    let scope = shelf_windows::scope(&window)?;
+    let path = scoped_database(app, scope, vec![id], move |s| s.item_path(id)).await?;
     #[cfg(windows)]
     std::process::Command::new("explorer.exe")
         .arg(format!("/select,{}", path.display()))
@@ -421,13 +462,14 @@ fn start_native_drag(
     window: tauri::WebviewWindow,
     ids: Vec<i64>,
 ) -> Result<()> {
-    main_only(&window)?;
+    let scope = shelf_windows::scope(&window)?;
     if ids.is_empty() || ids.len() > 64 {
         return Err("请选择 1 至 64 项拖出。".into());
     }
     let paths: Vec<PathBuf> = {
         let state = app.state::<Runtime>();
         let store = state.store.lock().map_err(error)?;
+        store.validate_item_scope(scope, &ids)?;
         ids.into_iter()
             .map(|id| {
                 store
@@ -437,7 +479,15 @@ fn start_native_drag(
             .collect::<Result<_>>()?
     };
     let native_window = window.clone();
-    window
+    {
+        let desktop = app.state::<desktop_runtime::Desktop>();
+        let mut drags = desktop.drags.lock().map_err(error)?;
+        if !drags.outgoing.is_empty() {
+            return Err("已有原生拖出正在进行，请先完成或取消。".into());
+        }
+        drags.outgoing.insert(window.label().into());
+    }
+    let scheduled = window
         .run_on_main_thread(move || {
             let notify = native_window.clone();
             let result = drag::start_drag(
@@ -445,6 +495,14 @@ fn start_native_drag(
                 drag::DragItem::Files(paths),
                 drag::Image::Raw(include_bytes!("../icons/32x32.png").to_vec()),
                 move |result, _| {
+                    if let Ok(mut drags) = notify
+                        .app_handle()
+                        .state::<desktop_runtime::Desktop>()
+                        .drags
+                        .lock()
+                    {
+                        drags.outgoing.remove(notify.label());
+                    }
                     let _ = notify.emit("native-drag-result", format!("{result:?}"));
                 },
                 drag::Options {
@@ -453,29 +511,53 @@ fn start_native_drag(
                 },
             );
             if let Err(e) = result {
+                if let Ok(mut drags) = native_window
+                    .app_handle()
+                    .state::<desktop_runtime::Desktop>()
+                    .drags
+                    .lock()
+                {
+                    drags.outgoing.remove(native_window.label());
+                }
                 let _ = native_window.emit("native-drag-result", format!("拖出失败：{e}"));
             }
         })
-        .map_err(error)
+        .map_err(error);
+    if scheduled.is_err() {
+        app.state::<desktop_runtime::Desktop>()
+            .drags
+            .lock()
+            .map_err(error)?
+            .outgoing
+            .remove(window.label());
+    }
+    scheduled
 }
 #[tauri::command]
 fn toggle_topmost(window: tauri::WebviewWindow) -> Result<bool> {
-    main_only(&window)?;
+    shelf_windows::scope(&window)?;
     let value = !window.is_always_on_top().map_err(error)?;
     window.set_always_on_top(value).map_err(error)?;
+    shelf_windows::capture_all(window.app_handle());
+    let _ = window
+        .app_handle()
+        .state::<desktop_runtime::Desktop>()
+        .save();
     Ok(value)
 }
 #[tauri::command]
 fn quit(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<()> {
-    main_only(&window)?;
+    shelf_windows::scope(&window)?;
     clean_quit(app)
 }
 fn clean_quit(app: tauri::AppHandle) -> Result<()> {
+    desktop_runtime::require_idle(&app)?;
     let state = app.state::<Runtime>();
     if state.active.lock().map_err(error)?.is_some() {
         return Err("复制尚未结束，请先等待完成或取消。".into());
     }
     state.store.lock().map_err(error)?.clean_exit()?;
+    shelf_windows::capture_all(&app);
     let _ = app.state::<desktop_runtime::Desktop>().save();
     app.exit(0);
     Ok(())
@@ -499,8 +581,12 @@ async fn copy_references(
     target: i64,
     ids: Vec<i64>,
 ) -> Result<usize> {
-    main_only(&window)?;
-    let added = database(app.clone(), move |s| s.copy_references(target, &ids)).await?;
+    let scope = shelf_windows::scope(&window)?;
+    let checked = ids.clone();
+    let added = scoped_database(app.clone(), scope, checked, move |s| {
+        s.copy_references(target, &ids)
+    })
+    .await?;
     let _ = app.emit("workstation-changed", ());
     Ok(added)
 }
@@ -518,11 +604,18 @@ fn desktop_collapse(
     window: tauri::WebviewWindow,
     shelf_id: i64,
 ) -> Result<()> {
-    main_only(&window)?;
+    let scope = shelf_windows::scope(&window)?;
+    if scope.is_some_and(|id| id != shelf_id) {
+        return Err("不能收起其他独立架。".into());
+    }
     desktop_runtime::collapse(&app, shelf_id)
 }
 #[tauri::command]
-fn desktop_open(app: tauri::AppHandle, window: tauri::WebviewWindow, shelf_id: i64) -> Result<()> {
+async fn desktop_open(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    shelf_id: i64,
+) -> Result<()> {
     desktop_window(&window)?;
     desktop_runtime::open(&app, shelf_id, true)
 }
@@ -564,8 +657,17 @@ async fn management_snapshot(
     app: tauri::AppHandle,
     window: tauri::WebviewWindow,
 ) -> Result<store::ManagementSnapshot> {
-    metadata_window(&window)?;
-    database(app, |s| s.management_snapshot()).await
+    let scope = metadata_scope(&window)?;
+    database(app, move |s| {
+        let mut data = s.management_snapshot()?;
+        if let Some(id) = scope {
+            data.shelves.retain(|s| s.id == id);
+            data.items.retain(|i| i.shelf_id == id);
+            data.jobs.retain(|j| j.shelf_id == id);
+        }
+        Ok(data)
+    })
+    .await
 }
 #[tauri::command]
 async fn tag_references(
@@ -575,8 +677,12 @@ async fn tag_references(
     tag: String,
     remove: bool,
 ) -> Result<usize> {
-    metadata_window(&window)?;
-    let changed = database(app.clone(), move |s| s.tag_references(&ids, &tag, remove)).await?;
+    let scope = metadata_scope(&window)?;
+    let checked = ids.clone();
+    let changed = scoped_database(app.clone(), scope, checked, move |s| {
+        s.tag_references(&ids, &tag, remove)
+    })
+    .await?;
     let _ = app.emit("reference-tags-changed", ());
     Ok(changed)
 }
@@ -586,8 +692,31 @@ fn desktop_configure(
     window: tauri::WebviewWindow,
     preferences: desktop::Preferences,
 ) -> Result<bool> {
-    metadata_window(&window)?;
+    if !desktop::permits(window.label(), desktop::Scope::Metadata) {
+        return Err("桌面全局设置请在管理中心调整。".into());
+    }
     desktop_runtime::configure(&app, preferences)
+}
+#[tauri::command]
+async fn desktop_detach(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    shelf_id: i64,
+) -> Result<()> {
+    main_only(&window)?;
+    shelf_windows::detach(&app, shelf_id)
+}
+#[tauri::command]
+async fn desktop_merge(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    shelf_id: i64,
+) -> Result<()> {
+    let scope = shelf_windows::scope(&window)?;
+    if scope.is_some_and(|id| id != shelf_id) {
+        return Err("不能合并其他独立架。".into());
+    }
+    shelf_windows::merge(&app, shelf_id)
 }
 #[tauri::command]
 fn desktop_hover(app: tauri::AppHandle, window: tauri::WebviewWindow, inside: bool) -> Result<()> {
@@ -653,9 +782,10 @@ pub fn run() {
                 .menu(&menu)
                 .on_menu_event(|app, event| {
                     if event.id.as_ref() == "show" {
-                        if let Ok(id) = desktop_runtime::active_shelf(app) {
-                            let _ = desktop_runtime::open(app, id, true);
-                        }
+                        let app = app.clone();
+                        tauri::async_runtime::spawn(async move {
+                            let _ = shelf_windows::show_main(&app);
+                        });
                     } else if event.id.as_ref() == "quit"
                         && let Err(message) = clean_quit(app.clone())
                     {
@@ -670,9 +800,18 @@ pub fn run() {
                 if window.label() != "manager" {
                     api.prevent_close();
                 }
-                if window.label() == "main" {
+                if window.label() == "main" || desktop::detached_id(window.label()).is_some() {
+                    if let Err(message) = desktop_runtime::require_idle(window.app_handle()) {
+                        let _ = window.emit("desktop-error", message);
+                        return;
+                    }
                     // Frozen decision 19: X hides to tray. Only explicit collapse creates an orb.
+                    shelf_windows::hidden(window);
                     let _ = window.hide();
+                    if let Some(state) = window.app_handle().try_state::<desktop_runtime::Desktop>()
+                    {
+                        let _ = state.save();
+                    }
                 }
             } else if let tauri::WindowEvent::Moved(position) = event
                 && window.label() == "desktop-entry"
@@ -681,6 +820,19 @@ pub fn run() {
                 && layout.preferences.edge == desktop::Edge::Free
             {
                 layout.entry_position = Some((position.x, position.y));
+            }
+            if matches!(
+                event,
+                tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Resized(_)
+            ) {
+                shelf_windows::capture(window);
+            }
+            if matches!(event, tauri::WindowEvent::Destroyed)
+                && let Some(state) = window.app_handle().try_state::<desktop_runtime::Desktop>()
+                && let Ok(mut drags) = state.drags.lock()
+            {
+                drags.incoming.remove(window.label());
+                drags.outgoing.remove(window.label());
             }
         })
         .on_webview_event(desktop_runtime::webview_event)
@@ -713,7 +865,9 @@ pub fn run() {
             management_snapshot,
             tag_references,
             desktop_configure,
-            desktop_hover
+            desktop_hover,
+            desktop_detach,
+            desktop_merge
         ])
         .run(tauri::generate_context!())
         .expect("柠猫文件工作站启动失败；数据未自动清理");

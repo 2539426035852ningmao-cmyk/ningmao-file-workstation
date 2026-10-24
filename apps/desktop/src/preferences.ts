@@ -27,6 +27,10 @@ export function writeViewMemory(views:Record<string,ShelfView>,writable:boolean)
   try {localStorage.setItem(key,JSON.stringify({version:2,shelves:views}));return "";}
   catch {return "视图已切换，但无法保存设置；重启后可能恢复原显示，文件记录不受影响";}
 }
+export function writeShelfView(id:number,view:ShelfView,writable:boolean):string {
+  const latest=readViewMemory();
+  return writeViewMemory({...latest.views,[id]:view},writable && latest.writable);
+}
 export function readTheme():"dark"|"light" {
   try {return localStorage.getItem("ningmao-theme")==="light"?"light":"dark";}
   catch {return "dark";}
