@@ -1,0 +1,32 @@
+{
+  "date": "2026-10-23",
+  "os": "Windows NT 10.0.22631.0",
+  "mode": "headless Rust integration tests; no Tauri run(), desktop app, Explorer, mouse or keyboard automation",
+  "production_inputs_unchanged_from": "a8f421ac466fd5a47908e5f8d87446abcf5ba076",
+  "candidate_sha256_unchanged": "0E66FDDB84217843DA94ADDB1AD9BABFEE6C57BF33CACB916111FD6D63C06F3D",
+  "tests": [
+    {
+      "name": "killed_copy_worker_retains_committed_data_and_unpublished_staging",
+      "result": "pass",
+      "method": "Parent spawns its own Rust test worker with CREATE_NO_WINDOW and BELOW_NORMAL_PRIORITY_CLASS; worker copies an 8 MiB synthetic source, signals after the first 1 MiB, and is killed and reaped by its parent.",
+      "verified": ["SQLite integrity and committed references/tags survive", "session reference survives abnormal termination", "completed target and both sources retain exact bytes", "partial staging remains recorded and unpublished", "later clean exit clears session references only and retains staging"]
+    },
+    {
+      "name": "windows_sharing_conflicts_fail_safely_and_copy_holds_source_and_root",
+      "result": "pass",
+      "verified": ["exclusively opened source yields Windows sharing error 32", "failed read creates no target/staging", "copy denies concurrent source writer and bound-root rename", "successful copy retains exact source/target bytes", "writer/rename access is released after copy completes"]
+    },
+    {
+      "name": "newer_or_invalid_database_is_rejected_without_rewriting_user_data",
+      "result": "pass",
+      "verified": ["schema version 99 rejected", "invalid SQLite content rejected", "database bytes unchanged after rejection"]
+    }
+  ],
+  "suite": {
+    "rust_tests_passed": 10,
+    "fixture_entries_ignored_by_default": 2,
+    "fixture_note": "The crash worker entry is invoked by its parent test; candidate preparation remains opt-in. These are not unimplemented acceptance cases.",
+    "clippy_all_targets_deny_warnings": "pass"
+  },
+  "limits": ["Does not test resource-exhaustion or arbitrary ACL denial", "Does not test Windows GUI file picker, OLE drag/drop, DPI or multiple monitors", "Does not replace native acceptance of the exact candidate binary"]
+}

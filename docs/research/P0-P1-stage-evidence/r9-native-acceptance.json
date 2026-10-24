@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "date": "2026-10-24",
+  "candidate": "M1-06-preview-package-r9",
+  "codeCommit": "1b15f7864c66324e85fd615dc008d3a14974a251",
+  "buildCommit": "715f7d3ab1613e726f74b4080847e94a04af67d4",
+  "exeSha256": "ec8ab94fe0b8052509fad354ed61a7078b5418f618d864bcedf11927060f0d3a",
+  "nativeLaunch": "PASS",
+  "inbound": {
+    "sqliteItems": 4,
+    "userReported": true,
+    "protectedFilesUnchanged": true
+  },
+  "nativeDragOut": {
+    "userConfirmedDirectCardDrag": true,
+    "english": {
+      "sha256": "2c2467c923d71798072e56b9eb7fb837ac4293b1d7c690f2e3b88f1cc392fce1",
+      "sourcePreserved": true
+    },
+    "chinese": {
+      "sha256": "76b12318eb007a2ec838b20397f23c80775dc2e963f7b280daf693836e583233",
+      "sourcePreserved": true
+    },
+    "png": {
+      "sha256": "1f3689f6374b0553996fdc99743799216703835070145d7f0e6ec11e6280139e",
+      "sourcePreserved": true
+    }
+  },
+  "sorting": {
+    "userConfirmed": true,
+    "sqliteOrder": [
+      "合成文件夹",
+      "中文 空格.txt",
+      "English.txt",
+      "合成图片.png"
+    ]
+  },
+  "restart": "PENDING",
+  "dpiMultiMonitor": "NOT_TESTED",
+  "installation": "NOT_TESTED",
+  "overall": "NEEDS_FIX: missing Ctrl, Shift and marquee multiselection; not accepted",
+  "normalExit": "PASS: exact candidate process ended; window-size state saved"
+}

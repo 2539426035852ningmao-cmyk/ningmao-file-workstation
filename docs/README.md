@@ -1,11 +1,16 @@
 # 文档目录
 
-- [Gemini 独立复核工作协议](AI_REVIEW_WORKFLOW.md)：借鉴已完成的双 AI 交叉验证，Gate A/B/C 先核验官方 CLI 与费用再进行只读审查。
-- [M1 Gemini 接入任务](tasks/M1-GEMINI-REVIEW.md)：当前准备完成与待 Windows 实际验证的区分；根目录 [GEMINI.md](../GEMINI.md) 为独立审查规则。
+- [正式总执行指令](execution/v0.1-p0-p4-2026-10-24.md)：P0–P4按阶段闭环、统一集成和集中验收。
+- [开发入口](codex-start-here.md) · [设计合同](../design.md) · [阶段路线](roadmap.md)。
+- [P0/P1阶段集成](stages/P0-P1-integration.md)与[集中Windows验收](stages/P0-P1-windows-acceptance.md)：当前唯一功能收束入口，区分自动检查与原生未测。
+- [双AI工作协议](AI_REVIEW_WORKFLOW.md)与[Gemini任务](tasks/M1-GEMINI-REVIEW.md)：接入未恢复，不能阻断产品主线。
 
-- [轻量悬浮文件架设计规范](../design.md)：窗口尺寸、同心圆圆角、间距、文字层级、扩展入口和阶段验收基线（建议 Token 部分需用户验收）。
-- [Codex 从这里开始](codex-start-here.md)：最新已核查状态、PR 依赖、下一门槛与行动顺序。
-- [阶段路线图](roadmap.md)：P0 核心文件 → P1 小窗 → P2 Dock → P3 网络 → P4 AI 与插件。
+- [项目记忆](../MEMORY.md)：继续工作的权威文档、完整路线与当前验收边界。
+- [双击系统默认打开修复](tasks/default-file-opening.md)：第 6 项交互偏差与后台验证。
+- [紧凑悬浮架候选](tasks/compact-file-shelf.md)：单行顶栏、按需操作与三尺寸深浅证据。
+- [每架视图记忆](tasks/shelf-view-memory.md)：独立显示偏好、重载恢复与存储异常保护。
+- [元数据显示排序](tasks/metadata-sorting.md)：自然名称、最近修改、类型和大小，保留手动位置与旧设置。
+- [当前架组合筛选](tasks/shelf-file-filters.md)：类型、标签、异常与名称交集，隐藏项键盘保护。
 
 - [43 项产品与工程决策](product-decisions.md)：逐项保留用户选择，第 25 项保留补充说明。
 - [M1 原始执行基线](m1-execution-baseline.md)：共享记录中的正式交接文本。
@@ -17,3 +22,10 @@
 - [第三方代码与工具清单](third-party.md)：来源、版本、许可和审查状态。
 
 需求变更须明确记录并经用户批准。后续技术决策及实机测试记录在实际任务开始时添加；未执行的工作不能标记通过。
+
+- [M1-04 唯一主工程决策](decisions/0001-main-engineering.md)
+- [M1-05 真实文件闭环](tasks/M1-05.md)与[验证记录](research/M1-05-verification.md)
+- [M1-06 后台交付准备](tasks/M1-06.md)与[预览安装包说明](preview-package.md)
+- [M1-06 验证矩阵](research/M1-06-validation-matrix.md)：区分自动检查、精确候选原生验收与未验证异常。
+- [功能补充：失效引用手动重新定位](tasks/reference-relocation.md)：只改引用，保留分类与顺序，对应 Issue #12。
+- [P2直接开发入口](stages/P2-development-entry.md)：现有源码复用点、缺口、实施切面与原生验收边界；对应Issue #31，尚未实现。

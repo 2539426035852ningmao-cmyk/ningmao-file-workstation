@@ -18,7 +18,7 @@ Windows 资源管理器与桌面创作应用之间的素材接收、整理、预
 
 ## Capabilities and Constraints
 
-研究阶段 M1-03 的 SpaceUI 与 shadcn/ui 原型已验收；主工程已获批准采用独立 Tauri 2 / Rust / React / TypeScript / SQLite、shadcn/ui 主系统、SpaceUI FileThumb 按需复用。正式文件闭环及 MSI 仍在未合并 Draft #9/#11/#13，精确构建的原生 GUI、安装、DPI、多屏待验收。默认产品应是小型悬浮架而非 1120×760 大型工作台，见根目录 design.md。
+研究阶段 M1-03 的 SpaceUI 与 shadcn/ui 原型已验收；主工程已获批准采用独立 Tauri 2 / Rust / React / TypeScript / SQLite、shadcn/ui主系统、SpaceUI FileThumb按需复用。当前将#9至#28汇入受控P0/P1集成候选，保留引用、Copy、SQLite、修复、预览、排序、筛选和视图记忆；精确原生GUI、安装、DPI、多屏待集中验收。默认产品是小型悬浮架，见design.md；按完整阶段闭环推进P0–P4，不再重做微小原型。
 
 ## Brand Commitments
 

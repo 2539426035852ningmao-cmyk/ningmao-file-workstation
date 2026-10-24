@@ -4,11 +4,11 @@
 
 Windows 10/11 优先的轻量桌面悬浮文件工作站，支持临时文件引用与真实目录两种文件架，逐步扩展跨设备互联和 AI 文件管理。
 
-**当前 main 已合入 M1-01/02/03**，包含 GitHub 基础治理、Windows 技术基线与双 UI 原型。M1-04 已批准独立 Tauri 主工程选型；真实文件操作、预览 MSI 与引用修复分别在未合并的 Draft PR #9 → #11 → #13 中。自动测试已有成果，精确候选的 Windows GUI/安装/多屏/DPI 尚待验收；目前没有正式发行版。
+目前没有正式稳定发行版。main保留已验收的M1-01～M1-03及设计/AI规范；本分支 `integration/v0.1-p0-p1` 收束#9→#28全部功能及最新main规范，PR #30的r9候选已进行局部原生验收；r10已补齐多选并构建，r10核心原生复测已通过，等待产品验收与合并批准。自动检查、原生交互与安装验收分别记录。
 
-**开发导航：** [Codex 从这里开始](docs/codex-start-here.md) · [设计规范 design.md](design.md) · [阶段路线图](docs/roadmap.md) · [43 项冻结决策](docs/product-decisions.md) · [独立 Gemini 审查流程](docs/AI_REVIEW_WORKFLOW.md)（尚待本机重新核验 CLI）。复杂功能放按需管理中心，日常默认是小型悬浮文件架。
+已批准技术：Tauri 2、Rust、React、TypeScript、SQLite；唯一主工程 [apps/desktop](apps/desktop/README.md)。选型见 [ADR 0001](docs/decisions/0001-main-engineering.md)。
 
-已批准技术：Tauri 2、Rust、React、TypeScript、SQLite；UI 以 shadcn/ui 为主，按需复用 SpaceUI FileThumb。主工程目前位于未合并 PR，而非 main。
+开发入口：[当前状态与交接](docs/codex-start-here.md) · [设计合同](design.md) · [完整路线](docs/roadmap.md) · [项目记忆](MEMORY.md) · [正式总执行指令](docs/execution/v0.1-p0-p4-2026-10-24.md)。后续以完整桌面闭环和受控集成候选为单位，不再重复比较框架或堆积微小功能PR。
 
 主仓库许可证为 [Apache-2.0](LICENSE)，官方发行版计划永久免费。第三方组件保留各自许可证。
 
@@ -28,14 +28,18 @@ Windows 10/11 优先的轻量桌面悬浮文件工作站，支持临时文件引
 |---|---|---|
 | M1-01 | 仓库、文档、模板、基础 CI、main 保护 | 已完成，Issue #1 已关闭 |
 | M1-02 | Holdem 与独立 Tauri 2 模板真实技术对比 | 已验收、PR #4 已合入；已知问题和未测项保留 |
-| M1-03 | SpaceUI 与 shadcn/ui 同功能原型比较 | 已验收、PR #6 已合入 |
-| M1-04 | 主工程与设计系统选型 | 已批准，ADR 与代码随 Draft #9 |
-| M1-05 | 真实文件功能闭环 | 候选代码 + 自动测试在 Draft #9，原生体验未完整验收 |
-| M1-06 | Windows 实机验收与交付 | Draft #11 预览 MSI 与只读检查；真实安装等未测 |
+| M1-03 | SpaceUI 与 shadcn/ui 同功能原型比较 | 已验收，PR #6 已合入，Issue #5 关闭 |
+| M1-04 | 主工程与设计系统选型 | 用户已批准推荐方案，见 Issue #7 |
+| M1-05 | 真实文件功能闭环 | #9/#11/#13/#21至#28已在受控集成候选，见Issue #8；精确原生验收仍待完成 |
+| M1-06 | Windows 实机验收与交付 | PR #30 / r10：44浏览器/18Rust、Windows构建及MSI检查通过；r9局部原生通过但整体验收不通过，r10多选/绑定Copy/重启等核心原生复测通过，安装等剩余项仍未验证 |
 
 详见 [M1 开发记录](docs/milestones/M1.md)、[M1-03 任务](docs/tasks/M1-03.md)与 [UI 比较报告](docs/research/M1-03-comparison.md)。全部 43 项决策继续保留。
 
-## 仓库检查
+具体功能补充：[手动重新定位失效引用](docs/tasks/reference-relocation.md)（Issue #12），保留 ID、标签与手动顺序，只修改引用。实现与自动检查单独记录，真实系统选择器及精确候选原生验收仍待完成。
+
+## 主工程与检查
+
+主工程使用 scripts/build-desktop.ps1 -Native / -Browser 构建和验证，详见 [运行说明](apps/desktop/README.md)与 [M1-05 验证记录](docs/research/M1-05-verification.md)。默认只运行后台/headless 测试，不自动弹出原生测试窗口；原生体验另约时间集中验收。
 
 安装 Git 和 PowerShell 7 后，在仓库根目录执行：
 
@@ -55,4 +59,4 @@ M1-03 的 Windows 构建与浏览器验证分别执行 `scripts/m1-03/build-ui.p
 
 ## English
 
-Ningmao File Workstation is a Windows-first lightweight floating file shelf. The default branch contains accepted M1-01/02/03 research and UI prototypes. A Tauri-based file-operations candidate is still in draft PRs pending real Windows GUI and installer acceptance; this is not a production release. See the Chinese decision baseline for the full scope.
+Ningmao File Workstation is a Windows-first floating file workstation. M1-03 was accepted. The approved main application uses Tauri 2, Rust, React, TypeScript, SQLite and shadcn/ui, with selected licensed SpaceUI components. M1-05 implements the first real file workflow; native acceptance and a production release are still pending. See the Chinese decision baseline for the full scope.

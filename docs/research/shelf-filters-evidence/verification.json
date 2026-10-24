@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "date": "2026-10-24",
+  "baseSource": "6c4eeb45fb8348fbd7ed7f4dcde400bd123fc5ee",
+  "branch": "feat/shelf-file-filters",
+  "backendSchemaCopyDragPermissionsAndDependenciesUnchanged": true,
+  "preFix": "Actual #26 code opened a preview for the previous selection after search hid it; new test failed before the visibility guard",
+  "localChecks": "7 focused tests, full 34 browser tests, production build passed; final CI and package evidence recorded on PR/Issue 27",
+  "screenshots": [
+    {"file":"active-340-light.png","sha256":"019ddc5cc0cf3d99e3e79d3b40043613c4659beefb693995248adec32de66871"},
+    {"file":"active-420-dark.png","sha256":"acb8bfb27853e24b8d3a39607aa0b5207a37d7f62f93f3c4950b5684445056e4"},
+    {"file":"active-640-light.png","sha256":"9047df8b29d4e580c72f2fc8e08e2dc7460cd8c79f5c3608d0791752b4a368d3"},
+    {"file":"drawer-340-light.png","sha256":"31cc894906252fdb6e7d96de83a368ccc1c88ebb66557379c0fc224288eb6f22"},
+    {"file":"drawer-420-dark.png","sha256":"f6fafb4dcac8e92a849f8a144643151fe567a9217b26b5cdcf0365c923fd0938"},
+    {"file":"drawer-640-light.png","sha256":"7b5d5c3e094f57d5a08ca624e3384baac1949f6956c215ad6649300df85b4bf0"}
+  ],
+  "nativeInteractionRestartDpiAndInstall": "Not tested; screenshots and browser tests do not substitute native acceptance",
+  "gemini": "Not called; issue 17 remains open"
+}
