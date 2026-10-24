@@ -128,6 +128,8 @@ export default function App({backend,native}:{backend:Backend;native:boolean}) {
   const [topmost,setTopmost]=useState(false),[hover,setHover]=useState(false),[dragging,setDragging]=useState<number|null>(null);
   const [message,setMessage]=useState("正在恢复文件架…"),[error,setError]=useState(""),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
   const [progress,setProgress]=useState<Progress|null>(null),[tasks,setTasks]=useState(false);
+  const [creating,setCreating]=useState(false),[newName,setNewName]=useState(""),[sessionShelf,setSessionShelf]=useState(false),[formError,setFormError]=useState("");
+  const [copyTo,setCopyTo]=useState(false),[copyTarget,setCopyTarget]=useState(0),[copyIds,setCopyIds]=useState<number[]>([]);
   const [repairFeedback,setRepairFeedback]=useState<{error:boolean;message:string}|null>(null);
   const activeShelf=useRef(shelfId); activeShelf.current=shelfId;
   const importRef=useRef<(paths:string[])=>void>(()=>{});
@@ -150,7 +152,8 @@ export default function App({backend,native}:{backend:Backend;native:boolean}) {
   const running=data.jobs.find(j=>activeStatus(j.status));
   const inline=details && detailPinned && width>=1000;
   async function refresh() { const value=await backend.snapshot(); setData(value); return value; }
-  function switchShelf(id:number) { setShelfId(id); setSelected(null); setQuery(""); setFilters(defaultFilters);setFiltersOpen(false);setSearchOpen(false); setDetails(false); setPreview(false); }
+  function activateShelf(id:number) { activeShelf.current=id;setShelfId(id); setSelected(null); setQuery(""); setFilters(defaultFilters);setFiltersOpen(false);setSearchOpen(false); setDetails(false); setPreview(false); }
+  async function switchShelf(id:number) { await perform(async()=>{await backend.desktopSelect(id);activateShelf(id);}); }
   async function perform(action:()=>Promise<unknown>) { setError(""); try { await action(); } catch(e) { setError(String(e)); } }
   async function open(id:number) {
     setSelected(id);
@@ -175,8 +178,10 @@ export default function App({backend,native}:{backend:Backend;native:boolean}) {
       drop:paths=>importRef.current(paths),hover:setHover,progress:setProgress,
       finished:message=>{setMessage(message);setProgress(null);void refresh().catch(e=>setError(String(e)));},
       drag:message=>setMessage(`系统拖出结果：${message}；已请求复制。`),
+      activate:activateShelf,changed:()=>{void refresh().catch(e=>setError(String(e)));},error:setError,
+      desktop:value=>{if(value.warning)setError(value.warning);},
     }).then(fn=>{if(live) cleanup=fn;else fn();}).catch(e=>setError(String(e)));
-    void refresh().then(()=>{if(live) {setMessage("文件架已恢复。");setLoading(false);}}).catch(e=>{if(live) {setError(String(e));setLoading(false);}});
+    void Promise.all([refresh(),backend.desktopState()]).then(([snapshot,desktop])=>{if(live) {if(snapshot.shelves.some(s=>s.id===desktop.layout.active_shelf))activateShelf(desktop.layout.active_shelf);if(desktop.warning)setError(desktop.warning);setMessage("文件架已恢复。");setLoading(false);}}).catch(e=>{if(live) {setError(String(e));setLoading(false);}});
     return ()=>{live=false;cleanup?.();};
   },[backend]);
   useEffect(()=>{ document.documentElement.className=theme;setThemeWarning(writeTheme(theme)); },[theme]);
@@ -250,12 +255,15 @@ export default function App({backend,native}:{backend:Backend;native:boolean}) {
       {searchOpen ? <div className="shelf-search"><Search size={16}/><Input ref={searchInput} aria-label="搜索文件" placeholder="搜索当前文件架" value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==="Escape" && !e.nativeEvent.isComposing){e.preventDefault();e.stopPropagation();closeSearch();}}}/><Button variant="ghost" size="icon" aria-label="关闭搜索" onClick={closeSearch}><X size={16}/></Button></div> : <>
         <ShelfMenu label="文件架" align="start" trigger={<Button className="shelf-switch" variant="ghost" aria-label="切换文件架">{bound?<Folder size={16}/>:<Archive size={16}/>}<span>{shelf?.name || "文件架"}</span><ChevronDown size={14}/></Button>}>
           <DropdownMenu.RadioGroup value={String(shelfId)} onValueChange={id=>switchShelf(Number(id))}>{data.shelves.map(s=><DropdownMenu.RadioItem key={s.id} value={String(s.id)}>{s.kind==="bound"?<Folder size={16}/>:<Archive size={16}/>}<span>{s.name}</span><DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>)}</DropdownMenu.RadioGroup>
-          <DropdownMenu.Separator/><DropdownMenu.Item disabled={!native || busy || !!running} onSelect={()=>void perform(async()=>{const id=await backend.chooseFolder();await refresh();if(id)switchShelf(id);})}><FolderPlus size={16}/>绑定文件夹</DropdownMenu.Item>
+          <DropdownMenu.Separator/><DropdownMenu.Item disabled={!native || busy} onSelect={()=>{setNewName("");setSessionShelf(false);setFormError("");setCreating(true);}}><Plus size={16}/>新建文件架</DropdownMenu.Item><DropdownMenu.Item disabled={!native || busy || !!running} onSelect={()=>void perform(async()=>{const id=await backend.chooseFolder();await refresh();if(id)await switchShelf(id);})}><FolderPlus size={16}/>绑定文件夹</DropdownMenu.Item>
         </ShelfMenu>
         <Button ref={searchButton} variant="ghost" size="icon" aria-label="搜索文件" title="搜索文件 Ctrl+F" onClick={()=>setSearchOpen(true)}><Search size={16}/></Button>
       </>}
       <Button className="add-files" variant="ghost" size="icon" disabled={!native || busy || !!running} aria-label={bound?"添加并复制":"添加引用"} title={bound?"添加并复制，保留来源":"添加引用，保留原文件"} onClick={()=>void perform(async()=>receive(await backend.chooseFiles()))}><Plus size={18}/></Button>
       <ShelfMenu label="更多操作" trigger={<Button variant="ghost" size="icon" aria-label="更多操作" title="更多操作"><MoreHorizontal size={18}/></Button>}>
+        <DropdownMenu.Item disabled={!native || loading || busy} onSelect={()=>void perform(()=>backend.desktopCollapse(shelfId))}>收起到悬浮入口</DropdownMenu.Item>
+        <DropdownMenu.Item disabled={!native} onSelect={()=>void perform(()=>backend.desktopDisable())}>关闭悬浮入口</DropdownMenu.Item>
+        <DropdownMenu.Item disabled={!native || !chosen.length || busy} onSelect={()=>{setCopyIds(chosen.map(i=>i.id));setCopyTarget(data.shelves.find(s=>s.id!==shelfId && s.kind!=="bound")?.id || 0);setFormError("");setCopyTo(true);}}>复制选中引用到其他架</DropdownMenu.Item><DropdownMenu.Separator/>
         <DropdownMenu.Label className="menu-label">显示与排序</DropdownMenu.Label>
         <DropdownMenu.RadioGroup value={list?"list":"grid"} onValueChange={v=>setView({list:v==="list"})}><DropdownMenu.RadioItem value="grid"><Grid2X2 size={16}/>网格视图<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem><DropdownMenu.RadioItem value="list"><List size={16}/>详细列表<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem></DropdownMenu.RadioGroup>
         <DropdownMenu.RadioGroup value={sort} onValueChange={v=>{if(isSortMode(v))setView({sort:v});}}>{sortOptions.map(option=><DropdownMenu.RadioItem key={option.value} value={option.value}>{option.label}<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>)}</DropdownMenu.RadioGroup>
@@ -298,5 +306,10 @@ export default function App({backend,native}:{backend:Backend;native:boolean}) {
       {data.jobs.map(job=><div className="job" key={job.id}><Badge variant={["failed","interrupted","partial"].includes(job.status)?"destructive":"secondary"}>{jobStates[job.status] || job.status}</Badge><span>{job.message}</span>{activeStatus(job.status) && <Button variant="outline" onClick={()=>void perform(()=>backend.cancel(job.id))}>取消复制</Button>}{job.status==="interrupted" && job.staging && <p className="muted">上次临时文件位置：{job.staging}（未自动删除）</p>}</div>)}
     </div></SheetContent></Sheet>
     <Sheet open={(details && !inline || preview) && !!current} onOpenChange={value=>{if(!value){setDetails(false);setPreview(false);}}}><SheetContent className="details-sheet" showCloseButton={false}><SheetClose asChild><Button className="sheet-dismiss" variant="ghost" size="icon" aria-label="关闭详情"><X size={16}/></Button></SheetClose><SheetHeader><SheetTitle>{preview?"快速预览":"文件详情"}</SheetTitle><SheetDescription>真实本地文件信息；移除引用保留原文件。</SheetDescription></SheetHeader>{width>=1000 && !preview && <Button variant="ghost" onClick={()=>setDetailPinned(true)}>固定到右侧</Button>}{detail}</SheetContent></Sheet>
+    <Sheet open={creating} onOpenChange={value=>{if(!busy)setCreating(value);}}><SheetContent className="details-sheet" showCloseButton={false}><SheetClose asChild><Button className="sheet-dismiss" variant="ghost" size="icon" disabled={busy} aria-label="关闭新建文件架"><X size={16}/></Button></SheetClose><SheetHeader><SheetTitle>新建文件架</SheetTitle><SheetDescription>保存文件引用，原文件始终留在原处</SheetDescription></SheetHeader><form className="filter-form" onSubmit={event=>{event.preventDefault();if(busy)return;setBusy(true);setFormError("");void (async()=>{try{const id=await backend.createShelf(newName,sessionShelf);await refresh();await backend.desktopSelect(id);activateShelf(id);setCreating(false);setMessage("文件架已创建。");}catch(e){setFormError(String(e));}finally{setBusy(false);}})();}}>
+      <label>文件架名称<Input autoFocus maxLength={60} required value={newName} onChange={e=>setNewName(e.target.value)} onKeyDown={e=>{if(e.key==="Enter" && e.nativeEvent.isComposing)e.preventDefault();}}/></label>
+      <label className="shelf-session"><input type="checkbox" checked={sessionShelf} onChange={e=>setSessionShelf(e.target.checked)}/>仅本次中转</label><p className="muted">{sessionShelf?"完整退出时清空引用和标签；原文件保留。":"持久保存，退出后可继续整理。"}</p>{formError && <p role="alert">{formError}</p>}<Button type="submit" disabled={busy || !newName.trim()}>{busy?"正在创建…":"创建"}</Button>
+    </form></SheetContent></Sheet>
+    <Sheet open={copyTo} onOpenChange={value=>{if(!busy)setCopyTo(value);}}><SheetContent className="details-sheet" showCloseButton={false}><SheetClose asChild><Button className="sheet-dismiss" variant="ghost" size="icon" disabled={busy} aria-label="关闭跨架复制"><X size={16}/></Button></SheetClose><SheetHeader><SheetTitle>复制引用到其他架</SheetTitle><SheetDescription>选中 {copyIds.length} 项 · 保留来源架、原文件和标签</SheetDescription></SheetHeader><form className="filter-form" onSubmit={event=>{event.preventDefault();if(busy || !copyTarget)return;setBusy(true);setFormError("");void backend.copyReferences(copyTarget,copyIds).then(async added=>{await refresh();setCopyTo(false);setMessage(`已添加 ${added} 项引用；目标已有项保持不变。`);}).catch(e=>setFormError(String(e))).finally(()=>setBusy(false));}}><label>目标文件架<select value={copyTarget} onChange={e=>setCopyTarget(Number(e.target.value))}><option value={0}>请选择</option>{data.shelves.filter(s=>s.id!==shelfId && s.kind!=="bound").map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label><p className="muted">绑定目录请用拖出复制；这里仅添加引用。</p>{formError && <p role="alert">{formError}</p>}<Button type="submit" disabled={busy || !copyTarget}>{busy?"正在复制…":"复制引用"}</Button></form></SheetContent></Sheet>
   </div>;
 }

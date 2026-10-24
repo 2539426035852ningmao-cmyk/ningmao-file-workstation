@@ -1,34 +1,27 @@
 # Codex入口 · 柠猫文件工作站
 
-2026-10-24。当前开发入口integration/v0.1-p0-p1 / Issue #29；尚无正式稳定发行版。main已接纳研究/规范，不代表集成功能已获发布批准。
+2026-10-24。唯一主工程apps/desktop，尚无正式稳定发行版。P0/P1为PR #30 / integration/v0.1-p0-p1；P2为Issue #31 / feat/p2-desktop-loop，不向main直接推功能，不自动合并。
 
 ## 开始前读取
 
 AGENTS.md → MEMORY.md → docs/product-decisions.md（全部43项） → docs/execution/v0.1-p0-p4-2026-10-24.md → design.md与apps/desktop/DESIGN.md → docs/roadmap.md → docs/milestones/M1.md → GEMINI.md与docs/AI_REVIEW_WORKFLOW.md。再查实时Issues、PR base/head和CI，不以旧快照当事实。
 
-## 当前完整候选
+## 已有候选与证据
 
-[阶段集成记录](stages/P0-P1-integration.md)说明真实依赖、#9文档冲突、受控合并、旧候选与回滚。#28功能底座包含#9/#11/#13/#21/#22/#24/#26的全部祖先提交；无需机械重复合并。#19的公开诊断文档单独保留，Gemini接入不阻断主线。
+[阶段集成记录](stages/P0-P1-integration.md)说明真实依赖、#9文档冲突、受控合并、旧候选与回滚。#28包含#9/#11/#13/#21/#22/#24/#26祖先功能，旧9个Draft已关闭未合并，由#30接替，历史分支和包保留。#19公开诊断单独保留，Gemini #17仍授权/Pro/额外收费UNKNOWN、0模型请求，不阻断产品开发。
 
-P0/P1已有引用与绑定复制、冲突保护、SQLite、缩略图、默认打开/Space、排序/筛选/视图记忆及失效引用修复。本阶段加入卡片直接调用原生Copy、正式紧凑窗口与仅尺寸记忆；不会改Copy/Store安全语义。浏览器38项与本机生产构建通过，精确Windows构建结果、EXE/MSI身份以阶段PR/产物记录为准。
+P0/P1 r10精确源码8ad5760279e43ba3ab306f49fa8cdbc6f0b87ade，构建779c36c11e6bd80b6bef608adb9a68ff977ef77c，两者完整tree一致。44浏览器/18Rust、fmt/Clippy、Windows编译/MSI、本机完整性核验通过。用户Ctrl/Shift/框选及整组Copy、绑定3文件安全复制/重名保护、完整退出重启/尺寸恢复、手柄排序/Space/默认打开核心原生复测通过，源/目标SHA256与SQLite已核对。见[多选证据](research/P0-P1-multiselection-evidence/README.md)与[集中验收清单](stages/P0-P1-windows-acceptance.md)。
 
-原生OLE与目标接收、来源哈希、取消/异常、重启和尺寸恢复、125%/150%及多屏尚未验证；[集中验收清单](stages/P0-P1-windows-acceptance.md)配合scripts/stage-acceptance.ps1的合成数据使用。Prepare/Verify不启动软件；Launch必须先获得用户桌面许可。不继承探针或旧EXE的验收结论。
+尚待产品验收与合并批准；Win10/DPI/多屏/创作软件/安装升级卸载及原生取消等未测项目继续保留，不能继承研究探针结果。r10末尾物理Esc停止电脑控制，未经新桌面许可不操作仍在场的测试窗。
 
-## 直接推进顺序
+## 当前开发与完整线路
 
-1. 完成P0/P1精确包、来源与CI证据，集中原生验收后才请求文件安全/正式视觉合并。
-2. P2复用Tauri窗口与Store，交付真orb↔shelf、位置/尺寸恢复、置顶、贴边和Dock；管理中心按需打开，不加入空白假功能。在验收等待期间可准备独立低风险实现。
-3. P3先局域网接收确认、受保护字节传输、冲突/失败/进度与哈希一致，再另审远程/同步，不公开本地目录。
-4. P4先授权范围内本地跨架元数据检索，再可选AiProvider、修改预览/确认/可恢复；默认无付费API和隐私上传。
+P2独立分支以76658ecc为基线，实现真实desktop-entry/main窗口、收起/点击展开、每页5架基础Dock、入口自由拖动/位置记录及工作区纠偏；命名持久/中转架和原子跨架引用；native Enter仅唤出，Drop固定ID一次导入，复用既有Copy。本机48浏览器/22Rust及fmt/Clippy通过。新包云端构建与原生体验未验证；贴边/自动隐藏、每架独立展开窗口、按需管理中心仍待实施，不能称完整P2完成。见[P2入口](stages/P2-development-entry.md)。
 
-## 不得越过
+继续顺序：P0/P1正式验收与批准独立保留 → P2补齐桌面闭环和管理中心，并集中验收精确新包 → P3先LAN双设备接收确认/受保护字节传输/冲突失败进度/哈希一致，再远程/同步 → P4先授权范围内本地跨架元数据检索，再可选AI建议与操作预览/确认/恢复。全部43项、设计合同和用户操作习惯保留，不用未来接口和模拟数据冒充交付。
 
-只操作本仓库；保留全部43项和旧候选。不得自动安装、弹窗、模拟输入、强推、删除用户数据或合并高风险PR。模型调用须先确认官方授权与额外费用关闭；#17目前未满足，0请求。CI不代替真实Windows操作，候选未签名不称正式发行。
+## 工作边界
 
-按阶段汇报实际链路、精确版本、自动/原生证据、限制、回滚和下一可执行事项；同步MEMORY、设计、路线、Issues/PR，避免细碎Draft堆积。
+默认后台/无头/云端；禁止擅自打开候选、资源管理器、安装器或使用鼠标键盘。scripts/stage-acceptance.ps1仅Prepare/Verify无窗口，Launch须用户明确方便。模型费用/授权未确认不得调用；文件安全、正式视觉、权限、重大架构、正式发布各保留人工门槛。保留来源、旧环境与历史证据，不强推或删除数据。
 
-当前精确版本见[阶段PR #30交付证据](stages/P0-P1-integration.md#精确交付r92026-10-24)：功能提交1b15f786/构建715f7d3a的tree一致；38浏览器/18Rust、Windows编译与MSI全绿，本机完整性核验通过、未启动。旧Draft已关闭由#30接替，历史分支与包保留。P2入口[Issue #31](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/issues/31)已明确，不代表悬浮球/Dock实现。
-
-最新r9集中验收已发现基础多选缺失，整体验收不通过；启动、原生拖入/SQLite、三个合成文件直接Copy、手柄排序和完整退出仅为局部通过。PR #30同阶段修复Ctrl/Shift、空白框选、整组Copy、汇总和焦点/隐藏项保护，r10源码8ad5760/构建779c36c已通过44浏览器、18Rust、Windows构建/MSI与本机完整性核验；新二进制多选原生验收仍待完成，见[多选证据](research/P0-P1-multiselection-evidence/README.md)。不自动弹窗或合并。
-
-当前r10核心原生复测已通过（用户物理操作＋源/目标SHA256＋SQLite/窗口重启核验），记录见research/P0-P1-multiselection-evidence/r10-native-acceptance.json。仍未获正式产品/合并批准；Win10、DPI/多屏、安装等剩余项保留。现转后台推进P2，不操作已被Esc停止的测试窗口。
+同步MEMORY、设计约束、路线、Issues/PR；按阶段汇报源码/构建/产物身份、自动与原生证据、限制及回滚，不堆积零散Draft，不声称已经安排未设置的后台自动继续。
