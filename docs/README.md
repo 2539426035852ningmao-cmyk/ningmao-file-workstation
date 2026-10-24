@@ -29,3 +29,4 @@
 - [M1-06 验证矩阵](research/M1-06-validation-matrix.md)：区分自动检查、精确候选原生验收与未验证异常。
 - [功能补充：失效引用手动重新定位](tasks/reference-relocation.md)：只改引用，保留分类与顺序，对应 Issue #12。
 - [P2直接开发入口](stages/P2-development-entry.md)：首个真实入口/基础Dock/命名架与跨架引用源码、后台测试、待完成范围和原生验收边界；对应Issue #31，完整P2未完成。
+- [P2管理中心与贴边入口](stages/P2-management-edge.md)：r12的按需原生窗口、真实元数据与任务、标签事务、贴边与布局v2、无头截图及待验边界。

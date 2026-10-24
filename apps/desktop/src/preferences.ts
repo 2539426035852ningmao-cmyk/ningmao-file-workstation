@@ -35,3 +35,11 @@ export function writeTheme(theme:"dark"|"light"):string {
   try {localStorage.setItem("ningmao-theme",theme);return "";}
   catch {return "主题已切换，但无法保存设置；重启后可能恢复原主题";}
 }
+export function observeTheme(update:(theme:"dark"|"light")=>void):()=>void {
+  const read=()=>{try{return localStorage.getItem("ningmao-theme");}catch{return undefined;}};
+  let previous=read();
+  const refresh=()=>{const value=read();if(value!==undefined && value!==previous){previous=value;update(value==="light"?"light":"dark");}};
+  const storage=(event:StorageEvent)=>{if(event.key===null || event.key==="ningmao-theme")refresh();};
+  window.addEventListener("storage",storage);window.addEventListener("focus",refresh);
+  return()=>{window.removeEventListener("storage",storage);window.removeEventListener("focus",refresh);};
+}

@@ -13,7 +13,7 @@ import { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem, C
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "./components/ui/sheet";
 import { FileThumb } from "./components/spaceui/FileThumb";
 import type { Backend, Item, Progress, Snapshot } from "./backend";
-import { defaultView,readTheme,readViewMemory,writeTheme,writeViewMemory,type ShelfView } from "./preferences";
+import { defaultView,observeTheme,readTheme,readViewMemory,writeTheme,writeViewMemory,type ShelfView } from "./preferences";
 import { isSortMode,sortItems,sortOptions } from "./sorting";
 import { defaultFilters,filterItems,type ShelfFilters } from "./filters";
 
@@ -179,12 +179,14 @@ export default function App({backend,native}:{backend:Backend;native:boolean}) {
       finished:message=>{setMessage(message);setProgress(null);void refresh().catch(e=>setError(String(e)));},
       drag:message=>setMessage(`系统拖出结果：${message}；已请求复制。`),
       activate:activateShelf,changed:()=>{void refresh().catch(e=>setError(String(e)));},error:setError,
+      metadata:()=>{void backend.managementSnapshot().then(value=>{const tags=new Map(value.items.map(i=>[i.id,i.tags]));setData(old=>({...old,items:old.items.map(i=>tags.has(i.id)?{...i,tags:tags.get(i.id)!}:i)}));}).catch(e=>setError(String(e)));},
       desktop:value=>{if(value.warning)setError(value.warning);},
     }).then(fn=>{if(live) cleanup=fn;else fn();}).catch(e=>setError(String(e)));
     void Promise.all([refresh(),backend.desktopState()]).then(([snapshot,desktop])=>{if(live) {if(snapshot.shelves.some(s=>s.id===desktop.layout.active_shelf))activateShelf(desktop.layout.active_shelf);if(desktop.warning)setError(desktop.warning);setMessage("文件架已恢复。");setLoading(false);}}).catch(e=>{if(live) {setError(String(e));setLoading(false);}});
     return ()=>{live=false;cleanup?.();};
   },[backend]);
   useEffect(()=>{ document.documentElement.className=theme;setThemeWarning(writeTheme(theme)); },[theme]);
+  useEffect(()=>observeTheme(setTheme),[]);
   function setView(patch:Partial<ShelfView>) {
     viewDirty.current=true;
     setViews(previous=>({...previous,[shelfId]:{...(previous[String(shelfId)] || defaultView),...patch}}));
@@ -263,6 +265,7 @@ export default function App({backend,native}:{backend:Backend;native:boolean}) {
       <ShelfMenu label="更多操作" trigger={<Button variant="ghost" size="icon" aria-label="更多操作" title="更多操作"><MoreHorizontal size={18}/></Button>}>
         <DropdownMenu.Item disabled={!native || loading || busy} onSelect={()=>void perform(()=>backend.desktopCollapse(shelfId))}>收起到悬浮入口</DropdownMenu.Item>
         <DropdownMenu.Item disabled={!native} onSelect={()=>void perform(()=>backend.desktopDisable())}>关闭悬浮入口</DropdownMenu.Item>
+        <DropdownMenu.Item disabled={!native} onSelect={()=>void perform(()=>backend.managerOpen())}>管理中心</DropdownMenu.Item>
         <DropdownMenu.Item disabled={!native || !chosen.length || busy} onSelect={()=>{setCopyIds(chosen.map(i=>i.id));setCopyTarget(data.shelves.find(s=>s.id!==shelfId && s.kind!=="bound")?.id || 0);setFormError("");setCopyTo(true);}}>复制选中引用到其他架</DropdownMenu.Item><DropdownMenu.Separator/>
         <DropdownMenu.Label className="menu-label">显示与排序</DropdownMenu.Label>
         <DropdownMenu.RadioGroup value={list?"list":"grid"} onValueChange={v=>setView({list:v==="list"})}><DropdownMenu.RadioItem value="grid"><Grid2X2 size={16}/>网格视图<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem><DropdownMenu.RadioItem value="list"><List size={16}/>详细列表<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem></DropdownMenu.RadioGroup>

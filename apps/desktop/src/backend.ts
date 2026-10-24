@@ -7,8 +7,11 @@ export type Job = { id: number; shelf_id: number; status: string; message: strin
 export type Snapshot = { shelves: Shelf[]; items: Item[]; jobs: Job[] };
 export type Progress = { job_id: number; name: string; file_index: number; file_count: number; bytes: number; total: number };
 export type ImportResult = { added: number; job_id: number | null; errors: string[] };
-export type DesktopView = {layout:{enabled:boolean;expanded:boolean;active_shelf:number;collapsed:number[];page:number};entries:{id:number;name:string;kind:string}[];total:number;warning:string|null};
-export type Events = { drop: (paths: string[]) => void; hover: (active: boolean) => void; progress: (p: Progress) => void; finished: (message: string) => void; drag: (message: string) => void; activate?:(id:number)=>void; changed?:()=>void; desktop?:(view:DesktopView)=>void; error?:(message:string)=>void };
+export type DesktopPreferences={edge:"free"|"left"|"right";auto_hide:boolean;topmost:boolean};
+export type ManagedReference=Pick<Item,"id"|"shelf_id"|"path"|"name"|"tags">;
+export type ManagementSnapshot={shelves:Pick<Shelf,"id"|"name"|"kind">[];items:ManagedReference[];jobs:Job[]};
+export type DesktopView = {layout:{enabled:boolean;expanded:boolean;active_shelf:number;collapsed:number[];page:number;preferences:DesktopPreferences};entries:{id:number;name:string;kind:string}[];total:number;warning:string|null;copying:boolean;edge_hidden:boolean};
+export type Events = { drop: (paths: string[]) => void; hover: (active: boolean) => void; progress: (p: Progress) => void; finished: (message: string) => void; drag: (message: string) => void; activate?:(id:number)=>void; changed?:()=>void; metadata?:()=>void; desktop?:(view:DesktopView)=>void; error?:(message:string)=>void };
 export interface Backend {
   snapshot(): Promise<Snapshot>;
   chooseFiles(): Promise<string[]>;
@@ -34,6 +37,11 @@ export interface Backend {
   desktopPage(delta:number):Promise<void>;
   desktopMove():Promise<void>;
   desktopDisable():Promise<void>;
+  managerOpen():Promise<void>;
+  managementSnapshot():Promise<ManagementSnapshot>;
+  tagReferences(ids:number[],tag:string,remove:boolean):Promise<number>;
+  desktopConfigure(preferences:DesktopPreferences):Promise<boolean>;
+  desktopHover(inside:boolean):Promise<void>;
   subscribe(events: Events): Promise<() => void>;
 }
 export const nativeBackend: Backend = {
@@ -50,6 +58,9 @@ export const nativeBackend: Backend = {
   copyReferences:(target,ids)=>invoke("copy_references",{target,ids}),
   desktopState:()=>invoke("desktop_state"),desktopCollapse:shelfId=>invoke("desktop_collapse",{shelfId}),desktopOpen:shelfId=>invoke("desktop_open",{shelfId}),
   desktopSelect:shelfId=>invoke("desktop_select",{shelfId}),desktopPage:delta=>invoke("desktop_page",{delta}),desktopMove:()=>invoke("desktop_move"),desktopDisable:()=>invoke("desktop_disable"),
+  managerOpen:()=>invoke("manager_open"),managementSnapshot:()=>invoke("management_snapshot"),
+  tagReferences:(ids,tag,remove)=>invoke("tag_references",{ids,tag,remove}),
+  desktopConfigure:preferences=>invoke("desktop_configure",{preferences}),desktopHover:inside=>invoke("desktop_hover",{inside}),
   async subscribe(events) {
     if (!isTauri()) return () => {};
     const cleanups: (() => void)[] = [];
@@ -67,6 +78,7 @@ export const nativeBackend: Backend = {
       cleanups.push(await listen<string>("desktop-error",event=>events.error?.(event.payload)));
       cleanups.push(await listen<string>("desktop-imported",event=>events.finished(event.payload)));
       cleanups.push(await listen("workstation-changed",()=>events.changed?.()));
+      cleanups.push(await listen("reference-tags-changed",()=>events.metadata?.()));
       return () => cleanups.forEach(fn => fn());
     } catch (error) { cleanups.forEach(fn => fn()); throw error; }
   },

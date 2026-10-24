@@ -25,14 +25,21 @@ fn error(e: impl std::fmt::Display) -> String {
     e.to_string()
 }
 fn main_only(window: &tauri::WebviewWindow) -> Result<()> {
-    if window.label() == "main" {
+    if desktop::permits(window.label(), desktop::Scope::Files) {
         Ok(())
     } else {
         Err("此操作只允许在主文件架中执行。".into())
     }
 }
+fn metadata_window(window: &tauri::WebviewWindow) -> Result<()> {
+    if desktop::permits(window.label(), desktop::Scope::Metadata) {
+        Ok(())
+    } else {
+        Err("此操作只允许在文件架或管理中心执行。".into())
+    }
+}
 fn desktop_window(window: &tauri::WebviewWindow) -> Result<()> {
-    if matches!(window.label(), "main" | "desktop-entry") {
+    if desktop::permits(window.label(), desktop::Scope::Desktop) {
         Ok(())
     } else {
         Err("未知桌面窗口。".into())
@@ -177,6 +184,7 @@ async fn run_import(
     let cancel = Arc::new(AtomicBool::new(false));
     *active = Some((id, cancel.clone()));
     drop(active);
+    desktop_runtime::notify(&app);
     tauri::async_runtime::spawn_blocking(move || copy_job(app, id, shelf_id, paths, cancel));
     Ok(ImportResult {
         added: 0,
@@ -279,6 +287,7 @@ fn copy_job(
     if let Ok(mut active) = state.active.lock() {
         *active = None;
     }
+    desktop_runtime::notify(&app);
     let _ = app.emit(
         "copy-finished",
         serde_json::json!({"job_id":id,"status":status,"message":message}),
@@ -286,7 +295,7 @@ fn copy_job(
 }
 #[tauri::command]
 fn cancel_copy(app: tauri::AppHandle, window: tauri::WebviewWindow, job_id: i64) -> Result<()> {
-    main_only(&window)?;
+    metadata_window(&window)?;
     let state = app.state::<Runtime>();
     let active = state.active.lock().map_err(error)?;
     if let Some((id, cancel)) = active.as_ref()
@@ -344,7 +353,9 @@ async fn set_tags(
     tags: Vec<String>,
 ) -> Result<()> {
     main_only(&window)?;
-    database(app, move |s| s.set_tags(id, tags)).await
+    database(app.clone(), move |s| s.set_tags(id, tags)).await?;
+    let _ = app.emit("reference-tags-changed", ());
+    Ok(())
 }
 #[tauri::command]
 async fn reorder(
@@ -536,12 +547,54 @@ fn desktop_move(window: tauri::WebviewWindow) -> Result<()> {
     if window.label() != "desktop-entry" {
         return Err("未知悬浮入口。".into());
     }
-    window.start_dragging().map_err(error)
+    desktop_runtime::move_entry(&window)
 }
 #[tauri::command]
 fn desktop_disable(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<()> {
     main_only(&window)?;
     desktop_runtime::disable(&app)
+}
+#[tauri::command]
+async fn manager_open(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<()> {
+    desktop_window(&window)?;
+    desktop_runtime::manager_open(&app)
+}
+#[tauri::command]
+async fn management_snapshot(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+) -> Result<store::ManagementSnapshot> {
+    metadata_window(&window)?;
+    database(app, |s| s.management_snapshot()).await
+}
+#[tauri::command]
+async fn tag_references(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    ids: Vec<i64>,
+    tag: String,
+    remove: bool,
+) -> Result<usize> {
+    metadata_window(&window)?;
+    let changed = database(app.clone(), move |s| s.tag_references(&ids, &tag, remove)).await?;
+    let _ = app.emit("reference-tags-changed", ());
+    Ok(changed)
+}
+#[tauri::command]
+fn desktop_configure(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    preferences: desktop::Preferences,
+) -> Result<bool> {
+    metadata_window(&window)?;
+    desktop_runtime::configure(&app, preferences)
+}
+#[tauri::command]
+fn desktop_hover(app: tauri::AppHandle, window: tauri::WebviewWindow, inside: bool) -> Result<()> {
+    if !desktop::permits(window.label(), desktop::Scope::Entry) {
+        return Err("未知悬浮入口。".into());
+    }
+    desktop_runtime::hover(&app, inside)
 }
 pub fn run() {
     let mut window_state = tauri_plugin_window_state::Builder::default()
@@ -614,7 +667,9 @@ pub fn run() {
         })
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
+                if window.label() != "manager" {
+                    api.prevent_close();
+                }
                 if window.label() == "main" {
                     // Frozen decision 19: X hides to tray. Only explicit collapse creates an orb.
                     let _ = window.hide();
@@ -623,6 +678,7 @@ pub fn run() {
                 && window.label() == "desktop-entry"
                 && let Some(state) = window.app_handle().try_state::<desktop_runtime::Desktop>()
                 && let Ok(mut layout) = state.layout.lock()
+                && layout.preferences.edge == desktop::Edge::Free
             {
                 layout.entry_position = Some((position.x, position.y));
             }
@@ -652,7 +708,12 @@ pub fn run() {
             desktop_select,
             desktop_page,
             desktop_move,
-            desktop_disable
+            desktop_disable,
+            manager_open,
+            management_snapshot,
+            tag_references,
+            desktop_configure,
+            desktop_hover
         ])
         .run(tauri::generate_context!())
         .expect("柠猫文件工作站启动失败；数据未自动清理");

@@ -54,6 +54,20 @@ pub struct Snapshot {
     pub items: Vec<Item>,
     pub jobs: Vec<Job>,
 }
+#[derive(Serialize)]
+pub struct ManagedReference {
+    pub id: i64,
+    pub shelf_id: i64,
+    pub path: String,
+    pub name: String,
+    pub tags: Vec<String>,
+}
+#[derive(Serialize)]
+pub struct ManagementSnapshot {
+    pub shelves: Vec<ShelfIdentity>,
+    pub items: Vec<ManagedReference>,
+    pub jobs: Vec<Job>,
+}
 
 pub struct Store {
     db: Connection,
@@ -313,6 +327,94 @@ impl Store {
         }
         Ok(())
     }
+    pub fn tag_references(&mut self, ids: &[i64], tag: &str, remove: bool) -> Result<usize> {
+        let tag = tag.trim();
+        if tag.is_empty() || tag.len() > 128 || tag.chars().any(char::is_control) {
+            return Err("标签需为1至128字节，不能包含控制字符。".into());
+        }
+        if ids.is_empty()
+            || ids.len() > 256
+            || ids.iter().collect::<std::collections::HashSet<_>>().len() != ids.len()
+        {
+            return Err("请选择1至256个不同引用；不会只更新部分选中项。".into());
+        }
+        let tx = self.db.transaction().map_err(err)?;
+        for id in ids {
+            let raw: String = tx
+                .query_row("SELECT tags FROM items WHERE id=?1", [id], |r| r.get(0))
+                .map_err(err)?;
+            let mut tags: Vec<String> = serde_json::from_str(&raw).map_err(err)?;
+            if remove {
+                tags.retain(|value| value != tag);
+            } else if !tags.iter().any(|value| value == tag) {
+                tags.push(tag.into());
+            }
+            if tags.len() > 32 {
+                return Err("单个文件最多32个标签，本次批量修改已取消。".into());
+            }
+            tx.execute(
+                "UPDATE items SET tags=?1 WHERE id=?2",
+                params![serde_json::to_string(&tags).map_err(err)?, id],
+            )
+            .map_err(err)?;
+        }
+        tx.commit().map_err(err)?;
+        Ok(ids.len())
+    }
+    // Metadata only: no stat/read_dir/canonicalize and no insertion into bound shelves.
+    pub fn management_snapshot(&self) -> Result<ManagementSnapshot> {
+        let items = self
+            .db
+            .prepare("SELECT id,shelf_id,path,name,tags FROM items ORDER BY shelf_id,position,id")
+            .map_err(err)?
+            .query_map([], |r| {
+                Ok((
+                    r.get::<_, i64>(0)?,
+                    r.get::<_, i64>(1)?,
+                    r.get::<_, String>(2)?,
+                    r.get::<_, String>(3)?,
+                    r.get::<_, String>(4)?,
+                ))
+            })
+            .map_err(err)?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(err)?
+            .into_iter()
+            .map(|(id, shelf_id, path, name, raw)| {
+                Ok(ManagedReference {
+                    id,
+                    shelf_id,
+                    path,
+                    name,
+                    tags: serde_json::from_str(&raw).map_err(err)?,
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        Ok(ManagementSnapshot {
+            shelves: self.shelf_catalog()?,
+            items,
+            jobs: self.jobs()?,
+        })
+    }
+    fn jobs(&self) -> Result<Vec<Job>> {
+        self.db
+            .prepare(
+                "SELECT id,shelf_id,status,message,staging FROM jobs ORDER BY id DESC LIMIT 20",
+            )
+            .map_err(err)?
+            .query_map([], |r| {
+                Ok(Job {
+                    id: r.get(0)?,
+                    shelf_id: r.get(1)?,
+                    status: r.get(2)?,
+                    message: r.get(3)?,
+                    staging: r.get(4)?,
+                })
+            })
+            .map_err(err)?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(err)
+    }
     pub fn reorder(&mut self, shelf: i64, ids: &[i64]) -> Result<()> {
         let expected: Vec<i64> = self
             .db
@@ -423,24 +525,7 @@ impl Store {
                 })
             })
             .collect::<Result<Vec<_>>>()?;
-        let jobs = self
-            .db
-            .prepare(
-                "SELECT id,shelf_id,status,message,staging FROM jobs ORDER BY id DESC LIMIT 20",
-            )
-            .map_err(err)?
-            .query_map([], |r| {
-                Ok(Job {
-                    id: r.get(0)?,
-                    shelf_id: r.get(1)?,
-                    status: r.get(2)?,
-                    message: r.get(3)?,
-                    staging: r.get(4)?,
-                })
-            })
-            .map_err(err)?
-            .collect::<std::result::Result<Vec<_>, _>>()
-            .map_err(err)?;
+        let jobs = self.jobs()?;
         Ok(Snapshot {
             shelves,
             items,

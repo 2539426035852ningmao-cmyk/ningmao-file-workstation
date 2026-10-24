@@ -109,3 +109,52 @@ fn monitor_clamping_handles_negative_coordinates_small_work_areas_and_roundtrip(
     assert_eq!(restored.collapsed, vec![2]);
     assert_eq!(restored.entry_position, Some((-1200, 90)));
 }
+#[test]
+fn mixed_dpi_edge_handle_keeps_anchor_and_drag_prevents_folding() {
+    use ningmao_desktop_lib::desktop::{Edge, entry_placement};
+    let area = Rect {
+        x: -1920,
+        y: 0,
+        width: 1920,
+        height: 1040,
+    };
+    assert!(ningmao_desktop_lib::desktop::contains_point(
+        area,
+        (-1.0, 20.0)
+    ));
+    assert!(!ningmao_desktop_lib::desktop::contains_point(
+        area,
+        (0.0, 20.0)
+    ));
+    assert!(!ningmao_desktop_lib::desktop::contains_point(
+        area,
+        (f64::NAN, 20.0)
+    ));
+    let open = entry_placement((-100, 9999), area, 1.5, 5, 7, Edge::Right, false);
+    let hidden = entry_placement(open.anchor, area, 1.5, 5, 7, Edge::Right, true);
+    assert_eq!(open.anchor, (-96, 572));
+    assert_eq!(hidden.position, (-27, 572));
+    assert_eq!(hidden.anchor, open.anchor);
+    assert_eq!(hidden.logical_size, (18.0, 64.0));
+    let mut layout = Layout::default();
+    layout.collapse(1);
+    layout.preferences.edge = Edge::Right;
+    layout.preferences.auto_hide = true;
+    assert!(layout.fold_entry());
+    layout.begin_drag();
+    assert!(!layout.edge_hidden);
+    assert!(!layout.fold_entry());
+    assert_eq!(layout.drop_target(12.0, 1.5), Some(1));
+    assert!(layout.fold_entry());
+}
+#[test]
+fn named_window_scopes_do_not_grant_file_access_to_entry_or_manager() {
+    use ningmao_desktop_lib::desktop::{Scope, permits};
+    assert!(permits("main", Scope::Files));
+    assert!(permits("manager", Scope::Metadata));
+    for label in ["manager", "desktop-entry", "shelf-1", "unknown"] {
+        assert!(!permits(label, Scope::Files));
+    }
+    assert!(!permits("desktop-entry", Scope::Metadata));
+    assert!(!permits("main", Scope::Entry));
+}

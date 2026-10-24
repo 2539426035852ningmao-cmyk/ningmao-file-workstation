@@ -2,6 +2,45 @@
 use serde::{Deserialize, Serialize};
 
 pub const PAGE_SIZE: usize = 5;
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Edge {
+    #[default]
+    Free,
+    Left,
+    Right,
+}
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Preferences {
+    pub edge: Edge,
+    pub auto_hide: bool,
+    pub topmost: bool,
+}
+impl Default for Preferences {
+    fn default() -> Self {
+        Self {
+            edge: Edge::Free,
+            auto_hide: false,
+            topmost: true,
+        }
+    }
+}
+#[derive(Clone, Copy)]
+pub enum Scope {
+    Files,
+    Metadata,
+    Desktop,
+    Entry,
+}
+pub fn permits(label: &str, scope: Scope) -> bool {
+    match scope {
+        Scope::Files => label == "main",
+        Scope::Metadata => matches!(label, "main" | "manager"),
+        Scope::Desktop => matches!(label, "main" | "manager" | "desktop-entry"),
+        Scope::Entry => label == "desktop-entry",
+    }
+}
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Layout {
@@ -12,26 +51,32 @@ pub struct Layout {
     pub collapsed: Vec<i64>,
     pub page: usize,
     pub entry_position: Option<(i32, i32)>,
+    pub preferences: Preferences,
+    #[serde(skip)]
+    pub edge_hidden: bool,
     #[serde(skip)]
     drag_ids: Option<Vec<i64>>,
 }
 impl Default for Layout {
     fn default() -> Self {
         Self {
-            version: 1,
+            version: 2,
             enabled: false,
             expanded: true,
             active_shelf: 1,
             collapsed: vec![],
             page: 0,
             entry_position: None,
+            preferences: Preferences::default(),
+            edge_hidden: false,
             drag_ids: None,
         }
     }
 }
 impl Layout {
     pub fn validate(&self) -> bool {
-        self.version == 1
+        self.version == 2
+            && !(self.preferences.edge == Edge::Free && self.preferences.auto_hide)
             && self.active_shelf > 0
             && self.collapsed.len() <= 256
             && self.collapsed.iter().all(|id| *id > 0)
@@ -72,6 +117,7 @@ impl Layout {
             .collect()
     }
     pub fn begin_drag(&mut self) {
+        self.edge_hidden = false;
         self.drag_ids = Some(self.visible_ids());
     }
     pub fn is_dragging(&self) -> bool {
@@ -98,6 +144,17 @@ impl Layout {
     pub fn cancel_drag(&mut self) {
         self.drag_ids = None;
     }
+    pub fn fold_entry(&mut self) -> bool {
+        if self.edge_hidden
+            || self.is_dragging()
+            || self.preferences.edge == Edge::Free
+            || !self.preferences.auto_hide
+        {
+            return false;
+        }
+        self.edge_hidden = true;
+        true
+    }
 }
 #[derive(Clone, Copy, Debug)]
 pub struct Rect {
@@ -105,6 +162,12 @@ pub struct Rect {
     pub y: i32,
     pub width: u32,
     pub height: u32,
+}
+pub fn contains_point(area: Rect, point: (f64, f64)) -> bool {
+    point.0 >= f64::from(area.x)
+        && point.0 < f64::from(area.x) + f64::from(area.width)
+        && point.1 >= f64::from(area.y)
+        && point.1 < f64::from(area.y) + f64::from(area.height)
 }
 pub fn clamp_position(position: (i32, i32), size: (u32, u32), area: Rect) -> (i32, i32) {
     fn axis(value: i32, start: i32, extent: u32, size: u32) -> i32 {
@@ -118,4 +181,52 @@ pub fn clamp_position(position: (i32, i32), size: (u32, u32), area: Rect) -> (i3
         axis(position.0, area.x, area.width, size.0),
         axis(position.1, area.y, area.height, size.1),
     )
+}
+#[derive(Debug)]
+pub struct EntryPlacement {
+    pub anchor: (i32, i32),
+    pub position: (i32, i32),
+    pub logical_size: (f64, f64),
+}
+pub fn entry_placement(
+    initial: (i32, i32),
+    area: Rect,
+    scale: f64,
+    count: usize,
+    total: usize,
+    edge: Edge,
+    hidden: bool,
+) -> EntryPlacement {
+    let height = (count.min(PAGE_SIZE) * 56 + 8 + if total > PAGE_SIZE { 24 } else { 0 }) as f64;
+    let scale = if scale.is_finite() && scale > 0.0 {
+        scale
+    } else {
+        1.0
+    };
+    let width = (64.0 * scale).ceil() as u32;
+    let mut anchor = clamp_position(initial, (width, (height * scale).ceil() as u32), area);
+    let right = (i64::from(area.x) + i64::from(area.width))
+        .clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32;
+    if edge == Edge::Left {
+        anchor.0 = area.x;
+    }
+    if edge == Edge::Right {
+        anchor.0 = right.saturating_sub(width as i32).max(area.x);
+    }
+    let folded = hidden && edge != Edge::Free;
+    let position = if folded && edge == Edge::Right {
+        (
+            right
+                .saturating_sub((18.0 * scale).ceil() as i32)
+                .max(area.x),
+            anchor.1,
+        )
+    } else {
+        anchor
+    };
+    EntryPlacement {
+        anchor,
+        position,
+        logical_size: if folded { (18.0, 64.0) } else { (64.0, height) },
+    }
 }

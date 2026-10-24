@@ -1,6 +1,6 @@
 use crate::{
     Runtime,
-    desktop::{Layout, Rect, clamp_position},
+    desktop::{Edge, Layout, Preferences, Rect, clamp_position, contains_point, entry_placement},
     error,
     store::{Result, ShelfIdentity},
 };
@@ -9,6 +9,7 @@ use std::{
     io::Write,
     path::{Path, PathBuf},
     sync::Mutex,
+    time::{Duration, Instant},
 };
 use tauri::{Emitter, Manager};
 
@@ -17,6 +18,12 @@ pub struct Desktop {
     path: PathBuf,
     writable: bool,
     warning: Mutex<Option<String>>,
+    hover: Mutex<HoverState>,
+}
+struct HoverState {
+    inside: bool,
+    last_leave: Instant,
+    worker_running: bool,
 }
 #[derive(Serialize, Clone)]
 pub struct View {
@@ -24,25 +31,39 @@ pub struct View {
     pub entries: Vec<ShelfIdentity>,
     pub total: usize,
     pub warning: Option<String>,
+    pub copying: bool,
+    pub edge_hidden: bool,
 }
 
 impl Desktop {
     fn load(root: &Path) -> Self {
-        let path = root.join("desktop-layout-v1.json");
-        let loaded = if !path.exists() {
+        let path = root.join("desktop-layout-v2.json");
+        let source = if path.exists() {
+            path.clone()
+        } else {
+            root.join("desktop-layout-v1.json")
+        };
+        let legacy = source != path;
+        let loaded = if !source.exists() {
             Ok(Layout::default())
         } else {
-            std::fs::metadata(&path)
+            std::fs::metadata(&source)
                 .map_err(error)
                 .and_then(|m| {
                     if m.len() > 65536 {
                         Err("布局文件过大。".into())
                     } else {
-                        std::fs::read(&path).map_err(error)
+                        std::fs::read(&source).map_err(error)
                     }
                 })
                 .and_then(|bytes| serde_json::from_slice::<Layout>(&bytes).map_err(error))
-                .and_then(|layout| {
+                .and_then(|mut layout| {
+                    if legacy {
+                        if layout.version != 1 {
+                            return Err("旧布局版本不兼容，原文件已保留。".into());
+                        }
+                        layout.version = 2;
+                    }
                     if layout.validate() {
                         Ok(layout)
                     } else {
@@ -63,6 +84,11 @@ impl Desktop {
             path,
             writable,
             warning: Mutex::new(warning),
+            hover: Mutex::new(HoverState {
+                inside: false,
+                last_leave: Instant::now(),
+                worker_running: false,
+            }),
         }
     }
     pub fn save(&self) -> Result<()> {
@@ -126,9 +152,16 @@ pub fn view(app: &tauri::AppHandle) -> Result<View> {
         .collect();
     Ok(View {
         total: layout.collapsed.len(),
+        edge_hidden: layout.edge_hidden,
         layout,
         entries,
         warning: state.warning.lock().map_err(error)?.clone(),
+        copying: app
+            .state::<Runtime>()
+            .active
+            .lock()
+            .map_err(error)?
+            .is_some(),
     })
 }
 fn report(app: &tauri::AppHandle, message: String) {
@@ -147,9 +180,6 @@ fn entry_geometry(app: &tauri::AppHandle) -> Result<()> {
         window.hide().map_err(error)?;
         return publish(app);
     }
-    let height = (data.entries.len() * 56 + 8 + if data.total > 5 { 24 } else { 0 }) as f64;
-    let scale = window.scale_factor().map_err(error)?;
-    let size = ((64.0 * scale).ceil() as u32, (height * scale).ceil() as u32);
     let monitors = window.available_monitors().map_err(error)?;
     let initial = data.layout.entry_position.unwrap_or_else(|| {
         app.get_webview_window("main")
@@ -163,27 +193,40 @@ fn entry_geometry(app: &tauri::AppHandle) -> Result<()> {
         .or_else(|| monitors.first().cloned())
         .ok_or("没有可用显示器，文件架保持展开")?;
     let area = monitor.work_area();
-    let position = clamp_position(
+    let placement = entry_placement(
         initial,
-        size,
         Rect {
             x: area.position.x,
             y: area.position.y,
             width: area.size.width,
             height: area.size.height,
         },
+        monitor.scale_factor(),
+        data.entries.len(),
+        data.total,
+        data.layout.preferences.edge,
+        data.layout.edge_hidden,
     );
     window
-        .set_size(tauri::LogicalSize::new(64.0, height))
+        .set_size(tauri::LogicalSize::new(
+            placement.logical_size.0,
+            placement.logical_size.1,
+        ))
         .map_err(error)?;
     window
-        .set_position(tauri::PhysicalPosition::new(position.0, position.1))
+        .set_position(tauri::PhysicalPosition::new(
+            placement.position.0,
+            placement.position.1,
+        ))
         .map_err(error)?;
     app.state::<Desktop>()
         .layout
         .lock()
         .map_err(error)?
-        .entry_position = Some(position);
+        .entry_position = Some(placement.anchor);
+    window
+        .set_always_on_top(data.layout.preferences.topmost)
+        .map_err(error)?;
     window.show().map_err(error)?;
     publish(app)
 }
@@ -196,6 +239,7 @@ pub fn collapse(app: &tauri::AppHandle, id: i64) -> Result<()> {
         return Err("基础Dock最多收纳256架。".into());
     }
     state.layout.lock().map_err(error)?.collapse(id);
+    state.layout.lock().map_err(error)?.fold_entry();
     if let Err(e) = entry_geometry(app) {
         *state.layout.lock().map_err(error)? = old;
         return Err(e);
@@ -306,6 +350,177 @@ pub fn disable(app: &tauri::AppHandle) -> Result<()> {
     let _ = state.save();
     Ok(())
 }
+pub fn configure(app: &tauri::AppHandle, preferences: Preferences) -> Result<bool> {
+    require_idle(app)?;
+    if preferences.edge == Edge::Free && preferences.auto_hide {
+        return Err("请先选择左侧或右侧贴边，再启用自动收起。".into());
+    }
+    let state = app.state::<Desktop>();
+    let old = state.layout.lock().map_err(error)?.clone();
+    {
+        let mut l = state.layout.lock().map_err(error)?;
+        l.preferences = preferences;
+        l.edge_hidden = false;
+        l.fold_entry();
+    }
+    if let Err(e) = entry_geometry(app) {
+        *state.layout.lock().map_err(error)? = old;
+        let _ = entry_geometry(app);
+        return Err(e);
+    }
+    let saved = state.writable && state.save().is_ok();
+    publish(app)?;
+    Ok(saved)
+}
+pub fn hover(app: &tauri::AppHandle, inside: bool) -> Result<()> {
+    let state = app.state::<Desktop>();
+    let can_fold = {
+        let l = state.layout.lock().map_err(error)?;
+        l.enabled && !l.edge_hidden && l.preferences.edge != Edge::Free && l.preferences.auto_hide
+    };
+    let spawn = {
+        let mut h = state.hover.lock().map_err(error)?;
+        h.inside = inside;
+        if inside {
+            false
+        } else {
+            h.last_leave = Instant::now();
+            if h.worker_running || !can_fold {
+                false
+            } else {
+                h.worker_running = true;
+                true
+            }
+        }
+    };
+    if inside {
+        let changed = {
+            let mut l = state.layout.lock().map_err(error)?;
+            let old = l.edge_hidden;
+            l.edge_hidden = false;
+            old
+        };
+        if changed {
+            entry_geometry(app)?;
+        }
+    }
+    if spawn {
+        let task = app.clone();
+        // One sleeping worker per burst, no idle polling and no new timer dependency.
+        std::thread::spawn(move || {
+            loop {
+                std::thread::sleep(Duration::from_millis(650));
+                let state = task.state::<Desktop>();
+                let Ok(mut h) = state.hover.lock() else {
+                    return;
+                };
+                if h.inside {
+                    h.worker_running = false;
+                    return;
+                }
+                if h.last_leave.elapsed() < Duration::from_millis(650) {
+                    continue;
+                }
+                h.worker_running = false;
+                drop(h);
+                let gui = task.clone();
+                let _ = task.run_on_main_thread(move || {
+                    let state = gui.state::<Desktop>();
+                    let ready = state
+                        .hover
+                        .lock()
+                        .map(|h| !h.inside && h.last_leave.elapsed() >= Duration::from_millis(650))
+                        .unwrap_or(false);
+                    // OLE drop can finish without a DOM pointer-enter; check actual hover once.
+                    let pointer_inside = (|| -> Result<bool> {
+                        let window = gui
+                            .get_webview_window("desktop-entry")
+                            .ok_or("入口未就绪")?;
+                        let cursor = window.cursor_position().map_err(error)?;
+                        let p = window.outer_position().map_err(error)?;
+                        let size = window.outer_size().map_err(error)?;
+                        Ok(contains_point(
+                            Rect {
+                                x: p.x,
+                                y: p.y,
+                                width: size.width,
+                                height: size.height,
+                            },
+                            (cursor.x, cursor.y),
+                        ))
+                    })()
+                    .unwrap_or(true);
+                    if ready
+                        && !pointer_inside
+                        && state
+                            .layout
+                            .lock()
+                            .map(|mut l| l.fold_entry())
+                            .unwrap_or(false)
+                        && let Err(e) = entry_geometry(&gui)
+                    {
+                        report(&gui, e);
+                    }
+                });
+                return;
+            }
+        });
+    }
+    Ok(())
+}
+pub fn move_entry(window: &tauri::WebviewWindow) -> Result<()> {
+    let state = window.app_handle().state::<Desktop>();
+    let layout = state.layout.lock().map_err(error)?;
+    if layout.is_dragging() {
+        return Err("请先完成文件投放。".into());
+    }
+    if layout.preferences.edge != Edge::Free {
+        return Err("贴边模式已固定入口；请在管理中心切换为自由悬浮后移动。".into());
+    }
+    drop(layout);
+    window.start_dragging().map_err(error)
+}
+pub fn notify(app: &tauri::AppHandle) {
+    let _ = publish(app);
+}
+pub fn manager_open(app: &tauri::AppHandle) -> Result<()> {
+    if let Some(window) = app.get_webview_window("manager") {
+        window.unminimize().map_err(error)?;
+        window.show().map_err(error)?;
+        return window.set_focus().map_err(error);
+    }
+    let window = tauri::WebviewWindowBuilder::new(
+        app,
+        "manager",
+        tauri::WebviewUrl::App("index.html".into()),
+    )
+    .title("柠猫文件工作站 · 管理中心")
+    .visible(false)
+    .inner_size(1040.0, 720.0)
+    .min_inner_size(760.0, 520.0)
+    .build()
+    .map_err(error)?;
+    if let Some(monitor) = window.current_monitor().map_err(error)? {
+        let area = monitor.work_area();
+        let size = window.outer_size().map_err(error)?;
+        let p = window.outer_position().map_err(error)?;
+        let pos = clamp_position(
+            (p.x, p.y),
+            (size.width, size.height),
+            Rect {
+                x: area.position.x,
+                y: area.position.y,
+                width: area.size.width,
+                height: area.size.height,
+            },
+        );
+        window
+            .set_position(tauri::PhysicalPosition::new(pos.0, pos.1))
+            .map_err(error)?;
+    }
+    window.show().map_err(error)?;
+    window.set_focus().map_err(error)
+}
 pub fn setup(app: &tauri::AppHandle, root: &Path) -> Result<()> {
     let state = Desktop::load(root);
     let catalog = shelves(app)?;
@@ -315,6 +530,7 @@ pub fn setup(app: &tauri::AppHandle, root: &Path) -> Result<()> {
         if !catalog.iter().any(|s| s.id == l.active_shelf) {
             l.active_shelf = 1;
         }
+        l.fold_entry();
     }
     app.manage(state);
     tauri::WebviewWindowBuilder::new(
@@ -358,6 +574,7 @@ pub fn webview_event(webview: &tauri::Webview, event: &tauri::WebviewEvent) {
         match event {
             tauri::DragDropEvent::Enter { position, .. } => {
                 state.layout.lock().map_err(error)?.begin_drag();
+                entry_geometry(&app)?;
                 let target = state
                     .layout
                     .lock()
@@ -382,6 +599,7 @@ pub fn webview_event(webview: &tauri::Webview, event: &tauri::WebviewEvent) {
             tauri::DragDropEvent::Leave => {
                 state.layout.lock().map_err(error)?.cancel_drag();
                 publish(&app)?;
+                hover(&app, false)?;
             }
             tauri::DragDropEvent::Drop { paths, position } => {
                 let target = state
@@ -416,6 +634,7 @@ pub fn webview_event(webview: &tauri::Webview, event: &tauri::WebviewEvent) {
                         }
                     });
                 }
+                hover(&app, false)?;
             }
             _ => {}
         }
@@ -429,6 +648,28 @@ pub fn webview_event(webview: &tauri::Webview, event: &tauri::WebviewEvent) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn view_exposes_fold_state_but_saved_layout_excludes_transient_state() {
+        let mut layout = Layout::default();
+        layout.collapse(1);
+        layout.preferences.edge = Edge::Left;
+        layout.preferences.auto_hide = true;
+        layout.fold_entry();
+        let json = serde_json::to_value(View {
+            edge_hidden: layout.edge_hidden,
+            layout,
+            entries: vec![],
+            total: 1,
+            warning: None,
+            copying: true,
+        })
+        .unwrap();
+        assert_eq!(json["edge_hidden"], true);
+        assert_eq!(json["copying"], true);
+        assert!(json["layout"].get("edge_hidden").is_none());
+        assert!(json["layout"].get("drag_ids").is_none());
+        assert_eq!(json["layout"]["preferences"]["edge"], "left");
+    }
     #[test]
     fn desktop_layout_persists_and_future_or_corrupt_files_are_preserved() {
         let root = tempfile::tempdir().unwrap();
@@ -454,5 +695,19 @@ mod tests {
             fallback.save().unwrap();
             assert_eq!(std::fs::read(&state.path).unwrap(), bytes);
         }
+    }
+    #[test]
+    fn legacy_layout_migrates_to_separate_file_without_overwriting_v1() {
+        let root = tempfile::tempdir().unwrap();
+        let legacy = root.path().join("desktop-layout-v1.json");
+        let bytes=br#"{"version":1,"enabled":true,"expanded":false,"active_shelf":2,"collapsed":[2],"entry_position":[-1200,90]}"#;
+        std::fs::write(&legacy, bytes).unwrap();
+        let state = Desktop::load(root.path());
+        assert!(state.writable);
+        assert_eq!(state.layout.lock().unwrap().collapsed, vec![2]);
+        assert_eq!(state.layout.lock().unwrap().version, 2);
+        state.save().unwrap();
+        assert!(root.path().join("desktop-layout-v2.json").is_file());
+        assert_eq!(std::fs::read(legacy).unwrap(), bytes);
     }
 }
