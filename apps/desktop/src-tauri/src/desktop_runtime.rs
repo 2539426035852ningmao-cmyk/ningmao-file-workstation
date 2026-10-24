@@ -402,12 +402,13 @@ pub fn webview_event(webview: &tauri::Webview, event: &tauri::WebviewEvent) {
                     tauri::async_runtime::spawn(async move {
                         match crate::run_import(task.clone(), id, paths).await {
                             Ok(result) => {
+                                if !result.errors.is_empty() {
+                                    report(&task, result.errors.join("；"));
+                                }
                                 let message = if result.job_id.is_some() {
                                     "复制任务已开始；来源保留。".into()
-                                } else if result.errors.is_empty() {
-                                    format!("已接收 {} 项；来源保留。", result.added)
                                 } else {
-                                    result.errors.join("；")
+                                    format!("已接收 {} 项；来源保留。", result.added)
                                 };
                                 let _ = task.emit("desktop-imported", message);
                             }
