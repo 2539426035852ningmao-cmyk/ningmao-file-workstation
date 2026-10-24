@@ -79,7 +79,7 @@ export default function App({backend,native}:{backend:Backend;native:boolean}) {
   const viewDirty=useRef(false);
   const {list,sort,size}=views[String(shelfId)] || defaultView;
   const [theme,setTheme]=useState(readTheme),[themeWarning,setThemeWarning]=useState("");
-  const preferenceWarning=viewWarning || themeWarning;
+  const preferenceWarning=[viewWarning,themeWarning].filter(Boolean).join("；");
   const [details,setDetails]=useState(false),[preview,setPreview]=useState(false),[width,setWidth]=useState(innerWidth),[detailPinned,setDetailPinned]=useState(false);
   const [topmost,setTopmost]=useState(false),[hover,setHover]=useState(false),[dragging,setDragging]=useState<number|null>(null);
   const [message,setMessage]=useState("正在恢复文件架…"),[error,setError]=useState(""),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false);

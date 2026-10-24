@@ -68,6 +68,7 @@ test("设置存储读写被禁用时不白屏，显示和主题仍可临时切�
   await choose(page,"详细列表");await expect(page.locator(".asset-row").first()).toBeVisible();await expect(page.getByRole("alert")).toContainText("无法保存设置");
   await page.getByRole("button",{name:"更多操作",exact:true}).click();await page.getByRole("menuitem",{name:"切换浅色主题",exact:true}).click();
   await expect(page.locator("html")).toHaveClass("light");
+  await expect(page.getByRole("alert")).toContainText("主题已切换，但无法保存设置");
   expect(await page.evaluate(()=>window.testHarness.calls())).toEqual([]);expect(errors).toEqual([]);
 });
 
