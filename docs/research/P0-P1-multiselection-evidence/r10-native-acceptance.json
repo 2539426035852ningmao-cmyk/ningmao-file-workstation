@@ -1,0 +1,150 @@
+{
+  "schema": 1,
+  "date": "2026-10-24",
+  "candidate": "M1-06-preview-package-r10",
+  "codeCommit": "8ad5760279e43ba3ab306f49fa8cdbc6f0b87ade",
+  "buildCommit": "779c36c11e6bd80b6bef608adb9a68ff977ef77c",
+  "exeSha256": "a96c2f9bf2178e90a7378a1c6807de0eabdb1c3fedeb049cf589004006ebffea",
+  "installed": false,
+  "nativeLaunch": "PASS",
+  "initialReferencesAndOrderRestored": "PASS",
+  "ctrlSelectionAndGroupCopy": {
+    "userConfirmed": true,
+    "verification": [
+      {
+        "file": "English.txt",
+        "sourcePreserved": true,
+        "targetMatches": true,
+        "sha256": "2c2467c923d71798072e56b9eb7fb837ac4293b1d7c690f2e3b88f1cc392fce1"
+      },
+      {
+        "file": "中文 空格.txt",
+        "sourcePreserved": true,
+        "targetMatches": true,
+        "sha256": "76b12318eb007a2ec838b20397f23c80775dc2e963f7b280daf693836e583233"
+      }
+    ]
+  },
+  "shiftRangeSelection": {
+    "userConfirmed": true,
+    "result": "PASS; distinct from Shift-modified native dragging"
+  },
+  "marqueeAndGroupCopy": {
+    "userConfirmed": true,
+    "verification": [
+      {
+        "item": "合成图片.png",
+        "sourcePreserved": true,
+        "targetMatches": true,
+        "sha256": "1f3689f6374b0553996fdc99743799216703835070145d7f0e6ec11e6280139e"
+      },
+      {
+        "item": "中文 空格.txt",
+        "sourcePreserved": true,
+        "targetMatches": true,
+        "sha256": "76b12318eb007a2ec838b20397f23c80775dc2e963f7b280daf693836e583233"
+      },
+      {
+        "item": "English.txt",
+        "sourcePreserved": true,
+        "targetMatches": true,
+        "sha256": "2c2467c923d71798072e56b9eb7fb837ac4293b1d7c690f2e3b88f1cc392fce1"
+      }
+    ]
+  },
+  "boundDirectoryCopy": {
+    "userConfirmed": true,
+    "verification": [
+      {
+        "source": "English.txt",
+        "target": "English (1).txt",
+        "sha256": "2c2467c923d71798072e56b9eb7fb837ac4293b1d7c690f2e3b88f1cc392fce1",
+        "sourcePreserved": true,
+        "targetMatches": true
+      },
+      {
+        "source": "中文 空格.txt",
+        "target": "中文 空格.txt",
+        "sha256": "76b12318eb007a2ec838b20397f23c80775dc2e963f7b280daf693836e583233",
+        "sourcePreserved": true,
+        "targetMatches": true
+      },
+      {
+        "source": "合成图片.png",
+        "target": "合成图片.png",
+        "sha256": "1f3689f6374b0553996fdc99743799216703835070145d7f0e6ec11e6280139e",
+        "sourcePreserved": true,
+        "targetMatches": true
+      }
+    ],
+    "existingTargetPreserved": true,
+    "jobStatus": "completed",
+    "completedFiles": 3
+  },
+  "normalExitAndRestart": {
+    "result": "PASS",
+    "data": {
+      "matches": true,
+      "shelves": 3,
+      "items": 8,
+      "jobs": 1,
+      "referenceOrder": [
+        1,
+        4,
+        2,
+        3
+      ]
+    },
+    "beforeWindowCapture": {
+      "width": 342,
+      "height": 351
+    },
+    "afterWindowCapture": {
+      "width": 342,
+      "height": 351
+    },
+    "savedPhysicalClientSize": {
+      "width": 425,
+      "height": 400
+    },
+    "geometryBoundary": "Same desktop environment only; not a DPI or multi-monitor matrix",
+    "nonEmptyTagsTested": false
+  },
+  "manualSorting": {
+    "userConfirmed": true,
+    "finalDatabaseOrder": [
+      1,
+      2,
+      4,
+      3
+    ],
+    "boundary": "Final new order was written to SQLite; not restarted again after this last sort"
+  },
+  "spacePreview": {
+    "userConfirmed": true,
+    "result": "PASS",
+    "verification": "Physical user input; automated input did not reliably trigger"
+  },
+  "doubleClickDefaultOpen": {
+    "userConfirmed": true,
+    "result": "PASS",
+    "verification": "Physical user input; automated input did not reliably trigger"
+  },
+  "protectedSyntheticFiles": 5,
+  "protectedFilesUnchanged": true,
+  "computerUseStop": "User physical Escape stopped computer control at end; no further input or forced process shutdown",
+  "finalTestWindowClosedByAgent": false,
+  "remaining": [
+    "Win10/11 full matrix",
+    "DPI and multiple monitors",
+    "MSI install/upgrade/uninstall",
+    "tray hide/show and topmost UI",
+    "native cancel and Shift-modified drag",
+    "all creative-software destinations",
+    "relocation system dialogs",
+    "non-empty tag/session cleanup native cases",
+    "recursive folder copy to bound directories is not implemented",
+    "complete release license/signing clearance"
+  ],
+  "status": "CORE_NATIVE_RETEST_PASS; product acceptance and merge approval pending; not a stable release"
+}

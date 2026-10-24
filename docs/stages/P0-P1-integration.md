@@ -77,3 +77,5 @@ P2直接沿用当前Tauri/Store/窗口状态能力，做orb↔shelf、贴边、D
 **整体验收不通过**：用户发现没有Ctrl点选、Shift连选与空白框选，单个拖出不符合桌面习惯。同一阶段PR补齐选择集合、框选实时反馈/滚动/取消、全选与汇总、可见选中整组Copy及焦点/隐藏项保护；既有Rust/SQLite/64项安全边界不改，不静默截断。44项浏览器和生产构建已在本机通过，新Windows候选仍需构建核验及原生多选回归，不能继承r9结论。[多选证据](../research/P0-P1-multiselection-evidence/README.md)。
 
 当前多选修复精确包为r10：8ad5760279e43ba3ab306f49fa8cdbc6f0b87ade / CI779c36c11e6bd80b6bef608adb9a68ff977ef77c，tree一致；44浏览器/18Rust/Windows/MSI及本机完整性核验已通过。EXE a96c2f9bf2178e90a7378a1c6807de0eabdb1c3fedeb049cf589004006ebffea，MSI 025911c6fd108b308addd4294ac10c062f9c56eb345a6a1f70dfb51a8dfb29f6。来源与包检查见[多选交付](../research/P0-P1-multiselection-evidence/README.md#多选修复精确候选r10)。尚未启动新候选或完成多选原生复测，整体验收/合并仍未批准。
+
+2026-10-24 r10核心原生集中复测已通过，详见[真实复测记录](../research/P0-P1-multiselection-evidence/README.md#r10真实windows集中复测已执行)。Ctrl/Shift/框选整组Copy、绑定目录安全复制/重名保护、SQLite/顺序与一次完整退出重启、调整尺寸恢复、手柄排序/Space/默认打开已有实证。Win10/DPI/多屏/安装等剩余边界继续标未测，产品验收与合并批准未自动完成。输入末尾被物理Esc停止，未继续操作或强制关闭窗口；后续转后台P2开发。
