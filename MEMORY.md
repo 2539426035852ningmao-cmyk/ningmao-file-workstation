@@ -30,9 +30,15 @@ r9在用户明确方便后真实启动：4项原生拖入并SQLite核对、PNG�
 
 r10的Ctrl/Shift/框选和整组Copy、绑定目录3文件复制/重名保护、一次完整退出/重启与尺寸恢复，以及用户手柄排序/Space预览/默认打开均已真实通过；源/目标哈希与SQLite快照已核对。见docs/research/P0-P1-multiselection-evidence/r10-native-acceptance.json。下一步后台推进P2，产品验收/合并仍需批准；原生取消/Shift拖动等剩余清单保留。Win10/DPI/多屏/各创作软件、实际安装升级卸载等继续标未验证。目录可引用/原生拖出，向绑定目录递归复制文件夹当前不支持，不夸称完成。
 
+## P2当前实施
+
+PR #32 / Issue #31，r11功能源码2175ef19c2fd3f8e8215544ca80321161295b084；CI构建e4b54d5a649d9617499576d195275be4779a9da8，两者完整tree一致。48浏览器/22Rust、fmt/Clippy、Windows原生构建、双平台仓库检查与MSI均通过；精确记录docs/research/P2-first-loop-evidence/r11-verification.json。r11本机已下载并通过9文件白名单/8哈希/PE/MSI核验，未启动、未安装，原生验收全部待做。EXE SHA256 2a44b34a386230657ea851666236d95098713aa96c832779bbfcd59cb7e1b6eb，MSI 10d527260115af5a3ed6dc0567c256358cd3f2a76e3f51e506c8b0f77231b74b；本机交付名M1-06-preview-package-r11。新的文档证据提交不改变该候选应用源码，PR仍Draft，不自动合并。
+
+feat/p2-desktop-loop从76658ecc（PR #30文档证据头）独立推进，不改r10包。原生desktop-entry与main共用Runtime/Store；命名持久/中转架、跨架引用事务、收起/点击展开、基础Dock每页5架、入口拖动/位置记录及工作区纠偏已写入源码。native Enter仅唤出、Drop消耗一次冻结ID目标并复用原Import/Copy；JS文件操作限制main，入口仅桌面命令。入口悬停仅SQL目录，不探测绑定磁盘；X仍隐藏到托盘。云端检查已通过，新二进制原生体验尚待验证，不能继承r10结论。未实现智能贴边/自动隐藏、每架独立展开窗口、独立管理中心。见docs/stages/P2-development-entry.md及P2-windows-acceptance.md。
+
 ## 完整制作线路
 
-P0可靠文件流转＋P1紧凑文件架集中交付 → P2真实悬浮球/贴边/Dock/多架及按需管理中心 → P3先LAN双设备确认/受保护字节传输/哈希一致，再远程/同步 → P4先授权范围内本地跨架元数据检索，再可选AI建议与经过确认的可恢复修改。P2直接入口Issue #31 / docs/stages/P2-development-entry.md已核对Tauri/Store复用点，尚未实现悬浮球或Dock；不能用假动画/假AI/接口冒充真实闭环。全部43项保留。
+P0可靠文件流转＋P1紧凑文件架集中交付 → P2真实悬浮球/贴边/Dock/多架及按需管理中心 → P3先LAN双设备确认/受保护字节传输/哈希一致，再远程/同步 → P4先授权范围内本地跨架元数据检索，再可选AI建议与经过确认的可恢复修改。P2入口Issue #31，第一份桌面闭环正在开发，完整阶段尚未完成；不能用假动画/假AI/接口冒充真实闭环。全部43项保留。
 
 ## 持续边界
 

@@ -23,6 +23,12 @@ pub struct Shelf {
     pub available: bool,
 }
 #[derive(Clone, Serialize)]
+pub struct ShelfIdentity {
+    pub id: i64,
+    pub name: String,
+    pub kind: String,
+}
+#[derive(Clone, Serialize)]
 pub struct Item {
     pub id: i64,
     pub shelf_id: i64,
@@ -105,11 +111,75 @@ impl Store {
         .collect::<std::result::Result<Vec<_>, _>>()
         .map_err(err)
     }
+    // Window hover only needs IDs/names. Never probe bound disks on native drag events.
+    pub fn shelf_catalog(&self) -> Result<Vec<ShelfIdentity>> {
+        self.db
+            .prepare("SELECT id,name,kind FROM shelves ORDER BY id")
+            .map_err(err)?
+            .query_map([], |r| {
+                Ok(ShelfIdentity {
+                    id: r.get(0)?,
+                    name: r.get(1)?,
+                    kind: r.get(2)?,
+                })
+            })
+            .map_err(err)?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(err)
+    }
     fn shelf(&self, id: i64) -> Result<Shelf> {
         self.shelves()?
             .into_iter()
             .find(|s| s.id == id)
             .ok_or("文件架不存在。".into())
+    }
+    pub fn create_shelf(&mut self, name: &str, session: bool) -> Result<i64> {
+        let name = name.trim();
+        if name.is_empty() || name.chars().count() > 60 || name.chars().any(char::is_control) {
+            return Err("文件架名称需为 1 至 60 个字符，不能包含控制字符。".into());
+        }
+        let tx = self.db.transaction().map_err(err)?;
+        let exists: bool = tx
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM shelves WHERE name=?1)",
+                [name],
+                |r| r.get(0),
+            )
+            .map_err(err)?;
+        if exists {
+            return Err("已有同名文件架，请更换名称。".into());
+        }
+        tx.execute(
+            "INSERT INTO shelves(name,kind) VALUES(?1,?2)",
+            params![name, if session { "session" } else { "persistent" }],
+        )
+        .map_err(err)?;
+        let id = tx.last_insert_rowid();
+        tx.commit().map_err(err)?;
+        Ok(id)
+    }
+    pub fn copy_references(&mut self, target: i64, ids: &[i64]) -> Result<usize> {
+        if self.shelf(target)?.kind == "bound" {
+            return Err("真实目录请使用安全复制文件，不能仅复制引用。".into());
+        }
+        if ids.is_empty()
+            || ids.len() > 256
+            || ids.iter().collect::<std::collections::HashSet<_>>().len() != ids.len()
+        {
+            return Err("请选择 1 至 256 个不同引用。".into());
+        }
+        let tx = self.db.transaction().map_err(err)?;
+        let mut added = 0;
+        for id in ids {
+            let (path, name, tags): (String, String, String) = tx
+                .query_row("SELECT path,name,tags FROM items WHERE id=?1", [id], |r| {
+                    Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+                })
+                .map_err(err)?;
+            added+=tx.execute("INSERT OR IGNORE INTO items(shelf_id,path,name,position,tags) VALUES(?1,?2,?3,COALESCE((SELECT MAX(position)+1 FROM items WHERE shelf_id=?1),0),?4)",params![target,path,name,tags]).map_err(err)?;
+        }
+        tx.commit().map_err(err)?;
+        Ok(added)
     }
     pub fn bind_directory(&mut self, path: &Path) -> Result<i64> {
         let path = canonical_user_path(path)?;
