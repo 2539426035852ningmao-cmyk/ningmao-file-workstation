@@ -122,6 +122,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   const [initialViews]=useState(readViewMemory);
   const [views,setViews]=useState(initialViews.views),[viewWarning,setViewWarning]=useState(initialViews.warning);
   const viewDirty=useRef<number|null>(null);
+  const unsavedViews=useRef<Record<string,ShelfView>>({});
   const {list,sort,size}=views[String(shelfId)] || defaultView;
   const [theme,setTheme]=useState(readTheme),[themeWarning,setThemeWarning]=useState("");
   const preferenceWarning=[viewWarning,themeWarning].filter(Boolean).join("；");
@@ -197,9 +198,11 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   }
   useEffect(()=>{
     const id=viewDirty.current;if(id===null)return;
-    viewDirty.current=null;setViewWarning(writeShelfView(id,views[String(id)],initialViews.writable));
+    viewDirty.current=null;const warning=writeShelfView(id,views[String(id)],initialViews.writable);
+    if(warning)unsavedViews.current[id]=views[String(id)];else delete unsavedViews.current[id];
+    setViewWarning(warning);
   },[views,initialViews.writable]);
-  useEffect(()=>{const read=()=>{if(viewDirty.current===null){const next=readViewMemory();setViews(next.views);setViewWarning(next.warning);}};const storage=(event:StorageEvent)=>{if(event.key===null || event.key==="ningmao-shelf-views")read();};window.addEventListener("storage",storage);window.addEventListener("focus",read);return()=>{window.removeEventListener("storage",storage);window.removeEventListener("focus",read);};},[]);
+  useEffect(()=>{const read=()=>{if(viewDirty.current===null){const next=readViewMemory();setViews({...next.views,...unsavedViews.current});if(!Object.keys(unsavedViews.current).length)setViewWarning(next.warning);}};const storage=(event:StorageEvent)=>{if(event.key===null || event.key==="ningmao-shelf-views")read();};window.addEventListener("storage",storage);window.addEventListener("focus",read);return()=>{window.removeEventListener("storage",storage);window.removeEventListener("focus",read);};},[]);
   useEffect(()=>{ const fn=()=>setWidth(innerWidth);window.addEventListener("resize",fn);return()=>window.removeEventListener("resize",fn); },[]);
   useEffect(()=>{
     if(!running) return;
