@@ -33,7 +33,7 @@ const backend:Backend={
   },
   async tags(id,tags){state.items.find(i=>i.id===id)!.tags=tags;save();},
   async reorder(shelf,ids){calls.push("reorder:"+shelf);const rest=state.items.filter(i=>i.shelf_id!==shelf);state.items=[...rest,...ids.map(id=>state.items.find(i=>i.id===id)!)];save();},
-  async thumbnail(id){const value=state.items.find(i=>i.id===id)!;if(value.kind!=="png")return null;const canvas=document.createElement("canvas");canvas.width=canvas.height=1;const context=canvas.getContext("2d")!;context.fillStyle=value.path.includes("重新定位")?"#2563eb":"#dc2626";context.fillRect(0,0,1,1);return canvas.toDataURL();},async drag(ids){calls.push("drag:"+ids.join(","));},
+  async thumbnail(id){const value=state.items.find(i=>i.id===id)!;if(value.kind!=="png")return null;const canvas=document.createElement("canvas");canvas.width=canvas.height=1;const context=canvas.getContext("2d")!;context.fillStyle=value.path.includes("重新定位")?"#2563eb":"#dc2626";context.fillRect(0,0,1,1);return canvas.toDataURL();},async drag(ids){calls.push("drag:"+ids.join(","));if(fail){const message=fail;fail="";throw new Error(message);}},
   async reveal(){},async cancel(){state.jobs[0].status="cancelled";state.jobs[0].message="已取消，来源保留";save();events.finished("已取消，来源保留");},
   async topmost(){return true;},async quit(){calls.push("quit");},
   async subscribe(value){events=value;return()=>{};},

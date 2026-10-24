@@ -2,6 +2,7 @@
 
 - [正式总执行指令](execution/v0.1-p0-p4-2026-10-24.md)：P0–P4按阶段闭环、统一集成和集中验收。
 - [开发入口](codex-start-here.md) · [设计合同](../design.md) · [阶段路线](roadmap.md)。
+- [P0/P1阶段集成](stages/P0-P1-integration.md)与[集中Windows验收](stages/P0-P1-windows-acceptance.md)：当前唯一功能收束入口，区分自动检查与原生未测。
 - [双AI工作协议](AI_REVIEW_WORKFLOW.md)与[Gemini任务](tasks/M1-GEMINI-REVIEW.md)：接入未恢复，不能阻断产品主线。
 
 - [项目记忆](../MEMORY.md)：继续工作的权威文档、完整路线与当前验收边界。

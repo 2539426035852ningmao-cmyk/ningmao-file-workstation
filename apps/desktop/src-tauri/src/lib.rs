@@ -406,7 +406,16 @@ fn quit(app: tauri::AppHandle) -> Result<()> {
     Ok(())
 }
 pub fn run() {
+    let mut window_state = tauri_plugin_window_state::Builder::default()
+        .with_state_flags(tauri_plugin_window_state::StateFlags::SIZE);
+    if let Some(root) = std::env::var_os("NINGMAO_DATA_DIR") {
+        let file = std::path::absolute(root)
+            .expect("无法解析隔离数据目录")
+            .join(".window-state.json");
+        window_state = window_state.with_filename(file.to_string_lossy());
+    }
     tauri::Builder::default()
+        .plugin(window_state.build())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let root = std::env::var_os("NINGMAO_DATA_DIR")

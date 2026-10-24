@@ -1,0 +1,37 @@
+{
+  "recorded": "2026-10-24",
+  "environment": "headless Chromium; synthetic harness; not Windows native",
+  "checks": [
+    "38 browser tests passed",
+    "production frontend build passed",
+    "stage fixture safety checks passed",
+    "three representative screenshot geometry checks passed"
+  ],
+  "evidence": [
+    {
+      "file": "dark-420.json",
+      "sha256": "6265222f411e7405f89759572add4283197acfaba7a569dc71ac9f672498f5be"
+    },
+    {
+      "file": "dark-420.png",
+      "sha256": "e3e36f2cd9ccec6e4afdcbf82aabc10a64a36ea4762c76e6dfdb4fadd9cd175e"
+    },
+    {
+      "file": "light-340.json",
+      "sha256": "d23dedbc445eb6d59fd32bc4fad5f2096fb300376c22f1a242536a18a9f7071c"
+    },
+    {
+      "file": "light-340.png",
+      "sha256": "3df888e2e8e198d3a87ae750f7dd4c01e0c2327a20062620f777385240a24cc9"
+    },
+    {
+      "file": "light-640.json",
+      "sha256": "2795e0a11a2533eaec392a0ae0305692cbc1f2920738b1f02c4f6db1155e5d9b"
+    },
+    {
+      "file": "light-640.png",
+      "sha256": "d1aa6b472b5f543f2171d6f046ff68068f6769a87509188efba66b901e84c399"
+    }
+  ],
+  "nativeStatus": "NOT_RUN"
+}

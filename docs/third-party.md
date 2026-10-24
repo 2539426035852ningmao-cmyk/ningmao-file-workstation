@@ -1,5 +1,9 @@
 # 第三方代码与工具记录
 
+## P0/P1 窗口尺寸记忆
+
+复用官方[tauri-plugin-window-state 2.5.0](https://github.com/tauri-apps/plugins-workspace/tree/a2364a5f216324439feedeb25b2db74e7b1eba90/plugins/window-state)，crate的.cargo_vcs_info.json与tag window-state-v2.5.0均指向a2364a5f216324439feedeb25b2db74e7b1eba90。MIT OR Apache-2.0，选择MIT，[全文](../licenses/tauri-window-state-2.5.0-MIT.txt)从发布crate保留。精确锁定，锁文件仅新增该一个package，无升级既有依赖；原文归集268项/0缺失/原有1项映射警告。仅Rust自动SIZE保存恢复，无前端权限扩展；多屏/DPI与正常退出行为仍需精确Windows验收。未复制或修改插件实现。
+
 核验日期：2026-10-23。主项目 Apache-2.0 不替代第三方各自许可证。
 
 ## 2026-10-24 系统默认打开

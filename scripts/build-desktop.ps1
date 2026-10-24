@@ -17,6 +17,7 @@ try {
     }
     if ($Native) {
         if (-not $IsWindows) { throw '当前原生闭环仅在 Windows 构建。' }
+        & (Join-Path $repo 'scripts/stage-acceptance.test.ps1')
         Run cargo @('fmt','--manifest-path','src-tauri/Cargo.toml','--','--check')
         Run cargo @('test','--locked','--manifest-path','src-tauri/Cargo.toml')
         Run cargo @('clippy','--locked','--manifest-path','src-tauri/Cargo.toml','--all-targets','--','-D','warnings')

@@ -1,35 +1,31 @@
 # 项目交接记忆
 
-更新：2026-10-24。此文件是继续工作的索引；以源码、精确构建与任务证据为准，不覆盖冻结需求。
+更新：2026-10-24；记忆是索引，以精确源码、CI、产物和实测为准。
 
-## 必须先读
+## 当前入口
 
-- [AGENTS.md](AGENTS.md)、[43 项冻结决策](docs/product-decisions.md)、[原始执行基线](docs/m1-execution-baseline.md)
-- 默认分支的 [设计规范](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/blob/main/design.md)、[开发入口](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/blob/main/docs/codex-start-here.md)、[完整路线](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/blob/main/docs/roadmap.md)
-- 设计与路线本次核对来源 main `8ca3064f2fec063bbacc0fd7df8dfb541138163f`；候选代码采用堆叠 PR，旧分支文件不代表 main 的完整文档。
+先读AGENTS.md、docs/product-decisions.md、docs/execution/v0.1-p0-p4-2026-10-24.md、design.md、apps/desktop/DESIGN.md、docs/codex-start-here.md与docs/roadmap.md。全部43项冻结决策保留，唯一工程apps/desktop（Tauri2/Rust/React/TypeScript/SQLite；shadcn/ui主、SpaceUI仅FileThumb）。
 
-## 当前真实状态
+正式稳定发行版：尚无。main规范基线8ca3064f2fec063bbacc0fd7df8dfb541138163f；当前开发入口integration/v0.1-p0-p1 / Issue #29。阶段PR和产物身份见[集成记录](docs/stages/P0-P1-integration.md)。不再围绕单个按钮拆分长期Draft。
 
-- M1-01/02/03 已验收；M1-04 技术选择获准。唯一主工程 apps/desktop，Tauri 2/Rust/React/TypeScript/SQLite；shadcn/ui 主系统、SpaceUI 仅 FileThumb。
-- Draft #9 → #11 → #13 分别负责真实文件闭环、预览打包、手动失效引用修复。#13 底座 `1cfefeaa1a2e33bddb91041d9ead45492c775461`，15 项 Rust / 5 项浏览器检查通过；这些候选没有自动合并。
-- [Issue #20](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/issues/20)：独立分支 fix/default-file-opening 修复双击默认打开/空格预览，记录见 [任务](docs/tasks/default-file-opening.md)。新候选不能继承旧二进制的原生验收结论。
-- [Issue #17](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/issues/17) / Draft #19：Gemini 接入未恢复，模型请求为 0；既有代理 HTTPS 可达，但当前实际权限仍 never、登录/Pro/额外点数关闭状态未确认。不能宣称双 AI 审查通过。
-- 用户要求接入受阻时优先继续产品；不绕过策略，不因插件故障阻断所有开发，合并前独立审查与文件安全门槛仍保留。
-- #21 默认打开增量已提交 `ccfe586126e60a9d543c28c997d5932a212ecf6b`，18 Rust / 7 浏览器及云端构建通过；r4 候选 CI 提交 `b6ef5b7b24ef43e414fb51d43294deffe19bd2dd` 与其文件树相同，未安装启动。
-- #22 独立紧凑架候选已提交 `cd45b2777555ef37ea96c5358d079704b17b9bec`，18 Rust / 16浏览器和CI通过；r5构建 `6be2d4a2b32087962765579e0712e79b1c773dc5` 文件树相同，未安装启动。[任务与验收边界](docs/tasks/compact-file-shelf.md)保留全部原生检查。
-- #24 / Issue #23 每架视图记忆已提交 `c7aa1bbad5b296d91c7c712530215da9d432929f`，23浏览器/18Rust及云端构建通过；r6候选构建 `6df7813efa0cd60e4de95f1c8c7f78796e0bc7a4` 文件树相同，未安装启动。[任务](docs/tasks/shelf-view-memory.md)保留存储异常与原生重启等边界。
-- #26 / Issue #25 元数据显示排序已提交 `6c4eeb45fb8348fbd7ed7f4dcde400bd123fc5ee`，27浏览器/18Rust和云端构建通过；r7构建 `178a587cf7ab86ecb4b10f2a157f1ec502087d5a` 文件树相同，未安装启动。v1可读、显式修改写v2，旧版只读保护已验证。[任务](docs/tasks/metadata-sorting.md)。
-- 当前 Issue #27 / feat/shelf-file-filters 基于#26：当前架类型、标签、正常/异常与名称交集筛选，不扫描、不写数据；隐藏的旧选中项不参与Space/Delete，筛选时禁用排序。条件仅内存、切架/重载清除，见[任务](docs/tasks/shelf-file-filters.md)。
+## 已收束与未通过
 
-## 完整制作顺序
+- M1-01/02/03已验收；M1-04技术选择获准。#9→#11→#13→#21→#22→#24→#26→#28是祖先链，最新功能底座6b66c52543857a12a1d8402da518e6383e664aab完整包含引用、Copy、SQLite、打包、引用修复、默认打开、紧凑架、视图、排序、筛选。
+- #9相对main不可合并的原因已由merge-tree复现：4份文档冲突，无Rust/SQLite冲突。07ca2736b7346994ac13d92bdc7969211ed7d243已从#28受控合入main规范，未改应用/安全代码。
+- 本阶段卡片移动6px请求既有原生Copy，六点手柄仍排序，显式拖出按钮保留；正式与preview共用420×520/最小340×320。官方window-state2.5.0仅保存尺寸，无前端权限增加，无DB迁移。
+- 本机38项浏览器与生产构建通过；旧r8为34浏览器/18Rust。最终Windows构建、18Rust、Clippy、许可和精确新产物以阶段PR证据为准，不能继承旧EXE的原生结论。
+- [集中实机清单](docs/stages/P0-P1-windows-acceptance.md)：新EXE的OLE拖入拖出、来源保留、排序共存、重启恢复、DPI/多屏、目标软件兼容、默认打开与窗口尺寸恢复仍待用户方便时检查；未安装/启动。
+- [Issue #17](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/issues/17)：Gemini仍未恢复，0模型请求。登录/Pro/额外点数关闭状态未知，既有代理可达不等于OAuth成功；不得绕过策略或宣称双AI验证。#19公开脱敏诊断文档已保留原始blob f8825c47b8fd23a2c565a9b19a89cd399106be02。
 
-按 main/roadmap：P0 真实文件基础及精确候选安全验收 → P1 紧凑悬浮文件架 → P2 悬浮球/贴边/Dock/多窗口和管理中心 → P3 局域网后远程 → P4 经授权的 AI/插件。全部 43 项需求保留；不以当前纵向闭环冒充 V0.1 完成。
+## 制作线路
 
-近期先完成并验收 #21/#22/#24/#26 及 #27 的P1操作闭环，不能凭自动检查跳过精确原生安全门槛。设计建议值仍需验收，禁止混入复制/SQLite/原生拖放重写。
+按完整阶段：P0可靠文件流转＋P1紧凑小窗集中交付 → P2真悬浮球/贴边/Dock/多架与按需管理中心 → P3先LAN真实双端受保护传输、再远程/同步 → P4先授权范围内跨架本地检索、再可选AI建议与受控修改。具体闭环和验收以正式指令为准，禁止模拟响应冒充真实功能。
 
-## 必须一直保留的边界
+P2直接复用当前Tauri窗口、Store与数据身份，不另建文件存储；可在P0/P1集中验收等待期间准备独立低风险代码。不能将文件安全未验收版本发布为稳定版，不能自动合并高风险代码。
 
-- 后台工作：不启动可见候选、安装器、资源管理器，不操作鼠标键盘；重任务优先云端。仅用户明确方便时集中原生验收。
-- 临时架仅引用；绑定目录默认复制、冲突编号；移除引用不删除来源；失效/离线保留分类。禁止上传私人素材、数据库、凭据或原始账号日志。
-- 精确 Windows 候选的系统默认打开/取消/关联失败、真实拖入拖出/排序、安装卸载、DPI/多屏等仍待验收；headless/CI 不代替它们。
-- 不自动合并 #9/#11/#13 或后续高风险功能；不覆盖旧候选。回滚使用对应 PR revert，禁止删除用户数据或旧环境。
+## 持续边界
+
+- 默认后台/无头/云端；不打开可见窗口、Explorer、安装器或模拟鼠标键盘。仅用户明确方便时集中验收，重任务优先云端。
+- 临时架仅引用；绑定目录默认Copy、冲突编号、保留来源；移除引用不删实体；不扫描私人目录、不上传素材/数据库/凭据/本地原始日志。
+- 历史r1–r8、分支、脚本保留；回滚按提交revert或使用旧候选，不删除用户数据，不强推。尺寸建议仍待验收，窗口记忆仅完整退出保证保存。
+- main保护与人工文件安全/正式视觉/重大架构/权限/正式发布门槛保留。已授权可逆开发自主推进，真实阻碍才交还用户；不以尚未进行的原生验收阻断所有独立工作。
