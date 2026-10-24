@@ -1,6 +1,6 @@
 # P2直接开发入口 · 悬浮入口、文件架与Dock闭环
 
-状态：首个最小桌面闭环源码已实现，本机48浏览器/22Rust、fmt/Clippy通过；云端精确包及新二进制原生验收待完成。分支feat/p2-desktop-loop基于PR #30的76658ecc，保留r10精确候选独立验收与回滚，不向旧堆叠PR追加功能。完整P2尚未交付。
+状态：首个最小桌面闭环r11已构建，本机及云端48浏览器/22Rust、fmt/Clippy、Windows编译/MSI与双平台仓库检查通过，本机包只读核验通过；新二进制原生验收待完成。分支feat/p2-desktop-loop / PR #32基于PR #30的76658ecc，保留r10精确候选独立验收与回滚，不向旧堆叠PR追加功能。完整P2尚未交付。精确源码/CI/产物哈希见[交付证据](../research/P2-first-loop-evidence/r11-verification.json)。
 
 ## 已有能力与真实缺口
 

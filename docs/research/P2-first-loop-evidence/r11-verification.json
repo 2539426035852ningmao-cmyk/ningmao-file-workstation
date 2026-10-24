@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "stage": "P2 first desktop loop",
+  "candidate": "r11",
+  "sourceCommit": "2175ef19c2fd3f8e8215544ca80321161295b084",
+  "ciMergeCommit": "e4b54d5a649d9617499576d195275be4779a9da8",
+  "sourceTree": "472e4b78273c64dc0d991cb44c42de7f824b5825",
+  "appTree": "bb7e83b16e55f5432fb1f34c5f45f9774dc02320",
+  "sourceAndCiEntireTreeEqual": true,
+  "checks": {
+    "browserPassed": 48,
+    "rustPassed": 22,
+    "rustFixturesIgnored": 2,
+    "fmt": "PASS",
+    "clippy": "PASS",
+    "windowsNativeBuild": "PASS",
+    "repositoryWindows": "PASS",
+    "repositoryUbuntu": "PASS",
+    "msiReadOnly": "PASS"
+  },
+  "runs": {
+    "desktop": 40097357216,
+    "package": 40097357239,
+    "repository": 40097356300
+  },
+  "artifact": {
+    "id": 12561915775,
+    "zipSha256": "3435eda69d9ee17fa60e6b6451e64ca4b4197168750e8a8136c38a868a931d77",
+    "retentionDays": 7,
+    "filesWhitelisted": 9,
+    "sha256FilesVerified": 8
+  },
+  "exe": {
+    "bytes": 18112000,
+    "sha256": "2a44b34a386230657ea851666236d95098713aa96c832779bbfcd59cb7e1b6eb"
+  },
+  "msi": {
+    "bytes": 6242304,
+    "sha256": "10d527260115af5a3ed6dc0567c256358cd3f2a76e3f51e506c8b0f77231b74b"
+  },
+  "license": {
+    "records": 268,
+    "missingTexts": 0,
+    "existingMappingWarnings": 1
+  },
+  "nativeAcceptance": "NOT RUN",
+  "installed": false,
+  "launched": false,
+  "geminiCalls": 0,
+  "remaining": [
+    "native entry/drop/restart acceptance",
+    "Windows 10 and mixed DPI/multi-monitor",
+    "edge snap and auto-hide",
+    "independent expanded shelf windows",
+    "on-demand management center",
+    "entry topmost setting and task indicators"
+  ],
+  "rollback": "Preserve r10 and existing schema1 database; new layout is separate and incompatible originals are not overwritten."
+}

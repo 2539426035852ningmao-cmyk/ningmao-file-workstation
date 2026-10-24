@@ -16,7 +16,7 @@ P0/P1 r10精确源码8ad5760279e43ba3ab306f49fa8cdbc6f0b87ade，构建779c36c11e
 
 ## 当前开发与完整线路
 
-P2独立分支以76658ecc为基线，实现真实desktop-entry/main窗口、收起/点击展开、每页5架基础Dock、入口自由拖动/位置记录及工作区纠偏；命名持久/中转架和原子跨架引用；native Enter仅唤出，Drop固定ID一次导入，复用既有Copy。本机48浏览器/22Rust及fmt/Clippy通过。新包云端构建与原生体验未验证；贴边/自动隐藏、每架独立展开窗口、按需管理中心仍待实施，不能称完整P2完成。见[P2入口](stages/P2-development-entry.md)。
+P2独立分支以76658ecc为基线，PR #32 / r11源码2175ef1：真实desktop-entry/main窗口、收起/点击展开、每页5架基础Dock、入口自由拖动/位置记录及工作区纠偏；命名持久/中转架和原子跨架引用；native Enter仅唤出，Drop固定ID一次导入，复用既有Copy。48浏览器/22Rust、fmt/Clippy、Windows编译/MSI与双平台仓库检查通过，本机只读包核验通过。新包未启动/未安装，原生体验未验证；贴边/自动隐藏、每架独立展开窗口、按需管理中心仍待实施，不能称完整P2完成。见[P2入口](stages/P2-development-entry.md)及[r11精确证据](research/P2-first-loop-evidence/r11-verification.json)。
 
 继续顺序：P0/P1正式验收与批准独立保留 → P2补齐桌面闭环和管理中心，并集中验收精确新包 → P3先LAN双设备接收确认/受保护字节传输/冲突失败进度/哈希一致，再远程/同步 → P4先授权范围内本地跨架元数据检索，再可选AI建议与操作预览/确认/恢复。全部43项、设计合同和用户操作习惯保留，不用未来接口和模拟数据冒充交付。
 

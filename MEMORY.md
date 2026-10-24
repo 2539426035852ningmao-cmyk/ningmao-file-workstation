@@ -32,7 +32,9 @@ r10的Ctrl/Shift/框选和整组Copy、绑定目录3文件复制/重名保护、
 
 ## P2当前实施
 
-feat/p2-desktop-loop从76658ecc（PR #30文档证据头）独立推进，不改r10包。原生desktop-entry与main共用Runtime/Store；命名持久/中转架、跨架引用事务、收起/点击展开、基础Dock每页5架、入口拖动/位置记录及工作区纠偏已写入源码。native Enter仅唤出、Drop消耗一次冻结ID目标并复用原Import/Copy；JS文件操作限制main，入口仅桌面命令。48浏览器/22Rust及fmt/Clippy在本机后台通过；云端构建和新二进制原生体验尚待验证，不能继承r10结论。未实现智能贴边/自动隐藏、每架独立展开窗口、独立管理中心。见docs/stages/P2-development-entry.md。
+PR #32 / Issue #31，r11功能源码2175ef19c2fd3f8e8215544ca80321161295b084；CI构建e4b54d5a649d9617499576d195275be4779a9da8，两者完整tree一致。48浏览器/22Rust、fmt/Clippy、Windows原生构建、双平台仓库检查与MSI均通过；精确记录docs/research/P2-first-loop-evidence/r11-verification.json。r11本机已下载并通过9文件白名单/8哈希/PE/MSI核验，未启动、未安装，原生验收全部待做。EXE SHA256 2a44b34a386230657ea851666236d95098713aa96c832779bbfcd59cb7e1b6eb，MSI 10d527260115af5a3ed6dc0567c256358cd3f2a76e3f51e506c8b0f77231b74b；本机交付名M1-06-preview-package-r11。新的文档证据提交不改变该候选应用源码，PR仍Draft，不自动合并。
+
+feat/p2-desktop-loop从76658ecc（PR #30文档证据头）独立推进，不改r10包。原生desktop-entry与main共用Runtime/Store；命名持久/中转架、跨架引用事务、收起/点击展开、基础Dock每页5架、入口拖动/位置记录及工作区纠偏已写入源码。native Enter仅唤出、Drop消耗一次冻结ID目标并复用原Import/Copy；JS文件操作限制main，入口仅桌面命令。入口悬停仅SQL目录，不探测绑定磁盘；X仍隐藏到托盘。云端检查已通过，新二进制原生体验尚待验证，不能继承r10结论。未实现智能贴边/自动隐藏、每架独立展开窗口、独立管理中心。见docs/stages/P2-development-entry.md及P2-windows-acceptance.md。
 
 ## 完整制作线路
 
