@@ -1,5 +1,9 @@
 # 文档目录
 
+- [正式总执行指令](execution/v0.1-p0-p4-2026-10-24.md)：P0–P4按阶段闭环、统一集成和集中验收。
+- [开发入口](codex-start-here.md) · [设计合同](../design.md) · [阶段路线](roadmap.md)。
+- [双AI工作协议](AI_REVIEW_WORKFLOW.md)与[Gemini任务](tasks/M1-GEMINI-REVIEW.md)：接入未恢复，不能阻断产品主线。
+
 - [项目记忆](../MEMORY.md)：继续工作的权威文档、完整路线与当前验收边界。
 - [双击系统默认打开修复](tasks/default-file-opening.md)：第 6 项交互偏差与后台验证。
 - [紧凑悬浮架候选](tasks/compact-file-shelf.md)：单行顶栏、按需操作与三尺寸深浅证据。

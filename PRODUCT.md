@@ -18,15 +18,15 @@ Windows 资源管理器与桌面创作应用之间的素材接收、整理、预
 
 ## Capabilities and Constraints
 
-M1-03 已验收，M1-04 按推荐方案获批准：独立 Tauri 2 与 shadcn/ui 主系统，选择性复用 SpaceUI FileThumb。当前 M1-05 实施真实文件引用、SQLite 持久化、主动目录绑定、安全复制、缩略图和原生拖出。自动测试中的合成数据单独构建，不进入产品 dist；不削减后续全部 43 项需求。
+研究阶段 M1-03 的 SpaceUI 与 shadcn/ui 原型已验收；主工程已获批准采用独立 Tauri 2 / Rust / React / TypeScript / SQLite、shadcn/ui主系统、SpaceUI FileThumb按需复用。当前将#9至#28汇入受控P0/P1集成候选，保留引用、Copy、SQLite、修复、预览、排序、筛选和视图记忆；精确原生GUI、安装、DPI、多屏待集中验收。默认产品是小型悬浮架，见design.md；按完整阶段闭环推进P0–P4，不再重做微小原型。
 
 ## Brand Commitments
 
-中文名柠猫文件工作站，英文名 Ningmao File Workstation；深浅双主题，默认蓝色强调色；不改已定产品需求。主工程继承已验收的 shadcn/ui 界面，不叠加第二套主题；模板图标仅作候选图标。
+中文名柠猫文件工作站，英文名 Ningmao File Workstation；深浅双主题，默认蓝色强调色；不改已定产品需求。统一采用已获批准的 shadcn/ui 主设计系统，遵循根目录 design.md 的圆角、间距、文字与渐进式操作规范；设计尺寸仍需用户体验验收。
 
 ## Evidence on Hand
 
-已冻结的 43 项选择、M1-02 Windows 实测与准确二进制哈希。没有正式产品发行版、品牌图像或私人测试素材；原型采用本地合成素材。
+已冻结的 43 项选择、M1-02/03 Windows 研究实测和自动 CI 记录、M1-05/06 Draft 自动回归与预览包只读检查。无正式发行版；未审定最终品牌图像；实测不在不同精确二进制之间继承。
 
 ## Product Principles
 
