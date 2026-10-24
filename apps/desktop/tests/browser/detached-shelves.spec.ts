@@ -3,6 +3,17 @@ import {mkdirSync} from "node:fs";
 import path from "node:path";
 async function capture(page:import("@playwright/test").Page,name:string){const folder=process.env.DETACHED_EVIDENCE;if(folder){mkdirSync(folder,{recursive:true});await page.screenshot({path:path.join(folder,name+".png")});}}
 async function more(page:import("@playwright/test").Page,name:string){await page.getByRole("button",{name:"更多操作",exact:true}).click();await page.getByRole("menuitem",{name,exact:true}).click();}
+
+test("恢复窗口置顶标记时只读取所属窗口，不混用入口或其他架状态",async({page})=>{
+  await page.addInitScript(()=>localStorage.setItem("test-desktop-layout",JSON.stringify({layout:{enabled:true,expanded:true,active_shelf:2,collapsed:[],page:0,main_topmost:true,preferences:{edge:"right",auto_hide:false,topmost:false},detached:[{shelf_id:1,visible:true,topmost:true}]},entries:[],total:0,warning:null,copying:false,edge_hidden:false})));
+  for(const url of ["/tests/harness.html","/tests/harness.html?shelf=1"]){
+    await page.goto(url);await expect(page.getByRole("status").last()).toContainText("文件架已恢复");
+    await page.getByRole("button",{name:"更多操作",exact:true}).click();
+    await expect(page.getByRole("menuitemcheckbox",{name:"窗口置顶",exact:true})).toBeChecked();
+    await page.evaluate(()=>{const value=JSON.parse(localStorage.getItem("test-desktop-layout")!);value.layout.main_topmost=false;value.layout.detached[0].topmost=false;value.layout.preferences.topmost=true;const updated=JSON.stringify(value);localStorage.setItem("test-desktop-layout",updated);window.dispatchEvent(new StorageEvent("storage",{key:"test-desktop-layout",newValue:updated}));});
+    await expect(page.getByRole("menuitemcheckbox",{name:"窗口置顶",exact:true})).not.toBeChecked();
+  }
+});
 test("文件架拆出后主窗切到其他架，独立窗合并保留引用和标签",async({page,context})=>{
   await page.goto("/tests/harness.html");await page.evaluate(()=>window.testHarness.tags(1,["拆合保留"]));
   await page.getByRole("button",{name:"更多操作",exact:true}).click();

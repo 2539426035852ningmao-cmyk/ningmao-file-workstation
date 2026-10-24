@@ -11,7 +11,7 @@ export type DesktopPreferences={edge:"free"|"left"|"right";auto_hide:boolean;top
 export type ManagedReference=Pick<Item,"id"|"shelf_id"|"path"|"name"|"tags">;
 export type ManagementSnapshot={shelves:Pick<Shelf,"id"|"name"|"kind">[];items:ManagedReference[];jobs:Job[]};
 export type CatalogShelf=Pick<Shelf,"id"|"name"|"kind">;
-export type DesktopView = {layout:{enabled:boolean;expanded:boolean;active_shelf:number;collapsed:number[];page:number;preferences:DesktopPreferences;detached?:{shelf_id:number;visible:boolean;topmost:boolean}[]};entries:{id:number;name:string;kind:string}[];total:number;warning:string|null;copying:boolean;edge_hidden:boolean;catalog?:CatalogShelf[]};
+export type DesktopView = {layout:{enabled:boolean;expanded:boolean;active_shelf:number;collapsed:number[];page:number;preferences:DesktopPreferences;main_topmost?:boolean;detached?:{shelf_id:number;visible:boolean;topmost:boolean}[]};entries:{id:number;name:string;kind:string}[];total:number;warning:string|null;copying:boolean;edge_hidden:boolean;catalog?:CatalogShelf[]};
 export function detachedShelfFromLabel(label:string):number|undefined {
   if(!/^shelf-[1-9]\d*$/.test(label))return undefined;
   const id=Number(label.slice(6));return Number.isSafeInteger(id)?id:undefined;

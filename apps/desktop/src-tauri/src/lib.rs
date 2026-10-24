@@ -796,6 +796,7 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
+            desktop_runtime::window_event(window, event);
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 if window.label() != "manager" {
                     api.prevent_close();
@@ -835,7 +836,6 @@ pub fn run() {
                 drags.outgoing.remove(window.label());
             }
         })
-        .on_webview_event(desktop_runtime::webview_event)
         .invoke_handler(tauri::generate_handler![
             snapshot,
             choose_files,

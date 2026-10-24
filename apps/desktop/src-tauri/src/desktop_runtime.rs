@@ -670,34 +670,41 @@ fn request_peek(app: &tauri::AppHandle, id: Option<i64>) {
         });
     });
 }
-pub fn webview_event(webview: &tauri::Webview, event: &tauri::WebviewEvent) {
-    if webview.label() == "main" || crate::desktop::detached_id(webview.label()).is_some() {
-        if let tauri::WebviewEvent::DragDrop(event) = event
-            && let Some(state) = webview.app_handle().try_state::<Desktop>()
+fn track_file_drag(drags: &mut WindowDrags, label: &str, event: &tauri::DragDropEvent) {
+    if label != "main" && crate::desktop::detached_id(label).is_none() {
+        return;
+    }
+    match event {
+        tauri::DragDropEvent::Enter { .. } => {
+            drags.incoming.insert(label.into());
+        }
+        tauri::DragDropEvent::Leave | tauri::DragDropEvent::Drop { .. } => {
+            drags.incoming.remove(label);
+        }
+        _ => {}
+    }
+}
+pub fn window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
+    // Tauri runtime-wry 2.12.3 routes WindowContent drops to WindowEvent,
+    // not WebviewEvent. Keep one native owner; JS imports only file-window drops.
+    let tauri::WindowEvent::DragDrop(event) = event else {
+        return;
+    };
+    if window.label() == "main" || crate::desktop::detached_id(window.label()).is_some() {
+        if let Some(state) = window.app_handle().try_state::<Desktop>()
             && let Ok(mut drags) = state.drags.lock()
         {
-            match event {
-                tauri::DragDropEvent::Enter { .. } => {
-                    drags.incoming.insert(webview.label().into());
-                }
-                tauri::DragDropEvent::Leave | tauri::DragDropEvent::Drop { .. } => {
-                    drags.incoming.remove(webview.label());
-                }
-                _ => {}
-            }
+            track_file_drag(&mut drags, window.label(), event);
         }
         return;
     }
-    if webview.label() != "desktop-entry" {
+    if window.label() != "desktop-entry" {
         return;
     }
-    let tauri::WebviewEvent::DragDrop(event) = event else {
-        return;
-    };
-    let app = webview.app_handle().clone();
+    let app = window.app_handle().clone();
     let result = (|| -> Result<()> {
         let state = app.state::<Desktop>();
-        let scale = webview.window().scale_factor().map_err(error)?;
+        let scale = window.scale_factor().map_err(error)?;
         match event {
             tauri::DragDropEvent::Enter { position, .. } => {
                 state.layout.lock().map_err(error)?.begin_drag();
@@ -774,6 +781,38 @@ pub fn webview_event(webview: &tauri::Webview, event: &tauri::WebviewEvent) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn native_file_window_drag_blocks_lifecycle_until_drop_or_cancel() {
+        let enter = tauri::DragDropEvent::Enter {
+            paths: vec![PathBuf::from("SYNTHETIC/English.txt")],
+            position: tauri::PhysicalPosition::new(16.0, 24.0),
+        };
+        for label in ["main", "shelf-4"] {
+            let mut drags = WindowDrags::default();
+            track_file_drag(&mut drags, label, &enter);
+            assert!(drags.busy());
+            track_file_drag(&mut drags, label, &tauri::DragDropEvent::Leave);
+            assert!(!drags.busy());
+            track_file_drag(&mut drags, label, &enter);
+            track_file_drag(
+                &mut drags,
+                label,
+                &tauri::DragDropEvent::Drop {
+                    paths: vec![PathBuf::from("SYNTHETIC/English.txt")],
+                    position: tauri::PhysicalPosition::new(16.0, 24.0),
+                },
+            );
+            assert!(!drags.busy());
+        }
+        let mut drags = WindowDrags::default();
+        for label in ["desktop-entry", "manager", "shelf-04", "shelf-0"] {
+            track_file_drag(&mut drags, label, &enter);
+            assert!(!drags.busy());
+        }
+        drags.outgoing.insert("main".into());
+        track_file_drag(&mut drags, "main", &tauri::DragDropEvent::Leave);
+        assert!(drags.busy()); // Incoming cancellation must not clear an outgoing native drag.
+    }
     #[test]
     fn view_exposes_fold_state_but_saved_layout_excludes_transient_state() {
         let mut layout = Layout::default();
