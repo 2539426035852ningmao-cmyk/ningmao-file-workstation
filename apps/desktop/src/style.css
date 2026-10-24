@@ -140,3 +140,5 @@ select { padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; ba
 .drop-active .explorer-pane { background:color-mix(in srgb,var(--blue) 6%,var(--surface)); }
 @media(max-width:420px) { .asset-row .asset-select { grid-template-columns:30px minmax(0,1fr) auto; } .asset-row .asset-bytes { display:none; } .asset-row .asset-meta { max-width:84px; overflow:hidden; white-space:nowrap; } }
 @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:.01ms !important; transition-duration:.01ms !important; scroll-behavior:auto !important; } }
+.selection-count { align-self:center; font-size:12px; white-space:nowrap; color:var(--muted-text); }
+.selection-marquee { position:absolute; z-index:5; pointer-events:none; border:1px solid var(--blue); background:color-mix(in srgb,var(--blue) 12%,transparent); }

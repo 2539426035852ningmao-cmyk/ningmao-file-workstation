@@ -1,0 +1,18 @@
+{
+  "date": "2026-10-24",
+  "environment": "headless Chromium; synthetic harness",
+  "testsPassed": 44,
+  "scope": "Ctrl/Shift, marquee intermediate feedback, virtual selection/scroll, selected ID group drag, hidden-item safety, summary and reference-only removal",
+  "productionBuild": "PASS",
+  "nativeNewCandidate": "NOT_RUN",
+  "screenshots": [
+    {
+      "file": "group-340-light.png",
+      "sha256": "4c942b353ccbe94dee700f51a298a2877be7d93b0ffcb85d36747390a1478380"
+    },
+    {
+      "file": "marquee-420-dark.png",
+      "sha256": "09b96063686207f9069e9447fe03d575a0bf3c34600a75257f77bde54b0c4f2f"
+    }
+  ]
+}

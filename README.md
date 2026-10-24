@@ -4,7 +4,7 @@
 
 Windows 10/11 优先的轻量桌面悬浮文件工作站，支持临时文件引用与真实目录两种文件架，逐步扩展跨设备互联和 AI 文件管理。
 
-目前没有正式稳定发行版。main保留已验收的M1-01～M1-03及设计/AI规范；本分支 `integration/v0.1-p0-p1` 收束#9→#28全部功能及最新main规范，已交付PR #30的r9候选，等待一次P0/P1集中验收。自动检查、原生交互与安装验收分别记录。
+目前没有正式稳定发行版。main保留已验收的M1-01～M1-03及设计/AI规范；本分支 `integration/v0.1-p0-p1` 收束#9→#28全部功能及最新main规范，PR #30的r9候选已进行局部原生验收，正修复验收发现的多选缺失。自动检查、原生交互与安装验收分别记录。
 
 已批准技术：Tauri 2、Rust、React、TypeScript、SQLite；唯一主工程 [apps/desktop](apps/desktop/README.md)。选型见 [ADR 0001](docs/decisions/0001-main-engineering.md)。
 
