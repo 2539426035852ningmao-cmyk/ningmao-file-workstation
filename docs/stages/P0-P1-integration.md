@@ -44,3 +44,28 @@ Explorer原生拖入 → 临时架引用/绑定目录Copy → SQLite与缩略图
 回退本阶段或回到#28/r8，无不可逆schema迁移，不删除SQLite、设置、profile、来源或暂存数据。窗口尺寸文件不在SQLite备份中；不是配置安全迁移。未签名debug候选非正式发行，已有依赖映射警告保留。
 
 P2直接沿用当前Tauri/Store/窗口状态能力，做orb↔shelf、贴边、Dock及按需管理中心；不再造第二套文件存储。原生验收前可准备独立低风险代码，但对外监听、正式发布、文件安全合并和隐私AI各自保留授权门槛。Gemini #17不阻断产品，不标为双模型验证通过。
+
+## 精确交付r9（2026-10-24）
+
+当前审核入口[PR #30](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/30)，关联Issue #29。功能提交1b15f7864c66324e85fd615dc008d3a14974a251；CI临时合并715f7d3ab1613e726f74b4080847e94a04af67d4，两个提交tree均为068ffb5b99222dc5e678c7b26df00aca4beca24c，完整文件树一致。后续阶段文档证据提交不改变该精确候选代码，不把新文档head冒充二进制构建提交。
+
+| 云端流程 | 实际结果 |
+| --- | --- |
+| [Repository checks 40080072233](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/actions/runs/40080072233) | Windows/Ubuntu通过 |
+| [Desktop 40080072232](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/actions/runs/40080072232) | 38浏览器、18Rust、fmt、Clippy -D warnings、原生编译和合成验收脚本通过 |
+| [Preview 40080072249](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/actions/runs/40080072249) | 安全回归、MSI结构/许可/交付完整性及打包通过 |
+
+两个Rust ignored入口是合成夹具准备与父测试实际调用的复制子进程入口，不作为18项通过计数。真实杀进程/SQLite、ACL、共享占用、Unicode长路径等既有安全测试保留；不代表断电/磁盘耗尽已实测。
+
+产物12554024425，ZIP SHA256 733f88b0aabbce69d17e3fc4747cde4d808b5ded127588c439c5c6eb2667a38d，本机下载复核一致。包名M1-06-preview-package-r9，未覆盖旧r1–r8；9文件白名单、8个SHA256、PE32+x64、0.1.0、NotSigned、MSI表及嵌入载荷大小匹配、检查后字节不变均通过，见[包核验JSON](../research/P0-P1-stage-evidence/package-verification.json)与[源码身份](../research/P0-P1-stage-evidence/source-identity.json)。未提取CAB逐字节比较、未安装启动。
+
+| 文件 | 字节数 | SHA256 |
+| --- | ---: | --- |
+| Ningmao-Preview-0.1.0-x64.exe | 17747456 | ec8ab94fe0b8052509fad354ed61a7078b5418f618d864bcedf11927060f0d3a |
+| Ningmao-Preview-0.1.0-x64.msi | 6148096 | 35407ce5a24f04504a1190dea0c42b3f0454bf576e51c6def295e80343fec641 |
+
+许可268条、缺原文0、精确源码映射警告1（既有react-remove-scroll-bar2.3.8），不是完整正式分发批准。需要现有WebView2，未打包安装其引导程序。当前仅支持单文件安全复制；文件夹可保留引用并原生拖出，向绑定目录递归复制文件夹仍不支持，需准确报错，不把它当已实现。实际目标应用是否接收与来源保留待验收。
+
+旧#9/#11/#13/#19/#21/#22/#24/#26/#28已关闭且未合并，由#30接替；所有分支、提交、报告与历史候选保留，可重新打开，不删除任何数据。Issue #8/#10/#15及#29仍保留原生验收门槛。main仍受strict Windows/Ubuntu检查和管理员保护，本轮未合并或发布。
+
+一次集中验收材料已准备，五个受保护合成文件哈希初检一致，未启动程序。具体P2复用和缺口见[直接开发入口](P2-development-entry.md) / Issue #31；悬浮球和Dock尚未实现。
