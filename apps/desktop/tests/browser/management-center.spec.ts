@@ -21,7 +21,10 @@ test("管理中心的复制任务可以安全取消并刷新记录",async({page}
   await page.goto("/tests/harness.html?manager");await page.getByRole("button",{name:"任务",exact:true}).click();await page.getByRole("button",{name:"取消复制",exact:true}).click();await expect(page.getByText("已取消",{exact:true})).toBeVisible();await expect(page.getByRole("button",{name:"取消复制",exact:true})).toHaveCount(0);
 });
 test("贴边细柄在鼠标靠近时请求展开，分页仍可用",async({page})=>{
-  await page.setViewportSize({width:64,height:312});await page.mouse.move(63,311);await page.goto("/tests/harness.html?desktop-entry&edge");await expect(page.getByRole("button",{name:"唤出贴边文件架"})).toBeVisible();await page.screenshot({path:`${process.env.M105_TEST_OUTPUT || "test-results"}/p2-edge-handle.png`});await page.getByRole("button",{name:"唤出贴边文件架"}).hover();await expect(page.getByRole("button",{name:/^展开 /})).toHaveCount(5);await expect(page.getByRole("button",{name:"移动悬浮入口"})).toBeDisabled();
+  await page.setViewportSize({width:64,height:312});await page.goto("/tests/harness.html?desktop-entry&edge");
+  // Browsers may enter at (0,0) after navigation. Arrange folded native state only after leaving.
+  await page.mouse.move(63,311);await page.evaluate(()=>window.testHarness.foldEntry());
+  await expect(page.getByRole("button",{name:"唤出贴边文件架"})).toBeVisible();await page.screenshot({path:`${process.env.M105_TEST_OUTPUT || "test-results"}/p2-edge-handle.png`});await page.getByRole("button",{name:"唤出贴边文件架"}).hover();await expect(page.getByRole("button",{name:/^展开 /})).toHaveCount(5);await expect(page.getByRole("button",{name:"移动悬浮入口"})).toBeDisabled();
 });
 for(const [width,height,theme] of [[1040,720,"dark"],[760,520,"light"]] as const) {
   test(`管理中心 ${width}×${height} ${theme} 操作可达且不横向溢出`,async({page})=>{

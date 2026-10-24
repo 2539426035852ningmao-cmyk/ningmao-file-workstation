@@ -16,7 +16,7 @@ const backend:Backend={
   async managerOpen(){calls.push("manager-open");},async managementSnapshot(){return structuredClone(state);},
   async tagReferences(ids,tag,remove){if(fail){const message=fail;fail="";throw new Error(message);}for(const id of ids){const value=state.items.find(i=>i.id===id)!;value.tags=remove?value.tags.filter(t=>t!==tag):[...new Set([...value.tags,tag])];}save();return ids.length;},
   async desktopConfigure(preferences){calls.push(`configure:${preferences.edge}:${preferences.auto_hide}:${preferences.topmost}`);desktop.layout.preferences=preferences;const saved=!new URLSearchParams(location.search).has("readonly-layout");if(!saved)desktop.warning="布局文件只读；本次更改仅临时生效。";publishDesktop();return saved;},
-  async desktopHover(inside){if(inside && desktop.edge_hidden){desktop.edge_hidden=false;publishDesktop();}},
+  async desktopHover(inside){calls.push("entry-hover:"+inside);if(inside && desktop.edge_hidden){desktop.edge_hidden=false;publishDesktop();}},
   async createShelf(name,session){if(fail){const message=fail;fail="";throw new Error(message);}name=name.trim();if(!name || state.shelves.some(s=>s.name===name))throw new Error("文件架名称为空或已存在。");const id=Math.max(3,...state.shelves.map(s=>s.id))+1;state.shelves.push({id,name,kind:session?"session":"persistent",root:null,available:true});save();return id;},
   async copyReferences(target,ids){calls.push(`references:${target}:${ids.join(",")}`);let added=0;for(const id of ids){const value=state.items.find(i=>i.id===id)!;if(!state.items.some(i=>i.shelf_id===target && i.path===value.path)){state.items.push({...structuredClone(value),id:next++,shelf_id:target});added++;}}save();return added;},
   async desktopState(){return structuredClone(desktop);},async desktopSelect(id){desktop.layout.active_shelf=id;},
@@ -52,8 +52,9 @@ const backend:Backend={
   async topmost(){return true;},async quit(){calls.push("quit");},
   async subscribe(value){events=value;return()=>{};},
 };
-declare global { interface Window { testHarness:{notifyMetadata:()=>void;drop:(paths:string[])=>void;hover:(active:boolean)=>void;offline:(id:number)=>void;fail:(message:string)=>void;failNextSnapshot:(message:string)=>void;missing:(id:number)=>void;image:(id:number)=>void;tags:(id:number,tags:string[])=>Promise<void>;cancelRelocation:()=>void;cancelOpening:()=>void;calls:()=>string[];complete:()=>void} } }
+declare global { interface Window { testHarness:{foldEntry:()=>void;notifyMetadata:()=>void;drop:(paths:string[])=>void;hover:(active:boolean)=>void;offline:(id:number)=>void;fail:(message:string)=>void;failNextSnapshot:(message:string)=>void;missing:(id:number)=>void;image:(id:number)=>void;tags:(id:number,tags:string[])=>Promise<void>;cancelRelocation:()=>void;cancelOpening:()=>void;calls:()=>string[];complete:()=>void} } }
 window.testHarness={
+  foldEntry:()=>{desktop.edge_hidden=true;publishDesktop();},
   notifyMetadata:()=>events.metadata?.(),
   drop:paths=>events.drop(paths),fail:message=>{fail=message;},
   hover:active=>events.hover(active),offline:id=>{state.shelves.find(s=>s.id===id)!.available=false;save();},
