@@ -1,0 +1,145 @@
+{
+  "sourceCommit": "f7673e6b9065bfe0b6193247743bf660de5368bc",
+  "date": "2026-10-25",
+  "finalProductAcceptance": "PENDING",
+  "nativeCandidateLaunched": true,
+  "baselineR14Feedback": "FAIL R2; retained",
+  "cases": [
+    {
+      "id": "UI-01",
+      "status": "BROWSER_PASS",
+      "evidence": "皮肤保存/重载、切换主题互不覆盖"
+    },
+    {
+      "id": "UI-02",
+      "status": "BROWSER_PASS",
+      "evidence": "深蓝黑CSS纯色/无背景图/描边/阴影，截图已检查，最终视觉待用户确认"
+    },
+    {
+      "id": "UI-03",
+      "status": "PARTIAL",
+      "evidence": "两条原创SVG、眨眼恢复、按需帧；全部DPI边界待原生"
+    },
+    {
+      "id": "UI-04",
+      "status": "BROWSER_PASS",
+      "evidence": "首击胶囊/次击预览/明确打开/Esc与CtrlEnter"
+    },
+    {
+      "id": "UI-05",
+      "status": "BROWSER_PASS",
+      "evidence": "装饰SVG aria-hidden、非按钮；独立收起有名称"
+    },
+    {
+      "id": "UI-06",
+      "status": "BROWSER_PASS",
+      "evidence": "收起显式id、引用记录不变；窗口实测待验"
+    },
+    {
+      "id": "UI-07",
+      "status": "PARTIAL",
+      "evidence": "串行pending/预览响应序号/原生锁定保护；高速原生竞态未测"
+    },
+    {
+      "id": "UI-08",
+      "status": "BROWSER_PASS",
+      "evidence": "六主题皮肤24形态图，340/420/640旧文件区回归；不是产品视觉批准"
+    },
+    {
+      "id": "UI-09",
+      "status": "BROWSER_PASS",
+      "evidence": "reduced-motion保留交互、取消眼睛RAF/待机计时器"
+    },
+    {
+      "id": "UI-10",
+      "status": "PARTIAL",
+      "evidence": "1/3/8架、五方向、分页和搜索浏览器通过；手动原生位置待验"
+    },
+    {
+      "id": "UI-11",
+      "status": "PARTIAL",
+      "evidence": "空架/失效/取消/复制中及错误文字回归；绑定离线原生待验"
+    },
+    {
+      "id": "UI-12",
+      "status": "BROWSER_PASS",
+      "evidence": "44px单行顶栏，不增加第二标题行"
+    },
+    {
+      "id": "NATIVE-01",
+      "status": "NOT_TESTED",
+      "evidence": "Enter不导入、Drop取走会话模型通过；这些均不代替本次精确EXE的Windows原生验收"
+    },
+    {
+      "id": "NATIVE-02",
+      "status": "NOT_TESTED",
+      "evidence": "矩形/目标ID冻结、跨节点不换目标的Rust模型通过；这些均不代替本次精确EXE的Windows原生验收"
+    },
+    {
+      "id": "NATIVE-03",
+      "status": "NOT_TESTED",
+      "evidence": "拖放中形态拒绝与UI禁用通过；这些均不代替本次精确EXE的Windows原生验收"
+    },
+    {
+      "id": "NATIVE-04",
+      "status": "NOT_TESTED",
+      "evidence": "既有safe Copy/冲突/来源保护Rust回归通过；这些均不代替本次精确EXE的Windows原生验收"
+    },
+    {
+      "id": "NATIVE-05",
+      "status": "NOT_TESTED",
+      "evidence": "SQLite完整性/崩溃取消/布局旧字节保留回归通过；这些均不代替本次精确EXE的Windows原生验收"
+    },
+    {
+      "id": "NATIVE-06",
+      "status": "NOT_TESTED",
+      "evidence": "既有拆合/归属隔离Rust与浏览器回归通过；这些均不代替本次精确EXE的Windows原生验收"
+    },
+    {
+      "id": "NATIVE-07",
+      "status": "NOT_TESTED",
+      "evidence": "自身shelf ID浏览器和命令范围回归通过；这些均不代替本次精确EXE的Windows原生验收"
+    },
+    {
+      "id": "NATIVE-08",
+      "status": "NOT_TESTED",
+      "evidence": "负坐标/混合scale数学模型通过；这些均不代替本次精确EXE的Windows原生验收"
+    },
+    {
+      "id": "NATIVE-09",
+      "status": "NOT_TESTED",
+      "evidence": "旧生命周期保护回归通过；这些均不代替本次精确EXE的Windows原生验收"
+    },
+    {
+      "id": "NATIVE-10",
+      "status": "NOT_TESTED",
+      "evidence": "旧r14仅固定绑定目标/取消有真实证据，新几何需重测；这些均不代替本次精确EXE的Windows原生验收"
+    },
+    {
+      "id": "PERF-01",
+      "status": "PARTIAL",
+      "evidence": "DOM hidden停止timer/RAF且卸载清理；真实遮挡/托盘后台资源待测"
+    },
+    {
+      "id": "PERF-02",
+      "status": "PARTIAL",
+      "evidence": "5节点至多1个低频timer、无闲置RAF；未测CPU/GPU或宣称60FPS"
+    },
+    {
+      "id": "A11Y-01",
+      "status": "PARTIAL",
+      "evidence": "键盘切换/Esc/搜索和图标名称自动通过；完整原生焦点、读屏待验"
+    },
+    {
+      "id": "A11Y-02",
+      "status": "BROWSER_PASS",
+      "evidence": "错误role=alert可读，成功role=status，引用/复制文字；不只颜色"
+    },
+    {
+      "id": "A11Y-03",
+      "status": "PARTIAL",
+      "evidence": "六组合截图和皮肤独立测试；最终视觉对比度/系统高对比待验"
+    }
+  ],
+  "nativeAcceptance": "IN PROGRESS; fresh user approval; Windows11 build22631; awaiting first reference drop"
+}

@@ -78,3 +78,6 @@ P0可靠文件流转＋P1紧凑文件架集中交付 → P2真实悬浮球/贴�
 ## D-ORB 当前接手点（2026-10-25）
 
 独立feat/dual-eye-orb / Draft PR #35，以P2残留证据63377ae为祖先，不改变main/#30/#32。设计合同来自#33精确8b3ccb1；Issue #34。新原创球/胶囊/轻预览/完整架自身收起和横竖Dock已接通；三皮肤独立主题；轻预览登记引用最多3项、更多架检索。窗口/目标矩形由Rust拥有，拖放期间冻结、不每帧改窗口。v4布局独立保留v1/v2/v3，DB schema/Copy/多选排序身份未改。详见docs/tasks/D-ORB-implementation.md。当前任务禁止任何自动合并、安装、发布；最终视觉和真实Windows回归仍需验收。默认后台，不恢复先前被物理Esc停止的电脑工具、不强杀旧r14。真实r14复制/取消仅对旧精确包有效，新UI不能继承。全部43项和P0→P4路线保留，先P2再P3/P4。
+
+
+D-ORB精确r15已构建/核验：源f7673e6，构建5807e05，完整tree相同，79浏览器/36Rust/Windows/MSI/双平台仓库通过；见docs/research/dual-eye-orb-evidence/verification.json。三皮肤双主题图与浏览器录像已保留。用户另行明确现在方便，已原生启动隔离r15 PID13092；main收起/球→胶囊→QuickPeek空态→球已观察，SQLite初始0记录/0任务，5保护对象不变。已选source/English.txt并请用户只拖到白球正中松开一次，当前等待回复/真实Drop；不要把这一等待写成复制已通过。详见native-session.json。未装MSI/合并/发布，Windows完整矩阵/最终视觉仍待验。当前只允许此集中合成验收，不碰私人软件；工具若因物理Esc停止立即停输入。

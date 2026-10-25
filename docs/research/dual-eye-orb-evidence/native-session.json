@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "date": "2026-10-25",
+  "candidate": "r15",
+  "sourceCommit": "f7673e6b9065bfe0b6193247743bf660de5368bc",
+  "exeSha256": "52ae055061e0cec063eb4abdab5a11778190ec435e897617a6426f9a47bcc940",
+  "os": "Windows11 Home build22631",
+  "freshDesktopPermission": true,
+  "syntheticOnly": true,
+  "processId": 13092,
+  "installed": false,
+  "observed": [
+    "new isolated Store opened with 0 items/0 jobs, integrity ok",
+    "full shelf own collapse command created actual orb window",
+    "first actual click expanded capsule; second click QuickPeek with 0 items and clear empty prompt",
+    "QuickPeek explicit close returned orb",
+    "current Explorer source English.txt selected; first real reference drop requested"
+  ],
+  "protectedObjectsUnchanged": 5,
+  "nativeDropsVerified": 0,
+  "remaining": [
+    "first real reference drop and second distinct reference",
+    "bound Copy drop twice with hashes",
+    "native cancellation and frozen multi-node target",
+    "full shelf multi-select/drag out/order/Space/open",
+    "layout/own collapse/detach/tray/normal exit/restart",
+    "Win10/125/150/multi-monitor/reduced motion/performance",
+    "final user visual approval"
+  ],
+  "oldR14": "not present in returned windows/process inventory at session start; no force-kill and no claim of observed normal exit",
+  "screenshots": "inspected via Windows tool only; not uploaded because transparent windows and Explorer include unrelated desktop context",
+  "nativeRecording": "NOT RECORDED; browser WebM remains explicitly synthetic"
+}
