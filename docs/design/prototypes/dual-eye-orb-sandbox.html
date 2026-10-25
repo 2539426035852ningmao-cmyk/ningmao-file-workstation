@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>柠猫双眼球 | 独立原创交互样机（不读取文件）</title>
+<style>
+:root { font-family:Segoe UI,"Microsoft YaHei UI",system-ui,sans-serif; color-scheme:dark; --app-bg:#15181f; --panel:#242932; --panel-2:#323947; --text:#e9ebf0; --muted:#a3aab6; --line:#39414e; --ball:#191e28; --eyes:#f5f6f8; --blue:#2869d6 }
+*{box-sizing:border-box}body{margin:0;background:#111319;color:var(--text);line-height:1.45}
+button,select{font:inherit}button{cursor:pointer}button:focus-visible,select:focus-visible{outline:2px solid #71a5ff;outline-offset:2px}
+header{max-width:1100px;margin:auto;padding:24px 24px 12px}
+h1{font-size:24px;margin:0 0 6px}p{margin:5px 0;color:#adb6c5;font-size:13px}
+.note{margin-top:6px;color:#b7c0cc;font-size:12px}
+.bar{max-width:1100px;margin:0 auto 14px;padding:0 24px;display:flex;align-items:center;flex-wrap:wrap;gap:12px}
+.bar label{font-size:12px;color:#d6dae2;display:flex;align-items:center;gap:6px}
+.bar select{background:#292e3a;color:#f0f2f6;border:1px solid #515969;border-radius:8px;padding:7px}
+.bar button{border:1px solid #485468;background:#2b3545;color:#e6efff;border-radius:8px;padding:8px 12px}
+.stage{height:530px;max-width:1100px;margin:auto;position:relative;overflow:hidden;background:var(--app-bg);border:1px solid var(--line);border-radius:20px;display:flex;align-items:center;justify-content:center;padding:14px 28px 14px 96px;transition:background .18s}
+.stage[data-theme="light"]{--app-bg:#eef1f5;--panel:#fafbfd;--panel-2:#e7edf5;--text:#252c38;--muted:#667285;--line:#d8dfe8;color-scheme:light}
+.scene-label{position:absolute;left:18px;top:18px;font-size:11px;color:var(--muted)}
+.glass{position:absolute;left:15px;top:50%;transform:translateY(-50%);padding:8px;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:20px}
+.stage[data-edge="right"] .glass{left:auto;right:15px}
+.stage[data-edge="bottom"] .glass{left:50%;top:auto;bottom:12px;transform:translateX(-50%)}
+.stage[data-edge="free"] .glass{left:16px;top:20%;transform:none}
+.glass[data-edge="left"],.glass[data-edge="right"]{flex-direction:column}
+.glass[data-edge="bottom"],.glass[data-edge="free"]{flex-direction:row}
+.node{display:grid;place-items:center;width:35px;height:35px;border:0;border-radius:50%;background:var(--panel-2);color:var(--text);font-weight:600;font-size:12px}
+.node[aria-current="true"]{outline:2px solid #6b9ff5;outline-offset:2px}
+.extra{font-size:12px;color:var(--muted);padding:6px}
+.shell{position:relative;width:72px;height:72px;border-radius:50%;background:var(--ball);color:var(--eyes);box-shadow:0 7px 15px #0002;overflow:hidden;transition:width .28s cubic-bezier(.21,.81,.25,1),height .28s cubic-bezier(.21,.81,.25,1),border-radius .28s cubic-bezier(.21,.81,.25,1),background .2s;flex:none}
+.shell[data-mode="capsule"]{width:202px;height:58px;border-radius:32px}
+.shell[data-mode="peek"]{width:320px;height:242px;border-radius:21px;background:var(--panel);color:var(--text)}
+.shell[data-mode="shelf"]{width:420px;height:460px;border-radius:20px;background:var(--panel);color:var(--text)}
+.body-face{position:absolute;top:0;left:0;width:72px;height:72px;z-index:3;pointer-events:none;transition:transform .25s}
+.shell[data-mode="capsule"] .body-face{transform:translate(-1px,-7px)}
+.shell[data-mode="peek"] .body-face,.shell[data-mode="shelf"] .body-face{opacity:0}
+.eye{position:absolute;display:block;background:var(--eyes);border-radius:70%;transform:translate(var(--gx,0px),var(--gy,0px)) rotate(-23deg);transform-origin:center;transition:height .1s,top .1s,transform .12s}
+.eye.one{width:10px;height:21px;left:39px;top:21px}
+.eye.two{width:6px;height:17px;left:56px;top:15px}
+.shell.blink .body-face .eye.one{height:3px;top:32px}.shell.blink .body-face .eye.two{height:3px;top:24px}
+.shell[data-mode="peek"] .eye,.shell[data-mode="shelf"] .eye{background:var(--text)}
+.pill{position:absolute;left:70px;top:11px;opacity:0;white-space:nowrap;transition:opacity .12s;pointer-events:none}
+.shell[data-mode="capsule"] .pill{opacity:1;transition-delay:.12s}
+.pill b{font-size:14px;display:block;color:var(--eyes)}.pill small{font-size:10px;color:var(--eyes);opacity:.77}
+.window{position:absolute;inset:0;display:none;flex-direction:column;overflow:hidden}
+.shell[data-mode="peek"] .window.peek,.shell[data-mode="shelf"] .window.shelf{display:flex}
+.window-header{display:flex;gap:9px;align-items:center;min-height:50px;padding:8px 12px;border-bottom:1px solid var(--line)}
+.window-eyes{width:27px;height:27px;position:relative;flex:none;pointer-events:none}
+.window-eyes i{background:var(--text);position:absolute;border-radius:75%;transform:rotate(-23deg)}
+.window-eyes i:first-child{left:8px;top:7px;width:5px;height:14px}.window-eyes i:last-child{left:20px;top:4px;width:3.5px;height:11px;transform:rotate(-19deg)}
+.window-title{flex:1;min-width:0;display:grid;gap:1px}.window-title b{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.window-title small{font-size:10px;color:var(--muted)}
+.mini-button{min-width:30px;height:30px;border:0;border-radius:8px;background:transparent;color:var(--text);font-size:17px}
+.mini-button:hover{background:var(--panel-2)}
+.tiles{padding:14px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.tile{text-align:center;min-width:0;font-size:10px;color:var(--muted)}
+.thumb{height:69px;border-radius:10px;background:var(--panel-2);display:grid;place-items:center;font-size:23px;margin-bottom:4px}
+.tile span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.window-bottom{margin:auto 12px 12px;background:var(--panel-2);border-radius:10px;padding:8px 10px;display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:11px;color:var(--text)}
+.window-bottom button{border:0;border-radius:7px;background:#3c77d7;color:#fff;padding:6px 9px;font-size:11px}
+.drag-hint{position:absolute;inset:0;display:none;align-items:center;justify-content:center;z-index:5;background:#235caad9;color:white;text-align:center;font-weight:600;font-size:15px}
+.shell[data-drop="true"] .drag-hint{display:flex}
+.bottom-bar{max-width:1100px;margin:auto;padding:14px 24px;color:#aeb7c6;font-size:12px}
+.test-buttons{display:flex;gap:8px;flex-wrap:wrap;max-width:1100px;margin:auto;padding:14px 24px 0}
+.test-buttons button{background:#2c3442;color:#eef0f5;border:1px solid #465163;border-radius:9px;padding:8px 12px}
+.test-buttons .primary{background:#2869d6;border-color:#2869d6}
+@media(max-width:630px){.stage{padding-left:56px;padding-right:6px}.shell[data-mode="shelf"]{width:min(350px,calc(100vw - 86px))}.shell[data-mode="peek"]{width:min(290px,calc(100vw - 86px))}.glass{left:8px;padding:5px}.node{width:28px;height:28px}.thumb{height:56px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header><h1>柠猫双眼灵动球 · 原创浏览器样机</h1><p>只用于验证形态、三种独立球色、窗口双眼和 Dock 排列。所有文件与任务都是合成示意；不读写用户文件、无外部依赖。</p><p class="note">使用下方按钮或点击圆球：圆球 → 胶囊 → 轻预览 → 完整文件架；右上角收起返回本架入口。真实 Tauri 原生拖放仍需另外验收。</p></header>
+<div class="bar">
+<label>球体外观 <select id="skin"><option value="navy">深蓝黑 · 哑光</option><option value="warm">暖白</option><option value="blue">主题蓝</option></select></label>
+<label>应用主题 <select id="theme"><option value="dark">深色</option><option value="light">浅色</option></select></label>
+<label>Dock 方向 <select id="edge"><option value="left">左竖</option><option value="right">右竖</option><option value="bottom">底横</option><option value="free">自由紧凑</option></select></label>
+<label>架数量 <select id="count"><option value="1">1 架</option><option value="3" selected>3 架</option><option value="8">8 架</option></select></label>
+</div>
+<div class="stage" id="stage" data-theme="dark" data-edge="left">
+<div class="scene-label" id="label">当前：待命圆球</div>
+<nav class="glass" id="dock" data-edge="left" aria-label="模拟文件架 Dock"></nav>
+<div class="shell" data-mode="orb" data-drop="false" id="shell" tabindex="0" aria-label="双眼灵动球预览">
+<div class="body-face" aria-hidden="true"><i class="eye one"></i><i class="eye two"></i></div>
+<div class="pill" aria-hidden="true"><b id="pillName">临时收集</b><small id="pillCount">6 项 · 点击预览</small></div>
+<div class="window peek">
+ <div class="window-header"><span class="window-eyes" aria-hidden="true"><i></i><i></i></span><div class="window-title"><b class="shelf-name">临时收集</b><small class="shelf-note">6 项 · 快速预览</small></div><button class="mini-button" title="更多操作示意" aria-label="更多操作示意">···</button></div>
+ <div class="tiles"><div class="tile"><div class="thumb">▧</div><span>场景.png</span></div><div class="tile"><div class="thumb">▶</div><span>镜头.mp4</span></div><div class="tile"><div class="thumb">▤</div><span>文档.pdf</span></div></div>
+ <div class="window-bottom"><span class="safety">仅保存引用</span><button class="open-shelf" type="button">打开文件架 ›</button></div>
+</div>
+<div class="window shelf">
+ <div class="window-header"><span class="window-eyes" aria-hidden="true"><i></i><i></i></span><div class="window-title"><b class="shelf-name">临时收集</b><small class="safety">仅保存引用</small></div><button class="mini-button collapse" aria-label="收起到对应悬浮入口" title="收起到对应悬浮入口">↘</button><button class="mini-button" title="搜索示意" aria-label="搜索示意">⌕</button><button class="mini-button" title="更多操作示意" aria-label="更多操作示意">···</button></div>
+ <div class="tiles"><div class="tile"><div class="thumb">▧</div><span>场景.png</span></div><div class="tile"><div class="thumb">▶</div><span>镜头.mp4</span></div><div class="tile"><div class="thumb">▤</div><span>文档.pdf</span></div><div class="tile"><div class="thumb">◫</div><span>设计.fig</span></div><div class="tile"><div class="thumb">▧</div><span>素材.jpg</span></div><div class="tile"><div class="thumb">▤</div><span>记录.txt</span></div></div>
+ <div class="window-bottom"><span>模拟窗口 · 非真实文件操作</span></div>
+</div>
+<div class="drag-hint" id="dropHint">模拟投放 · 不读取真实文件</div>
+</div>
+</div>
+<div class="test-buttons"><button class="primary" id="next" type="button">点击展开胶囊 →</button><button id="reset" type="button">返回圆球</button><button id="blink" type="button">眨眼</button><button id="drop" type="button">模拟投放反馈</button></div>
+<div class="bottom-bar">入口规格参考 48×48，画面为了展示有所放大；这是可操作视觉 Sandbox，不是生产 Tauri 构建、不使用受限第三方源码/素材。</div>
+<script>
+(function(){
+"use strict";
+var shell=document.getElementById("shell"),stage=document.getElementById("stage"),dock=document.getElementById("dock");
+var names=["临时收集","项目素材","图片参考","工作文档","设计稿","视频参考","音频素材","临时备份"];
+var kinds=["reference","bound","reference","reference","bound","reference","reference","reference"];
+var index=0,mode=0,blinkTimeout=0;
+var modes=["orb","capsule","peek","shelf"],labels=["待命圆球","灵动胶囊","轻量预览","完整文件架"];
+function setMode(n){mode=Math.max(0,Math.min(3,n));shell.dataset.mode=modes[mode];shell.dataset.drop="false";document.getElementById("label").textContent="当前："+labels[mode]+" · "+names[index];document.getElementById("next").textContent=["点击展开胶囊 →","继续展开轻预览 →","打开完整文件架 →","返回圆球 ↺"][mode];shell.setAttribute("aria-label",labels[mode]);}
+function updateShelf(){var name=names[index],bound=kinds[index]==="bound",safety=bound?"复制到目录 · 保留来源":"仅保存引用";document.getElementById("pillName").textContent=name;document.getElementById("pillCount").textContent=(6+index*2)+" 项 · 点击预览";document.querySelectorAll(".shelf-name").forEach(function(n){n.textContent=name});document.querySelectorAll(".safety").forEach(function(n){n.textContent=safety});document.querySelectorAll(".shelf-note").forEach(function(n){n.textContent=(6+index*2)+" 项 · 快速预览"});document.querySelectorAll(".node").forEach(function(b){b.setAttribute("aria-current",Number(b.dataset.id)===index?"true":"false")});setMode(mode)}
+function buildDock(){dock.innerHTML="";var count=Number(document.getElementById("count").value);if(index>=count)index=0;for(var i=0;i<Math.min(count,5);i++){(function(id){var b=document.createElement("button");b.type="button";b.className="node";b.dataset.id=String(id);b.title=names[id];b.setAttribute("aria-label","切换"+names[id]);b.textContent=names[id][0];b.addEventListener("click",function(){index=id;updateShelf()});dock.appendChild(b)})(i)}if(count>5){var x=document.createElement("span");x.className="extra";x.textContent="+"+(count-5);x.title="更多文件架（仅显示示意）";dock.appendChild(x)}updateShelf()}
+function setSkin(){var s=document.getElementById("skin").value;var a={warm:["#F5F3EF","#191B20"],navy:["#191E28","#F5F6F8"],blue:["#2869D6","#F8FAFF"]}[s];shell.style.setProperty("--ball",a[0]);shell.style.setProperty("--eyes",a[1]);}
+document.getElementById("skin").addEventListener("change",setSkin);
+document.getElementById("theme").addEventListener("change",function(e){stage.dataset.theme=e.target.value});
+document.getElementById("edge").addEventListener("change",function(e){stage.dataset.edge=e.target.value;dock.dataset.edge=e.target.value});
+document.getElementById("count").addEventListener("change",buildDock);
+document.getElementById("next").addEventListener("click",function(){setMode(mode===3?0:mode+1)});
+document.getElementById("reset").addEventListener("click",function(){setMode(0)});
+document.getElementById("blink").addEventListener("click",blink);
+document.getElementById("drop").addEventListener("click",function(){shell.dataset.drop=shell.dataset.drop==="true"?"false":"true";setTimeout(function(){shell.dataset.drop="false"},1500)});
+document.querySelector(".open-shelf").addEventListener("click",function(e){e.stopPropagation();setMode(3)});
+document.querySelector(".collapse").addEventListener("click",function(e){e.stopPropagation();setMode(0)});
+shell.addEventListener("click",function(e){if(e.target.closest("button"))return;if(mode<2)setMode(mode+1)});
+shell.addEventListener("keydown",function(e){if(e.target===shell&&(e.key==="Enter"||e.key===" ")){e.preventDefault();if(mode<2)setMode(mode+1)}});
+window.addEventListener("keydown",function(e){if(e.key==="Escape"&&mode>0)setMode(mode-1)});
+stage.addEventListener("pointermove",function(e){if(mode>1)return;var r=shell.getBoundingClientRect(),x=Math.max(-1,Math.min(1,(e.clientX-r.left-r.width/2)/150)),y=Math.max(-1,Math.min(1,(e.clientY-r.top-r.height/2)/150));shell.style.setProperty("--gx",(x*2.2).toFixed(1)+"px");shell.style.setProperty("--gy",(y*1.8).toFixed(1)+"px")});
+stage.addEventListener("pointerleave",function(){shell.style.setProperty("--gx","0px");shell.style.setProperty("--gy","0px")});
+function blink(){shell.classList.add("blink");clearTimeout(blinkTimeout);blinkTimeout=setTimeout(function(){shell.classList.remove("blink")},130)}
+buildDock();setSkin();setMode(0);
+})();
+</script>
+</body>
+</html>
