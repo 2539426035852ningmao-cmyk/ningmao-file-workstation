@@ -6,6 +6,16 @@ import {OrbFace} from "./OrbFace";
 import {QuickPeek} from "./QuickPeek";
 import {appearances,appearanceKey,readAppearance,writeAppearance,type OrbAppearance} from "./appearance";
 
+// The capsule has one short status line; full receipts remain in QuickPeek.
+function capsuleReceipt(message:string){
+  const received=/^已接收 (\d+) 项/.exec(message);
+  if(received)return `已接收 ${received[1]} 项`;
+  if(message.startsWith("复制完成"))return "复制完成";
+  if(message.startsWith("复制任务已开始"))return "正在复制";
+  if(message.startsWith("已取消"))return "已取消";
+  return "查看任务详情";
+}
+
 // Native code owns geometry, the frozen destination and imported paths.
 export default function AdaptiveShelfDock({backend}:{backend:Backend}) {
   const [view,setView]=useState<DesktopView|null>(null),[error,setError]=useState(""),[notice,setNotice]=useState("");
@@ -37,7 +47,7 @@ export default function AdaptiveShelfDock({backend}:{backend:Backend}) {
       {view?.entries.map(entry=>{const mode=presentation.shelf_id===entry.id?presentation.kind:"orb",slot=geometry.slots.find(s=>s.id===entry.id);if(!slot)return null;const semantics=entry.kind==="bound"?"复制到目录 · 保留来源":"仅保存引用";return <section key={entry.id} className="entry-slot" data-shelf-id={entry.id} data-mode={mode} data-target={view.drag_target===entry.id} style={{left:slot.x,top:slot.y,width:slot.width,height:slot.height}}>
         {mode==="quick-peek"?<QuickPeek entry={entry as PeekData["shelf"]} catalog={view.catalog??[]} onOpenOther={direct} data={peek} locked={locked} feedback={warning || (locked?`${entry.name} · ${semantics}`:view.copying?"正在复制，来源保留":notice)} error={!!warning} settings={settings} appearance={appearance} onAppearance={changeAppearance} onSettings={()=>setSettings(!settings)} onBack={()=>present(entry.id,"capsule")} onClose={()=>present(entry.id,"orb")} onOpen={()=>direct(entry.id)}/>:<div className="orb-control" data-orb-host onPointerEnter={()=>setActive(entry.id)}>
           <button className="orb-hit" data-testid={mode==="capsule"?"morph-capsule":undefined} aria-label={mode==="capsule"?`查看 ${entry.name} 轻预览`:`展开 ${entry.name}`} disabled={locked} title={`${entry.name} · ${semantics} · Ctrl+Enter直接打开`} onClick={e=>e.ctrlKey?direct(entry.id):present(entry.id,mode==="orb"?"capsule":"quick-peek")} onKeyDown={e=>{if(e.ctrlKey && e.key==="Enter"){e.preventDefault();direct(entry.id);}}}>
-            <span className="orb-body"><OrbFace active={activeId===entry.id && !view.copying && !warning} locked={locked}/>{mode==="capsule" && <span className="capsule-copy"><strong>{entry.name}</strong><small role={notice?"status":undefined}>{warning || (locked?semantics:view.copying?"正在复制，来源保留":notice || semantics)}</small></span>}{mode==="capsule" && <ChevronRight className="capsule-arrow" size={16}/>}</span>
+            <span className="orb-body"><OrbFace active={activeId===entry.id && !view.copying && !warning} locked={locked}/>{mode==="capsule" && <span className="capsule-copy"><strong>{entry.name}</strong><small title={warning || (locked?semantics:view.copying?"正在复制，来源保留":notice || semantics)} role={notice?"status":undefined}>{warning?"需要处理":view.copying?"正在复制":!locked && notice?capsuleReceipt(notice):entry.kind==="bound"?"复制到目录":"仅保存引用"}</small></span>}{mode==="capsule" && <ChevronRight className="capsule-arrow" size={16}/>}</span>
             {mode==="orb" && success && <span className="orb-receipt" aria-label={notice}><Check size={12}/></span>}
           </button>
           {mode==="capsule" && <button className="capsule-close" aria-label="收回圆球" disabled={locked} onClick={()=>present(entry.id,"orb")}><X size={12}/></button>}

@@ -144,3 +144,16 @@ test("原创眨眼在低频触发后恢复，不留下持续帧循环",async({pa
   await page.mouse.move(170,35,{steps:8});
   await expect(page.getByTestId("morph-capsule")).toBeVisible();
 });
+
+test("胶囊接收反馈完整可见，详细文字保留在轻预览",async({page})=>{
+  await page.goto("/tests/harness.html?desktop-entry&count=1");
+  await page.getByRole("button",{name:"展开 灵感收集",exact:true}).click();
+  const full="已接收 1 项；来源保留。";
+  await page.evaluate(message=>window.testHarness.notifyFinished(message),full);
+  const status=page.getByRole("status");
+  await expect(status).toHaveText("已接收 1 项");
+  expect(await status.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+  await expect(status).toHaveAttribute("title",full);
+  await page.getByRole("button",{name:"查看 灵感收集 轻预览",exact:true}).click();
+  await expect(page.getByRole("status")).toHaveText(full);
+});
