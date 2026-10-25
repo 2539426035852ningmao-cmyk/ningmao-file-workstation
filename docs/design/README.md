@@ -5,10 +5,10 @@
 ## 从这里开始
 
 1. **[双眼灵动视觉与交互规范 V1.0](dual-eye-orb-v1.md)** — 用户冻结决策、三色、双眼左上角、胶囊/轻预览/完整窗、专用收起按钮、多架 Dock。
-2. **[SVG 原创三色与形态示意](assets/dual-eye-orb-reference.svg)** — 纯平示意，深蓝黑无描边/发光；不包含第三方仓库素材。
-3. **[状态机机器可读合同](orb-motion-contract.json)** — 皮肤、窗口阶段、状态迁移、动效范围、文件安全不变量（仅设计合同）。
-4. **[提前准备与测试矩阵](orb-implementation-readiness.md)** — PRE、UI、NATIVE、PERF、A11Y、源码入口与原生验收。
-5. **[Codex 完整执行交接](../handoff/CODEX-DUAL-EYE-ORB.md)** — 可在额度恢复后直接阅读并执行的阶段任务和质量门禁。
+2. **[无依赖互动浏览器样机](prototypes/dual-eye-orb-sandbox.html)** — 下载并在浏览器打开即可演示三球色×双主题×四形态×Dock 位置，全部模拟数据；不是生产窗口或原生拖放验证。\n3. **[SVG 原创三色与形态示意](assets/dual-eye-orb-reference.svg)** — 纯平示意，深蓝黑无描边/发光；不包含第三方仓库素材。
+4. **[状态机机器可读合同](orb-motion-contract.json)** — 皮肤、窗口阶段、状态迁移、动效范围、文件安全不变量（仅设计合同）。
+5. **[提前准备与测试矩阵](orb-implementation-readiness.md)** — PRE、UI、NATIVE、PERF、A11Y、源码入口与原生验收。
+6. **[Codex 完整执行交接](../handoff/CODEX-DUAL-EYE-ORB.md)** — 可在额度恢复后直接阅读并执行的阶段任务和质量门禁。
 
 ## 已确定，勿再次反复访谈
 
