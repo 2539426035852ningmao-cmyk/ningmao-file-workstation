@@ -1,9 +1,6 @@
 use crate::{
     Runtime,
-    desktop::{
-        Edge, Layout, Preferences, Rect, WindowDrags, clamp_position, contains_point,
-        entry_placement,
-    },
+    desktop::{Edge, Layout, Preferences, Rect, WindowDrags, clamp_position, contains_point},
     error,
     store::{Result, ShelfIdentity},
 };
@@ -21,6 +18,7 @@ use tauri::{Emitter, Manager};
 
 pub struct Desktop {
     pub layout: Mutex<Layout>,
+    pub entry: Mutex<crate::entry::EntryState>,
     pub drags: Mutex<WindowDrags>,
     pub creating_window: Mutex<()>,
     pub transitioning: AtomicBool,
@@ -44,31 +42,20 @@ pub struct View {
     pub copying: bool,
     pub edge_hidden: bool,
     pub catalog: Vec<ShelfIdentity>,
+    pub presentation: crate::entry::Presentation,
+    pub geometry: crate::entry::Geometry,
+    pub native_dragging: bool,
+    pub drag_target: Option<i64>,
 }
 
 impl Desktop {
     fn load(root: &Path) -> Self {
-        let path = root.join("desktop-layout-v3.json");
-        let source = if path.exists() {
-            path.clone()
-        } else {
-            let v2 = root.join("desktop-layout-v2.json");
-            if v2.exists() {
-                v2
-            } else {
-                root.join("desktop-layout-v1.json")
-            }
-        };
-        let expected = if source == path {
-            3
-        } else if source
-            .file_name()
-            .is_some_and(|f| f == "desktop-layout-v2.json")
-        {
-            2
-        } else {
-            1
-        };
+        let path = root.join("desktop-layout-v4.json");
+        let (source, expected) = (1..=4)
+            .rev()
+            .map(|v| (root.join(format!("desktop-layout-v{v}.json")), v))
+            .find(|(p, _)| p.exists())
+            .unwrap_or((path.clone(), 4));
         let loaded = if !source.exists() {
             Ok(Layout::default())
         } else {
@@ -86,7 +73,7 @@ impl Desktop {
                     if layout.version != expected {
                         return Err("布局版本不兼容，原文件已保留。".into());
                     }
-                    layout.version = 3;
+                    layout.version = 4;
                     if layout.validate() {
                         Ok(layout)
                     } else {
@@ -104,6 +91,7 @@ impl Desktop {
         };
         Self {
             layout: Mutex::new(layout),
+            entry: Mutex::new(crate::entry::EntryState::default()),
             drags: Mutex::new(WindowDrags::default()),
             creating_window: Mutex::new(()),
             transitioning: AtomicBool::new(false),
@@ -155,6 +143,9 @@ pub(crate) fn known_shelf(app: &tauri::AppHandle, id: i64) -> Result<()> {
     }
 }
 pub(crate) fn require_idle(app: &tauri::AppHandle) -> Result<()> {
+    if app.state::<Desktop>().entry.lock().map_err(error)?.busy() {
+        return Err("正在投放文件，请先完成或取消。".into());
+    }
     if app.state::<Desktop>().transitioning.load(Ordering::SeqCst) {
         return Err("正在调整文件架窗口，请稍候重试。".into());
     }
@@ -176,6 +167,19 @@ pub(crate) fn require_idle(app: &tauri::AppHandle) -> Result<()> {
 pub fn view(app: &tauri::AppHandle) -> Result<View> {
     let state = app.state::<Desktop>();
     let layout = state.layout.lock().map_err(error)?.clone();
+    let mut entry = state.entry.lock().map_err(error)?;
+    if entry
+        .presentation
+        .shelf_id
+        .is_some_and(|id| !layout.visible_ids().contains(&id))
+    {
+        entry.reset();
+    }
+    let presentation = entry.presentation.clone();
+    let geometry = entry.geometry(&layout);
+    let native_dragging = entry.busy();
+    let drag_target = entry.target();
+    drop(entry);
     let catalog = shelves(app)?;
     let entries = layout
         .visible_ids()
@@ -189,6 +193,10 @@ pub fn view(app: &tauri::AppHandle) -> Result<View> {
         layout,
         entries,
         catalog,
+        presentation,
+        geometry,
+        native_dragging,
+        drag_target,
         warning: state.warning.lock().map_err(error)?.clone(),
         copying: app
             .state::<Runtime>()
@@ -210,24 +218,35 @@ pub(crate) fn entry_geometry(app: &tauri::AppHandle) -> Result<()> {
         .get_webview_window("desktop-entry")
         .ok_or("悬浮入口尚未创建")?;
     let data = view(app)?;
+    // Never resize, move or hide an OLE target between Enter and Drop/Leave.
+    if data.native_dragging {
+        return publish(app);
+    }
     if !data.layout.enabled || data.entries.is_empty() {
         window.hide().map_err(error)?;
         return publish(app);
     }
     let monitors = window.available_monitors().map_err(error)?;
-    let initial = data.layout.entry_position.unwrap_or_else(|| {
-        app.get_webview_window("main")
-            .and_then(|w| w.outer_position().ok())
-            .map(|p| (p.x.saturating_sub(80), p.y))
-            .unwrap_or((16, 120))
-    });
+    let initial = app
+        .state::<Desktop>()
+        .entry
+        .lock()
+        .map_err(error)?
+        .anchor
+        .or(data.layout.entry_position)
+        .unwrap_or_else(|| {
+            app.get_webview_window("main")
+                .and_then(|w| w.outer_position().ok())
+                .map(|p| (p.x.saturating_sub(80), p.y))
+                .unwrap_or((16, 120))
+        });
     let monitor = window
         .monitor_from_point(f64::from(initial.0), f64::from(initial.1))
         .map_err(error)?
         .or_else(|| monitors.first().cloned())
         .ok_or("没有可用显示器，文件架保持展开")?;
     let area = monitor.work_area();
-    let placement = entry_placement(
+    let pos = crate::entry::place(
         initial,
         Rect {
             x: area.position.x,
@@ -236,33 +255,73 @@ pub(crate) fn entry_geometry(app: &tauri::AppHandle) -> Result<()> {
             height: area.size.height,
         },
         monitor.scale_factor(),
-        data.entries.len(),
-        data.total,
+        (data.geometry.width, data.geometry.height),
         data.layout.preferences.edge,
-        data.layout.edge_hidden,
     );
     window
         .set_size(tauri::LogicalSize::new(
-            placement.logical_size.0,
-            placement.logical_size.1,
+            data.geometry.width,
+            data.geometry.height,
         ))
         .map_err(error)?;
     window
-        .set_position(tauri::PhysicalPosition::new(
-            placement.position.0,
-            placement.position.1,
-        ))
+        .set_position(tauri::PhysicalPosition::new(pos.0, pos.1))
         .map_err(error)?;
-    app.state::<Desktop>()
-        .layout
-        .lock()
-        .map_err(error)?
-        .entry_position = Some(placement.anchor);
+    // Expanded presentation must not overwrite the user's compact anchor.
+    if data.presentation.kind == crate::entry::Kind::Orb && !data.edge_hidden {
+        app.state::<Desktop>()
+            .layout
+            .lock()
+            .map_err(error)?
+            .entry_position = Some(pos);
+    }
     window
         .set_always_on_top(data.layout.preferences.topmost)
         .map_err(error)?;
     window.show().map_err(error)?;
     publish(app)
+}
+pub fn present(app: &tauri::AppHandle, id: i64, kind: crate::entry::Kind) -> Result<()> {
+    require_idle(app)?;
+    known_shelf(app, id)?;
+    let state = app.state::<Desktop>();
+    let layout = state.layout.lock().map_err(error)?.clone();
+    let old = state.entry.lock().map_err(error)?.clone();
+    let anchor = if kind != crate::entry::Kind::Orb {
+        let window = app
+            .get_webview_window("desktop-entry")
+            .ok_or("入口尚未创建")?;
+        let p = window.outer_position().map_err(error)?;
+        let scale = window.scale_factor().map_err(error)?;
+        old.geometry(&layout)
+            .slots
+            .iter()
+            .find(|s| s.id == id)
+            .map(|s| {
+                (
+                    p.x.saturating_add((s.x * scale).round() as i32)
+                        .saturating_sub((8.0 * scale).round() as i32),
+                    p.y.saturating_add((s.y * scale).round() as i32)
+                        .saturating_sub((8.0 * scale).round() as i32),
+                )
+            })
+    } else {
+        None
+    };
+    state
+        .entry
+        .lock()
+        .map_err(error)?
+        .present(&layout, id, kind)?;
+    state.entry.lock().map_err(error)?.anchor = anchor;
+    state.layout.lock().map_err(error)?.edge_hidden = false;
+    if let Err(e) = entry_geometry(app) {
+        *state.entry.lock().map_err(error)? = old;
+        state.layout.lock().map_err(error)?.edge_hidden = layout.edge_hidden;
+        let _ = entry_geometry(app);
+        return Err(e);
+    }
+    Ok(())
 }
 pub fn collapse(app: &tauri::AppHandle, id: i64) -> Result<()> {
     require_idle(app)?;
@@ -400,6 +459,7 @@ pub fn page(app: &tauri::AppHandle, delta: i32) -> Result<()> {
     Ok(())
 }
 pub fn disable(app: &tauri::AppHandle) -> Result<()> {
+    require_idle(app)?;
     crate::shelf_windows::show_main(app)?;
     let state = app.state::<Desktop>();
     {
@@ -435,9 +495,16 @@ pub fn configure(app: &tauri::AppHandle, preferences: Preferences) -> Result<boo
 }
 pub fn hover(app: &tauri::AppHandle, inside: bool) -> Result<()> {
     let state = app.state::<Desktop>();
+    if state.entry.lock().map_err(error)?.busy() {
+        return Ok(());
+    }
     let can_fold = {
         let l = state.layout.lock().map_err(error)?;
-        l.enabled && !l.edge_hidden && l.preferences.edge != Edge::Free && l.preferences.auto_hide
+        l.enabled
+            && !l.edge_hidden
+            && l.preferences.edge != Edge::Free
+            && l.preferences.auto_hide
+            && state.entry.lock().map_err(error)?.presentation.kind == crate::entry::Kind::Orb
     };
     let spawn = {
         let mut h = state.hover.lock().map_err(error)?;
@@ -512,6 +579,11 @@ pub fn hover(app: &tauri::AppHandle, inside: bool) -> Result<()> {
                     })()
                     .unwrap_or(true);
                     if ready
+                        && state
+                            .entry
+                            .lock()
+                            .map(|e| !e.busy() && e.presentation.kind == crate::entry::Kind::Orb)
+                            .unwrap_or(false)
                         && !pointer_inside
                         && state
                             .layout
@@ -531,6 +603,9 @@ pub fn hover(app: &tauri::AppHandle, inside: bool) -> Result<()> {
 }
 pub fn move_entry(window: &tauri::WebviewWindow) -> Result<()> {
     let state = window.app_handle().state::<Desktop>();
+    if state.entry.lock().map_err(error)?.presentation.kind != crate::entry::Kind::Orb {
+        return Err("请先收回圆球再移动入口。".into());
+    }
     let layout = state.layout.lock().map_err(error)?;
     if layout.is_dragging() {
         return Err("请先完成文件投放。".into());
@@ -707,25 +782,29 @@ pub fn window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
         let scale = window.scale_factor().map_err(error)?;
         match event {
             tauri::DragDropEvent::Enter { position, .. } => {
-                state.layout.lock().map_err(error)?.begin_drag();
-                entry_geometry(&app)?;
+                let layout = state.layout.lock().map_err(error)?.clone();
                 let target = state
-                    .layout
+                    .entry
                     .lock()
                     .map_err(error)?
-                    .hover_target(position.y, scale);
+                    .begin_drag(&layout, position.x, position.y, scale);
+                state.layout.lock().map_err(error)?.freeze_drag();
+                publish(&app)?;
                 request_peek(&app, target);
             }
             tauri::DragDropEvent::Over { position } => {
-                let target = state
-                    .layout
-                    .lock()
-                    .map_err(error)?
-                    .hover_target(position.y, scale);
+                let mut entry = state.entry.lock().map_err(error)?;
+                let old = entry.target();
+                let target = entry.over(position.x, position.y, scale);
+                drop(entry);
+                if old != target {
+                    publish(&app)?;
+                }
                 request_peek(&app, target);
             }
             tauri::DragDropEvent::Leave => {
                 request_peek(&app, None);
+                state.entry.lock().map_err(error)?.cancel_drag();
                 state.layout.lock().map_err(error)?.cancel_drag();
                 publish(&app)?;
                 hover(&app, false)?;
@@ -733,10 +812,12 @@ pub fn window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
             tauri::DragDropEvent::Drop { paths, position } => {
                 request_peek(&app, None);
                 let target = state
-                    .layout
+                    .entry
                     .lock()
                     .map_err(error)?
-                    .drop_target(position.y, scale);
+                    .drop_target(position.x, position.y, scale);
+                state.layout.lock().map_err(error)?.cancel_drag();
+                publish(&app)?;
                 if let Some(id) = target {
                     let paths = paths
                         .iter()
@@ -753,6 +834,10 @@ pub fn window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
                                 if let Err(e) = open(&task, id, false) {
                                     report(&task, e);
                                 }
+                                // A readable acknowledgement after Drop, never during the drag.
+                                if let Err(e) = present(&task, id, crate::entry::Kind::Capsule) {
+                                    report(&task, e);
+                                }
                                 if !result.errors.is_empty() {
                                     report(&task, result.errors.join("；"));
                                 }
@@ -763,7 +848,10 @@ pub fn window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
                                 };
                                 let _ = task.emit("desktop-imported", message);
                             }
-                            Err(e) => report(&task, e),
+                            Err(e) => {
+                                let _ = present(&task, id, crate::entry::Kind::QuickPeek);
+                                report(&task, e);
+                            }
                         }
                     });
                 }
@@ -821,6 +909,10 @@ mod tests {
         layout.preferences.auto_hide = true;
         layout.fold_entry();
         let json = serde_json::to_value(View {
+            presentation: crate::entry::Presentation::default(),
+            geometry: crate::entry::EntryState::default().geometry(&layout),
+            native_dragging: false,
+            drag_target: None,
             catalog: vec![],
             edge_hidden: layout.edge_hidden,
             layout,
@@ -871,13 +963,13 @@ mod tests {
         let state = Desktop::load(root.path());
         assert!(state.writable);
         assert_eq!(state.layout.lock().unwrap().collapsed, vec![2]);
-        assert_eq!(state.layout.lock().unwrap().version, 3);
+        assert_eq!(state.layout.lock().unwrap().version, 4);
         state.save().unwrap();
-        assert!(root.path().join("desktop-layout-v3.json").is_file());
+        assert!(root.path().join("desktop-layout-v4.json").is_file());
         assert_eq!(std::fs::read(legacy).unwrap(), bytes);
     }
     #[test]
-    fn v2_layout_migrates_to_v3_and_preserves_original_bytes() {
+    fn v2_layout_migrates_to_v4_and_preserves_original_bytes() {
         let root = tempfile::tempdir().unwrap();
         let legacy = root.path().join("desktop-layout-v2.json");
         let bytes=br#"{"version":2,"enabled":true,"active_shelf":2,"collapsed":[2],"preferences":{"edge":"right","auto_hide":true,"topmost":false}}"#;
@@ -888,7 +980,7 @@ mod tests {
         assert_eq!(state.layout.lock().unwrap().preferences.edge, Edge::Right);
         state.save().unwrap();
         assert_eq!(std::fs::read(legacy).unwrap(), bytes);
-        assert!(root.path().join("desktop-layout-v3.json").is_file());
+        assert!(root.path().join("desktop-layout-v4.json").is_file());
     }
     #[test]
     fn maximum_registered_window_layout_can_be_loaded_after_save() {
@@ -916,5 +1008,24 @@ mod tests {
         assert!(loaded.writable);
         assert_eq!(loaded.layout.lock().unwrap().detached.len(), 256);
         assert_eq!(loaded.layout.lock().unwrap().collapsed.len(), 256);
+    }
+    #[test]
+    fn v3_layout_remains_byte_exact_when_orb_layout_writes_v4() {
+        let root = tempfile::tempdir().unwrap();
+        let legacy = root.path().join("desktop-layout-v3.json");
+        let bytes=br#"{"version":3,"enabled":true,"active_shelf":4,"collapsed":[4],"preferences":{"edge":"right","auto_hide":false,"topmost":true}}"#;
+        std::fs::write(&legacy, bytes).unwrap();
+        let state = Desktop::load(root.path());
+        assert_eq!(state.layout.lock().unwrap().collapsed, vec![4]);
+        state.layout.lock().unwrap().preferences.edge = Edge::Top;
+        state.save().unwrap();
+        assert_eq!(std::fs::read(&legacy).unwrap(), bytes);
+        let restored = Desktop::load(root.path());
+        assert_eq!(restored.layout.lock().unwrap().preferences.edge, Edge::Top);
+        assert_eq!(restored.layout.lock().unwrap().version, 4);
+        assert_eq!(
+            restored.entry.lock().unwrap().presentation.kind,
+            crate::entry::Kind::Orb
+        );
     }
 }

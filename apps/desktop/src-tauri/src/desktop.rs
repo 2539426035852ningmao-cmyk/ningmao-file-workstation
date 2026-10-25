@@ -49,6 +49,8 @@ pub enum Edge {
     Free,
     Left,
     Right,
+    Top,
+    Bottom,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
@@ -56,6 +58,7 @@ pub struct Preferences {
     pub edge: Edge,
     pub auto_hide: bool,
     pub topmost: bool,
+    pub flow: crate::entry::Flow,
 }
 impl Default for Preferences {
     fn default() -> Self {
@@ -63,6 +66,7 @@ impl Default for Preferences {
             edge: Edge::Free,
             auto_hide: false,
             topmost: true,
+            flow: crate::entry::Flow::Vertical,
         }
     }
 }
@@ -103,7 +107,7 @@ pub struct Layout {
 impl Default for Layout {
     fn default() -> Self {
         Self {
-            version: 3,
+            version: 4,
             enabled: false,
             expanded: true,
             active_shelf: 1,
@@ -121,7 +125,7 @@ impl Default for Layout {
 }
 impl Layout {
     pub fn validate(&self) -> bool {
-        self.version == 3
+        self.version == 4
             && !(self.preferences.edge == Edge::Free && self.preferences.auto_hide)
             && self.active_shelf >= 0
             && self.detached.len() <= 256
@@ -180,6 +184,9 @@ impl Layout {
     }
     pub fn begin_drag(&mut self) {
         self.edge_hidden = false;
+        self.drag_ids = Some(self.visible_ids());
+    }
+    pub fn freeze_drag(&mut self) {
         self.drag_ids = Some(self.visible_ids());
     }
     pub fn is_dragging(&self) -> bool {

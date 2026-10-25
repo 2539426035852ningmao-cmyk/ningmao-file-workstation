@@ -1,5 +1,6 @@
 pub mod desktop;
 mod desktop_runtime;
+pub mod entry;
 mod shelf_windows;
 pub mod store;
 use serde::Serialize;
@@ -611,6 +612,75 @@ fn desktop_collapse(
     desktop_runtime::collapse(&app, shelf_id)
 }
 #[tauri::command]
+fn desktop_present(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    shelf_id: i64,
+    kind: entry::Kind,
+) -> Result<()> {
+    if !desktop::permits(window.label(), desktop::Scope::Entry) {
+        return Err("只允许从悬浮入口调整预览形态。".into());
+    }
+    desktop_runtime::present(&app, shelf_id, kind)
+}
+#[tauri::command]
+async fn desktop_peek(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    shelf_id: i64,
+) -> Result<store::EntryPreview> {
+    if !desktop::permits(window.label(), desktop::Scope::Entry) {
+        return Err("只允许读取当前悬浮轻预览。".into());
+    }
+    {
+        let state = app.state::<desktop_runtime::Desktop>();
+        let entry = state.entry.lock().map_err(error)?;
+        if entry.presentation.kind != entry::Kind::QuickPeek
+            || entry.presentation.shelf_id != Some(shelf_id)
+        {
+            return Err("轻预览目标已变化，请重新打开。".into());
+        }
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<Runtime>();
+        let (mut data, paths) = {
+            let store = state.store.lock().map_err(error)?;
+            let data = store.entry_preview(shelf_id)?;
+            store.validate_item_scope(
+                Some(shelf_id),
+                &data.items.iter().map(|i| i.id).collect::<Vec<_>>(),
+            )?;
+            let paths = data
+                .items
+                .iter()
+                .map(|item| store.opening_target(item.id))
+                .collect::<Vec<_>>();
+            (data, paths)
+        };
+        let _decoder = state.thumbnail.lock().map_err(error)?;
+        for (item, path) in data.items.iter_mut().zip(paths) {
+            match path.and_then(|path| std::fs::metadata(&path).map_err(error).map(|m| (path, m))) {
+                Ok((path, metadata)) => {
+                    item.status = "normal".into();
+                    item.kind = if metadata.is_dir() {
+                        "folder".into()
+                    } else {
+                        path.extension()
+                            .and_then(|s| s.to_str())
+                            .unwrap_or("file")
+                            .to_lowercase()
+                    };
+                    item.thumbnail = store::thumbnail(&path).unwrap_or(None);
+                }
+                Err(_) => item.status = "missing".into(),
+            }
+        }
+        Ok(data)
+    })
+    .await
+    .map_err(error)?
+}
+#[tauri::command]
 async fn desktop_open(
     app: tauri::AppHandle,
     window: tauri::WebviewWindow,
@@ -817,6 +887,11 @@ pub fn run() {
             } else if let tauri::WindowEvent::Moved(position) = event
                 && window.label() == "desktop-entry"
                 && let Some(state) = window.app_handle().try_state::<desktop_runtime::Desktop>()
+                && state
+                    .entry
+                    .lock()
+                    .map(|e| e.presentation.kind == entry::Kind::Orb && !e.busy())
+                    .unwrap_or(false)
                 && let Ok(mut layout) = state.layout.lock()
                 && layout.preferences.edge == desktop::Edge::Free
             {
@@ -855,6 +930,8 @@ pub fn run() {
             create_shelf,
             copy_references,
             desktop_state,
+            desktop_present,
+            desktop_peek,
             desktop_collapse,
             desktop_open,
             desktop_select,

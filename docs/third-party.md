@@ -74,3 +74,10 @@ M1-03 原生后端及模板源自本仓 M1-02，create-tauri-app/drag-rs MIT 全
 | Rust 工具链 | 本机 1.99.1；官方 rustup-init SHA256 `00f139da614dced87d3c3d4121c43eebdac3c1bf8a5ee86b9d80dfd71c8d70fd` | 官方开发工具，不打包进产品 | 安装在本地工作目录，未改全局 PATH；rustc/cargo/std 校验官方 manifest SHA256；不上传工具链和代理配置 |
 
 保留直接来源 MIT 全文后，不新增没有实际来源要求的虚假 NOTICE。传递包中的 NOTICE 和其他义务仍需在正式发布前核对；当前不发布公共二进制 Release。完整试验范围见 [比较报告](research/M1-02-comparison.md)。
+
+
+## D-ORB 原创实现与排除项（2026-10-25）
+
+研究来源固定为 grok-icon-study `b7e6cd48db4eeba13271c653c38e1ad0f48037b4` 和 aora-bot `e3b6148c818da4a8e1966f2bc89cdb3cee473b73`；README、LICENSE/NOTICE 存在再分发或商业使用限制，不作为 Apache-2.0 可复制素材。只研究通用弹簧、状态和节能原则，没有复制提取目录、角色几何、表情数据、动画代码或视觉资产，也没有新增依赖。
+
+本仓 `src/orb/OrbFace.tsx` 的两条曲线、`OrbMotionController.ts` 的阻尼步进和参数、Rust entry 状态/矩形均独立编写，沿用本仓 Apache-2.0。既有 React/Lucide/Tauri/缩略图依赖仍以原锁文件及打包许可清单为准。固定来源链接及逐项处理见 [D-ORB 实施记录](tasks/D-ORB-implementation.md#原创与许可)。这不是取得第三方受限内容的授权声明。
