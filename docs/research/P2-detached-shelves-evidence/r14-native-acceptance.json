@@ -1,0 +1,100 @@
+{
+  "schema": 1,
+  "date": "2026-10-25",
+  "candidate": "r14",
+  "sourceCommit": "563ca7d8ba293dd7b433749445f6e5522ebd4f41",
+  "ciMergeCommit": "7e6b78028bfa55c051936e656133be327360ce9c",
+  "exeSha256": "b29191d1e7f71e95236c715923db84a2d36fb843572ebd09613ad72244c15e27",
+  "launched": true,
+  "installed": false,
+  "authorization": "Explicit concentrated native retest approval",
+  "checks": [
+    {
+      "id": "restored-topmost-checkbox",
+      "status": "PASS",
+      "evidence": "Native project window More menu visibly checked after restoring actual topmost=true; flag not toggled."
+    },
+    {
+      "id": "steady-bound-Dock-copy",
+      "status": "PASS",
+      "evidence": {
+        "copies": [
+          {
+            "name": "English (2).txt",
+            "matches": true
+          },
+          {
+            "name": "English (3).txt",
+            "matches": true
+          },
+          {
+            "name": "English (4).txt",
+            "matches": true
+          }
+        ],
+        "newJobs": [
+          {
+            "id": 2,
+            "shelf_id": 4,
+            "status": "completed",
+            "message": "复制完成；已完成 1/1 项，来源保留。"
+          },
+          {
+            "id": 3,
+            "shelf_id": 4,
+            "status": "completed",
+            "message": "复制完成；已完成 1/1 项，来源保留。"
+          },
+          {
+            "id": 4,
+            "shelf_id": 4,
+            "status": "completed",
+            "message": "复制完成；已完成 1/1 项，来源保留。"
+          }
+        ],
+        "userReportedDrops": "approximately 3",
+        "correspondence": "Consistent with 3 completed jobs; strict one-drop trace not collected",
+        "targetsBeforeCancel": 7,
+        "jobsBeforeCancel": 4,
+        "integrity": "ok"
+      }
+    },
+    {
+      "id": "native-Esc-cancel",
+      "status": "PASS",
+      "evidence": {
+        "status": "PASS",
+        "filesUnchanged": 7,
+        "jobsUnchanged": 4,
+        "itemsUnchanged": 12,
+        "integrity": "ok"
+      }
+    },
+    {
+      "id": "success-feedback",
+      "status": "FAIL",
+      "risk": "R2",
+      "evidence": "User saw little reaction and reported approximately three physical drops. Three completed jobs and matching numbered copies are consistent; no claim of a strict one-drop event trace. Success text was later visible in the main shelf, not obvious at the entry."
+    },
+    {
+      "id": "detached-X-and-recovery",
+      "status": "PASS",
+      "evidence": "Project X hid its window without quitting; user restored r14 main through tray; native shelf menu reopened bound window with copies."
+    },
+    {
+      "id": "normal-quit",
+      "status": "NOT COMPLETED",
+      "evidence": "Requested native Esc cancellation also stopped computer-use. No further desktop inputs were issued; normal quit was not executed."
+    },
+    {
+      "id": "edge-hidden-Dock-reference-target-single-drop-DPI-monitor-installation-matrix",
+      "status": "NOT TESTED"
+    }
+  ],
+  "protectedSyntheticFiles": 5,
+  "protectedFilesUnchanged": true,
+  "integrity": "ok",
+  "geminiCalls": 0,
+  "overall": "PARTIAL: bound steady Dock works and cancellation preserves data; feedback FAIL and remaining native matrix not complete",
+  "next": "Preserve original r13 failures and r14 identity; UI implementation must independently recheck native drop after geometry changes. No automatic merge/install/release."
+}
