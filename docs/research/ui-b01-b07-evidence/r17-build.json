@@ -1,0 +1,43 @@
+{
+  "candidate": "r17",
+  "sourceCommit": "82f696691591a7f46da9709d920e499d67bef410",
+  "exeSha256": "8fa032f4ed6fe3b86ccafe3b2945f483fec422f645860d6923bf3c6e28ec1773",
+  "msiSha256": "90209a172848707c0530b8c473941003ce6d55c596279fea3e13c11f15b0e7c9",
+  "WindowsVersion": "10.0.22631.0",
+  "nativeWindowLaunch": false,
+  "installed": false,
+  "browserTests": 89,
+  "fixturePreparationTests": 1,
+  "licenseRecords": 268,
+  "licenseWarnings": 1,
+  "syntheticFiles": [
+    {
+      "path": "synthetic/bound-target/中文 空格 (1).txt",
+      "bytes": 46,
+      "sha256": "eb60893d3046e1fdea772fbdaf8e035568194dec5ae672ce6d98a7b4c20ae437"
+    },
+    {
+      "path": "synthetic/bound-target/中文 空格.txt",
+      "bytes": 46,
+      "sha256": "eb60893d3046e1fdea772fbdaf8e035568194dec5ae672ce6d98a7b4c20ae437"
+    },
+    {
+      "path": "synthetic/source/English.txt",
+      "bytes": 42,
+      "sha256": "7dff2815f6a82caa6060a4ddb8bcb959059bc3fb8cb07e6d84f9f1bd40a41c0f"
+    },
+    {
+      "path": "synthetic/source/中文 空格.txt",
+      "bytes": 46,
+      "sha256": "eb60893d3046e1fdea772fbdaf8e035568194dec5ae672ce6d98a7b4c20ae437"
+    },
+    {
+      "path": "synthetic/source/合成图片.png",
+      "bytes": 6085,
+      "sha256": "88ec8c8999f8a5391510e673a48fd9ee47d6092809ebe4f04441c880aefcba13"
+    }
+  ],
+  "nativeAcceptance": "PENDING explicit concentrated session",
+  "rustTests": 53,
+  "rustTestsSource": "82f696691591a7f46da9709d920e499d67bef410"
+}
