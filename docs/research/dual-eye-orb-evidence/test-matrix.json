@@ -1,9 +1,9 @@
 {
-  "sourceCommit": "f7673e6b9065bfe0b6193247743bf660de5368bc",
+  "sourceCommit": "fdf71b902eb1c2d22b25b48c72b5c8220447e562",
   "date": "2026-10-25",
   "finalProductAcceptance": "PENDING",
   "nativeCandidateLaunched": true,
-  "baselineR14Feedback": "FAIL R2; retained",
+  "baselineR14Feedback": "Historical FAIL R2 retained; r15 receipt clipping FAIL R2; r16 short receipt user-confirmed fixed",
   "cases": [
     {
       "id": "UI-01",
@@ -67,8 +67,8 @@
     },
     {
       "id": "NATIVE-01",
-      "status": "NOT_TESTED",
-      "evidence": "Enter不导入、Drop取走会话模型通过；这些均不代替本次精确EXE的Windows原生验收"
+      "status": "PARTIAL",
+      "evidence": "PARTIAL: r15 two bound capsule releases and r16 one each yielded one new completed Copy job/numbered target; strict OS event tracing not done."
     },
     {
       "id": "NATIVE-02",
@@ -77,18 +77,18 @@
     },
     {
       "id": "NATIVE-03",
-      "status": "NOT_TESTED",
-      "evidence": "拖放中形态拒绝与UI禁用通过；这些均不代替本次精确EXE的Windows原生验收"
+      "status": "PARTIAL",
+      "evidence": "PARTIAL: r16 Leave cancellation zero changes; user approx3 right-click cancels zero changes against fresh9/6/5 baseline. Multi-node geometry not measured live."
     },
     {
       "id": "NATIVE-04",
-      "status": "NOT_TESTED",
-      "evidence": "既有safe Copy/冲突/来源保护Rust回归通过；这些均不代替本次精确EXE的Windows原生验收"
+      "status": "PARTIAL",
+      "evidence": "PARTIAL: r15 two reference imports, two numbered Copy files, r16 third Copy hash all correct; protected5 sources/old target unchanged. Other file types/drag out not newly controlled."
     },
     {
       "id": "NATIVE-05",
-      "status": "NOT_TESTED",
-      "evidence": "SQLite完整性/崩溃取消/布局旧字节保留回归通过；这些均不代替本次精确EXE的Windows原生验收"
+      "status": "PARTIAL",
+      "evidence": "PARTIAL: r15 normal quit/r16 restart retained5items/2jobs, SQLite ok; final r16 normal quit retained9items/6jobs after manual exploration. Session-only/abnormal-exit lifecycle not newly tested."
     },
     {
       "id": "NATIVE-06",
@@ -97,23 +97,23 @@
     },
     {
       "id": "NATIVE-07",
-      "status": "NOT_TESTED",
-      "evidence": "自身shelf ID浏览器和命令范围回归通过；这些均不代替本次精确EXE的Windows原生验收"
+      "status": "PARTIAL",
+      "evidence": "PARTIAL: actual main shelf1/3 own collapse and QuickPeek explicit full-shelf open observed; independent own-window ID not freshly tested."
     },
     {
       "id": "NATIVE-08",
-      "status": "NOT_TESTED",
-      "evidence": "负坐标/混合scale数学模型通过；这些均不代替本次精确EXE的Windows原生验收"
+      "status": "PARTIAL",
+      "evidence": "PARTIAL: Windows11 build22631 sampled; saved logical/physical geometry consistent with125percent. Win10/150percent/multi-monitor/monitor disconnect not tested."
     },
     {
       "id": "NATIVE-09",
-      "status": "NOT_TESTED",
-      "evidence": "旧生命周期保护回归通过；这些均不代替本次精确EXE的Windows原生验收"
+      "status": "PARTIAL",
+      "evidence": "PARTIAL: r15 andr16 actual normal menu quits observed, no force kill; active-job protection and full tray matrix pending."
     },
     {
       "id": "NATIVE-10",
-      "status": "NOT_TESTED",
-      "evidence": "旧r14仅固定绑定目标/取消有真实证据，新几何需重测；这些均不代替本次精确EXE的Windows原生验收"
+      "status": "PARTIAL",
+      "evidence": "PARTIAL: old r13 fixed-bound-target case now two r15 capsule Copy successes andr16 one; reference receipt observed. Hidden-handle/strict native event matrix not done."
     },
     {
       "id": "PERF-01",
@@ -141,5 +141,6 @@
       "evidence": "六组合截图和皮肤独立测试；最终视觉对比度/系统高对比待验"
     }
   ],
-  "nativeAcceptance": "IN PROGRESS; fresh user approval; Windows11 build22631; awaiting first reference drop"
+  "nativeAcceptance": "PARTIAL sampled core loop; r15/r16 normally exited; final product acceptance pending",
+  "rightClickExtra": "User requested right-click cancel; verified native Explorer-source behavior approximately3 times, zero changes. First sequence mixed manual experiments and was not judged."
 }

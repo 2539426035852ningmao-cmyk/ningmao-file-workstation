@@ -87,7 +87,7 @@
     "boundary": "Read-only checks; embedded file bytes not extracted. No installation, launch, upgrade or uninstall performed; license collection is not complete release clearance."
   },
   "installed": false,
-  "nativeAcceptance": "IN PROGRESS after fresh user permission; do not inherit r14",
+  "nativeAcceptance": "Historical r15 partial native results recorded; normal menu quit observed. Receipt clipping FAIL R2 fixed and separately tested in r16. Full D-ORB acceptance pending.",
   "originality": "Independent eye paths/motion and no new dependency; restricted reference code/assets excluded",
   "rollback": "63377ae/r14; keep SQLite, source assets and all v1/v2/v3/v4 layout files"
 }

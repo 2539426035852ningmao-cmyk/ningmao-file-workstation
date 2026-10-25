@@ -1,0 +1,299 @@
+{
+  "candidate": "r16",
+  "sourceCommit": "fdf71b902eb1c2d22b25b48c72b5c8220447e562",
+  "userReport": "Right-click cancelled; approximately3 attempts",
+  "snapshotUnchanged": true,
+  "before": {
+    "items": [
+      [
+        1,
+        1,
+        "English.txt",
+        0,
+        "[]"
+      ],
+      [
+        2,
+        1,
+        "中文 空格.txt",
+        1,
+        "[]"
+      ],
+      [
+        3,
+        3,
+        "English.txt",
+        1,
+        "[]"
+      ],
+      [
+        4,
+        3,
+        "English (1).txt",
+        2,
+        "[]"
+      ],
+      [
+        5,
+        3,
+        "English (2).txt",
+        3,
+        "[]"
+      ],
+      [
+        6,
+        3,
+        "English (3).txt",
+        4,
+        "[]"
+      ],
+      [
+        7,
+        3,
+        "English (1) (1).txt",
+        0,
+        "[]"
+      ],
+      [
+        8,
+        3,
+        "English (1) (1) (1).txt",
+        5,
+        "[]"
+      ],
+      [
+        9,
+        3,
+        "English (4).txt",
+        6,
+        "[]"
+      ]
+    ],
+    "jobs": [
+      [
+        1,
+        3,
+        "completed",
+        "复制完成；已完成 1/1 项，来源保留。"
+      ],
+      [
+        2,
+        3,
+        "completed",
+        "复制完成；已完成 1/1 项，来源保留。"
+      ],
+      [
+        3,
+        3,
+        "completed",
+        "复制完成；已完成 1/1 项，来源保留。"
+      ],
+      [
+        4,
+        3,
+        "completed",
+        "复制完成；已完成 1/1 项，来源保留。"
+      ],
+      [
+        5,
+        3,
+        "completed",
+        "复制完成；已完成 1/1 项，来源保留。"
+      ],
+      [
+        6,
+        3,
+        "completed",
+        "复制完成；已完成 1/1 项，来源保留。"
+      ]
+    ],
+    "targets": [
+      {
+        "name": "English (1).txt",
+        "sha256": "2c2467c923d71798072e56b9eb7fb837ac4293b1d7c690f2e3b88f1cc392fce1"
+      },
+      {
+        "name": "English (2).txt",
+        "sha256": "2c2467c923d71798072e56b9eb7fb837ac4293b1d7c690f2e3b88f1cc392fce1"
+      },
+      {
+        "name": "English (3).txt",
+        "sha256": "2c2467c923d71798072e56b9eb7fb837ac4293b1d7c690f2e3b88f1cc392fce1"
+      },
+      {
+        "name": "English (4).txt",
+        "sha256": "72b16ba6530a4633aca0a0b9aaa457cc0e8d1df919ec8221be3b3eee4408fd2a"
+      },
+      {
+        "name": "English.txt",
+        "sha256": "72b16ba6530a4633aca0a0b9aaa457cc0e8d1df919ec8221be3b3eee4408fd2a"
+      }
+    ],
+    "sources": [
+      {
+        "name": "English.txt",
+        "sha256": "2c2467c923d71798072e56b9eb7fb837ac4293b1d7c690f2e3b88f1cc392fce1"
+      },
+      {
+        "name": "中文 空格.txt",
+        "sha256": "76b12318eb007a2ec838b20397f23c80775dc2e963f7b280daf693836e583233"
+      },
+      {
+        "name": "合成图片.png",
+        "sha256": "1f3689f6374b0553996fdc99743799216703835070145d7f0e6ec11e6280139e"
+      },
+      {
+        "name": "合成文件夹\\说明.txt",
+        "sha256": "41690d43279263f07e9b6752f51b2c041285cdad2d71fdd5a0a64f8a84a1db31"
+      }
+    ],
+    "integrity": "ok"
+  },
+  "after": {
+    "items": [
+      [
+        1,
+        1,
+        "English.txt",
+        0,
+        "[]"
+      ],
+      [
+        2,
+        1,
+        "中文 空格.txt",
+        1,
+        "[]"
+      ],
+      [
+        3,
+        3,
+        "English.txt",
+        1,
+        "[]"
+      ],
+      [
+        4,
+        3,
+        "English (1).txt",
+        2,
+        "[]"
+      ],
+      [
+        5,
+        3,
+        "English (2).txt",
+        3,
+        "[]"
+      ],
+      [
+        6,
+        3,
+        "English (3).txt",
+        4,
+        "[]"
+      ],
+      [
+        7,
+        3,
+        "English (1) (1).txt",
+        0,
+        "[]"
+      ],
+      [
+        8,
+        3,
+        "English (1) (1) (1).txt",
+        5,
+        "[]"
+      ],
+      [
+        9,
+        3,
+        "English (4).txt",
+        6,
+        "[]"
+      ]
+    ],
+    "jobs": [
+      [
+        1,
+        3,
+        "completed",
+        "复制完成；已完成 1/1 项，来源保留。"
+      ],
+      [
+        2,
+        3,
+        "completed",
+        "复制完成；已完成 1/1 项，来源保留。"
+      ],
+      [
+        3,
+        3,
+        "completed",
+        "复制完成；已完成 1/1 项，来源保留。"
+      ],
+      [
+        4,
+        3,
+        "completed",
+        "复制完成；已完成 1/1 项，来源保留。"
+      ],
+      [
+        5,
+        3,
+        "completed",
+        "复制完成；已完成 1/1 项，来源保留。"
+      ],
+      [
+        6,
+        3,
+        "completed",
+        "复制完成；已完成 1/1 项，来源保留。"
+      ]
+    ],
+    "targets": [
+      {
+        "name": "English (1).txt",
+        "sha256": "2c2467c923d71798072e56b9eb7fb837ac4293b1d7c690f2e3b88f1cc392fce1"
+      },
+      {
+        "name": "English (2).txt",
+        "sha256": "2c2467c923d71798072e56b9eb7fb837ac4293b1d7c690f2e3b88f1cc392fce1"
+      },
+      {
+        "name": "English (3).txt",
+        "sha256": "2c2467c923d71798072e56b9eb7fb837ac4293b1d7c690f2e3b88f1cc392fce1"
+      },
+      {
+        "name": "English (4).txt",
+        "sha256": "72b16ba6530a4633aca0a0b9aaa457cc0e8d1df919ec8221be3b3eee4408fd2a"
+      },
+      {
+        "name": "English.txt",
+        "sha256": "72b16ba6530a4633aca0a0b9aaa457cc0e8d1df919ec8221be3b3eee4408fd2a"
+      }
+    ],
+    "sources": [
+      {
+        "name": "English.txt",
+        "sha256": "2c2467c923d71798072e56b9eb7fb837ac4293b1d7c690f2e3b88f1cc392fce1"
+      },
+      {
+        "name": "中文 空格.txt",
+        "sha256": "76b12318eb007a2ec838b20397f23c80775dc2e963f7b280daf693836e583233"
+      },
+      {
+        "name": "合成图片.png",
+        "sha256": "1f3689f6374b0553996fdc99743799216703835070145d7f0e6ec11e6280139e"
+      },
+      {
+        "name": "合成文件夹\\说明.txt",
+        "sha256": "41690d43279263f07e9b6752f51b2c041285cdad2d71fdd5a0a64f8a84a1db31"
+      }
+    ],
+    "integrity": "ok"
+  },
+  "scope": "Windows11 Explorer source to Ningmao entry; native source cancellation, no new global hook. Not a single-event trace or universal source-app guarantee."
+}

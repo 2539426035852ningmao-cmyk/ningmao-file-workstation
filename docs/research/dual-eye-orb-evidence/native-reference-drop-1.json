@@ -1,0 +1,42 @@
+{
+  "candidate": "r15",
+  "sourceCommit": "f7673e6b9065bfe0b6193247743bf660de5368bc",
+  "userReport": "展开了",
+  "databaseAfter": {
+    "items": [
+      [
+        1,
+        1,
+        "English.txt",
+        0,
+        "[]"
+      ]
+    ],
+    "jobs": [],
+    "integrity": "ok",
+    "protected": [
+      {
+        "file": "source/English.txt",
+        "unchanged": true
+      },
+      {
+        "file": "source/中文 空格.txt",
+        "unchanged": true
+      },
+      {
+        "file": "source/合成图片.png",
+        "unchanged": true
+      },
+      {
+        "file": "source/合成文件夹/说明.txt",
+        "unchanged": true
+      },
+      {
+        "file": "bound-target/English.txt",
+        "unchanged": true
+      }
+    ]
+  },
+  "conclusion": "One English.txt reference in persistent shelf1; no Copy job; all protected hashes unchanged. Exact entry-vs-expanded-file-window Drop event channel was not traced, so this alone is not full Dock PASS.",
+  "next": "Second distinct Chinese reference directed to capsule center; await user report and post-drop snapshot"
+}
