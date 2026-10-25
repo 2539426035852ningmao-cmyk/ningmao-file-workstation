@@ -16,7 +16,9 @@ function publishDesktop(){desktop.entries=desktop.layout.collapsed.slice(desktop
 function syncState(){state=JSON.parse(localStorage.getItem("test-state") || JSON.stringify(state));}
 const recycle:{entry:TrashEntry;item?:Item;shelf?:Snapshot["shelves"][number];children?:Item[]}[]=[];
 function trashItem(id:number){const item=state.items.find(i=>i.id===id)!;const shelf=state.shelves.find(s=>s.id===item.shelf_id)!;recycle.push({entry:{id,entity:"item",name:item.name,shelf_id:shelf.id,shelf_name:shelf.name,shelf_kind:shelf.kind,path:item.path,removed_at:Date.now()/1000,children:0},item});state.items=state.items.filter(i=>i.id!==id);save();}
+let maximized=false;
 const backend:Backend={
+ async windowState(){return maximized;},async windowAction(action){calls.push("window:"+action);if(action==="toggle-maximize")maximized=!maximized;return maximized;},
  async removeReferences(ids){ids.forEach(id=>{calls.push("remove:"+id);trashItem(id);});},async recycleActivity(){return [];},
  async trashEntries(filter){return structuredClone(recycle.filter(r=>filter===null||r.entry.shelf_id===filter).map(r=>r.entry));},
  async trashShelf(id){calls.push("trash-shelf:"+id);const shelf=state.shelves.find(s=>s.id===id)!;recycle.push({entry:{id,entity:"shelf",name:shelf.name,shelf_id:id,shelf_name:shelf.name,shelf_kind:shelf.kind,path:shelf.root,removed_at:Date.now()/1000,children:state.items.filter(i=>i.shelf_id===id).length},shelf,children:state.items.filter(i=>i.shelf_id===id)});state.shelves=state.shelves.filter(s=>s.id!==id);state.items=state.items.filter(i=>i.shelf_id!==id);desktop.layout.collapsed=desktop.layout.collapsed.filter(i=>i!==id);if(desktop.layout.active_shelf===id)desktop.layout.active_shelf=state.shelves[0]?.id??0;save();publishDesktop();events.changed?.();},

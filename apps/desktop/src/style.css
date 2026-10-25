@@ -321,3 +321,18 @@ html[data-always-scrollbars="true"] :is(.shelf-menu,.file-scroll,.manager-table-
 .empty-actions{display:flex;gap:8px;justify-content:center}.shelf-recycle{display:grid;place-items:center}
 
 .adaptive-dock .dock-warning{top:18px;right:13px}.orb-receipt{right:4px;bottom:4px}.adaptive-dock .dock-copying{right:16px;top:19px}
+
+/* One custom title row; Chromium owns the anti-aliased visual boundary. */
+.workstation{background:var(--surface);border:0}
+.workstation:has(.window-controls){border-radius:20px}
+.workstation:has(.window-controls) .shelf-header{padding-inline:8px;gap:2px}
+.workstation:has(.window-controls) .shelf-header>.brand-eyes{width:24px;min-width:24px;margin-right:0}
+.workstation:has(.window-controls) .shelf-header [data-slot="button"][data-size="icon"]{width:26px;height:28px}
+.window-controls{display:flex;gap:0;flex-shrink:0;margin-left:3px;padding-left:3px;border-left:1px solid var(--line)}
+.window-controls button{display:grid;place-items:center;width:26px;height:28px;padding:0;border:0;border-radius:5px;color:var(--muted-text);background:transparent;flex-shrink:0}
+.window-controls button:hover{background:var(--hover);color:var(--text)}
+.window-controls .window-hide:hover{background:#c7434b;color:#fff}
+.compact-command{display:none!important}
+@media(max-width:399px){.workstation .shelf-header>button[aria-label="搜索文件"],.workstation .shelf-header>.add-files{display:none}.compact-command{display:flex!important}}
+html[data-file-maximized="true"] .workstation{border-radius:0}
+.orb-control{filter:none}

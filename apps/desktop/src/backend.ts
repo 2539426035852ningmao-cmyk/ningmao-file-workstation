@@ -26,6 +26,9 @@ export type SystemRecyclePreview={ticket:string;items:{id:number;name:string;pat
 export type SystemRecycleOutcome={id:number;status:string;message:string};
 export type RecycleActivity={id:number;shelf_id:number;name:string;status:string;message:string};
 export interface Backend {
+  windowAction?:(action:"minimize"|"toggle-maximize"|"hide")=>Promise<boolean>;
+  windowState?:()=>Promise<boolean>;
+  subscribeWindowState?:(callback:(maximized:boolean)=>void)=>Promise<()=>void>;
   recycleActivity?:()=>Promise<RecycleActivity[]>;
   removeReferences?:(ids:number[])=>Promise<void>;
   planSystemRecycle?:(ids:number[])=>Promise<SystemRecyclePreview>;
@@ -73,6 +76,8 @@ export interface Backend {
   subscribe(events: Events): Promise<() => void>;
 }
 export const nativeBackend: Backend = {
+  windowAction:action=>invoke("file_window_action",{action}),windowState:()=>invoke("file_window_state"),
+  subscribeWindowState:callback=>getCurrentWebviewWindow().listen<boolean>("file-window-state",e=>callback(e.payload)),
   recycleActivity:()=>invoke("recycle_activity"),removeReferences:ids=>invoke("remove_references",{ids}),
   planSystemRecycle:ids=>invoke("plan_system_recycle",{ids}),executeSystemRecycle:ticket=>invoke("execute_system_recycle",{ticket}),cancelSystemRecycle:()=>invoke("cancel_system_recycle"),
   trashEntries:filter=>invoke("trash_entries",{filter}),trashShelf:shelfId=>invoke("trash_shelf",{shelfId}),

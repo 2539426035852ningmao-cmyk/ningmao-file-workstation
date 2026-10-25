@@ -21,6 +21,20 @@ pub struct Contour {
     pub radius: f64,
 }
 impl Contour {
+    pub fn raster_bounds(&self, scale: f64) -> [i32; 6] {
+        // HRGN is a binary outer mask, not the visual edge. Preserve Chromium's
+        // partially covered edge pixels with one physical pixel of raster guard.
+        // Semantic drop slots remain unchanged; this guard cannot select a shelf.
+        let pad = 1;
+        [
+            (self.x * scale).floor() as i32 - pad,
+            (self.y * scale).floor() as i32 - pad,
+            ((self.x + self.width) * scale).ceil() as i32 + pad,
+            ((self.y + self.height) * scale).ceil() as i32 + pad,
+            (self.radius * 2.0 * scale).round() as i32 + 2 * pad,
+            (self.radius * 2.0 * scale).round() as i32 + 2 * pad,
+        ]
+    }
     pub fn contains(&self, x: f64, y: f64) -> bool {
         if x < self.x || y < self.y || x >= self.x + self.width || y >= self.y + self.height {
             return false;
@@ -105,14 +119,14 @@ pub fn snap(
     let mut px = f64::from(initial.0).clamp(left, right.max(left));
     let mut py = f64::from(initial.1).clamp(top, bottom.max(top));
     if magnet {
-        if (px - left).abs() < threshold {
+        if (px - left).abs() <= threshold + 0.5 {
             px = left;
-        } else if (px - right).abs() < threshold {
+        } else if (px - right).abs() <= threshold + 0.5 {
             px = right;
         }
-        if (py - top).abs() < threshold {
+        if (py - top).abs() <= threshold + 0.5 {
             py = top;
-        } else if (py - bottom).abs() < threshold {
+        } else if (py - bottom).abs() <= threshold + 0.5 {
             py = bottom;
         }
     }
@@ -202,14 +216,8 @@ pub fn apply(window: &tauri::WebviewWindow, entry: &EntryState, layout: &Layout)
                 return Err("无法创建入口轮廓，未扩大点击区域。".into());
             }
             for s in shapes {
-                let r = CreateRoundRectRgn(
-                    (s.x * scale).floor() as i32,
-                    (s.y * scale).floor() as i32,
-                    ((s.x + s.width) * scale).ceil() as i32,
-                    ((s.y + s.height) * scale).ceil() as i32,
-                    (s.radius * 2.0 * scale).round() as i32,
-                    (s.radius * 2.0 * scale).round() as i32,
-                );
+                let [x, y, r, b, rx, ry] = s.raster_bounds(scale);
+                let r = CreateRoundRectRgn(x, y, r, b, rx, ry);
                 if r.0.is_null() {
                     let _ = DeleteObject(HGDIOBJ(union.0));
                     return Err("无法创建入口子轮廓。".into());
@@ -504,6 +512,44 @@ pub fn sense(app: &tauri::AppHandle, enabled: bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn capsule_can_snap_at_os_top_limit_at_all_supported_scales() {
+        let area = Rect {
+            x: 0,
+            y: 0,
+            width: 1920,
+            height: 1080,
+        };
+        for scale in [1.0, 1.25, 1.5] {
+            let (p, lower) = snap((300, 0), area, scale, (8.0, 24.0, 184.0, 48.0), true);
+            assert!(lower, "capsule native top limit at {scale}");
+            assert_eq!(p.1, (-18.0 * scale).round() as i32);
+        }
+    }
+    #[cfg(windows)]
+    #[test]
+    fn binary_clip_retains_partially_covered_antialias_pixel() {
+        use windows::Win32::Graphics::Gdi::{
+            CreateRoundRectRgn, DeleteObject, HGDIOBJ, PtInRegion,
+        };
+        let c = Contour {
+            x: 8.0,
+            y: 8.0,
+            width: 48.0,
+            height: 48.0,
+            radius: 24.0,
+        };
+        let [x, y, r, b, rx, ry] = c.raster_bounds(1.0);
+        unsafe {
+            let region = CreateRoundRectRgn(x, y, r, b, rx, ry);
+            let covered = PtInRegion(region, 10, 20).as_bool();
+            let _ = DeleteObject(HGDIOBJ(region.0));
+            assert!(
+                covered,
+                "browser edge sample must survive the outer binary mask"
+            );
+        }
+    }
     #[test]
     fn contour_excludes_transparent_corners() {
         let c = Contour {

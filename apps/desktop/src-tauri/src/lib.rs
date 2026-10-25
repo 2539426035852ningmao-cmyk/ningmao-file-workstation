@@ -1087,6 +1087,30 @@ async fn copy_references(
     Ok(added)
 }
 #[tauri::command]
+fn file_window_state(window: tauri::WebviewWindow) -> Result<bool> {
+    shelf_windows::scope(&window)?;
+    window.is_maximized().map_err(error)
+}
+#[tauri::command]
+fn file_window_action(window: tauri::WebviewWindow, action: String) -> Result<bool> {
+    shelf_windows::scope(&window)?;
+    desktop_runtime::require_idle(window.app_handle())?;
+    match action.as_str() {
+        "minimize" => window.minimize().map_err(error)?,
+        "toggle-maximize" => {
+            if window.is_maximized().map_err(error)? {
+                window.unmaximize().map_err(error)?;
+            } else {
+                shelf_windows::capture(&window.as_ref().window());
+                window.maximize().map_err(error)?;
+            }
+        }
+        "hide" => window.close().map_err(error)?,
+        _ => return Err("未知窗口操作。".into()),
+    }
+    window.is_maximized().map_err(error)
+}
+#[tauri::command]
 fn desktop_state(
     app: tauri::AppHandle,
     window: tauri::WebviewWindow,
@@ -1430,6 +1454,11 @@ pub fn run() {
             {
                 layout.entry_position = Some((position.x, position.y));
             }
+            if let tauri::WindowEvent::Resized(_) = event
+                && (window.label() == "main" || desktop::detached_id(window.label()).is_some())
+            {
+                let _ = window.emit("file-window-state", window.is_maximized().unwrap_or(false));
+            }
             if matches!(
                 event,
                 tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Resized(_)
@@ -1471,6 +1500,8 @@ pub fn run() {
             quit,
             create_shelf,
             copy_references,
+            file_window_action,
+            file_window_state,
             desktop_state,
             desktop_present,
             desktop_peek,

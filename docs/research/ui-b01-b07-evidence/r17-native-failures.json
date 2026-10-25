@@ -1,0 +1,21 @@
+{
+  "candidate": "r17",
+  "sourceCommit": "82f696691591a7f46da9709d920e499d67bef410",
+  "normalExit": true,
+  "integrity": "ok",
+  "itemsAfterNormalExit": 5,
+  "jobs": 0,
+  "protectedFilesUnchanged": true,
+  "userFindings": {
+    "shapeExpansion": "PASS",
+    "noLargeBlackRectangleAroundOrb": "PASS at current setup only",
+    "capsuleOwnTopSnapAndCloseAnchor": "FAIL",
+    "orbCapsulePeekEdgeAA": "FAIL",
+    "fullShelfNativeFrameAndControls": "FAIL"
+  },
+  "unexecuted": [
+    "native import/export in r17",
+    "new DPI/monitor matrix",
+    "r18 native recheck"
+  ]
+}

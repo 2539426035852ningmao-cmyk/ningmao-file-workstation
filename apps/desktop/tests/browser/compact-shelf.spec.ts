@@ -75,7 +75,7 @@ test("键盘搜索与文件架切换保持原位，列表和缩略图切换可�
 test("最小窗口复制只显示短进度，取消、失败、离线和历史仍可达",async({page})=>{
   await page.setViewportSize({width:340,height:320});await page.emulateMedia({reducedMotion:"reduce"});await page.goto("/tests/harness.html");
   await page.getByRole("button",{name:"切换文件架",exact:true}).click();await page.getByRole("menuitem",{name:"绑定文件夹",exact:true}).click();
-  await page.getByRole("button",{name:"添加并复制",exact:true}).click();
+  await more(page,"添加文件");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByRole("button",{name:"查看复制任务",exact:true})).toHaveCSS("height","28px");
   await expect(page.locator(".status-toast")).toHaveCount(0,{timeout:500});
@@ -86,7 +86,7 @@ test("最小窗口复制只显示短进度，取消、失败、离线和历史�
   await capture(page,"tasks-340");await page.keyboard.press("Escape");
   await expect(page.getByRole("button",{name:"查看复制任务",exact:true})).toHaveCount(0);
   await page.evaluate(()=>window.testHarness.fail("合成权限错误：来源与已有目标均保留，请检查访问权限后重试"));
-  await page.getByRole("button",{name:"添加并复制",exact:true}).click();await expect(page.getByRole("alert")).toContainText("来源与已有目标均保留");
+  await more(page,"添加文件");await expect(page.getByRole("alert")).toContainText("来源与已有目标均保留");
   await expect(page.locator(".status-toast")).toHaveCount(0,{timeout:500});
   await capture(page,"error-340");
   await page.evaluate(()=>window.testHarness.offline(3));await more(page,"刷新文件状态");
