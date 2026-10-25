@@ -1,3 +1,4 @@
+import {ScrollActivity} from "./components/ScrollActivity";
 import {useEffect,useMemo,useRef,useState} from "react";
 import {Archive,Check,File,Folder,Layers,Search,Settings,Tags,ListTodo,RefreshCw,X} from "lucide-react";
 import {Button} from "./components/ui/button";
@@ -45,7 +46,7 @@ export default function Manager({backend}:{backend:Backend}) {
   const jobs=<div className="manager-jobs">{!data.jobs.length?<p className="manager-empty">暂无复制任务</p>:data.jobs.map(job=><article key={job.id}><div><strong>{jobNames[job.status] || job.status}</strong><span>{shelfName(job.shelf_id)}</span></div><p>{job.message}</p>{["queued","copying"].includes(job.status) && <Button variant="outline" size="sm" disabled={busy} onClick={()=>void act(async()=>{await backend.cancel(job.id);setMessage("已请求取消，等待复制任务安全结束。");})}>取消复制</Button>}</article>)}</div>;
   return <div className="manager-shell">
     <aside className="manager-nav"><h1>管理中心</h1><nav aria-label="管理中心导航">{sections.map(([key,label,Icon])=><Button key={key} variant="ghost" className={section===key?"active":""} aria-current={section===key?"page":undefined} onClick={()=>setSection(key)}><Icon size={17}/><span>{label}</span></Button>)}</nav><p>柠猫文件工作站</p></aside>
-    <main className="manager-main"><header><h2>{sections.find(([key])=>key===section)?.[1]}</h2><Button variant="ghost" size="sm" disabled={loading || busy} onClick={()=>void act(async()=>{await refresh();setMessage("已刷新收集记录。");})}><RefreshCw size={15}/>刷新记录</Button></header>
+    <main className="manager-main"><ScrollActivity/><header><h2>{sections.find(([key])=>key===section)?.[1]}</h2><Button variant="ghost" size="sm" disabled={loading || busy} onClick={()=>void act(async()=>{await refresh();setMessage("已刷新收集记录。");})}><RefreshCw size={15}/>刷新记录</Button></header>
     {error && <div className="error-bar" role="alert"><span>{error}</span><Button variant="ghost" size="icon" aria-label="关闭管理错误" onClick={()=>setError("")}><X size={15}/></Button></div>}
     {desktop?.warning && <p className="manager-warning" role="alert">{desktop.warning}</p>}
     {loading?<p className="manager-empty">正在读取已收集记录…</p>:<>

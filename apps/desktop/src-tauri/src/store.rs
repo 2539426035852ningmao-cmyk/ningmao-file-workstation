@@ -83,6 +83,26 @@ pub struct ManagementSnapshot {
     pub jobs: Vec<Job>,
 }
 
+#[derive(Clone, Serialize)]
+pub struct TrashEntry {
+    pub id: i64,
+    pub entity: String,
+    pub name: String,
+    pub shelf_id: i64,
+    pub shelf_name: String,
+    pub shelf_kind: String,
+    pub path: Option<String>,
+    pub removed_at: i64,
+    pub children: usize,
+}
+#[derive(Clone, Serialize)]
+pub struct RecycleActivity {
+    pub id: i64,
+    pub shelf_id: i64,
+    pub name: String,
+    pub status: String,
+    pub message: String,
+}
 pub struct Store {
     db: Connection,
 }
@@ -93,8 +113,28 @@ impl Store {
         let version: i64 = db
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .map_err(err)?;
-        if version > 1 {
+        if version > 2 {
             return Err("数据库版本较新，请使用兼容版本；没有修改数据库。".into());
+        }
+        // VACUUM INTO reads a consistent SQLite snapshot, including committed WAL pages.
+        // Never copy only the main file while a WAL may contain recent records.
+        if version == 1 {
+            let stamp = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_err(err)?
+                .as_nanos();
+            let backup = path.with_extension(format!("pre-ui-b06-{stamp}.sqlite3"));
+            db.execute("VACUUM INTO ?1", [path_text(&backup)?])
+                .map_err(err)?;
+            let verify =
+                Connection::open_with_flags(&backup, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
+                    .map_err(err)?;
+            let result: String = verify
+                .pragma_query_value(None, "integrity_check", |r| r.get(0))
+                .map_err(err)?;
+            if result != "ok" {
+                return Err("迁移备份完整性检查失败，未升级数据库。".into());
+            }
         }
         db.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON;
             BEGIN IMMEDIATE;
@@ -104,13 +144,186 @@ impl Store {
                 path TEXT NOT NULL, name TEXT NOT NULL, position INTEGER NOT NULL, tags TEXT NOT NULL DEFAULT '[]',
                 UNIQUE(shelf_id,path));
             CREATE TABLE IF NOT EXISTS jobs(id INTEGER PRIMARY KEY, shelf_id INTEGER NOT NULL REFERENCES shelves(id),
-                status TEXT NOT NULL, message TEXT NOT NULL, staging TEXT);
-            INSERT OR IGNORE INTO shelves(id,name,kind) VALUES(1,'灵感收集','persistent'),(2,'本次中转','session');
-            UPDATE jobs SET status='interrupted',message='上次操作异常中断；已完成文件保留，残留临时文件未自动删除。'
-                WHERE status IN ('queued','copying');
-            PRAGMA user_version=1;
-            COMMIT;").map_err(err)?;
+                status TEXT NOT NULL, message TEXT NOT NULL, staging TEXT);").map_err(err)?;
+        if version < 2 {
+            db.execute_batch("ALTER TABLE shelves ADD COLUMN trashed_at INTEGER;
+                ALTER TABLE items ADD COLUMN trashed_at INTEGER;
+                CREATE TABLE record_ids(entity TEXT PRIMARY KEY,next_id INTEGER NOT NULL);
+                INSERT INTO record_ids SELECT 'shelf',COALESCE(MAX(id),0)+1 FROM shelves;
+                INSERT INTO record_ids SELECT 'item',COALESCE(MAX(id),0)+1 FROM items;
+                CREATE TABLE recycle_journal(id INTEGER PRIMARY KEY,item_id INTEGER NOT NULL,path TEXT NOT NULL,status TEXT NOT NULL,message TEXT NOT NULL DEFAULT '',created_at INTEGER NOT NULL DEFAULT(unixepoch()));
+                CREATE TABLE recycle_layouts(shelf_id INTEGER PRIMARY KEY REFERENCES shelves(id),layout TEXT NOT NULL);
+                CREATE TABLE hidden_bound_paths(shelf_id INTEGER NOT NULL REFERENCES shelves(id),path TEXT NOT NULL,PRIMARY KEY(shelf_id,path));").map_err(err)?;
+        }
+        if version == 0 {
+            db.execute_batch("INSERT INTO shelves(id,name,kind) VALUES(1,'灵感收集','persistent'),(2,'本次中转','session'); UPDATE record_ids SET next_id=3 WHERE entity='shelf';").map_err(err)?;
+        }
+        db.execute_batch("UPDATE jobs SET status='interrupted',message='上次操作异常中断；已完成文件保留，残留临时文件未自动删除。' WHERE status IN ('queued','copying');
+            UPDATE items SET trashed_at=unixepoch() WHERE EXISTS(SELECT 1 FROM recycle_journal j WHERE j.status='os-success' AND j.item_id=items.id AND j.path=items.path);
+            UPDATE recycle_journal SET status='committed' WHERE status='os-success';
+            UPDATE recycle_journal SET status='uncertain',message='上次进程在系统回收期间中断；请人工核对 Windows 回收站，不会自动再次删除。' WHERE status='pending';
+            PRAGMA user_version=2; COMMIT;").map_err(err)?;
         Ok(Self { db })
+    }
+    pub fn trash_entries(&self, filter: Option<i64>) -> Result<Vec<TrashEntry>> {
+        let mut rows=self.db.prepare("SELECT s.id,'shelf',s.name,s.id,s.name,s.kind,s.root,s.trashed_at,(SELECT COUNT(*) FROM items WHERE shelf_id=s.id) FROM shelves s WHERE s.trashed_at IS NOT NULL AND (?1 IS NULL OR s.id=?1)
+            UNION ALL SELECT i.id,'item',i.name,s.id,s.name,s.kind,i.path,i.trashed_at,0 FROM items i JOIN shelves s ON s.id=i.shelf_id WHERE i.trashed_at IS NOT NULL AND s.trashed_at IS NULL AND (?1 IS NULL OR s.id=?1) ORDER BY 8 DESC,1 DESC").map_err(err)?;
+        rows.query_map([filter], |r| {
+            Ok(TrashEntry {
+                id: r.get(0)?,
+                entity: r.get(1)?,
+                name: r.get(2)?,
+                shelf_id: r.get(3)?,
+                shelf_name: r.get(4)?,
+                shelf_kind: r.get(5)?,
+                path: r.get(6)?,
+                removed_at: r.get(7)?,
+                children: r.get::<_, i64>(8)? as usize,
+            })
+        })
+        .map_err(err)?
+        .collect::<std::result::Result<_, _>>()
+        .map_err(err)
+    }
+    pub fn save_recycled_layout(&self, id: i64, layout: &str) -> Result<()> {
+        self.db
+            .execute(
+                "INSERT OR REPLACE INTO recycle_layouts(shelf_id,layout) VALUES(?1,?2)",
+                params![id, layout],
+            )
+            .map_err(err)?;
+        Ok(())
+    }
+    pub fn recycled_layout(&self, id: i64) -> Result<Option<String>> {
+        self.db
+            .query_row(
+                "SELECT layout FROM recycle_layouts WHERE shelf_id=?1",
+                [id],
+                |r| r.get(0),
+            )
+            .optional()
+            .map_err(err)
+    }
+    pub fn recycle_activity(&self) -> Result<Vec<RecycleActivity>> {
+        self.db.prepare("SELECT j.id,i.shelf_id,i.name,j.status,j.message FROM recycle_journal j JOIN items i ON i.id=j.item_id WHERE j.status NOT IN ('committed') ORDER BY j.id DESC").map_err(err)?.query_map([],|r|Ok(RecycleActivity{id:r.get(0)?,shelf_id:r.get(1)?,name:r.get(2)?,status:r.get(3)?,message:r.get(4)?})).map_err(err)?.collect::<std::result::Result<_,_>>().map_err(err)
+    }
+    pub fn remove_references(&mut self, ids: &[i64]) -> Result<()> {
+        if ids.is_empty()
+            || ids.len() > 256
+            || ids.iter().collect::<std::collections::HashSet<_>>().len() != ids.len()
+        {
+            return Err("请选择1至256个不同引用。".into());
+        }
+        self.validate_item_scope(None, ids)?;
+        let tx = self.db.transaction().map_err(err)?;
+        for id in ids {
+            tx.execute(
+                "UPDATE items SET trashed_at=unixepoch() WHERE id=?1 AND trashed_at IS NULL",
+                [id],
+            )
+            .map_err(err)?;
+        }
+        tx.commit().map_err(err)
+    }
+    pub fn trash_shelf(&mut self, id: i64) -> Result<()> {
+        self.shelf(id)?;
+        let busy:bool=self.db.query_row("SELECT EXISTS(SELECT 1 FROM jobs WHERE shelf_id=?1 AND status IN ('queued','copying'))",[id],|r|r.get(0)).map_err(err)?;
+        if busy {
+            return Err("文件架正在复制，请完成或取消任务后再移入回收站。".into());
+        }
+        self.db
+            .execute(
+                "UPDATE shelves SET trashed_at=unixepoch() WHERE id=?1 AND trashed_at IS NULL",
+                [id],
+            )
+            .map_err(err)?;
+        Ok(())
+    }
+    pub fn restore_trash(&mut self, entity: &str, id: i64) -> Result<()> {
+        let sql = match entity {
+            "shelf" => "UPDATE shelves SET trashed_at=NULL WHERE id=?1 AND trashed_at IS NOT NULL",
+            "item" => {
+                "UPDATE items SET trashed_at=NULL WHERE id=?1 AND trashed_at IS NOT NULL AND shelf_id IN (SELECT id FROM shelves WHERE trashed_at IS NULL)"
+            }
+            _ => return Err("未知回收记录类型。".into()),
+        };
+        if self.db.execute(sql, [id]).map_err(err)? != 1 {
+            return Err("回收记录不存在；若所属文件架也已回收，请先恢复文件架。".into());
+        }
+        Ok(())
+    }
+    pub fn purge_trash(&mut self, entity: &str, id: i64) -> Result<()> {
+        // Database rows only. This method has no filesystem deletion capability.
+        let tx = self.db.transaction().map_err(err)?;
+        match entity {
+            "item" => {
+                let shelf:i64=tx.query_row("SELECT shelf_id FROM items WHERE id=?1 AND trashed_at IS NOT NULL AND shelf_id IN (SELECT id FROM shelves WHERE trashed_at IS NULL)",[id],|r|r.get(0)).map_err(err)?;
+                tx.execute("INSERT OR IGNORE INTO hidden_bound_paths(shelf_id,path) SELECT shelf_id,path FROM items WHERE id=?1 AND shelf_id IN (SELECT id FROM shelves WHERE kind='bound')",[id]).map_err(err)?;
+                tx.execute("DELETE FROM recycle_journal WHERE item_id=?1", [id])
+                    .map_err(err)?;
+                tx.execute(
+                    "DELETE FROM items WHERE id=?1 AND shelf_id=?2",
+                    params![id, shelf],
+                )
+                .map_err(err)?;
+            }
+            "shelf" => {
+                let exists:bool=tx.query_row("SELECT EXISTS(SELECT 1 FROM shelves WHERE id=?1 AND trashed_at IS NOT NULL)",[id],|r|r.get(0)).map_err(err)?;
+                if !exists {
+                    return Err("该文件架未在回收站中。".into());
+                }
+                tx.execute("DELETE FROM recycle_journal WHERE item_id IN (SELECT id FROM items WHERE shelf_id=?1)",[id]).map_err(err)?;
+                tx.execute("DELETE FROM hidden_bound_paths WHERE shelf_id=?1", [id])
+                    .map_err(err)?;
+                tx.execute("DELETE FROM items WHERE shelf_id=?1", [id])
+                    .map_err(err)?;
+                tx.execute("DELETE FROM jobs WHERE shelf_id=?1", [id])
+                    .map_err(err)?;
+                tx.execute("DELETE FROM recycle_layouts WHERE shelf_id=?1", [id])
+                    .map_err(err)?;
+                tx.execute("DELETE FROM shelves WHERE id=?1", [id])
+                    .map_err(err)?;
+            }
+            _ => return Err("未知回收记录类型。".into()),
+        }
+        tx.commit().map_err(err)
+    }
+    pub fn begin_recycle(&self, id: i64, expected: &Path) -> Result<i64> {
+        if self.opening_target(id)? != expected {
+            return Err("引用已变化，未开始系统回收。".into());
+        }
+        self.db
+            .execute(
+                "INSERT INTO recycle_journal(item_id,path,status) VALUES(?1,?2,'pending')",
+                params![id, path_text(expected)?],
+            )
+            .map_err(err)?;
+        Ok(self.db.last_insert_rowid())
+    }
+    pub fn recycle_result(&mut self, journal: i64, status: &str, message: &str) -> Result<()> {
+        if !["os-success", "failed", "cancelled", "uncertain"].contains(&status) {
+            return Err("未知回收结果。".into());
+        }
+        self.db
+            .execute(
+                "UPDATE recycle_journal SET status=?1,message=?2 WHERE id=?3 AND status='pending'",
+                params![status, message, journal],
+            )
+            .map_err(err)?;
+        if status == "os-success" {
+            self.commit_recycled(journal)?;
+        }
+        Ok(())
+    }
+    fn commit_recycled(&mut self, journal: i64) -> Result<()> {
+        let tx = self.db.transaction().map_err(err)?;
+        tx.execute("UPDATE items SET trashed_at=unixepoch() WHERE id IN (SELECT item_id FROM recycle_journal WHERE id=?1 AND status='os-success') AND path IN (SELECT path FROM recycle_journal WHERE id=?1)",[journal]).map_err(err)?;
+        tx.execute(
+            "UPDATE recycle_journal SET status='committed' WHERE id=?1 AND status='os-success'",
+            [journal],
+        )
+        .map_err(err)?;
+        tx.commit().map_err(err)
     }
     pub fn integrity_check(&self) -> Result<()> {
         let value: String = self
@@ -129,7 +342,7 @@ impl Store {
     fn shelf_records(&self) -> Result<Vec<Shelf>> {
         let mut stmt = self
             .db
-            .prepare("SELECT id,name,kind,root FROM shelves ORDER BY id")
+            .prepare("SELECT id,name,kind,root FROM shelves WHERE trashed_at IS NULL ORDER BY id")
             .map_err(err)?;
         stmt.query_map([], |r| {
             let root: Option<String> = r.get(3)?;
@@ -149,7 +362,7 @@ impl Store {
     // Window hover only needs IDs/names. Never probe bound disks on native drag events.
     pub fn shelf_catalog(&self) -> Result<Vec<ShelfIdentity>> {
         self.db
-            .prepare("SELECT id,name,kind FROM shelves ORDER BY id")
+            .prepare("SELECT id,name,kind FROM shelves WHERE trashed_at IS NULL ORDER BY id")
             .map_err(err)?
             .query_map([], |r| {
                 Ok(ShelfIdentity {
@@ -175,7 +388,7 @@ impl Store {
         for id in ids {
             let shelf: i64 = self
                 .db
-                .query_row("SELECT shelf_id FROM items WHERE id=?1", [id], |r| r.get(0))
+                .query_row("SELECT shelf_id FROM items WHERE id=?1 AND trashed_at IS NULL AND shelf_id IN (SELECT id FROM shelves WHERE trashed_at IS NULL)", [id], |r| r.get(0))
                 .map_err(err)?;
             if scope.is_some_and(|target| shelf != target) {
                 return Err("独立窗口只能操作自己的文件架记录。".into());
@@ -211,9 +424,16 @@ impl Store {
         if exists {
             return Err("已有同名文件架，请更换名称。".into());
         }
+        let id: i64 = tx
+            .query_row(
+                "UPDATE record_ids SET next_id=next_id+1 WHERE entity='shelf' RETURNING next_id-1",
+                [],
+                |r| r.get(0),
+            )
+            .map_err(err)?;
         tx.execute(
-            "INSERT INTO shelves(name,kind) VALUES(?1,?2)",
-            params![name, if session { "session" } else { "persistent" }],
+            "INSERT INTO shelves(name,kind,id) VALUES(?1,?2,?3)",
+            params![name, if session { "session" } else { "persistent" }, id],
         )
         .map_err(err)?;
         let id = tx.last_insert_rowid();
@@ -241,11 +461,22 @@ impl Store {
         let mut added = 0;
         for id in ids {
             let (path, name, tags): (String, String, String) = tx
-                .query_row("SELECT path,name,tags FROM items WHERE id=?1", [id], |r| {
+                .query_row("SELECT path,name,tags FROM items WHERE id=?1 AND trashed_at IS NULL AND shelf_id IN (SELECT id FROM shelves WHERE trashed_at IS NULL)", [id], |r| {
                     Ok((r.get(0)?, r.get(1)?, r.get(2)?))
                 })
                 .map_err(err)?;
-            added+=tx.execute("INSERT OR IGNORE INTO items(shelf_id,path,name,position,tags) VALUES(?1,?2,?3,COALESCE((SELECT MAX(position)+1 FROM items WHERE shelf_id=?1),0),?4)",params![target,path,name,tags]).map_err(err)?;
+            let existing: bool = tx
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM items WHERE shelf_id=?1 AND path=?2)",
+                    params![target, &path],
+                    |r| r.get(0),
+                )
+                .map_err(err)?;
+            if existing {
+                continue;
+            }
+            let new_id:i64=tx.query_row("UPDATE record_ids SET next_id=next_id+1 WHERE entity='item' RETURNING next_id-1",[],|r|r.get(0)).map_err(err)?;
+            added+=tx.execute("INSERT INTO items(shelf_id,path,name,position,tags,id) VALUES(?1,?2,?3,COALESCE((SELECT MAX(position)+1 FROM items WHERE shelf_id=?1),0),?4,?5)",params![target,path,name,tags,new_id]).map_err(err)?;
         }
         tx.commit().map_err(err)?;
         Ok(added)
@@ -260,16 +491,42 @@ impl Store {
             .file_name()
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_else(|| value.clone());
-        self.db
-            .execute(
-                "INSERT OR IGNORE INTO shelves(name,kind,root) VALUES(?1,'bound',?2)",
-                params![name, value],
+        if let Some((id, trashed)) = self
+            .db
+            .query_row(
+                "SELECT id,trashed_at IS NOT NULL FROM shelves WHERE root=?1",
+                [&value],
+                |r| Ok((r.get::<_, i64>(0)?, r.get::<_, bool>(1)?)),
+            )
+            .optional()
+            .map_err(err)?
+        {
+            return if trashed {
+                Err("该目录架在柠猫回收站中，请先恢复。".into())
+            } else {
+                Ok(id)
+            };
+        }
+        let id: i64 = self
+            .db
+            .query_row(
+                "UPDATE record_ids SET next_id=next_id+1 WHERE entity='shelf' RETURNING next_id-1",
+                [],
+                |r| r.get(0),
             )
             .map_err(err)?;
         self.db
-            .query_row("SELECT id FROM shelves WHERE root=?1", [value], |r| {
-                r.get(0)
-            })
+            .execute(
+                "INSERT INTO shelves(name,kind,root,id) VALUES(?1,'bound',?2,?3)",
+                params![name, value, id],
+            )
+            .map_err(err)?;
+        self.db
+            .query_row(
+                "SELECT id FROM shelves WHERE root=?1 AND trashed_at IS NULL",
+                [value],
+                |r| r.get(0),
+            )
             .map_err(err)
     }
     fn insert(&self, shelf: i64, path: &Path) -> Result<i64> {
@@ -279,11 +536,31 @@ impl Store {
             .ok_or("路径没有文件名。")?
             .to_str()
             .ok_or("文件名不是有效 Unicode。")?;
+        if let Some(id) = self
+            .db
+            .query_row(
+                "SELECT id FROM items WHERE shelf_id=?1 AND path=?2",
+                params![shelf, &value],
+                |r| r.get(0),
+            )
+            .optional()
+            .map_err(err)?
+        {
+            return Ok(id);
+        }
+        let id: i64 = self
+            .db
+            .query_row(
+                "UPDATE record_ids SET next_id=next_id+1 WHERE entity='item' RETURNING next_id-1",
+                [],
+                |r| r.get(0),
+            )
+            .map_err(err)?;
         self.db
             .execute(
-                "INSERT OR IGNORE INTO items(shelf_id,path,name,position)
-            VALUES(?1,?2,?3,COALESCE((SELECT MAX(position)+1 FROM items WHERE shelf_id=?1),0))",
-                params![shelf, value, name],
+                "INSERT INTO items(shelf_id,path,name,position,id)
+            VALUES(?1,?2,?3,COALESCE((SELECT MAX(position)+1 FROM items WHERE shelf_id=?1),0),?4)",
+                params![shelf, value, name, id],
             )
             .map_err(err)?;
         self.db
@@ -298,7 +575,12 @@ impl Store {
         if self.shelf(shelf)?.kind == "bound" {
             return Err("真实目录只能通过复制添加文件。".into());
         }
-        self.insert(shelf, &canonical_user_path(path)?)
+        let path = canonical_user_path(path)?;
+        let hidden:bool=self.db.query_row("SELECT EXISTS(SELECT 1 FROM items WHERE shelf_id=?1 AND path=?2 AND trashed_at IS NOT NULL)",params![shelf,path_text(&path)?],|r|r.get(0)).map_err(err)?;
+        if hidden {
+            return Err("该引用在软件回收站中，请先恢复。".into());
+        }
+        self.insert(shelf, &path)
     }
     pub fn record_copy(&mut self, shelf: i64, path: &Path) -> Result<i64> {
         let root = self.shelf(shelf)?.root.ok_or("没有绑定目录。")?;
@@ -308,19 +590,16 @@ impl Store {
         self.insert(shelf, path)
     }
     pub fn relocation_source(&self, id: i64) -> Result<PathBuf> {
-        let (path, kind): (String, String) = self
+        let (path, _kind): (String, String) = self
             .db
             .query_row(
-                "SELECT i.path,s.kind FROM items i JOIN shelves s ON s.id=i.shelf_id WHERE i.id=?1",
+                "SELECT i.path,s.kind FROM items i JOIN shelves s ON s.id=i.shelf_id WHERE i.id=?1 AND i.trashed_at IS NULL AND s.trashed_at IS NULL",
                 [id],
                 |r| Ok((r.get(0)?, r.get(1)?)),
             )
             .optional()
             .map_err(err)?
             .ok_or("文件记录不存在，请刷新后重试。")?;
-        if kind == "bound" {
-            return Err("绑定目录中的记录不能改为其他路径，请恢复原目录位置。".into());
-        }
         if fs::symlink_metadata(&path).is_ok() {
             return Err("原引用已可访问，请刷新状态；无需重新定位。".into());
         }
@@ -332,6 +611,23 @@ impl Store {
             return Err("引用已被更新，请刷新后重试；本次没有修改记录。".into());
         }
         let replacement = canonical_user_path(replacement)?;
+        let root: Option<String> = self
+            .db
+            .query_row(
+                "SELECT s.root FROM shelves s JOIN items i ON i.shelf_id=s.id WHERE i.id=?1",
+                [id],
+                |r| r.get(0),
+            )
+            .map_err(err)?;
+        if let Some(root) = root {
+            let root = canonical_user_path(Path::new(&root))?;
+            if replacement.parent() != Some(root.as_path()) {
+                return Err(
+                    "绑定架只能重新定位到同一绑定目录的直接子项；目录绑定保持不变。".into(),
+                );
+            }
+        }
+
         let name = replacement
             .file_name()
             .and_then(|n| n.to_str())
@@ -349,19 +645,12 @@ impl Store {
         Ok(())
     }
     pub fn remove_reference(&mut self, id: i64) -> Result<()> {
-        let kind: String = self
-            .db
-            .query_row(
-                "SELECT s.kind FROM items i JOIN shelves s ON s.id=i.shelf_id WHERE i.id=?1",
-                [id],
-                |r| r.get(0),
-            )
-            .map_err(err)?;
-        if kind == "bound" {
-            return Err("目录文件不能通过移除引用删除；本阶段不提供实体删除。".into());
-        }
+        self.validate_item_scope(None, &[id])?;
         self.db
-            .execute("DELETE FROM items WHERE id=?1", [id])
+            .execute(
+                "UPDATE items SET trashed_at=unixepoch() WHERE id=?1 AND trashed_at IS NULL",
+                [id],
+            )
             .map_err(err)?;
         Ok(())
     }
@@ -372,7 +661,7 @@ impl Store {
         if self
             .db
             .execute(
-                "UPDATE items SET tags=?1 WHERE id=?2",
+                "UPDATE items SET tags=?1 WHERE id=?2 AND trashed_at IS NULL AND shelf_id IN (SELECT id FROM shelves WHERE trashed_at IS NULL)",
                 params![serde_json::to_string(&tags).map_err(err)?, id],
             )
             .map_err(err)?
@@ -396,7 +685,7 @@ impl Store {
         let tx = self.db.transaction().map_err(err)?;
         for id in ids {
             let raw: String = tx
-                .query_row("SELECT tags FROM items WHERE id=?1", [id], |r| r.get(0))
+                .query_row("SELECT tags FROM items WHERE id=?1 AND trashed_at IS NULL AND shelf_id IN (SELECT id FROM shelves WHERE trashed_at IS NULL)", [id], |r| r.get(0))
                 .map_err(err)?;
             let mut tags: Vec<String> = serde_json::from_str(&raw).map_err(err)?;
             if remove {
@@ -408,7 +697,7 @@ impl Store {
                 return Err("单个文件最多32个标签，本次批量修改已取消。".into());
             }
             tx.execute(
-                "UPDATE items SET tags=?1 WHERE id=?2",
+                "UPDATE items SET tags=?1 WHERE id=?2 AND trashed_at IS NULL AND shelf_id IN (SELECT id FROM shelves WHERE trashed_at IS NULL)",
                 params![serde_json::to_string(&tags).map_err(err)?, id],
             )
             .map_err(err)?;
@@ -426,14 +715,14 @@ impl Store {
         let total = self
             .db
             .query_row(
-                "SELECT COUNT(*) FROM items WHERE shelf_id=?1",
+                "SELECT COUNT(*) FROM items WHERE shelf_id=?1 AND trashed_at IS NULL",
                 [shelf_id],
                 |r| r.get::<_, i64>(0),
             )
             .map_err(err)? as usize;
         let items = self
             .db
-            .prepare("SELECT id,name FROM items WHERE shelf_id=?1 ORDER BY id DESC LIMIT 3")
+            .prepare("SELECT id,name FROM items WHERE shelf_id=?1 AND trashed_at IS NULL ORDER BY id DESC LIMIT 3")
             .map_err(err)?
             .query_map([shelf_id], |r| {
                 Ok(PeekItem {
@@ -457,7 +746,7 @@ impl Store {
     pub fn management_snapshot(&self) -> Result<ManagementSnapshot> {
         let items = self
             .db
-            .prepare("SELECT id,shelf_id,path,name,tags FROM items ORDER BY shelf_id,position,id")
+            .prepare("SELECT id,shelf_id,path,name,tags FROM items WHERE trashed_at IS NULL AND shelf_id IN (SELECT id FROM shelves WHERE trashed_at IS NULL) ORDER BY shelf_id,position,id")
             .map_err(err)?
             .query_map([], |r| {
                 Ok((
@@ -513,7 +802,7 @@ impl Store {
     pub fn reorder(&mut self, shelf: i64, ids: &[i64]) -> Result<()> {
         let expected: Vec<i64> = self
             .db
-            .prepare("SELECT id FROM items WHERE shelf_id=?1 ORDER BY id")
+            .prepare("SELECT id FROM items WHERE shelf_id=?1 AND trashed_at IS NULL ORDER BY id")
             .map_err(err)?
             .query_map([shelf], |r| r.get(0))
             .map_err(err)?
@@ -561,14 +850,17 @@ impl Store {
                         continue;
                     }
                     if let Ok(path) = canonical_user_path(&entry.path()) {
-                        self.insert(shelf.id, &path)?;
+                        let hidden:bool=self.db.query_row("SELECT EXISTS(SELECT 1 FROM hidden_bound_paths WHERE shelf_id=?1 AND path=?2)",params![shelf.id,path_text(&path)?],|r|r.get(0)).map_err(err)?;
+                        if !hidden {
+                            self.insert(shelf.id, &path)?;
+                        }
                     }
                 }
             }
         }
         let mut stmt = self
             .db
-            .prepare("SELECT id,shelf_id,path,name,tags FROM items ORDER BY shelf_id,position,id")
+            .prepare("SELECT id,shelf_id,path,name,tags FROM items WHERE trashed_at IS NULL AND shelf_id IN (SELECT id FROM shelves WHERE trashed_at IS NULL) ORDER BY shelf_id,position,id")
             .map_err(err)?;
         let rows = stmt
             .query_map([], |r| {
@@ -641,7 +933,7 @@ impl Store {
     }
     pub fn item_path(&self, id: i64) -> Result<PathBuf> {
         self.db
-            .query_row("SELECT path FROM items WHERE id=?1", [id], |r| {
+            .query_row("SELECT path FROM items WHERE id=?1 AND trashed_at IS NULL AND shelf_id IN (SELECT id FROM shelves WHERE trashed_at IS NULL)", [id], |r| {
                 r.get::<_, String>(0)
             })
             .optional()
@@ -690,7 +982,7 @@ impl Store {
     pub fn clean_exit(&mut self) -> Result<()> {
         let tx = self.db.transaction().map_err(err)?;
         tx.execute(
-            "DELETE FROM items WHERE shelf_id IN (SELECT id FROM shelves WHERE kind='session')",
+            "DELETE FROM items WHERE trashed_at IS NULL AND shelf_id IN (SELECT id FROM shelves WHERE kind='session' AND trashed_at IS NULL) AND id NOT IN (SELECT item_id FROM recycle_journal WHERE status IN ('pending','uncertain','os-success'))",
             [],
         )
         .map_err(err)?;

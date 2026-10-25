@@ -3,6 +3,8 @@ mod desktop_runtime;
 pub mod entry;
 mod shelf_windows;
 pub mod store;
+pub mod window_surface;
+pub mod windows_recycle;
 use serde::Serialize;
 use std::{
     fs::{File, OpenOptions},
@@ -17,10 +19,38 @@ use store::{Result, Snapshot, Store};
 use tauri::{Emitter, Manager};
 use tauri_plugin_dialog::DialogExt;
 
+struct PlannedRecycle {
+    owner: String,
+    created: Instant,
+    items: Vec<(i64, windows_recycle::Target)>,
+}
+#[derive(Serialize)]
+struct RecycleImpact {
+    id: i64,
+    name: String,
+    path: String,
+    other_references: usize,
+    shelf_kind: String,
+}
+#[derive(Serialize)]
+struct RecyclePreview {
+    ticket: String,
+    items: Vec<RecycleImpact>,
+}
+#[derive(Serialize)]
+struct RecycleOutcome {
+    id: i64,
+    status: String,
+    message: String,
+}
 struct Runtime {
     store: Mutex<Store>,
     active: Mutex<Option<(i64, Arc<AtomicBool>)>>,
     thumbnail: Mutex<()>,
+    data_root: PathBuf,
+    recycle_test_root: Option<PathBuf>,
+    recycle_plans: Mutex<std::collections::HashMap<String, PlannedRecycle>>,
+    recycling: Mutex<Option<(String, Arc<AtomicBool>)>>,
     _process_lock: File,
 }
 fn error(e: impl std::fmt::Display) -> String {
@@ -159,6 +189,7 @@ async fn import_paths(
     if scope.unwrap_or(desktop_runtime::active_shelf(&app)?) != shelf_id || shelf_id <= 0 {
         return Err("投放目标已切换，请确认当前文件架后重新拖入；未复制任何文件。".into());
     }
+    desktop_runtime::require_idle(&app)?;
     run_import(app, shelf_id, paths).await
 }
 async fn run_import(
@@ -197,6 +228,7 @@ async fn run_import(
     }
     let state = app.state::<Runtime>();
     let mut active = state.active.lock().map_err(error)?;
+    desktop_runtime::require_idle(&app)?;
     if active.is_some() {
         return Err("当前正在复制，请等待完成或取消后重试。".into());
     }
@@ -342,7 +374,466 @@ async fn remove_reference(
     id: i64,
 ) -> Result<()> {
     let scope = shelf_windows::scope(&window)?;
-    scoped_database(app, scope, vec![id], move |s| s.remove_reference(id)).await
+    let _guard = LifecycleGuard::acquire(&app)?;
+    scoped_database(app.clone(), scope, vec![id], move |s| {
+        s.remove_reference(id)
+    })
+    .await?;
+    app.emit("workstation-changed", ()).map_err(error)
+}
+struct RecycleRunGuard(tauri::AppHandle);
+impl Drop for RecycleRunGuard {
+    fn drop(&mut self) {
+        if let Ok(mut active) = self.0.state::<Runtime>().recycling.lock() {
+            *active = None;
+        }
+    }
+}
+struct LifecycleGuard(tauri::AppHandle);
+impl LifecycleGuard {
+    fn acquire(app: &tauri::AppHandle) -> Result<Self> {
+        lifecycle_idle(app)?;
+        app.state::<desktop_runtime::Desktop>()
+            .transitioning
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .map_err(|_| "正在调整记录，请稍后重试。")?;
+        let guard = Self(app.clone());
+        if app
+            .state::<Runtime>()
+            .active
+            .lock()
+            .map_err(error)?
+            .is_some()
+            || app
+                .webview_windows()
+                .keys()
+                .any(|label| window_surface::moving(label))
+        {
+            return Err("文件任务或窗口移动已开始，请稍后重试。".into());
+        }
+        let desktop = app.state::<desktop_runtime::Desktop>();
+        if desktop.drags.lock().map_err(error)?.busy()
+            || desktop.entry.lock().map_err(error)?.busy()
+        {
+            return Err("原生投放已开始，请先完成或取消。".into());
+        }
+        Ok(guard)
+    }
+}
+impl Drop for LifecycleGuard {
+    fn drop(&mut self) {
+        self.0
+            .state::<desktop_runtime::Desktop>()
+            .transitioning
+            .store(false, Ordering::SeqCst);
+    }
+}
+#[tauri::command]
+async fn plan_system_recycle(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    ids: Vec<i64>,
+) -> Result<RecyclePreview> {
+    let scope = shelf_windows::scope(&window)?;
+    lifecycle_idle(&app)?;
+    if ids.is_empty()
+        || ids.len() > 64
+        || ids.iter().collect::<std::collections::HashSet<_>>().len() != ids.len()
+    {
+        return Err("请选择 1 至 64 个不同文件。".into());
+    }
+    if app.state::<Runtime>().recycle_test_root.is_none() {
+        return Err(
+            "此候选的实体回收仅在专用合成测试入口启用；私人素材不启用。请使用候选包的测试启动器。"
+                .into(),
+        );
+    }
+    let owner = window.label().to_string();
+    let worker = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let runtime = worker.state::<Runtime>();
+        let store = runtime.store.lock().map_err(error)?;
+        store.validate_item_scope(scope, &ids)?;
+        let metadata = store.management_snapshot()?;
+        let mut targets = Vec::new();
+        let mut impacts = Vec::new();
+        for id in ids {
+            let row = metadata
+                .items
+                .iter()
+                .find(|r| r.id == id)
+                .ok_or("引用不存在")?;
+            let target = windows_recycle::inspect(&store.item_path(id)?, &runtime.data_root)?;
+            let allowed = runtime
+                .recycle_test_root
+                .as_ref()
+                .ok_or("实体回收测试目录未授权")?;
+            if !target.path.starts_with(allowed) {
+                return Err(
+                    "当前候选仅允许回收专用合成测试目录中的文件；私人素材未被操作。".into(),
+                );
+            }
+            if targets
+                .iter()
+                .any(|(_, t): &(i64, windows_recycle::Target)| t.path == target.path)
+            {
+                return Err("多条选中引用指向同一路径，请仅选择一条发起系统回收。".into());
+            }
+            let other = metadata
+                .items
+                .iter()
+                .filter(|r| r.id != id && std::path::Path::new(&r.path) == target.path)
+                .count();
+            impacts.push(RecycleImpact {
+                id,
+                name: row.name.clone(),
+                path: target.path.to_string_lossy().into_owned(),
+                other_references: other,
+                shelf_kind: metadata
+                    .shelves
+                    .iter()
+                    .find(|s| s.id == row.shelf_id)
+                    .ok_or("文件架不存在")?
+                    .kind
+                    .clone(),
+            });
+            targets.push((id, target));
+        }
+        drop(store);
+        let ticket = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(error)?
+            .as_nanos()
+            .to_string();
+        let mut plans = runtime.recycle_plans.lock().map_err(error)?;
+        plans.retain(|_, p| p.created.elapsed() < Duration::from_secs(300));
+        if plans.len() >= 32 {
+            return Err("待确认操作过多，请稍后重试。".into());
+        }
+        plans.insert(
+            ticket.clone(),
+            PlannedRecycle {
+                owner,
+                created: Instant::now(),
+                items: targets,
+            },
+        );
+        Ok(RecyclePreview {
+            ticket,
+            items: impacts,
+        })
+    })
+    .await
+    .map_err(error)?
+}
+#[tauri::command]
+async fn cancel_system_recycle(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<()> {
+    shelf_windows::scope(&window)?;
+    if let Some((owner, cancel)) = &*app.state::<Runtime>().recycling.lock().map_err(error)? {
+        if owner != window.label() {
+            return Err("请在发起回收的窗口取消。".into());
+        }
+        cancel.store(true, Ordering::SeqCst);
+    }
+    Ok(())
+}
+#[tauri::command]
+async fn execute_system_recycle(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    ticket: String,
+) -> Result<Vec<RecycleOutcome>> {
+    let scope = shelf_windows::scope(&window)?;
+    let plan = app
+        .state::<Runtime>()
+        .recycle_plans
+        .lock()
+        .map_err(error)?
+        .remove(&ticket)
+        .ok_or("确认已过期，请重新预览影响。")?;
+    if plan.owner != window.label() || plan.created.elapsed() > Duration::from_secs(300) {
+        return Err("确认已过期或不属于当前窗口。".into());
+    }
+    lifecycle_idle(&app)?;
+    let dialog = app.clone();
+    let count = plan.items.len();
+    let confirm=tauri::async_runtime::spawn_blocking(move||dialog.dialog().message(format!("确认把这 {count} 个真实文件移入 Windows 回收站？这会影响原始路径，其他架的同路径引用将失效。仅软件记录可在本软件恢复；实体文件须从 Windows 回收站恢复。不会永久删除兜底。" )).title("再次确认：回收真实文件").buttons(tauri_plugin_dialog::MessageDialogButtons::OkCancel).parent(&window).blocking_show()).await.map_err(error)?;
+    if !confirm {
+        return Ok(plan
+            .items
+            .iter()
+            .map(|(id, _)| RecycleOutcome {
+                id: *id,
+                status: "cancelled".into(),
+                message: "用户取消，文件及引用保留。".into(),
+            })
+            .collect());
+    }
+    let guard = LifecycleGuard::acquire(&app)?;
+    let owner = plan.owner.clone();
+    let cancel = Arc::new(AtomicBool::new(false));
+    *app.state::<Runtime>().recycling.lock().map_err(error)? = Some((owner, cancel.clone()));
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let _guard = guard;
+        let _recycle_guard = RecycleRunGuard(app.clone());
+        let runtime = app.state::<Runtime>();
+        let mut outcomes = Vec::new();
+        for (id, target) in plan.items {
+            if cancel.load(Ordering::SeqCst) {
+                outcomes.push(RecycleOutcome {
+                    id,
+                    status: "cancelled".into(),
+                    message: "已取消后续文件，保留原文件。".into(),
+                });
+                continue;
+            }
+            let prepare = (|| {
+                let store = runtime.store.lock().map_err(error)?;
+                store.validate_item_scope(scope, &[id])?;
+                store.begin_recycle(id, &target.path)
+            })();
+            let journal = match prepare {
+                Ok(j) => j,
+                Err(e) => {
+                    outcomes.push(RecycleOutcome {
+                        id,
+                        status: "failed".into(),
+                        message: e,
+                    });
+                    continue;
+                }
+            };
+            let result =
+                windows_recycle::execute_with_cancel(&target, &runtime.data_root, cancel.clone());
+            let (status, message) = match result {
+                Ok(_) => (
+                    "os-success",
+                    "Windows 已确认回收；发起引用移入软件回收站。".to_string(),
+                ),
+                Err(e) => (
+                    "uncertain",
+                    format!("未确认系统回收完成：{e}。原引用保留，请核对 Windows 回收站后再操作。"),
+                ),
+            };
+            let commit = runtime
+                .store
+                .lock()
+                .map_err(error)?
+                .recycle_result(journal, status, &message);
+            outcomes.push(RecycleOutcome {
+                id,
+                status: if commit.is_err() {
+                    "uncertain"
+                } else if status == "os-success" {
+                    "success"
+                } else {
+                    "uncertain"
+                }
+                .into(),
+                message: commit
+                    .err()
+                    .map(|e| {
+                        format!("{message} 记录提交失败：{e}；请核对系统回收站，不要重复回收。")
+                    })
+                    .unwrap_or(message),
+            });
+        }
+        *runtime.recycling.lock().map_err(error)? = None;
+        app.emit("workstation-changed", ()).map_err(error)?;
+        Ok(outcomes)
+    })
+    .await
+    .map_err(error)?
+}
+fn lifecycle_idle(app: &tauri::AppHandle) -> Result<()> {
+    desktop_runtime::require_idle(app)?;
+    if app
+        .state::<Runtime>()
+        .active
+        .lock()
+        .map_err(error)?
+        .is_some()
+    {
+        return Err("复制正在进行，请完成或取消后再调整记录。".into());
+    }
+    if app
+        .webview_windows()
+        .keys()
+        .any(|label| window_surface::moving(label))
+    {
+        return Err("请先完成窗口移动。".into());
+    }
+    Ok(())
+}
+#[tauri::command]
+async fn recycle_activity(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+) -> Result<Vec<store::RecycleActivity>> {
+    metadata_window(&window)?;
+    database(app, |s| s.recycle_activity()).await
+}
+#[tauri::command]
+async fn remove_references(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    ids: Vec<i64>,
+) -> Result<()> {
+    let scope = shelf_windows::scope(&window)?;
+    let _guard = LifecycleGuard::acquire(&app)?;
+    scoped_database(app.clone(), scope, ids.clone(), move |s| {
+        s.remove_references(&ids)
+    })
+    .await?;
+    app.emit("workstation-changed", ()).map_err(error)
+}
+#[tauri::command]
+async fn trash_entries(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    filter: Option<i64>,
+) -> Result<Vec<store::TrashEntry>> {
+    metadata_window(&window)?;
+    database(app, move |s| s.trash_entries(filter)).await
+}
+fn reconcile_recycle(app: &tauri::AppHandle) -> Result<()> {
+    let catalog = app
+        .state::<Runtime>()
+        .store
+        .lock()
+        .map_err(error)?
+        .shelf_catalog()?;
+    let ids = catalog.iter().map(|s| s.id).collect::<Vec<_>>();
+    let state = app.state::<desktop_runtime::Desktop>();
+    let old = state.layout.lock().map_err(error)?.detached.clone();
+    state.layout.lock().map_err(error)?.reconcile(&ids);
+    state.entry.lock().map_err(error)?.reset();
+    for record in old {
+        if !ids.contains(&record.shelf_id)
+            && let Some(w) = app.get_webview_window(&format!("shelf-{}", record.shelf_id))
+        {
+            w.hide().map_err(error)?;
+        }
+    }
+    desktop_runtime::entry_geometry(app)?;
+    if ids.is_empty()
+        && let Some(main) = app.get_webview_window("main")
+    {
+        main.show().map_err(error)?;
+    }
+    state.save()?;
+    app.emit("workstation-changed", ()).map_err(error)
+}
+#[tauri::command]
+async fn trash_shelf(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    shelf_id: i64,
+) -> Result<()> {
+    let scope = shelf_windows::scope(&window)?;
+    if scope.is_some_and(|id| id != shelf_id) {
+        return Err("独立窗口只能回收自己的文件架。".into());
+    }
+    let _guard = LifecycleGuard::acquire(&app)?;
+    if let Some(w) = app.get_webview_window(&shelf_windows::label_for(&app, shelf_id)?) {
+        shelf_windows::capture(&w.as_ref().window());
+    }
+    let layout = serde_json::to_string(
+        &*app
+            .state::<desktop_runtime::Desktop>()
+            .layout
+            .lock()
+            .map_err(error)?,
+    )
+    .map_err(error)?;
+    database(app.clone(), move |s| {
+        s.save_recycled_layout(shelf_id, &layout)?;
+        s.trash_shelf(shelf_id)
+    })
+    .await?;
+    reconcile_recycle(&app)
+}
+#[tauri::command]
+async fn restore_trash(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    entity: String,
+    id: i64,
+) -> Result<()> {
+    metadata_window(&window)?;
+    let _guard = LifecycleGuard::acquire(&app)?;
+    let is_shelf = entity == "shelf";
+    let saved = database(app.clone(), move |s| {
+        let saved = if is_shelf {
+            s.recycled_layout(id)?
+        } else {
+            None
+        };
+        if let Some(raw) = &saved {
+            let layout: desktop::Layout = serde_json::from_str(raw).map_err(error)?;
+            if !layout.validate() {
+                return Err("已保存窗口布局不兼容；回收记录保持不变。".into());
+            }
+        }
+        s.restore_trash(&entity, id)?;
+        Ok(saved)
+    })
+    .await?;
+    if let Some(raw) = saved {
+        let old: desktop::Layout = serde_json::from_str(&raw).map_err(error)?;
+        let state = app.state::<desktop_runtime::Desktop>();
+        let mut current = state.layout.lock().map_err(error)?;
+        if let Some(record) = old.detached.into_iter().find(|r| r.shelf_id == id)
+            && !current.detached.iter().any(|r| r.shelf_id == id)
+        {
+            current.detached.push(record);
+        }
+        if old.collapsed.contains(&id) && !current.collapsed.contains(&id) {
+            current.collapsed.push(id);
+            current.enabled = true;
+        }
+        if current.active_shelf == 0 && !current.detached.iter().any(|r| r.shelf_id == id) {
+            current.active_shelf = id;
+        }
+    }
+    reconcile_recycle(&app)?;
+    if is_shelf {
+        let state = app.state::<desktop_runtime::Desktop>();
+        let record = state
+            .layout
+            .lock()
+            .map_err(error)?
+            .detached
+            .iter()
+            .find(|r| r.shelf_id == id)
+            .cloned();
+        if let Some(record) = record
+            && record.visible
+        {
+            shelf_windows::ensure(&app, id)?.show().map_err(error)?;
+        }
+    }
+    Ok(())
+}
+#[tauri::command]
+async fn purge_trash(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    entity: String,
+    id: i64,
+) -> Result<bool> {
+    metadata_window(&window)?;
+    lifecycle_idle(&app)?;
+    let pick = app.clone();
+    let confirmed=tauri::async_runtime::spawn_blocking(move||pick.dialog().message("永久清理所选软件记录？原文件和 Windows 回收站均不受影响；此记录将无法从软件回收站恢复。").title("永久清理软件记录").buttons(tauri_plugin_dialog::MessageDialogButtons::OkCancel).parent(&window).blocking_show()).await.map_err(error)?;
+    if !confirmed {
+        return Ok(false);
+    }
+    let _guard = LifecycleGuard::acquire(&app)?;
+    database(app.clone(), move |s| s.purge_trash(&entity, id)).await?;
+    reconcile_recycle(&app)?;
+    Ok(true)
 }
 #[tauri::command]
 async fn relocate_reference(
@@ -483,6 +974,9 @@ fn start_native_drag(
     {
         let desktop = app.state::<desktop_runtime::Desktop>();
         let mut drags = desktop.drags.lock().map_err(error)?;
+        if desktop.transitioning.load(Ordering::SeqCst) {
+            return Err("正在调整记录，请稍后拖出。".into());
+        }
         if !drags.outgoing.is_empty() {
             return Err("已有原生拖出正在进行，请先完成或取消。".into());
         }
@@ -552,6 +1046,7 @@ fn quit(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<()> {
     clean_quit(app)
 }
 fn clean_quit(app: tauri::AppHandle) -> Result<()> {
+    lifecycle_idle(&app)?;
     desktop_runtime::require_idle(&app)?;
     let state = app.state::<Runtime>();
     if state.active.lock().map_err(error)?.is_some() {
@@ -706,11 +1201,41 @@ fn desktop_page(app: tauri::AppHandle, window: tauri::WebviewWindow, delta: i32)
     desktop_runtime::page(&app, delta)
 }
 #[tauri::command]
-fn desktop_move(window: tauri::WebviewWindow) -> Result<()> {
-    if window.label() != "desktop-entry" {
-        return Err("未知悬浮入口。".into());
+async fn desktop_move(window: tauri::WebviewWindow) -> Result<()> {
+    window_surface::drag(window).await
+}
+#[tauri::command]
+fn desktop_contour(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    amount: f64,
+    lower: bool,
+) -> Result<()> {
+    if window.label() != "desktop-entry" || !amount.is_finite() || !(0.0..=1.0).contains(&amount) {
+        return Err("入口轮廓参数不合法。".into());
     }
-    desktop_runtime::move_entry(&window)
+    desktop_runtime::require_idle(&app)?;
+    if window_surface::moving(window.label()) {
+        return Err("移动中保持原轮廓。".into());
+    }
+    let state = app.state::<desktop_runtime::Desktop>();
+    let l = state.layout.lock().map_err(error)?.clone();
+    let mut e = state.entry.lock().map_err(error)?;
+    if e.presentation.kind != entry::Kind::Capsule || e.close_lower != lower {
+        return Err("入口形态已变化。".into());
+    }
+    e.close_growth = amount;
+    let entry = e.clone();
+    drop(e);
+    window_surface::apply(&window, &entry, &l)
+}
+#[tauri::command]
+fn desktop_sense(app: tauri::AppHandle, window: tauri::WebviewWindow, enabled: bool) -> Result<()> {
+    if window.label() != "desktop-entry" {
+        return Err("只允许当前入口请求近距感应。".into());
+    }
+    window_surface::sense(&app, enabled);
+    Ok(())
 }
 #[tauri::command]
 fn desktop_disable(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<()> {
@@ -828,6 +1353,11 @@ pub fn run() {
                 ),
                 active: Mutex::new(None),
                 thumbnail: Mutex::new(()),
+                data_root: root.clone(),
+                recycle_test_root: std::env::var_os("NINGMAO_RECYCLE_TEST_ROOT")
+                    .and_then(|p| std::fs::canonicalize(p).ok()),
+                recycle_plans: Mutex::new(Default::default()),
+                recycling: Mutex::new(None),
                 _process_lock: lock,
             });
             desktop_runtime::setup(app.handle(), &root).map_err(std::io::Error::other)?;
@@ -867,6 +1397,9 @@ pub fn run() {
         })
         .on_window_event(|window, event| {
             desktop_runtime::window_event(window, event);
+            if matches!(event, tauri::WindowEvent::Moved(_)) {
+                window_surface::observe_move(window);
+            }
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 if window.label() != "manager" {
                     api.prevent_close();
@@ -918,6 +1451,15 @@ pub fn run() {
             import_paths,
             cancel_copy,
             remove_reference,
+            plan_system_recycle,
+            execute_system_recycle,
+            cancel_system_recycle,
+            recycle_activity,
+            remove_references,
+            trash_entries,
+            trash_shelf,
+            restore_trash,
+            purge_trash,
             relocate_reference,
             set_tags,
             reorder,
@@ -937,6 +1479,8 @@ pub fn run() {
             desktop_select,
             desktop_page,
             desktop_move,
+            desktop_contour,
+            desktop_sense,
             desktop_disable,
             manager_open,
             management_snapshot,

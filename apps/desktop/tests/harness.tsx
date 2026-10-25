@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import App from "../src/App";
 import DesktopEntry from "../src/DesktopEntry";
 import Manager from "../src/Manager";
-import type { Backend, DesktopView, Events, Item, Snapshot } from "../src/backend";
+import type { Backend, DesktopView, Events, Item, Snapshot, TrashEntry } from "../src/backend";
 import "../src/style.css";
 const item=(id:number,name:string,shelf_id=1):Item=>({id,name,shelf_id,path:"SYNTHETIC/"+name,kind:"txt",bytes:200,modified:1,status:"normal",tags:[]});
 const initial:Snapshot={shelves:[{id:1,name:"灵感收集",kind:"persistent",root:null,available:true},{id:2,name:"本次中转",kind:"session",root:null,available:true}],items:[item(1,"Alpha.txt"),item(2,"中文 文件.txt"),item(3,"Gamma.txt")],jobs:[]};
@@ -12,9 +12,19 @@ const ownShelf=Number(new URLSearchParams(location.search).get("shelf")) || unde
 let events:Events;let fail="";let snapshotFailure="";let next=10;let cancelRelocation=false;let cancelOpening=false;const calls:string[]=[];
 const save=()=>localStorage.setItem("test-state",JSON.stringify(state));
 let desktop:DesktopView=JSON.parse(localStorage.getItem("test-desktop-layout") || "null")??{layout:{enabled:false,expanded:true,active_shelf:1,collapsed:[],detached:[],page:0,preferences:{edge:"free",auto_hide:false,topmost:true}},entries:[],total:0,warning:null,copying:false,edge_hidden:false};
-function publishDesktop(){desktop.entries=desktop.layout.collapsed.slice(desktop.layout.page*5,desktop.layout.page*5+5).map(id=>state.shelves.find(s=>s.id===id)!);desktop.total=desktop.layout.collapsed.length;desktop.catalog=state.shelves.map(({id,name,kind})=>({id,name,kind}));if(!desktop.entries.some(s=>s.id===desktop.presentation?.shelf_id))desktop.presentation={kind:"orb",shelf_id:null};let x=8,y=8,width=64,height=64;const horizontal=["top","bottom"].includes(desktop.layout.preferences.edge) || desktop.layout.preferences.edge==="free" && desktop.layout.preferences.flow==="horizontal";const slots=desktop.entries.filter(s=>desktop.presentation?.kind==="orb" || s.id===desktop.presentation?.shelf_id).map(s=>{const mode=s.id===desktop.presentation?.shelf_id?desktop.presentation.kind:"orb",w=mode==="quick-peek"?300:mode==="capsule"?184:48,h=mode==="quick-peek"?224:48,slot={id:s.id,x,y,width:w,height:h};width=Math.max(width,x+w+8);height=Math.max(height,y+h+8);if(horizontal)x+=w+8;else y+=h+8;return slot;});desktop.geometry={width,height:height+(desktop.total>5?24:0),slots};localStorage.setItem("test-desktop-layout",JSON.stringify(desktop));events?.desktop?.(structuredClone(desktop));}
+function publishDesktop(){desktop.entries=desktop.layout.collapsed.slice(desktop.layout.page*5,desktop.layout.page*5+5).map(id=>state.shelves.find(s=>s.id===id)!);desktop.total=desktop.layout.collapsed.length;desktop.catalog=state.shelves.map(({id,name,kind})=>({id,name,kind}));if(!desktop.entries.some(s=>s.id===desktop.presentation?.shelf_id))desktop.presentation={kind:"orb",shelf_id:null};let x=8,y=desktop.presentation?.kind==="capsule"?24:8,width=64,height=64;const horizontal=["top","bottom"].includes(desktop.layout.preferences.edge) || desktop.layout.preferences.edge==="free" && desktop.layout.preferences.flow==="horizontal";const slots=desktop.entries.filter(s=>desktop.presentation?.kind==="orb" || s.id===desktop.presentation?.shelf_id).map(s=>{const mode=s.id===desktop.presentation?.shelf_id?desktop.presentation.kind:"orb",w=mode==="quick-peek"?300:mode==="capsule"?184:48,h=mode==="quick-peek"?224:48,slot={id:s.id,x,y,width:w,height:h};width=Math.max(width,x+w+8);height=Math.max(height,y+h+(mode==="capsule"?24:8));if(horizontal)x+=w+8;else y+=h+8;return slot;});desktop.geometry={width,height:height+(desktop.total>5?24:0),slots};localStorage.setItem("test-desktop-layout",JSON.stringify(desktop));events?.desktop?.(structuredClone(desktop));}
 function syncState(){state=JSON.parse(localStorage.getItem("test-state") || JSON.stringify(state));}
+const recycle:{entry:TrashEntry;item?:Item;shelf?:Snapshot["shelves"][number];children?:Item[]}[]=[];
+function trashItem(id:number){const item=state.items.find(i=>i.id===id)!;const shelf=state.shelves.find(s=>s.id===item.shelf_id)!;recycle.push({entry:{id,entity:"item",name:item.name,shelf_id:shelf.id,shelf_name:shelf.name,shelf_kind:shelf.kind,path:item.path,removed_at:Date.now()/1000,children:0},item});state.items=state.items.filter(i=>i.id!==id);save();}
 const backend:Backend={
+ async removeReferences(ids){ids.forEach(id=>{calls.push("remove:"+id);trashItem(id);});},async recycleActivity(){return [];},
+ async trashEntries(filter){return structuredClone(recycle.filter(r=>filter===null||r.entry.shelf_id===filter).map(r=>r.entry));},
+ async trashShelf(id){calls.push("trash-shelf:"+id);const shelf=state.shelves.find(s=>s.id===id)!;recycle.push({entry:{id,entity:"shelf",name:shelf.name,shelf_id:id,shelf_name:shelf.name,shelf_kind:shelf.kind,path:shelf.root,removed_at:Date.now()/1000,children:state.items.filter(i=>i.shelf_id===id).length},shelf,children:state.items.filter(i=>i.shelf_id===id)});state.shelves=state.shelves.filter(s=>s.id!==id);state.items=state.items.filter(i=>i.shelf_id!==id);desktop.layout.collapsed=desktop.layout.collapsed.filter(i=>i!==id);if(desktop.layout.active_shelf===id)desktop.layout.active_shelf=state.shelves[0]?.id??0;save();publishDesktop();events.changed?.();},
+ async restoreTrash(entity,id){const index=recycle.findIndex(r=>r.entry.entity===entity&&r.entry.id===id);const row=recycle[index];if(!row)throw new Error("回收记录不存在");if(row.item)state.items.push(row.item);if(row.shelf){state.shelves.push(row.shelf);state.items.push(...row.children??[]);if(!desktop.layout.active_shelf)desktop.layout.active_shelf=id;}recycle.splice(index,1);save();publishDesktop();events.changed?.();},
+ async purgeTrash(entity,id){const index=recycle.findIndex(r=>r.entry.entity===entity&&r.entry.id===id);if(index>=0)recycle.splice(index,1);return true;},
+ async planSystemRecycle(ids){return {ticket:"synthetic-only",items:state.items.filter(i=>ids.includes(i.id)).map(i=>({id:i.id,name:i.name,path:i.path,other_references:0,shelf_kind:"persistent"}))};},
+ async executeSystemRecycle(){return [{id:1,status:"cancelled",message:"合成对照：用户取消，文件及引用保留。"}];},
+ async cancelSystemRecycle(){calls.push("cancel-system-recycle");},
   async desktopPresent(id,kind){if(desktop.native_dragging)throw new Error("正在投放，形态保持固定。");if(!desktop.entries.some(s=>s.id===id))throw new Error("入口目标已变化");desktop.presentation={kind,shelf_id:kind==="orb"?null:id};publishDesktop();},
   async desktopPeek(id){const shelf=state.shelves.find(s=>s.id===id)!;const items=state.items.filter(i=>i.shelf_id===id);return {shelf:{id,name:shelf.name,kind:shelf.kind},total:items.length,items:await Promise.all(items.slice(-3).reverse().map(async i=>({id:i.id,name:i.name,kind:i.kind,status:i.status,thumbnail:await backend.thumbnail(i.id)})))};},
   async managerOpen(){calls.push("manager-open");},async managementSnapshot(){return structuredClone(state);},
@@ -40,7 +50,7 @@ const backend:Backend={
     setTimeout(()=>events.progress({job_id:1,name:"新增文件.txt",file_index:1,file_count:1,bytes:500,total:1000}),300);
     return {added:0,job_id:1,errors:[]};
   },
-  async remove(id){calls.push("remove:"+id);state.items=state.items.filter(i=>i.id!==id);save();},
+  async remove(id){calls.push("remove:"+id);trashItem(id);},
   async open(id){calls.push("open:"+id);if(cancelOpening){cancelOpening=false;return false;}if(fail){const message=fail;fail="";throw new Error(message);}return true;},
   async relocate(id,directory){
     calls.push("relocate:"+id+":"+directory);

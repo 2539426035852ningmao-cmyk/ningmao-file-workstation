@@ -50,6 +50,8 @@ struct Drag {
 pub struct EntryState {
     pub presentation: Presentation,
     pub anchor: Option<(i32, i32)>,
+    pub close_lower: bool,
+    pub close_growth: f64,
     drag: Option<Drag>,
 }
 impl EntryState {
@@ -63,6 +65,7 @@ impl EntryState {
         if !self.busy() {
             self.presentation = Presentation::default();
             self.anchor = None;
+            self.close_growth = 0.0;
         }
     }
     pub fn present(&mut self, layout: &Layout, id: i64, kind: Kind) -> Result<(), String> {
@@ -72,12 +75,14 @@ impl EntryState {
         if !layout.visible_ids().contains(&id) {
             return Err("该入口已变化，请重新选择文件架。".into());
         }
+        self.close_growth = 0.0;
         self.presentation = Presentation {
             kind,
             shelf_id: if kind == Kind::Orb { None } else { Some(id) },
         };
         if kind == Kind::Orb {
             self.anchor = None;
+            self.close_growth = 0.0;
         }
         Ok(())
     }
@@ -123,7 +128,16 @@ impl EntryState {
                     .collect(),
             };
         }
-        let (mut x, mut y, mut width, mut height) = (8.0, 8.0, 64.0_f64, 64.0_f64);
+        let (mut x, mut y, mut width, mut height) = (
+            8.0,
+            if self.presentation.kind == Kind::Capsule {
+                24.0
+            } else {
+                8.0
+            },
+            64.0_f64,
+            64.0_f64,
+        );
         let slots = ids
             .into_iter()
             .map(|id| {
@@ -157,6 +171,11 @@ impl EntryState {
         Geometry {
             width,
             height: height
+                + if self.presentation.kind == Kind::Capsule {
+                    16.0
+                } else {
+                    0.0
+                }
                 + if layout.collapsed.len() > 5 {
                     24.0
                 } else {

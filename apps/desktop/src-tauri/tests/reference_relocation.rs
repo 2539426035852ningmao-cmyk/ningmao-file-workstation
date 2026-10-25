@@ -139,3 +139,37 @@ fn folder_and_session_relocations_preserve_scope_and_reject_bound_records() {
     );
     store.integrity_check().unwrap();
 }
+
+#[test]
+fn missing_bound_reference_can_relocate_only_inside_unchanged_root() {
+    let d = tempfile::tempdir().unwrap();
+    let root = d.path().join("bound");
+    std::fs::create_dir(&root).unwrap();
+    let old = root.join("old.txt");
+    std::fs::write(&old, b"keep").unwrap();
+    let mut s = Store::open(&d.path().join("db.sqlite3")).unwrap();
+    let shelf = s.bind_directory(&root).unwrap();
+    let id = s.snapshot().unwrap().items[0].id;
+    s.set_tags(id, vec!["same-id".into()]).unwrap();
+    let new = root.join("new.txt");
+    std::fs::rename(&old, &new).unwrap();
+    let expected = s.relocation_source(id).unwrap();
+    let outside = d.path().join("outside.txt");
+    std::fs::write(&outside, b"outside").unwrap();
+    assert!(s.relink_reference(id, &expected, &outside).is_err());
+    s.relink_reference(id, &expected, &new).unwrap();
+    let snap = s.snapshot().unwrap();
+    let item = snap.items.iter().find(|i| i.id == id).unwrap();
+    assert_eq!(item.name, "new.txt");
+    assert_eq!(item.tags, vec!["same-id"]);
+    assert_eq!(
+        snap.shelves
+            .iter()
+            .find(|i| i.id == shelf)
+            .unwrap()
+            .root
+            .as_ref()
+            .unwrap(),
+        &std::fs::canonicalize(root).unwrap().to_string_lossy()
+    );
+}

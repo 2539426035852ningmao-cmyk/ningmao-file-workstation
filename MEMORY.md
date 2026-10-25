@@ -101,3 +101,6 @@ D-ORB精确r15已构建/核验：源f7673e6，构建5807e05，完整tree相同�
 r15集中验收继续：第一次English引用后1条/0任务，第二次用户明确胶囊投放中文且见接收文字；SQLite现在2条持久引用/0任务、完整，5保护对象哈希不变。反馈文字过长截断=FAIL R2。已新增真实红断言并在fdf71b9修为短胶囊提示（已接收N项/复制完成/正在复制/已取消），完整原文留tooltip/QuickPeek，18专项通过；正在运行的r15没有被改动。实际QuickPeek两条/明确Open shelf→全架已观察。已用原生选择器绑定本轮D-ORB-acceptance-r15/bound-target为shelf3（不是旧r3），收起到自身胶囊，English已选中；已请用户向bound-target正中仅松开一次，等待回复。复制前3记录/0任务/1旧English目标，见work/orb-r15-before-bound-drop1.json。不要提前宣称Copy通过。
 
 文档头99b69a2的CI有一次旧metadata-sorting窄窗focus超时（78/79），新fdf71b9浏览器已通过，未修改该排序测试或业务；完整CI状态仍需核对并如实保留间歇记录，不用旧全绿冒充新头。
+
+
+- UI-B01～B07在feat/ui-b01-b07 / Draft PR #36集中实施，基于#35 HEAD 97f779e。新增schema2内部回收、单调ID和Windows严格回收；旧r16用户试用目录保持独立，不可用新库覆盖旧库。仅合成数据后台R3测试获得授权；可见Windows新候选/Explorer仍需集中许可，未安装/合并/发布。设计依据docs/tasks/UI-B01-B07.md及handoff集中指令；浏览器与Win32实测证据必须区分。
