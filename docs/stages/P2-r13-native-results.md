@@ -36,6 +36,12 @@
 
 ## 未验证与后续关卡
 
+### r14 后台交付
+
+精确源码563ca7d8ba293dd7b433749445f6e5522ebd4f41 / 构建7e6b78028bfa55c051936e656133be327360ce9c，完整tree同为3c3617e44586d45e6f0ffdf50932f17e62f55ca3。[Desktop](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/actions/runs/40139845977)、[MSI](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/actions/runs/40139845942)、[双平台仓库检查](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/actions/runs/40139867090)全SUCCESS：62浏览器/32Rust、fmt/Clippy和Windows编译。Artifact12578581369，本机r14另存并通过9文件白名单/8哈希/PE/MSI只读检查；完整哈希与许可见[r14精确证据](../research/P2-detached-shelves-evidence/r14-verification.json)。未启动/未安装，新原生NOT RUN。文档头不替换这份包。
+
+下一次集中只先复测Dock固定入口/细柄唤出后的Drop与Esc取消、正确目标且一次副本、所属窗口置顶菜单、直接文件流转抽样；复用已验证隔离合成材料，留存前后目标/任务/SQLite基线，避免再次准备私人素材或反复拖旧r13。未测项目不得因此升级为PASS。
+
 未验证：Win10、指定125%/150%DPI、多屏负坐标/断屏重连、实际安装升级卸载、X/托盘完整组合、原生复制中取消/退出保护、资源性能与超5架原生分页。v1/v2仅以合成旧文件验证在已有v3时逐字节保留；原生从无v3迁移未测，迁移只有Rust自动覆盖。
 
 下一候选先后台修复、完整回归、云端构建、包身份/许可只读检查；准备好后集中复测Dock固定入口、细柄唤出后投放、Esc取消、一次写入及窗口拖放期间生命周期保护。新候选原生未验前不能声称Dock已修好。#30/#32保持R3阶段门槛；不合并、不安装、不发布、不启用LAN、不调用Gemini。Gemini#17仍UNKNOWN、0模型调用，不阻断产品。43项与完整P2→P3→P4路线继续保留。

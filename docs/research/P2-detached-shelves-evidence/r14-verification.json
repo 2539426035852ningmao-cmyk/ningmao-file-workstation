@@ -1,0 +1,125 @@
+{
+  "schema": 1,
+  "date": "2026-10-25",
+  "candidate": "r14",
+  "sourceCommit": "563ca7d8ba293dd7b433749445f6e5522ebd4f41",
+  "ciMergeCommit": "7e6b78028bfa55c051936e656133be327360ce9c",
+  "sourceTree": "3c3617e44586d45e6f0ffdf50932f17e62f55ca3",
+  "appTree": "9e9692dda26fe3d3d32ad87705bb6f7f9c5ab2d2",
+  "sourceAndCiEntireTreeEqual": true,
+  "changes": [
+    "Route WindowContent native drops and incoming lifecycle guards through WindowEvent, removing incorrect WebviewEvent subscription",
+    "Restore topmost checkbox from the owning window layout",
+    "Wait for rendered imported fixture cards before auto-scroll selection test; no product selection changes or retries"
+  ],
+  "checks": {
+    "browserPassed": 62,
+    "rustPassed": 32,
+    "rustFixturesIgnored": 2,
+    "fmt": "PASS",
+    "clippy": "PASS",
+    "windowsNativeBuild": "PASS",
+    "repositoryWindows": "PASS",
+    "repositoryUbuntu": "PASS",
+    "msiReadOnly": "PASS"
+  },
+  "runs": {
+    "desktop": 40139845977,
+    "package": 40139845942,
+    "repository": 40139867090
+  },
+  "regressions": [
+    {
+      "case": "Restored native topmost flag true but menu unchecked",
+      "redBrowserVerified": true,
+      "resolution": "Synchronize own-window layout flag; new browser case passed"
+    },
+    {
+      "case": "Initial Linux browser suite had 61/62; auto-scroll gesture began before async fixture snapshot settled",
+      "failedBrowserJob": 121008293559,
+      "firstRun": 40139588484,
+      "resolution": "Wait for new card visible and two render frames; retain marquee/scroll/stop assertions; no skips or retries",
+      "supersededRunsCancelled": [
+        40139588484,
+        40139588491
+      ]
+    }
+  ],
+  "signed": false,
+  "profile": "debug",
+  "installed": false,
+  "launched": false,
+  "nativeAcceptance": "NOT RUN; r13 Dock acceptance remains FAIL and is not inherited",
+  "syntheticProtectedFiles": 5,
+  "syntheticFilesUnchanged": true,
+  "geminiCalls": 0,
+  "artifact": {
+    "id": 12578581369,
+    "zipSha256": "6f8711f099896aae26297cdb76195bd61b975d3d5d88df22b40196e8f33679e6",
+    "zipBytes": 12473139,
+    "retentionDays": 7,
+    "whitelistedFiles": 9,
+    "sha256FilesVerified": 8
+  },
+  "files": [
+    {
+      "name": "build-manifest.json",
+      "bytes": 471,
+      "sha256": "e9b32574d22a7dec0eb2cf9031f0dcf803e6bc49e01fc460c40dc7a8c8abd978"
+    },
+    {
+      "name": "license-manifest.json",
+      "bytes": 122632,
+      "sha256": "4ab429897836faa2495f0fd66d20ad705d09f481deed93ca6d071592f64ed36f"
+    },
+    {
+      "name": "LICENSE.txt",
+      "bytes": 11357,
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "name": "msi-inspection.json",
+      "bytes": 9434,
+      "sha256": "093b7d16df7ab215a8ec6948e28953e1e34583ba57aedaff76bc3bec56f76bb5"
+    },
+    {
+      "name": "Ningmao-Preview-0.1.0-x64.exe",
+      "bytes": 18621440,
+      "sha256": "b29191d1e7f71e95236c715923db84a2d36fb843572ebd09613ad72244c15e27"
+    },
+    {
+      "name": "Ningmao-Preview-0.1.0-x64.msi",
+      "bytes": 6389760,
+      "sha256": "093a7414e010a959079d3cdc90c5d554b442c472e7ea0d849043e251f8c5a5ce"
+    },
+    {
+      "name": "README.md",
+      "bytes": 3789,
+      "sha256": "f0fcf5c39816bafa6fc56688b5f04dad0a9a647910d7cd1661fff579550dbf2f"
+    },
+    {
+      "name": "THIRD_PARTY_NOTICES.txt",
+      "bytes": 3480905,
+      "sha256": "8e169fb0809053f18490891095d9df548f2fd1dc5a3a3c940ad7ec5cf788cf6e"
+    }
+  ],
+  "license": {
+    "records": 268,
+    "missingTexts": 0,
+    "existingMappingWarnings": 1
+  },
+  "packageInspection": {
+    "architecture": "PE32+ x64",
+    "version": "0.1.0",
+    "embeddedPayloadSizesMatch": true,
+    "savedInspectionMatches": true,
+    "filesUnchangedAfterInspection": true
+  },
+  "remaining": [
+    "Native steady Dock and edge reveal Drop/Esc cancellation, one-time safe copy and fixed target",
+    "Native main and detached incoming drag lifecycle protection",
+    "New binary direct file-flow and restored checkbox smoke checks",
+    "Windows10/mixed DPI/multi-monitor and installation matrix",
+    "Complete remaining P2 desktop capabilities before P3 runtime activation"
+  ]
+}

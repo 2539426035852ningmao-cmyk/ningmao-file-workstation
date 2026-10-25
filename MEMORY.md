@@ -12,6 +12,10 @@
 
 后台最小修复同一PR #32：锁定runtime-wry2.12.3将WindowContent拖放发往WindowEvent，r13监听WebviewEvent，改接已有窗口回调，保留唯一导入与原Copy/冻结目标；无新依赖/权限/网络。主窗与所属独立窗的菜单勾选读取各自布局置顶。新增浏览器置顶检查先实际失败后通过；Rust拖放记账测试提取接缝前编译失败，不能称OS复现。下一候选须精确云端包及重新原生验证，不继承r13结果；不合并R3阶段PR、不正式发布。
 
+**最新r14已后台交付核验、未启动/安装。** 功能源563ca7d8ba293dd7b433749445f6e5522ebd4f41，构建7e6b78028bfa55c051936e656133be327360ce9c，完整tree同为3c3617e44586d45e6f0ffdf50932f17e62f55ca3。云端Desktop40139845977、MSI40139845942、双平台仓库40139867090全SUCCESS；62浏览器/32Rust、fmt/Clippy通过。Artifact12578581369，ZIP6f8711f099896aae26297cdb76195bd61b975d3d5d88df22b40196e8f33679e6；本机另存M1-06-preview-package-r14，9白名单/8哈希/PE/MSI只读核验通过。EXE b29191d1e7f71e95236c715923db84a2d36fb843572ebd09613ad72244c15e27；MSI093a7414e010a959079d3cdc90c5d554b442c472e7ea0d849043e251f8c5a5ce。268许可原文缺0、既有映射警告1；debug未签名，需已有WebView。原生NOT RUN，不能说Dock已修好。r13合成材料5保护对象仍未变，旧候选全保留。证据docs/research/P2-detached-shelves-evidence/r14-verification.json。
+
+初轮Linux61/62，旧自动滚动框选测试在异步60条fixture刷新前开始手势；新增等待新增卡片可见/渲染帧，保留全部断言，未改选择业务/跳过/重试。初轮Desktop40139588484及包40139588491被新提交受控取消，不能写为全绿。后续文档头不改变r14精确包身份；新的前台时段仍需确认方便后集中复测。
+
 ## 当前唯一入口
 
 先读AGENTS.md、docs/product-decisions.md（全部43项）、docs/execution/v0.1-p0-p4-2026-10-24.md、design.md、apps/desktop/DESIGN.md、docs/codex-start-here.md、docs/roadmap.md与当前Issues/PR。唯一主工程apps/desktop：Tauri2/Rust/React/TypeScript/SQLite，shadcn/ui主、SpaceUI仅FileThumb。

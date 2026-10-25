@@ -2,6 +2,8 @@
 
 2026-10-25最新实机结果：[r13原生报告](stages/P2-r13-native-results.md)。直接文件闭环、拆合、中心与重启抽样通过；Dock投放FAIL R3，重启置顶菜单FAIL R2，整体P2未验收。候选已正常退出，默认后台修复；后续精确包另验，不再反复拖旧r13。以下旧“未启动/待验”为交付时历史状态。
 
+修复候选[r14](research/P2-detached-shelves-evidence/r14-verification.json)现已云端62浏览器/32Rust/Windows/MSI/双平台仓库全绿、本机包只读核验通过。源563ca7d / 构建7e6b780，未启动/安装，原生待集中验证；不能将r13抽样通过或r14自动全绿当成Dock已修好。
+
 2026-10-24。唯一主工程apps/desktop，尚无正式稳定发行版。P0/P1为PR #30 / integration/v0.1-p0-p1；P2为Issue #31 / feat/p2-desktop-loop，不向main直接推功能，不自动合并。
 
 ## 开始前读取
