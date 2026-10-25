@@ -1,0 +1,25 @@
+{
+  "date": "2026-10-25",
+  "version": "V0.1 r16 user trial",
+  "sourceCommit": "fdf71b902eb1c2d22b25b48c72b5c8220447e562",
+  "ciMergeCommit": "80a1efd6460541b6a498fb4ef1cc905fea2a4e4e",
+  "exeSha256": "a6099f202e2dfee3fbb92b2130070e09aa7469ca7e5236f44cc406c0a9c5b359",
+  "deliveryFolder": "Ningmao-r16-user-trial-20261025",
+  "zipName": "Ningmao-r16-user-trial-20261025.zip",
+  "zipBytes": 12285702,
+  "zipSha256": "af15d414130c0b110c8ce8a336911e94228e5ebbc6ff034a850c393b60a88dd7",
+  "fileCount": 18,
+  "originalNineFilePackagePreserved": true,
+  "additionalFiles": "One-click process-env launcher, Chinese guide, four-category feedback template, five protected synthetic sample files",
+  "launcherSource": "@echo off\nsetlocal DisableDelayedExpansion\nif not exist \"%~dp0app\\Ningmao-Preview-0.1.0-x64.exe\" (\n echo Please extract the entire package first.\n pause\n exit /b 1\n)\nset \"NINGMAO_DATA_DIR=%~dp0trial-data\"\nset \"WEBVIEW2_USER_DATA_FOLDER=%~dp0trial-webview\"\nstart \"\" /D \"%~dp0app\" \"%~dp0app\\Ningmao-Preview-0.1.0-x64.exe\"\nexit /b\n",
+  "isolation": "Fresh trial-data and trial-webview under delivery folder; no prior test DB or browser profile included",
+  "checks": {
+    "originalPackageReadOnly": "PASS",
+    "zipCrc": "PASS",
+    "exeInZipEqualsTestedR16": "PASS",
+    "privateDataIncluded": false,
+    "autoLaunched": false,
+    "installed": false
+  },
+  "publication": "Local user delivery only; no GitHub Release, merge or software installation"
+}

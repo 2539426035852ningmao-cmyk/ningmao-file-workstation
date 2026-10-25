@@ -1,6 +1,9 @@
 # 项目交接记忆
 
 
+2026-10-25当前交付给用户自主试用：V0.1 r16，outputs/Ningmao-r16-user-trial-20261025及同名ZIP（约12MB）。原r16 EXE哈希不变，完整9文件包保留；根目录开始试用.cmd仅设进程NINGMAO_DATA_DIR/WEBVIEW2_USER_DATA_FOLDER到独立trial-data/trial-webview，不安装、不改全局配置。附中文说明、按美术/交互/动画/操作四类反馈记录及合成素材；未带此前测试DB/缓存，未自动启动。ZIP af15d414130c0b110c8ce8a336911e94228e5ebbc6ff034a850c393b60a88dd7，CRC/ZIP内EXE与实测r16一致。用户接下来会自行基础试用并分批反馈；收到反馈先核对r16事实与设计规范，默认后台、不抢窗口、不自动升级其试用包。公开脱敏交付记录见docs/research/dual-eye-orb-evidence/user-trial-delivery.json。
+
+
 ## 最新收尾：D-ORB r16（2026-10-25）
 
 Draft PR #35 / Issue #34，修复源码fdf71b9，构建80a1efd，完整tree5325f246相同；80浏览器/36Rust/Windows/MSI/双平台仓库通过，精确包另存r16，EXE a6099f202e2dfee3fbb92b2130070e09aa7469ca7e5236f44cc406c0a9c5b359。本机包核验通过。详见docs/research/dual-eye-orb-evidence/README.md与r16-verification.json。
