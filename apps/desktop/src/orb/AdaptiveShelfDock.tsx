@@ -17,7 +17,7 @@ export default function AdaptiveShelfDock({backend}:{backend:Backend}) {
   function direct(id:number){if(!state.current?.native_dragging)void act(()=>backend.desktopOpen(id));}
   useEffect(()=>observeTheme(theme=>{document.documentElement.classList.toggle("dark",theme==="dark");document.documentElement.classList.toggle("light",theme==="light");}),[]);
   useEffect(()=>{document.documentElement.classList.add("desktop-entry-surface",readTheme());alive.current=true;let dispose:(()=>void)|undefined;
-    void backend.subscribe({drop:()=>{},hover:()=>{},progress:()=>{},drag:()=>{},desktop:value=>{if(alive.current)setView(value);},finished:message=>{if(alive.current)setNotice(message);},error:message=>{if(alive.current)setError(message);}}).then(fn=>{if(alive.current)dispose=fn;else fn();}).catch(e=>setError(String(e)));
+    void backend.subscribe({drop:()=>{},hover:()=>{},progress:()=>{},drag:()=>{},desktop:value=>{if(alive.current)setView(value);},finished:message=>{if(alive.current){if(message.startsWith("复制有错误")){setNotice("");setError(message);}else setNotice(message);}},error:message=>{if(alive.current)setError(message);}}).then(fn=>{if(alive.current)dispose=fn;else fn();}).catch(e=>setError(String(e)));
     void backend.desktopState().then(value=>{if(alive.current)setView(value);}).catch(e=>setError(String(e)));
     const storage=(event:StorageEvent)=>{if(event.key===appearanceKey || event.key===null)setAppearance(readAppearance());};window.addEventListener("storage",storage);
     return()=>{alive.current=false;dispose?.();window.removeEventListener("storage",storage);document.documentElement.classList.remove("desktop-entry-surface");};

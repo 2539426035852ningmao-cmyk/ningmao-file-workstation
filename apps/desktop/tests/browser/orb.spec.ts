@@ -103,10 +103,10 @@ test("六组皮肤主题与四形态证据（合成浏览器，不是Windows原�
   await page.setViewportSize({width:420,height:520});
   await page.addInitScript(()=>localStorage.removeItem("test-desktop-layout"));
   for(const theme of ["dark","light"])for(const skin of ["warm-white","navy-black","brand-blue"]){
-    await page.goto("/tests/harness.html?desktop-entry");
+    await page.goto("/tests/harness.html?desktop-entry&count=1");
     await page.evaluate(({theme,skin})=>{localStorage.setItem("ningmao-theme",theme);localStorage.setItem("ningmao-orb-appearance-v1",skin);window.dispatchEvent(new StorageEvent("storage",{key:null}));},{theme,skin});
     await page.getByRole("button",{name:"展开 灵感收集",exact:true}).press("Escape");
-    const shot=async(name:string)=>{if(folder){await page.waitForTimeout(320);await page.locator("nav[aria-label='悬浮文件架入口']").screenshot({path:path.join(folder,`${theme}-${skin}-${name}.png`),omitBackground:true,animations:"disabled"});}};
+    const shot=async(name:string)=>{if(folder){await page.mouse.click(400,500);await page.waitForTimeout(320);await page.locator("nav[aria-label='悬浮文件架入口']").screenshot({path:path.join(folder,`${theme}-${skin}-${name}.png`),omitBackground:true,animations:"disabled"});}};
     await shot("orb");await page.getByRole("button",{name:"展开 灵感收集",exact:true}).click();await shot("capsule");
     await page.getByRole("button",{name:"查看 灵感收集 轻预览",exact:true}).click();await expect(page.getByTestId("peek-file")).toHaveCount(3);await shot("peek");
     await page.goto("/tests/harness.html");await expect(page.getByRole("status").last()).toContainText("文件架已恢复");
@@ -117,9 +117,30 @@ test("六组皮肤主题与四形态证据（合成浏览器，不是Windows原�
 for(const count of [1,3,8])test(`${count} 架紧凑入口及更多搜索`,async({page})=>{
   await page.goto(`/tests/harness.html?desktop-entry&count=${count}`);
   await expect(page.getByRole("button",{name:/^展开 /})).toHaveCount(Math.min(count,5));
+  if(process.env.ORB_EVIDENCE)await page.locator("nav").screenshot({path:path.join(process.env.ORB_EVIDENCE,`dock-${count}-shelves.png`),omitBackground:true});
   await page.getByRole("button",{name:"展开 灵感收集",exact:true}).click();
   await page.getByRole("button",{name:"查看 灵感收集 轻预览",exact:true}).click();
   await page.getByRole("button",{name:"更多文件架",exact:true}).click();
   await expect(page.locator(".peek-catalog button")).toHaveCount(count);
   if(count===8){await page.getByRole("textbox",{name:"搜索文件架"}).fill("项目 8");await expect(page.locator(".peek-catalog button")).toHaveCount(1);await page.getByRole("button",{name:"项目 8",exact:true}).click();await expect.poll(()=>page.evaluate(()=>window.testHarness.calls())).toContain("expand:8");}
+});
+
+test("复制失败文字展开为可读错误，不冒充成功",async({page})=>{
+  await page.goto("/tests/harness.html?desktop-entry");
+  await page.getByRole("button",{name:"展开 灵感收集",exact:true}).click();
+  await page.evaluate(()=>window.testHarness.notifyFinished("复制有错误；已完成 0/1 项，来源保留。合成目标不可写，请更换目录。"));
+  await expect(page.getByRole("region",{name:"灵感收集 轻预览",exact:true})).toBeVisible();
+  await expect(page.getByRole("alert")).toContainText("合成目标不可写，请更换目录");
+  await expect(page.locator(".adaptive-dock")).toHaveAttribute("data-tone","error");
+});
+
+test("原创眨眼在低频触发后恢复，不留下持续帧循环",async({page})=>{
+  await page.addInitScript(()=>{Math.random=()=>0;});
+  await page.goto("/tests/harness.html?desktop-entry&count=1");
+  const face=page.locator(".orb-face");
+  await expect.poll(async()=>Number(await face.evaluate(el=>el.style.getPropertyValue("--eye-open") || "1")),{timeout:7000,intervals:[20]}).toBeLessThan(.7);
+  await expect.poll(async()=>Number(await face.evaluate(el=>el.style.getPropertyValue("--eye-open") || "1"))).toBe(1);
+  await page.getByRole("button",{name:"展开 灵感收集",exact:true}).click();
+  await page.mouse.move(170,35,{steps:8});
+  await expect(page.getByTestId("morph-capsule")).toBeVisible();
 });
