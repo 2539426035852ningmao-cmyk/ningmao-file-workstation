@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="720" viewBox="0 0 1320 720" role="img" aria-label="柠猫双眼灵动球原创三色与圆球胶囊轻预览造型规范">
+  <rect width="1320" height="720" fill="#15171C"/>
+  <text x="64" y="70" fill="#F0F2F5" font-family="Segoe UI,Microsoft YaHei UI,sans-serif" font-size="31" font-weight="650">柠猫 · 双眼灵动设计参考 V1</text>
+  <text x="64" y="104" fill="#9AA4B4" font-family="Segoe UI,Microsoft YaHei UI,sans-serif" font-size="17">三款可独立选择的球体外观 · 完整球体只用于入口 · 窗口仅保留双眼标识</text>
+  <g font-family="Segoe UI,Microsoft YaHei UI,sans-serif">
+    <rect x="64" y="140" width="374" height="230" rx="20" fill="#22262E"/>
+    <rect x="473" y="140" width="374" height="230" rx="20" fill="#22262E"/>
+    <rect x="882" y="140" width="374" height="230" rx="20" fill="#22262E"/>
+    <circle cx="251" cy="235" r="66" fill="#F5F3EF"/>
+    <ellipse cx="261" cy="218" rx="9" ry="19" transform="rotate(-23 261 218)" fill="#191B20"/>
+    <ellipse cx="289" cy="211" rx="6" ry="15" transform="rotate(-19 289 211)" fill="#191B20"/>
+    <circle cx="660" cy="235" r="66" fill="#191E28"/>
+    <ellipse cx="670" cy="218" rx="9" ry="19" transform="rotate(-23 670 218)" fill="#F5F6F8"/>
+    <ellipse cx="698" cy="211" rx="6" ry="15" transform="rotate(-19 698 211)" fill="#F5F6F8"/>
+    <circle cx="1069" cy="235" r="66" fill="#2869D6"/>
+    <ellipse cx="1079" cy="218" rx="9" ry="19" transform="rotate(-23 1079 218)" fill="#F8FAFF"/>
+    <ellipse cx="1107" cy="211" rx="6" ry="15" transform="rotate(-19 1107 211)" fill="#F8FAFF"/>
+    <text x="251" y="339" fill="#F3F5F7" text-anchor="middle" font-size="20" font-weight="600">01 · 暖白</text>
+    <text x="660" y="339" fill="#F3F5F7" text-anchor="middle" font-size="20" font-weight="600">02 · 深蓝黑（纯平哑光）</text>
+    <text x="1069" y="339" fill="#F3F5F7" text-anchor="middle" font-size="20" font-weight="600">03 · 主题蓝</text>
+    <text x="64" y="420" fill="#F0F2F5" font-size="23" font-weight="600">形态连续性 · 以深蓝黑皮肤为例</text>
+    <rect x="64" y="452" width="1192" height="216" rx="23" fill="#22262E"/>
+    <circle cx="158" cy="548" r="37" fill="#191E28"/>
+    <ellipse cx="165" cy="537" rx="5" ry="11" transform="rotate(-23 165 537)" fill="#F5F6F8"/>
+    <ellipse cx="181" cy="532" rx="3.2" ry="8.2" transform="rotate(-19 181 532)" fill="#F5F6F8"/>
+    <path d="M215 548 L264 548 M257 540 L265 548 L257 556" stroke="#8190A7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <rect x="290" y="512" width="260" height="72" rx="36" fill="#191E28"/>
+    <ellipse cx="328" cy="540" rx="5" ry="11" transform="rotate(-23 328 540)" fill="#F5F6F8"/>
+    <ellipse cx="346" cy="535" rx="3.3" ry="8.4" transform="rotate(-19 346 535)" fill="#F5F6F8"/>
+    <text x="386" y="539" fill="#F4F6F8" font-size="20" font-weight="600">临时收集</text>
+    <text x="386" y="560" fill="#AAB5C5" font-size="14">6 个文件</text>
+    <path d="M567 548 L608 548 M601 540 L609 548 L601 556" stroke="#8190A7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <rect x="634" y="477" width="300" height="158" rx="22" fill="#F6F6F4"/>
+    <ellipse cx="665" cy="498" rx="3.4" ry="8.6" transform="rotate(-23 665 498)" fill="#252933"/>
+    <ellipse cx="680" cy="493" rx="2.5" ry="6.4" transform="rotate(-19 680 493)" fill="#252933"/>
+    <text x="702" y="500" fill="#222A33" font-size="17" font-weight="600">临时收集</text>
+    <text x="702" y="519" fill="#6D7888" font-size="12">6 项 · 快速预览</text>
+    <rect x="651" y="538" width="80" height="62" rx="11" fill="#E0E9F2"/>
+    <rect x="744" y="538" width="80" height="62" rx="11" fill="#EDE4DF"/>
+    <rect x="837" y="538" width="80" height="62" rx="11" fill="#E4EAE4"/>
+    <text x="691" y="580" text-anchor="middle" fill="#64748B" font-size="29">▧</text>
+    <text x="784" y="580" text-anchor="middle" fill="#64748B" font-size="29">▶</text>
+    <text x="877" y="580" text-anchor="middle" fill="#64748B" font-size="29">▤</text>
+    <text x="651" y="621" fill="#68768A" font-size="13">仅保存引用</text>
+    <text x="833" y="621" fill="#315B9E" font-size="13">打开文件架 ›</text>
+    <path d="M952 548 L993 548 M986 540 L994 548 L986 556" stroke="#8190A7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <rect x="1016" y="485" width="211" height="139" rx="17" fill="#323844"/>
+    <ellipse cx="1042" cy="507" rx="3.5" ry="7.8" transform="rotate(-23 1042 507)" fill="#F2F3F6"/>
+    <ellipse cx="1056" cy="502" rx="2.4" ry="5.6" transform="rotate(-19 1056 502)" fill="#F2F3F6"/>
+    <text x="1075" y="509" fill="#F2F3F6" font-size="16" font-weight="600">临时收集</text>
+    <rect x="1030" y="531" width="55" height="54" rx="9" fill="#485569"/>
+    <rect x="1093" y="531" width="55" height="54" rx="9" fill="#485569"/>
+    <rect x="1156" y="531" width="55" height="54" rx="9" fill="#485569"/>
+    <text x="1120" y="607" text-anchor="middle" fill="#A6B2C2" font-size="12">完整架 · 双眼保持在左上</text>
+    <text x="64" y="701" fill="#8F9CAD" font-size="13">原创静态轮廓示意 · 不使用第三方仓库几何/角色数据 · 尺寸与动效待 Windows 实机验收</text>
+  </g>
+</svg>
