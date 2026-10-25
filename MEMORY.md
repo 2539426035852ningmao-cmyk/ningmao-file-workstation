@@ -1,6 +1,9 @@
 # 项目交接记忆
 
 
+2026-10-25当前任务已切入UI-B01～B07集中实施：用户完整总指令归档docs/execution/ui-b01-b07-2026-10-25.md，从#35实际HEAD97f779e起feat/ui-b01-b07。三份正式设计资料取自d29d630，按一个集中Draft/S0→S4推进，r16用户试用包保持原样。S0两项SQLite和三项UI行为已实际红态，不把失败用例写通过；任务见docs/tasks/UI-B01-B07.md。默认后台，无新桌面许可，不用真实数据试schema/Windows回收。R3隔离编码和自行生成合成数据的受控测试已授权，不合并/安装/发布。
+
+
 2026-10-25当前交付给用户自主试用：V0.1 r16，outputs/Ningmao-r16-user-trial-20261025及同名ZIP（约12MB）。原r16 EXE哈希不变，完整9文件包保留；根目录开始试用.cmd仅设进程NINGMAO_DATA_DIR/WEBVIEW2_USER_DATA_FOLDER到独立trial-data/trial-webview，不安装、不改全局配置。附中文说明、按美术/交互/动画/操作四类反馈记录及合成素材；未带此前测试DB/缓存，未自动启动。ZIP af15d414130c0b110c8ce8a336911e94228e5ebbc6ff034a850c393b60a88dd7，CRC/ZIP内EXE与实测r16一致。用户接下来会自行基础试用并分批反馈；收到反馈先核对r16事实与设计规范，默认后台、不抢窗口、不自动升级其试用包。公开脱敏交付记录见docs/research/dual-eye-orb-evidence/user-trial-delivery.json。
 
 
