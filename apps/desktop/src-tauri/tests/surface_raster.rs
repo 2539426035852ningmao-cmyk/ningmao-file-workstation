@@ -43,6 +43,17 @@ fn floating_surface_mask_preserves_visible_antialias_coverage_at_each_dpi() {
                     break;
                 }
             }
+            if missing.is_some() {
+                let mut rect = windows::Win32::Foundation::RECT::default();
+                let result = unsafe { windows::Win32::Graphics::Gdi::GetRgnBox(region, &mut rect) };
+                eprintln!(
+                    "box={rect:?} result={result:?} points={:?}",
+                    [
+                        unsafe { PtInRegion(region, 32, 32) }.as_bool(),
+                        unsafe { PtInRegion(region, 53, 43) }.as_bool()
+                    ]
+                );
+            }
             unsafe {
                 let _ = DeleteObject(HGDIOBJ(region.0));
             }
