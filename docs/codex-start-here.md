@@ -100,3 +100,5 @@ flowchart TD
 应用仍为精确r21源7621093/EXEc119311a…8f76a，未重建MSI。本轮已完成选择器Copy/中文编号保护、来源与组拖出哈希、Space/Esc及默认打开、管理跨窗完成终态/组合搜索、改键/正常退出重启；受控Windows探针已检查占用冲突和退出释放。详见[最新原生记录](research/P2-closeout-evidence/r21-native-session.json)。原生进度取消/回收/入口及DPI多屏仍有缺项，不宣布P2放行。用户已解除普通测试窗口/输入禁令，基本回归优先自主自动化。
 
 本次将修复后的#30祖先3651746和main fc8903d合同带入候选，无业务变更。下一闭环独立DLV-0/1验证环境提速，不新增Mock/数据库或提前开启DLV-3诊断、P3监听、P4模型。
+
+历史视觉/回滚入口：[D-ORB实施](tasks/D-ORB-implementation.md)、[r16证据](research/dual-eye-orb-evidence/README.md)、[UI-B01～B07与r19专项](tasks/UI-B01-B07.md)。r19用户专项PASS仍仅归旧精确包，不替代r21完整原生关卡。
