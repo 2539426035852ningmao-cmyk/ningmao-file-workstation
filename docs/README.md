@@ -1,22 +1,34 @@
-# 文档目录
+# 柠猫文件工作站 · 文档导航
 
-- [Gemini 独立复核工作协议](AI_REVIEW_WORKFLOW.md)：借鉴已完成的双 AI 交叉验证，Gate A/B/C 先核验官方 CLI 与费用再进行只读审查。
-- [M1 Gemini 接入任务](tasks/M1-GEMINI-REVIEW.md)：当前准备完成与待 Windows 实际验证的区分；根目录 [GEMINI.md](../GEMINI.md) 为独立审查规则。
+> 本页是文档目录，不代表功能实现或最新 Windows 原生状态。**先看 [项目状态页](project-status.md)，再看源码和 PR。**
 
-- [轻量悬浮文件架设计规范](../design.md)：窗口尺寸、同心圆圆角、间距、文字层级、扩展入口和阶段验收基线（建议 Token 部分需用户验收）。
-- [Codex 从这里开始](codex-start-here.md)：最新已核查状态、PR 依赖、下一门槛与行动顺序。
-- [阶段路线图](roadmap.md)：P0 核心文件 → P1 小窗 → P2 Dock → P3 网络 → P4 AI 与插件。
-- [P3/P4 开源方案与风险研究（2026-10-26）](research/P3-P4-open-source-reuse-2026-10-26.md)：按社交反馈→技术社区→GitHub→官方文档核对 LocalSend/iroh/FTS5/FastEmbed 等复用候选、许可、安全与待验证边界。
-- [P3 免费优先与克制型 UI 合同](design/P3-free-first-lean-ux-contract-2026-10-26.md)：LAN 默认无云端服务账单、轻量后台、各层区域职责、唯一发送入口和集中原生验收；不自动开放端口或启用付费中继。
-- [P3/P4 Codex 实施关卡](execution/P3-P4-implementation-gates-2026-10-26.md)：隔离探针、LAN 双机实测、跨架索引、可选 AI 的阶段目标与 R3 审批要求；**文档研究已完成，不代表 P3/P4 已实现或已批准联网/模型费用**。
+## 推荐从这里开始
 
-- [43 项产品与工程决策](product-decisions.md)：逐项保留用户选择，第 25 项保留补充说明。
-- [M1 原始执行基线](m1-execution-baseline.md)：共享记录中的正式交接文本。
-- [M1 开发任务记录](milestones/M1.md)：顺序、验收门槛和当前状态。
-- [M1-01 验收记录](tasks/M1-01.md)：初始化范围、验证方法及证据入口。
-- [M1-02 任务记录](tasks/M1-02.md)：双基线交付、状态及未完成项。
-- [M1-02 技术比较](research/M1-02-comparison.md)：源码发现、Windows 实测、复现步骤和主工程建议。
-- [M1-03 任务记录](tasks/M1-03.md)与 [UI 比较报告](research/M1-03-comparison.md)：两套组件原型、截图、交互及虚拟列表采样。
-- [第三方代码与工具清单](third-party.md)：来源、版本、许可和审查状态。
+| 你要做什么 | 正确入口 |
+|---|---|
+| 第一次认识柠猫 | [仓库首页](../README.md) · [产品说明](../PRODUCT.md) |
+| 当前做到哪里 / 哪些功能已验证 | **[项目现状与可视化架构](project-status.md)** |
+| Codex 接管或继续修复 P2 | **[Codex 最新开工入口](codex-start-here.md)** · [P2→P3→P4 顺序交付合同](execution/P2-to-P3-P4-sequential-delivery-2026-10-26.md) |
+| 查主要产品设计 | [`design.md` 全局设计规范](../design.md) · [阶段路线](roadmap.md) |
+| 查冻结需求 | [原 43 项](product-decisions.md) · [P4 新增 44 项](product/P4-confirmed-decisions-01-44-2026-10-26.md) |
+| 找出哪里需要实测/用户细化 | **[未决项与验证登记簿](open-decisions.md)** |
+| 准备 P3 LAN | [免费/克制 UI 合同](design/P3-free-first-lean-ux-contract-2026-10-26.md) · [复用研究](research/P3-P4-open-source-reuse-2026-10-26.md) |
+| 准备 P4 检索/AI/插件 | [P4 44 项](product/P4-confirmed-decisions-01-44-2026-10-26.md) · [Gate 0–4](execution/P3-P4-implementation-gates-2026-10-26.md) |
+| 双 AI 独立复核 | [审查协议](AI_REVIEW_WORKFLOW.md) · [Gemini 接入任务](tasks/M1-GEMINI-REVIEW.md) · [`GEMINI.md`](../GEMINI.md) |
+| 第三方许可证 | [第三方清单](third-party.md) |
 
-需求变更须明确记录并经用户批准。后续技术决策及实机测试记录在实际任务开始时添加；未执行的工作不能标记通过。
+## 历史里程碑（保留，不再作为当前开工快照）
+
+- [M1 原始执行基线](m1-execution-baseline.md) · [M1 开发记录](milestones/M1.md)
+- [M1-01](tasks/M1-01.md)：公开仓库与基础治理
+- [M1-02](tasks/M1-02.md) · [技术对比](research/M1-02-comparison.md)：Holdem 与官方 Tauri 2 的真实 Windows 验证
+- [M1-03](tasks/M1-03.md) · [UI 比较](research/M1-03-comparison.md)：SpaceUI 与 shadcn/ui
+- [P2 阶段实时跟踪 Issue #31](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/issues/31) · [r21 PR #40](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/40)
+- [P3/P4 研究与执行 Issue #37](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/issues/37)
+
+## 证据与变更纪律
+
+- `main` 暂无完整桌面应用正式发行工程；当前 `apps/desktop` 在堆叠开发 PR，不能按研究仓库导入错版本。
+- 设计 SVG、合成浏览器截图、CI 和 Windows 实机结果必须明确不同证据类型，不可混淆。
+- 产品约定调整记录确认日期与用户原选择；遇到未决项先查 [登记簿](open-decisions.md)，不要重新发起完整问卷。
+- 文件、设备、SQLite、网络、模型和费用遵守最小权限与 R3 Gate。默认不公开个人素材、路径、Token 或真实 DB。
