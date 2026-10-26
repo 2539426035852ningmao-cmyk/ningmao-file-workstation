@@ -1,8 +1,14 @@
 #![cfg(windows)]
 use ningmao_desktop_lib::windows_recycle::{execute, inspect};
 use sha2::{Digest, Sha256};
+// Shell undo/progress is user-session state. Match the application's single
+// LifecycleGuard owner instead of issuing concurrent IFileOperation requests.
+static SYSTEM_RECYCLE: std::sync::Mutex<()> = std::sync::Mutex::new(());
 #[test]
 fn real_windows_recycle_returns_same_entity_and_preserves_payload() {
+    let _serial = SYSTEM_RECYCLE
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let workspace = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
         .nth(5)
@@ -28,6 +34,9 @@ fn real_windows_recycle_returns_same_entity_and_preserves_payload() {
 }
 #[test]
 fn replacement_and_protected_files_are_rejected_without_deleting_anything() {
+    let _serial = SYSTEM_RECYCLE
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let workspace = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
         .nth(5)
@@ -52,6 +61,9 @@ fn replacement_and_protected_files_are_rejected_without_deleting_anything() {
 
 #[test]
 fn actual_recycle_moves_only_initiating_reference_and_keeps_other_tags() {
+    let _serial = SYSTEM_RECYCLE
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     use ningmao_desktop_lib::store::Store;
     let workspace = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .ancestors()

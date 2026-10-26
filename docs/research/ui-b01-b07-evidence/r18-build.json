@@ -1,0 +1,28 @@
+{
+  "candidate": "r18",
+  "sourceCommit": "b00ae9562a807fd2edaf8a16717c4c9e0c415624",
+  "exeSha256": "7c86466ef41f0baa7775bedac2528fc7cb97e8219a05835cbd20803b2c16f418",
+  "msiSha256": "10cb60228b4a12e688dc097ac477b027a36353d1783af06b599ebbf5b3ac6420",
+  "browserTests": 91,
+  "rustTests": 56,
+  "fixturePreparation": true,
+  "installed": false,
+  "nativeLaunch": true,
+  "nativeVisualAcceptance": "PENDING",
+  "licenses": {
+    "records": 268,
+    "existingWarnings": 1
+  },
+  "r17Verdict": "FAIL: top capsule snap / jagged edges / full shelf native frame",
+  "systemRecycleScope": "new synthetic root only",
+  "nativeObservations": {
+    "mainNativeTitlebarAbsent": true,
+    "windowActionGroupInsideHeader": true,
+    "maximizeInteraction": "INDETERMINATE: concurrent human input detected",
+    "edgesAndCapsuleTopSnap": "PENDING user observation"
+  },
+  "ciAtBuildSource": {
+    "desktop": "success:40247331163",
+    "preview": "failure:40247331167; no recycled entity returned; follow-up tests pending"
+  }
+}
