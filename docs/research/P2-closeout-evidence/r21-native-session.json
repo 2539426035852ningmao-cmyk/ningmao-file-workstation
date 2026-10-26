@@ -1,0 +1,60 @@
+{
+  "candidate": "r21",
+  "sourceCommit": "76210933f97d9a00b5ed8a3f4f8cd3ee24d73748",
+  "exeSha256": "c119311a50ff03cefe686a370602d994ba7a080c7de4ecdbb6b52f432178f76a",
+  "date": "2026-10-26",
+  "authorization": "User explicitly lifted prior window-launch and mouse-keyboard bans; ordinary project native testing authorized; separate high-risk gates unchanged",
+  "os": "Windows11 Home Chinese 10.0.22631",
+  "dpi": "NOT_TESTED",
+  "nativeLaunched": true,
+  "installed": false,
+  "steps": [
+    {
+      "id": "launch-manager-settings",
+      "status": "PASS",
+      "evidence": "Exact isolated executable started; main showed three synthetic references; separate native manager opened and displayed Ctrl+Alt+Space active."
+    },
+    {
+      "id": "default-wake",
+      "status": "PASS",
+      "evidence": "Closed main with hide-to-tray control. list_windows then contained only manager. Ctrl+Alt+Space sent to manager brought main window back."
+    },
+    {
+      "id": "pause-no-wake",
+      "status": "PASS",
+      "evidence": "Manager changed to shortcut paused; main hidden again. Ctrl+Alt+Space left only manager visible."
+    },
+    {
+      "id": "resume-wake",
+      "status": "PASS",
+      "evidence": "Resume completed and displayed current Ctrl+Alt+Space; same chord restored hidden main."
+    },
+    {
+      "id": "space-preview",
+      "status": "NOT_TESTED",
+      "evidence": "Synthetic Chinese item selected, but after Space input window capture reported minimized; no preview observed, cause not established."
+    }
+  ],
+  "automationInterruptions": [
+    "Coordinate geometry unavailable on text-only observation; screenshot-backed recovery used.",
+    "Later capture twice reported minimized window and one screenshot id became unavailable; input paused pending coordination. No root cause assigned."
+  ],
+  "shortcutRemaining": [
+    "real competing-registration conflict",
+    "configure and persist alternate key",
+    "disable and process-exit release",
+    "restart recovery"
+  ],
+  "protectedSyntheticFilesUnchanged": true,
+  "database": {
+    "integrity": "ok",
+    "schema": 2,
+    "shelves": 3,
+    "items": 6,
+    "jobs": 0,
+    "recycleJournal": 0
+  },
+  "fileOperations": "No native Copy/import/dragout/recycle in this session yet",
+  "overall": "PARTIAL",
+  "stageMergeApproved": false
+}

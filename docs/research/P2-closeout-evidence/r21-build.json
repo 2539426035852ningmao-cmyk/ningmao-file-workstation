@@ -30,15 +30,16 @@
     "msiIncreaseBytes": 135168
   },
   "performance": "Native idle CPU/RAM and input latency NOT_TESTED; no new polling/input hooks in source",
-  "nativeLaunch": false,
+  "nativeLaunch": true,
   "installed": false,
-  "nativeAcceptance": "NOT_TESTED",
-  "desktopSession": "r19 normally exited; r20 never launched; user asked to stop frequent mouse control, all further desktop input paused",
+  "nativeAcceptance": "PARTIAL: default wake/pause/resume passed; see r21-native-session.json for strict remaining scope",
+  "desktopSession": "User lifted prior desktop-input bans; isolated r21 launched. Input paused after capture/minimize errors pending coordination; not a cancellation of new authorization.",
   "schema": "Unchanged SQLite schema2 and layoutv4; wake config is a separate version1 JSON",
   "networkModelFees": "No LAN/discovery/firewall/model download/model requests/paid API; routine GitHub and crate/doc reads only",
   "rollback": "Preserved r19/r20; revert source with data backups, never overwrite or downgrade database",
   "ciAtBuild": "Pending PR40 update for r21; prior r20 CI not used for new source",
   "deliveryPR": 40,
   "deliveryBranch": "feat/p2-management-flow",
-  "implementationBranch": "fix/p2-closeout-20261026"
+  "implementationBranch": "fix/p2-closeout-20261026",
+  "ciVerifiedAtHead": "ac8a5adbb57749a22394627f75165bf7e6b16842; both workflows SUCCESS; see r21-ci.json"
 }

@@ -24,7 +24,7 @@
     {
       "id": "r21-shortcut",
       "status": "PARTIAL",
-      "scope": "Implemented/configurable/pause/conflict/save rollback and truthful UI; fake registry and official pure parser passed; actual Windows register/conflict/release NOT_TESTED"
+      "scope": "Native PASS: default registration/wake, pause prevents wake, resume restores wake. Competing registration, configure/persist, disable/exit release and restart still NOT_TESTED. See r21-native-session.json."
     },
     {
       "id": "r21-window-recovery",
@@ -65,5 +65,6 @@
       "status": "PARTIAL",
       "scope": "30→32→35→36→40 (r21 closeout in the same PR); R3/native gate pending; do not merge out of order"
     }
-  ]
+  ],
+  "desktopAuthorization": "2026-10-26 user lifted prior launch/input bans; separate safety gates unchanged"
 }
