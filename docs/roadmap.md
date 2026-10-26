@@ -42,3 +42,9 @@
 ## 状态维护规则
 
 不得将技术探针的验证结果继承给另一份 exe；CI 绿灯不等于系统拖入/拖出、安装、DPI、多屏通过。对于高风险文件操作、正式 UI 方向和主工程重大变更，严格遵守人工验收与 main 保护。完整需求仍保存在 `docs/product-decisions.md`。
+
+## P3/P4 已记录的技术调研入口（2026-10-26）
+
+- [社交媒体→社区→GitHub→官方文档的复用调研](research/P3-P4-open-source-reuse-2026-10-26.md)：P3 首测 LocalSend Protocol v2.2 / Rust core，异地候选 iroh/sendme；P4 优先 SQLite FTS5，FastEmbed-rs/Ollama 仅作可选验证。上游版本、许可证、Win 测试和模型权重仍须实测后确定，不宣称已选型落地。
+- [Codex 执行关卡](execution/P3-P4-implementation-gates-2026-10-26.md)：先无联网的隔离 Cargo/索引探针；用户另行批准后再进行 LAN 真机配对监听与模型下载/隐私上传；不因规划先行破坏 P2 的文件安全、SQLite schema 2 回收/迁移或现有主工程。
+- 当前在研 P2 PR #30/#32/#35/#36 与正式发行仍有验收门槛；**仅同步研究和执行设计，不等于 P3/P4 实现或批准运行**。
