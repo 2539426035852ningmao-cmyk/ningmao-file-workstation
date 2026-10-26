@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import App from "../src/App";
 import DesktopEntry from "../src/DesktopEntry";
 import Manager from "../src/Manager";
-import type { Backend, DesktopView, Events, Item, Snapshot, TrashEntry } from "../src/backend";
+import type { Backend, DesktopView, Events, Item, Progress, Snapshot, TrashEntry } from "../src/backend";
 import "../src/style.css";
 const item=(id:number,name:string,shelf_id=1):Item=>({id,name,shelf_id,path:"SYNTHETIC/"+name,kind:"txt",bytes:200,modified:1,status:"normal",tags:[]});
 const initial:Snapshot={shelves:[{id:1,name:"灵感收集",kind:"persistent",root:null,available:true},{id:2,name:"本次中转",kind:"session",root:null,available:true}],items:[item(1,"Alpha.txt"),item(2,"中文 文件.txt"),item(3,"Gamma.txt")],jobs:[]};
@@ -29,7 +29,7 @@ const backend:Backend={
  async cancelSystemRecycle(){calls.push("cancel-system-recycle");},
   async desktopPresent(id,kind){if(desktop.native_dragging)throw new Error("正在投放，形态保持固定。");if(!desktop.entries.some(s=>s.id===id))throw new Error("入口目标已变化");desktop.presentation={kind,shelf_id:kind==="orb"?null:id};publishDesktop();},
   async desktopPeek(id){const shelf=state.shelves.find(s=>s.id===id)!;const items=state.items.filter(i=>i.shelf_id===id);return {shelf:{id,name:shelf.name,kind:shelf.kind},total:items.length,items:await Promise.all(items.slice(-3).reverse().map(async i=>({id:i.id,name:i.name,kind:i.kind,status:i.status,thumbnail:await backend.thumbnail(i.id)})))};},
-  async managerOpen(){calls.push("manager-open");},async managementSnapshot(){return structuredClone(state);},
+  async managerOpen(){calls.push("manager-open");},async managementSnapshot(){calls.push("management-snapshot");syncState();return structuredClone(state);},
   async tagReferences(ids,tag,remove){if(fail){const message=fail;fail="";throw new Error(message);}for(const id of ids){const value=state.items.find(i=>i.id===id)!;value.tags=remove?value.tags.filter(t=>t!==tag):[...new Set([...value.tags,tag])];}save();return ids.length;},
   async desktopConfigure(preferences){calls.push(`configure:${preferences.edge}:${preferences.auto_hide}:${preferences.topmost}`);desktop.layout.preferences=preferences;const saved=!new URLSearchParams(location.search).has("readonly-layout");if(!saved)desktop.warning="布局文件只读；本次更改仅临时生效。";publishDesktop();return saved;},
   async desktopHover(inside){calls.push("entry-hover:"+inside);if(inside && desktop.edge_hidden){desktop.edge_hidden=false;publishDesktop();}},
@@ -66,12 +66,14 @@ const backend:Backend={
   async tags(id,tags){state.items.find(i=>i.id===id)!.tags=tags;save();},
   async reorder(shelf,ids){calls.push("reorder:"+shelf);const rest=state.items.filter(i=>i.shelf_id!==shelf);state.items=[...rest,...ids.map(id=>state.items.find(i=>i.id===id)!)];save();},
   async thumbnail(id){const value=state.items.find(i=>i.id===id)!;if(value.kind!=="png")return null;const canvas=document.createElement("canvas");canvas.width=canvas.height=1;const context=canvas.getContext("2d")!;context.fillStyle=value.path.includes("重新定位")?"#2563eb":"#dc2626";context.fillRect(0,0,1,1);return canvas.toDataURL();},async drag(ids){calls.push("drag:"+ids.join(","));if(fail){const message=fail;fail="";throw new Error(message);}},
-  async reveal(){},async cancel(){state.jobs[0].status="cancelled";state.jobs[0].message="已取消，来源保留";save();events.finished("已取消，来源保留");},
+  async reveal(){},async cancel(id){calls.push("cancel:"+id);if(new URLSearchParams(location.search).has("pending-cancel"))return;state.jobs[0].status="cancelled";state.jobs[0].message="已取消，来源保留";save();events.finished("已取消，来源保留");},
   async topmost(){return true;},async quit(){calls.push("quit");},
   async subscribe(value){events=value;const storage=(event:StorageEvent)=>{if(event.key==="test-state"){syncState();events.changed?.();}if(event.key==="test-desktop-layout"){desktop=JSON.parse(event.newValue!);events.desktop?.(structuredClone(desktop));events.changed?.();}};window.addEventListener("storage",storage);return()=>window.removeEventListener("storage",storage);},
 };
-declare global { interface Window { testHarness:{nativeDrag:(active:boolean,id?:number)=>void;notifyFinished:(message:string)=>void;foldEntry:()=>void;notifyMetadata:()=>void;drop:(paths:string[])=>void;hover:(active:boolean)=>void;offline:(id:number)=>void;fail:(message:string)=>void;failNextSnapshot:(message:string)=>void;missing:(id:number)=>void;image:(id:number)=>void;tags:(id:number,tags:string[])=>Promise<void>;cancelRelocation:()=>void;cancelOpening:()=>void;calls:()=>string[];complete:()=>void} } }
+declare global { interface Window { testHarness:{notifyCopying:(active:boolean)=>void;notifyProgress:(p:Progress)=>void;nativeDrag:(active:boolean,id?:number)=>void;notifyFinished:(message:string)=>void;foldEntry:()=>void;notifyMetadata:()=>void;drop:(paths:string[])=>void;hover:(active:boolean)=>void;offline:(id:number)=>void;fail:(message:string)=>void;failNextSnapshot:(message:string)=>void;missing:(id:number)=>void;image:(id:number)=>void;tags:(id:number,tags:string[])=>Promise<void>;cancelRelocation:()=>void;cancelOpening:()=>void;calls:()=>string[];complete:()=>void} } }
 window.testHarness={
+  notifyCopying:active=>{desktop.copying=active;publishDesktop();},
+  notifyProgress:p=>events.progress(p),
   nativeDrag:(active,id)=>{desktop.native_dragging=active;desktop.drag_target=active?id??1:null;publishDesktop();},
   notifyFinished:message=>events.finished(message),
   foldEntry:()=>{desktop.edge_hidden=true;publishDesktop();},
