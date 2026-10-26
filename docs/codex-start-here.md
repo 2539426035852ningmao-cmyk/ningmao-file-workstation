@@ -74,6 +74,10 @@ flowchart TD
 
 用户于 2026-10-26 选择 **C：分阶段开放 + 原生高权限独立审核**；它是 [P4 第29/30/31/32/33/34/38/39项](product/P4-confirmed-decisions-01-44-2026-10-26.md) 的落实说明，不是第二套插件方案。依据 [D-04 安全开放合同](product/D04-native-plugin-staged-approval-2026-10-26.md)，先官方元数据示范和受限能力代理，再第三方受限接口；原生高权限必须通过独立 Windows 安全验证、审核和明确授权，不能自动提升。**不要把同类插件权限问题再问一轮；应主动比对历史决策、完成技术探针、真实验收。** 当前仍先收束 P2。
 
+## DevLab-C 已确定：开发加速，不替代 P2 验收
+
+用户于 2026-10-26 选择 **C：外部 Codex 控制器 + 软件开发版内部受限诊断接口**。先审计现有 Playwright mock Harness、Rust 安全测试、stage-acceptance fixture 与 CI 实测耗时（Ubuntu `playwright --with-deps` 系统依赖安装约11.7分钟，99浏览器测试约1.6分钟）；**先优化系统依赖准备及重复编译，再做受限场景 CLI，原生诊断最后独立验证**。不得为了 DevLab 改坏 P2、绕过安全 Gate、向 Release 暴露测试后门。完整证据、阶段和回滚规则见 [DevLab-C 执行合同](execution/DevLab-C-codex-automation-and-fast-ci-2026-10-26.md)。
+
 ## 第四步：每轮提交的工作报告（中文即可）
 
 1. `repo / branch / PR / current HEAD / source SHA / EXE hash`；
