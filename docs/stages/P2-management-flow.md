@@ -1,6 +1,6 @@
 # P2 管理流程收束与下一候选
 
-2026-10-26，独立分支feat/p2-management-flow，精确基线4774ff307dfa90bdf3cd26bc301992d27a36b160（PR #36）。不合并或重写祖先PR，保留r19及其用户验收记录；沿用43项决策与P2→P3→P4路线。默认后台，不操作正在运行的r19或私人数据。
+2026-10-26，[Draft PR #40](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/40)，独立分支feat/p2-management-flow，精确基线4774ff307dfa90bdf3cd26bc301992d27a36b160（PR #36）。不合并或重写祖先PR，保留r19及其用户验收记录；沿用43项决策与P2→P3→P4路线。默认后台，不操作正在运行的r19或私人数据。
 
 ## 本轮功能闭环
 

@@ -1,6 +1,6 @@
 # Codex入口 · 柠猫文件工作站
 
-2026-10-26当前：UI-B01～B07集中Draft #36，r18静置破边/圆角/直接胶囊触顶回归已在r19获得用户“全部通过”确认；完整Windows矩阵和原生文件回归仍待验，精确证据与门槛见[tasks/UI-B01-B07.md](tasks/UI-B01-B07.md)。不自动合并/安装/发布；43项及P2→P3→P4顺序保留。功能继续在独立feat/p2-management-flow补[P2管理流程](stages/P2-management-flow.md)，沿用r19基线；以下旧候选条目为历史记录。
+2026-10-26当前：UI-B01～B07集中Draft #36，r18静置破边/圆角/直接胶囊触顶回归已在r19获得用户“全部通过”确认；完整Windows矩阵和原生文件回归仍待验，精确证据与门槛见[tasks/UI-B01-B07.md](tasks/UI-B01-B07.md)。不自动合并/安装/发布；43项及P2→P3→P4顺序保留。功能继续在独立[Draft PR #40](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/40) / feat/p2-management-flow补[P2管理流程](stages/P2-management-flow.md)，沿用r19基线；以下旧候选条目为历史记录。
 
 
 2026-10-25最新收尾：[r16真实抽样与剩余门槛](research/dual-eye-orb-evidence/README.md)。源fdf71b9，80浏览器/36Rust/Windows/MSI及双平台仓库通过，提示截断已修复并用户确认；固定目标引用/Copy、Leave及右键取消和正常退出恢复有精确证据。完整D-ORB/P2仍未验收。r15/r16均正常退出，当前后台；不凭旧许可重新打开桌面，不自动合并、安装或发布。以下“待第一次拖放/未启动”为历史。

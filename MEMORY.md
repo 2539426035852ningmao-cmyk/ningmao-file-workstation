@@ -122,3 +122,5 @@ r15集中验收继续：第一次English引用后1条/0任务，第二次用户�
 - 用户要求收束后继续功能流程与构建；从4774ff3开feat/p2-management-flow，保留#36/r19，不自动合并。当前补管理名称+标签组合检索、现有事件驱动任务进度/排队可见、状态/架筛选和取消等待，未改Rust/DB/Copy权限；95中间全量+14管理专项已通过，最终候选构建/CI待记录。默认后台，不操作用户正在体验的r19。详见docs/stages/P2-management-flow.md。
 
 - r20精确源16edf9a，EXE520a3dd9…4f1b7b、MSI3576e7df…7bf181；最终96浏览器（管理14）/生产构建/9文件包核验/新合成fixture通过，Rust产品与依赖未改；原生未启动/安装，下一关管理跨窗排队/进度/取消和原文件操作回归。独立Ningmao-r20-user-trial-20261026已准备，r19EXE复核不变。原生取消交互按R3，未批准不合并。详见docs/stages/P2-management-flow.md，GitHub功能PR待建立后以实际链接为准。
+
+- P2管理功能已建立Draft PR #40（base feat/ui-b01-b07），已附到本聊天；r20产物源16edf9a，功能树由86dfecd文档提交保留。96浏览器/Windows包本机通过，GitHub Desktop与Preview初次运行进行中，以实时Checks为准。文档/路线实际入口docs/stages/P2-management-flow.md。本轮不新开原生测试，保留r19给用户。
