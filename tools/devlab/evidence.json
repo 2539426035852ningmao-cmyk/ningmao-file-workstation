@@ -1,0 +1,134 @@
+{
+  "base": "b1a7509b676994571990cf28c691cc662d5adbf4",
+  "scope": "DLV-2 browser-only first slice",
+  "sampleCountPerScenario": 1,
+  "runnerSha256": "653974d588b5ac5c193980ed6c74ae9cb7a16c7581bca0bb62be8da3594ef94b",
+  "runs": [
+    {
+      "scenario": "selection",
+      "scope": "BROWSER_SYNTHETIC",
+      "native": "NOT_TESTED",
+      "realFileHashProtection": "NOT_EXERCISED",
+      "head": "b1a7509b676994571990cf28c691cc662d5adbf4",
+      "dirty": true,
+      "node": "v24.18.0",
+      "playwright": "1.64.1",
+      "started": "2026-10-26T12:58:43.754Z",
+      "finished": "2026-10-26T12:58:59.166Z",
+      "inputsBefore": "8d5fc12427be74ab8e41639dcc6a2680db3004ccb9926545f621f1c5cd8c0a56",
+      "inputsAfter": "8d5fc12427be74ab8e41639dcc6a2680db3004ccb9926545f621f1c5cd8c0a56",
+      "steps": [
+        {
+          "name": "typecheck",
+          "seconds": 2.7090261,
+          "exitCode": 0
+        },
+        {
+          "name": "test-build",
+          "seconds": 1.5071989999999995,
+          "exitCode": 0
+        },
+        {
+          "name": "scenario",
+          "seconds": 10.975859100000001,
+          "exitCode": 0
+        }
+      ],
+      "status": "PASS",
+      "stats": {
+        "startTime": "2026-10-26T12:58:48.719Z",
+        "duration": 10323.381000000001,
+        "expected": 6,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      }
+    },
+    {
+      "scenario": "orb",
+      "scope": "BROWSER_SYNTHETIC",
+      "native": "NOT_TESTED",
+      "realFileHashProtection": "NOT_EXERCISED",
+      "head": "b1a7509b676994571990cf28c691cc662d5adbf4",
+      "dirty": true,
+      "node": "v24.18.0",
+      "playwright": "1.64.1",
+      "started": "2026-10-26T12:56:37.307Z",
+      "finished": "2026-10-26T12:57:02.048Z",
+      "inputsBefore": "8d5fc12427be74ab8e41639dcc6a2680db3004ccb9926545f621f1c5cd8c0a56",
+      "inputsAfter": "8d5fc12427be74ab8e41639dcc6a2680db3004ccb9926545f621f1c5cd8c0a56",
+      "steps": [
+        {
+          "name": "typecheck",
+          "seconds": 2.5995074,
+          "exitCode": 0
+        },
+        {
+          "name": "test-build",
+          "seconds": 1.5287959,
+          "exitCode": 0
+        },
+        {
+          "name": "scenario",
+          "seconds": 20.3839838,
+          "exitCode": 0
+        }
+      ],
+      "status": "PASS",
+      "stats": {
+        "startTime": "2026-10-26T12:56:42.208Z",
+        "duration": 19714.841999999997,
+        "expected": 18,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      }
+    },
+    {
+      "scenario": "management",
+      "scope": "BROWSER_SYNTHETIC",
+      "native": "NOT_TESTED",
+      "realFileHashProtection": "NOT_EXERCISED",
+      "head": "b1a7509b676994571990cf28c691cc662d5adbf4",
+      "dirty": true,
+      "node": "v24.18.0",
+      "playwright": "1.64.1",
+      "started": "2026-10-26T12:57:02.360Z",
+      "finished": "2026-10-26T12:57:19.280Z",
+      "inputsBefore": "8d5fc12427be74ab8e41639dcc6a2680db3004ccb9926545f621f1c5cd8c0a56",
+      "inputsAfter": "8d5fc12427be74ab8e41639dcc6a2680db3004ccb9926545f621f1c5cd8c0a56",
+      "steps": [
+        {
+          "name": "typecheck",
+          "seconds": 2.6076825,
+          "exitCode": 0
+        },
+        {
+          "name": "test-build",
+          "seconds": 1.47369,
+          "exitCode": 0
+        },
+        {
+          "name": "scenario",
+          "seconds": 12.615995199999999,
+          "exitCode": 0
+        }
+      ],
+      "status": "PASS",
+      "stats": {
+        "startTime": "2026-10-26T12:57:07.190Z",
+        "duration": 11958.789999999999,
+        "expected": 14,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      }
+    }
+  ],
+  "failedAttemptPreserved": "Initial orb manifest incorrectly counted ten top-level tests; actual Playwright --list and direction/count parameterized source prove 18. Runner correctly returned FAIL despite exit0/all18 passing; manifest corrected, no assertion removed. Raw original result retained locally.",
+  "limits": [
+    "No Windows native candidate process or real file operations",
+    "No source-file or actual-file hash guarantee beyond the stated source/Harness input digest",
+    "No speedup claim: this centralizes existing evidence; MSI and dependencies not rebuilt/installed"
+  ]
+}

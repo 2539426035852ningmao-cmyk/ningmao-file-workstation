@@ -109,3 +109,23 @@ flowchart LR
 - **下一闭环**：优先降低用户感知等待时间，别为了 DevLab 引入新的复杂 UI 或强制安装。
 
 **最终守则：DevLab 是加速已有研发循环的辅助设施，不是替代 P2 安全验收的新产品，不是让 Codex 拿到无限权限，更不是把调试后门留在正式版。**
+
+## 8. DLV-2 第一切片：复用浏览器场景（不含原生诊断）
+
+在已安装主工程开发依赖和 Chromium 的环境，从仓库根目录执行：
+
+```text
+node tools/devlab/run.mjs selection
+node tools/devlab/run.mjs orb
+node tools/devlab/run.mjs management
+```
+
+这是三个独立命令，按需运行当前受影响模块；分别复用既有 6 项多选、18 项球体/Dock、14 项管理测试。球体数量包含方向/多架参数化用例，以 Playwright --list 核查，不能只数顶层 test 调用。控制器不安装依赖、不重建 Mock、不改生产代码/SQLite/权限，不制作 MSI；类型检查和测试前端构建沿用原 build:test 的两步，一次约几秒。
+
+每次建立新的、Git 忽略的 work/devlab 子目录，启动既有本机 loopback 测试服务与无头 Chromium。Playwright 新 Context 提供隔离 localStorage，所有素材仍是 Harness 的 SYNTHETIC 虚拟路径。输出 report.json、results.json、run.log 及每项 trace.zip；trace 内含截图/DOM 记录。报告绑定 HEAD、dirty 标记、Node/Playwright、受测源码与 Harness 的前后 SHA256 聚合指纹、各步骤时长和精确范围；有失败、跳过、flaky、数量不符或运行中源码变化均不能报告 PASS。
+
+**证据上限是 BROWSER_SYNTHETIC**：没有创建真正 Windows 工作站进程，没有调用真实文件 Copy/Shell，realFileHashProtection 为 NOT_EXERCISED，不能冒充原生拖放、真实文件哈希保护或 DLV-3 已交付。DLV-2 的真实文件夹具/后端组合切片仍待后续按安全规则复用 stage-acceptance；不为这一步新增原生后门、网络接口或 Agent 权限。
+
+仅接受以上固定场景名，拒绝额外路径/命令参数；直接调用已有 Node 入口，不拼接 Shell。控制器守护测试验证“退出0但漏测/跳过/有错误”仍失败，以及未知输入在创建产物/启动工具前被拒绝。CI 仅跑这些控制器守护，完整应用 CI 继续由原工作流承担。原始 trace/log/result 留在本机（可能带本机路径），公开仅同步脱敏摘要。
+
+DLV-1 官方容器实测同源码原路线151s、预装167s，各n=1，未获益所以不推广默认；DLV-2的收益是集中可复用证据，不承诺让不变的测试执行更快。回滚只删除 tools/devlab 与独立守护工作流，原 Harness、工作站及稳定候选不受影响。
