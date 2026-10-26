@@ -704,6 +704,10 @@ pub fn setup(app: &tauri::AppHandle, root: &Path) -> Result<()> {
     .skip_taskbar(true)
     .always_on_top(true)
     .transparent(true)
+    // Use the supported DWM composition path instead of the legacy BlurBehind
+    // redirection bitmap. Native contour/drop slots remain unchanged. Validate
+    // idle/occlusion on Windows; this is not a periodic repaint workaround.
+    .no_redirection_bitmap(true)
     .shadow(false)
     .background_color(tauri::utils::config::Color(0, 0, 0, 0))
     .inner_size(64.0, 64.0)

@@ -135,6 +135,39 @@ pub fn snap(
         (py - top).abs() < 1.0,
     )
 }
+pub fn snap_with_pointer(
+    initial: (i32, i32),
+    area: Rect,
+    scale: f64,
+    bounds: (f64, f64, f64, f64),
+    pointer: Option<(f64, f64)>,
+) -> ((i32, i32), bool) {
+    let (mut p, _) = snap(initial, area, scale, bounds, true);
+    let s = if scale.is_finite() && scale > 0.0 {
+        scale
+    } else {
+        1.0
+    };
+    if let Some((x, y)) = pointer.filter(|(x, y)| x.is_finite() && y.is_finite()) {
+        let distance = 18.0 * s;
+        let gap = 6.0 * s;
+        // Windows' move loop can keep a caption-height portion of the transparent
+        // shell on screen. A pointer released at the edge expresses snap intent.
+        if x <= f64::from(area.x) + distance {
+            p.0 = (f64::from(area.x) + gap - bounds.0 * s).round() as i32;
+        } else if x >= f64::from(area.x) + f64::from(area.width) - distance {
+            p.0 = (f64::from(area.x) + f64::from(area.width) - gap - (bounds.0 + bounds.2) * s)
+                .round() as i32;
+        }
+        if y <= f64::from(area.y) + distance {
+            p.1 = (f64::from(area.y) + gap - bounds.1 * s).round() as i32;
+        } else if y >= f64::from(area.y) + f64::from(area.height) - distance {
+            p.1 = (f64::from(area.y) + f64::from(area.height) - gap - (bounds.1 + bounds.3) * s)
+                .round() as i32;
+        }
+    }
+    snap(p, area, s, bounds, false)
+}
 pub fn visible_bounds(entry: &EntryState, layout: &Layout) -> (f64, f64, f64, f64) {
     let g = entry.geometry(layout);
     if layout.edge_hidden || g.slots.is_empty() {
@@ -287,11 +320,12 @@ fn finish(window: &tauri::WebviewWindow) -> Result<()> {
                 return Ok(());
             }
             let p = window.outer_position().map_err(error)?;
-            let scale = window.scale_factor().map_err(error)?;
-            let monitor = window
-                .current_monitor()
-                .map_err(error)?
+            let pointer = window.cursor_position().ok();
+            let monitor = pointer
+                .and_then(|p| window.monitor_from_point(p.x, p.y).ok().flatten())
+                .or_else(|| window.current_monitor().ok().flatten())
                 .ok_or("当前显示器不可用")?;
+            let scale = monitor.scale_factor();
             let area = monitor.work_area();
             let l = state.layout.lock().map_err(error)?.clone();
             let mut entry = state.entry.lock().map_err(error)?;
@@ -308,7 +342,7 @@ fn finish(window: &tauri::WebviewWindow) -> Result<()> {
                         )
                     });
             if !g.slots.is_empty() {
-                let (pos, lower) = snap(
+                let (pos, lower) = snap_with_pointer(
                     (p.x, p.y),
                     Rect {
                         x: area.position.x,
@@ -318,7 +352,7 @@ fn finish(window: &tauri::WebviewWindow) -> Result<()> {
                     },
                     scale,
                     (left, top, right - left, bottom - top),
-                    true,
+                    pointer.map(|p| (p.x, p.y)),
                 );
                 entry.close_lower = lower;
                 entry.close_growth = 0.0;
@@ -512,6 +546,29 @@ pub fn sense(app: &tauri::AppHandle, enabled: bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn capsule_at_native_move_limit_snaps_when_pointer_reaches_top() {
+        let area = Rect {
+            x: 0,
+            y: 0,
+            width: 1920,
+            height: 1080,
+        };
+        for scale in [1.0, 1.25, 1.5] {
+            let (p, lower) = snap_with_pointer(
+                (400, 30),
+                area,
+                scale,
+                (8.0, 24.0, 184.0, 48.0),
+                Some((450.0, 0.0)),
+            );
+            assert!(
+                lower,
+                "pointer edge must override constrained shell origin at {scale}"
+            );
+            assert_eq!(p.1, (-18.0 * scale).round() as i32);
+        }
+    }
     #[test]
     fn capsule_can_snap_at_os_top_limit_at_all_supported_scales() {
         let area = Rect {

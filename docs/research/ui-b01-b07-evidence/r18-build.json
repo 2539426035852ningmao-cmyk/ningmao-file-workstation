@@ -8,7 +8,7 @@
   "fixturePreparation": true,
   "installed": false,
   "nativeLaunch": true,
-  "nativeVisualAcceptance": "PENDING",
+  "nativeVisualAcceptance": "FAIL: full-shelf corners, direct capsule top snap, idle edge corruption",
   "licenses": {
     "records": 268,
     "existingWarnings": 1
@@ -19,10 +19,18 @@
     "mainNativeTitlebarAbsent": true,
     "windowActionGroupInsideHeader": true,
     "maximizeInteraction": "INDETERMINATE: concurrent human input detected",
-    "edgesAndCapsuleTopSnap": "PENDING user observation"
+    "edgesAndCapsuleTopSnap": "Initial edge smoothness accepted by user; direct capsule top snap FAIL",
+    "fullShelfCorners": "FAIL: opaque document body fills rounded surface corners",
+    "idleEdges": "FAIL: user observed broken top arcs and background fragments in orb, capsule and QuickPeek, including non-topmost state"
   },
   "ciAtBuildSource": {
     "desktop": "success:40247331163",
     "preview": "failure:40247331167; no recycled entity returned; follow-up tests pending"
+  },
+  "ciFollowup": {
+    "commit": "2a295cd4808eebe81f99fcd4a590ba1820ea287a",
+    "desktop": "success:40248339792",
+    "preview": "success:40248339905",
+    "note": "Shell tests serialized; original entity-return failure retained; concurrency root cause remains hypothesis"
   }
 }

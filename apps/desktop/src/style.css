@@ -336,3 +336,9 @@ html[data-always-scrollbars="true"] :is(.shelf-menu,.file-scroll,.manager-table-
 @media(max-width:399px){.workstation .shelf-header>button[aria-label="搜索文件"],.workstation .shelf-header>.add-files{display:none}.compact-command{display:flex!important}}
 html[data-file-maximized="true"] .workstation{border-radius:0}
 .orb-control{filter:none}
+
+html[data-file-window="true"],html[data-file-window="true"] body,html[data-file-window="true"] #root{background:transparent!important}
+.shelf-chrome{position:relative;z-index:2;flex-shrink:0;background:var(--surface);box-shadow:0 5px 12px -8px rgb(0 0 0 / .24);user-select:none;touch-action:none}
+.dark .shelf-chrome{box-shadow:0 5px 12px -8px rgb(0 0 0 / .55)}
+.workstation:has(.window-controls) .shelf-switch{flex:0 1 auto;max-width:160px}
+.titlebar-drag-space{flex:1;align-self:stretch;min-width:20px;touch-action:none}
