@@ -22,3 +22,13 @@ r19用户通过只覆盖其精确包的视觉/窗口回归，本轮新候选不�
 ## 本地验证进展
 
 名称/标签、实时任务、筛选/取消等待、首个字节之前的排队显示均完成实际红测。中间版本完整95浏览器通过；补齐排队事件后14个管理专项通过；最终全量与Windows构建在下述精确候选记录中补充。取消交互虽复用原后端，仍按R3保留原生验收，不自行下调风险。深浅管理中心截图为合成数据浏览器证据，不是Windows实机。
+
+
+## r20精确交付
+
+源码16edf9a02795bcfdfd1fe7e7a4eaf944c107cc3f；最终96浏览器通过，其中管理14项。Windows已构建并完成9文件/SHA256/PE/MSI只读核验，显式新合成Store fixture通过，未启动/安装。EXE `520a3dd95ee2ad01ecd8e6ccdbf85c8dfaaba0b52a6d4cea124dbe219e4f1b7b`，MSI `3576e7dff6e0e9b7fcd97e47351023b3ad8a4c1bda295b84fd48c3e94e7bf181`。Rust产品代码及依赖未改，未在本地重复完整Rust套件；云端随后验证。268条许可、原有1条映射警示保留。r19 EXE再次核对仍为0401c991…bc9182，旧数据未动。详见[机器记录](../research/P2-management-flow-evidence/r20-build.json)。
+
+![任务实时进度，浏览器合成数据](../research/P2-management-flow-evidence/task-progress-dark.png)
+![取消等待，浏览器合成数据](../research/P2-management-flow-evidence/task-cancelling-light.png)
+
+这些是无头浏览器画面，不是Windows原生证据。下一次集中验收只聚焦新管理链路（跨窗口开始任务→排队/进度→筛选→取消/完成→管理中心关闭再打开），并保留原生Copy/引用/Dock/窗口的专项回归；不把r19视觉通过继承为r20全量通过。默认后台，不为交付擅自弹窗。
