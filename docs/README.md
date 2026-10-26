@@ -8,6 +8,7 @@
 |---|---|
 | 第一次认识柠猫 | [仓库首页](../README.md) · [产品说明](../PRODUCT.md) |
 | 当前做到哪里 / 哪些功能已验证 | **[项目现状与可视化架构](project-status.md)** |
+| DevLab 与未来 P4 多模态 AI/Agent 的能力复用架构 | **[P2 源码审计、最小安全接口与四组模拟测试研究](research/DevLab-P4-unified-capability-boundary-2026-10-26.md)**（研究中，非已实现） |
 | Codex 测试/构建提速与 DevLab-C | **[DevLab-C 审计结果、CI 耗时与阶段实施合同](execution/DevLab-C-codex-automation-and-fast-ci-2026-10-26.md)** |
 | Codex 接管或继续修复 P2 | **[Codex 最新开工入口](codex-start-here.md)** · [P2→P3→P4 顺序交付合同](execution/P2-to-P3-P4-sequential-delivery-2026-10-26.md) |
 | 查主要产品设计 | [`design.md` 全局设计规范](../design.md) · [阶段路线](roadmap.md) |
