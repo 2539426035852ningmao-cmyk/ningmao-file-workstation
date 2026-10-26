@@ -10,7 +10,7 @@
   "fixturePreparation": "PASS: new isolated synthetic Store",
   "installed": false,
   "nativeLaunch": true,
-  "nativeVisualAcceptance": "PARTIAL: idle observation complete; manual visual and window movement pending",
+  "nativeVisualAcceptance": "PASS: user confirmed grouped capsule top/close direction, full shelf dragging/corners, and entry edge regression; full matrix remains pending",
   "compositionChange": "desktop-entry no_redirection_bitmap(true); candidate mitigation, root cause not proven",
   "nativeRegressionRequired": [
     "orb/capsule/QuickPeek >=90s each, blink cycles, topmost/off, occlusion/background changes",
