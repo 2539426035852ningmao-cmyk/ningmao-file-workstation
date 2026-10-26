@@ -63,7 +63,7 @@
     {
       "id": "stack-stage-merge",
       "status": "PARTIAL",
-      "scope": "30→32→35→36→40→closeout; R3/native gate pending; do not merge out of order"
+      "scope": "30→32→35→36→40 (r21 closeout in the same PR); R3/native gate pending; do not merge out of order"
     }
   ]
 }

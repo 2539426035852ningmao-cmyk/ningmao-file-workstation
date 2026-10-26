@@ -37,5 +37,8 @@
   "schema": "Unchanged SQLite schema2 and layoutv4; wake config is a separate version1 JSON",
   "networkModelFees": "No LAN/discovery/firewall/model download/model requests/paid API; routine GitHub and crate/doc reads only",
   "rollback": "Preserved r19/r20; revert source with data backups, never overwrite or downgrade database",
-  "ciAtBuild": "Not yet created for closeout PR"
+  "ciAtBuild": "Pending PR40 update for r21; prior r20 CI not used for new source",
+  "deliveryPR": 40,
+  "deliveryBranch": "feat/p2-management-flow",
+  "implementationBranch": "fix/p2-closeout-20261026"
 }
