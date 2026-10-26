@@ -53,3 +53,16 @@
 - [社交媒体→社区→GitHub→官方文档的复用调研](research/P3-P4-open-source-reuse-2026-10-26.md)：P3 首测 LocalSend Protocol v2.2 / Rust core，异地候选 iroh/sendme；P4 优先 SQLite FTS5，FastEmbed-rs/Ollama 仅作可选验证。上游版本、许可证、Win 测试和模型权重仍须实测后确定，不宣称已选型落地。
 - [Codex 执行关卡](execution/P3-P4-implementation-gates-2026-10-26.md)：先无联网的隔离 Cargo/索引探针；用户另行批准后再进行 LAN 真机配对监听与模型下载/隐私上传；不因规划先行破坏 P2 的文件安全、SQLite schema 2 回收/迁移或现有主工程。
 - 当前在研 P2 PR #30/#32/#35/#36 与正式发行仍有验收门槛；**仅同步研究和执行设计，不等于 P3/P4 实现或批准运行**。
+
+
+## P2 → P3 → P4 收束实施总入口（2026-10-26）
+
+用户已终止 P4 逐题问卷，**P4 第01–44题已全部确认**，不再推进第45题。相关文件：
+
+- [P4 · 44项完整确认决策](product/P4-confirmed-decisions-01-44-2026-10-26.md)：独立于原 V0.1 的43项冻结基线，不替代、不可覆盖。
+- [P2修复验收 → P3真实LAN → P4分段智能化：Codex总交接合同](execution/P2-to-P3-P4-sequential-delivery-2026-10-26.md)：实际 PR 堆叠、权限/费用/SQLite、安全回归、Windows原生验收和可回滚交付。
+- [P3/P4 既有 Gate 0–4](execution/P3-P4-implementation-gates-2026-10-26.md)与[免费优先的P3界面合同](design/P3-free-first-lean-ux-contract-2026-10-26.md)继续有效。
+
+**正式主线严格顺序**：先完成当前 P2 的原生验证与分层 PR 收束（当时 #30→#32→#35→#36→#40 均未正式合并），随后 P3 首版经许可的免费 LAN 安全双机互传，再 P4 以“本地跨架索引 → 相似/可选 AI → 官方安全示范插件 → 安全工作流”分段交付。P3/P4 无联网的隔离选型试验可提前做，但不得冒充功能交付。所有真实 LAN 监听、模型下载、素材云端上传/计费、真实文件高风险变更及 R3 正式合并仍须独立批准。
+
+> 此处只更新计划文档：不表示 P2、P3、P4 已通过原生验收或执行过真实网络行为。
