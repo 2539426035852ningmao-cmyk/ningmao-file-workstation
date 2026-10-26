@@ -1,15 +1,33 @@
 // This harness is a separate test-only build entry. Production dist contains no mock backend.
 import { createRoot } from "react-dom/client";
 import App from "../src/App";
-import type { Backend, Events, Item, Snapshot } from "../src/backend";
+import DesktopEntry from "../src/DesktopEntry";
+import Manager from "../src/Manager";
+import type { Backend, DesktopView, Events, Item, Snapshot } from "../src/backend";
 import "../src/style.css";
 const item=(id:number,name:string,shelf_id=1):Item=>({id,name,shelf_id,path:"SYNTHETIC/"+name,kind:"txt",bytes:200,modified:1,status:"normal",tags:[]});
 const initial:Snapshot={shelves:[{id:1,name:"灵感收集",kind:"persistent",root:null,available:true},{id:2,name:"本次中转",kind:"session",root:null,available:true}],items:[item(1,"Alpha.txt"),item(2,"中文 文件.txt"),item(3,"Gamma.txt")],jobs:[]};
 let state:Snapshot=JSON.parse(localStorage.getItem("test-state") || JSON.stringify(initial));
+const ownShelf=Number(new URLSearchParams(location.search).get("shelf")) || undefined;
 let events:Events;let fail="";let snapshotFailure="";let next=10;let cancelRelocation=false;let cancelOpening=false;const calls:string[]=[];
 const save=()=>localStorage.setItem("test-state",JSON.stringify(state));
+let desktop:DesktopView=JSON.parse(localStorage.getItem("test-desktop-layout") || "null")??{layout:{enabled:false,expanded:true,active_shelf:1,collapsed:[],detached:[],page:0,preferences:{edge:"free",auto_hide:false,topmost:true}},entries:[],total:0,warning:null,copying:false,edge_hidden:false};
+function publishDesktop(){desktop.entries=desktop.layout.collapsed.slice(desktop.layout.page*5,desktop.layout.page*5+5).map(id=>state.shelves.find(s=>s.id===id)!);desktop.total=desktop.layout.collapsed.length;desktop.catalog=state.shelves.map(({id,name,kind})=>({id,name,kind}));localStorage.setItem("test-desktop-layout",JSON.stringify(desktop));events?.desktop?.(structuredClone(desktop));}
+function syncState(){state=JSON.parse(localStorage.getItem("test-state") || JSON.stringify(state));}
 const backend:Backend={
-  async snapshot(){if(snapshotFailure){const message=snapshotFailure;snapshotFailure="";throw new Error(message);}return structuredClone(state);},
+  async managerOpen(){calls.push("manager-open");},async managementSnapshot(){return structuredClone(state);},
+  async tagReferences(ids,tag,remove){if(fail){const message=fail;fail="";throw new Error(message);}for(const id of ids){const value=state.items.find(i=>i.id===id)!;value.tags=remove?value.tags.filter(t=>t!==tag):[...new Set([...value.tags,tag])];}save();return ids.length;},
+  async desktopConfigure(preferences){calls.push(`configure:${preferences.edge}:${preferences.auto_hide}:${preferences.topmost}`);desktop.layout.preferences=preferences;const saved=!new URLSearchParams(location.search).has("readonly-layout");if(!saved)desktop.warning="布局文件只读；本次更改仅临时生效。";publishDesktop();return saved;},
+  async desktopHover(inside){calls.push("entry-hover:"+inside);if(inside && desktop.edge_hidden){desktop.edge_hidden=false;publishDesktop();}},
+  async createShelf(name,session){if(fail){const message=fail;fail="";throw new Error(message);}name=name.trim();if(!name || state.shelves.some(s=>s.name===name))throw new Error("文件架名称为空或已存在。");const id=Math.max(3,...state.shelves.map(s=>s.id))+1;state.shelves.push({id,name,kind:session?"session":"persistent",root:null,available:true});save();return id;},
+  async copyReferences(target,ids){calls.push(`references:${target}:${ids.join(",")}`);let added=0;for(const id of ids){const value=state.items.find(i=>i.id===id)!;if(!state.items.some(i=>i.shelf_id===target && i.path===value.path)){state.items.push({...structuredClone(value),id:next++,shelf_id:target});added++;}}save();return added;},
+  async desktopState(){desktop.catalog=state.shelves.map(({id,name,kind})=>({id,name,kind}));return structuredClone(desktop);},async desktopSelect(id){if(ownShelf || desktop.layout.detached?.some(s=>s.shelf_id===id))throw new Error("独立窗口的文件架不可在主窗切换");desktop.layout.active_shelf=id;publishDesktop();},
+  async desktopDetach(id){if(fail){const message=fail;fail="";throw new Error(message);}calls.push("detach:"+id);desktop.layout.detached??=[];desktop.layout.detached.push({shelf_id:id,visible:true,topmost:false});desktop.layout.collapsed=desktop.layout.collapsed.filter(value=>value!==id);desktop.layout.active_shelf=state.shelves.find(s=>!desktop.layout.detached!.some(w=>w.shelf_id===s.id))?.id??0;publishDesktop();events.changed?.();},
+  async desktopMerge(id){if(fail){const message=fail;fail="";throw new Error(message);}calls.push("merge:"+id);desktop.layout.detached=desktop.layout.detached?.filter(s=>s.shelf_id!==id);desktop.layout.active_shelf=id;publishDesktop();events.changed?.();},
+  async desktopCollapse(id){calls.push("collapse:"+id);desktop.layout.enabled=true;desktop.layout.expanded=false;desktop.layout.active_shelf=id;if(!desktop.layout.collapsed.includes(id))desktop.layout.collapsed.push(id);publishDesktop();},
+  async desktopOpen(id){calls.push("expand:"+id);if(!desktop.layout.detached?.some(s=>s.shelf_id===id)){desktop.layout.expanded=true;desktop.layout.active_shelf=id;events.activate?.(id);}publishDesktop();},
+  async desktopPage(delta){desktop.layout.page+=delta;publishDesktop();},async desktopMove(){calls.push("move-entry");},async desktopDisable(){calls.push("disable-entry");},
+  async snapshot(){if(snapshotFailure){const message=snapshotFailure;snapshotFailure="";throw new Error(message);}syncState();const shelves=state.shelves.filter(s=>ownShelf?s.id===ownShelf:!desktop.layout.detached?.some(w=>w.shelf_id===s.id)),allowed=new Set(shelves.map(s=>s.id));return structuredClone({shelves,items:state.items.filter(i=>allowed.has(i.shelf_id)),jobs:state.jobs.filter(j=>!ownShelf || j.shelf_id===ownShelf)});},
   async chooseFiles(){return ["SYNTHETIC/新增文件.txt"];},
   async chooseFolder(){if(!state.shelves.some(s=>s.id===3))state.shelves.push({id:3,name:"测试绑定目录",kind:"bound",root:"SYNTHETIC/target",available:true});save();return 3;},
   async importPaths(shelf,paths){
@@ -36,10 +54,12 @@ const backend:Backend={
   async thumbnail(id){const value=state.items.find(i=>i.id===id)!;if(value.kind!=="png")return null;const canvas=document.createElement("canvas");canvas.width=canvas.height=1;const context=canvas.getContext("2d")!;context.fillStyle=value.path.includes("重新定位")?"#2563eb":"#dc2626";context.fillRect(0,0,1,1);return canvas.toDataURL();},async drag(ids){calls.push("drag:"+ids.join(","));if(fail){const message=fail;fail="";throw new Error(message);}},
   async reveal(){},async cancel(){state.jobs[0].status="cancelled";state.jobs[0].message="已取消，来源保留";save();events.finished("已取消，来源保留");},
   async topmost(){return true;},async quit(){calls.push("quit");},
-  async subscribe(value){events=value;return()=>{};},
+  async subscribe(value){events=value;const storage=(event:StorageEvent)=>{if(event.key==="test-state"){syncState();events.changed?.();}if(event.key==="test-desktop-layout"){desktop=JSON.parse(event.newValue!);events.desktop?.(structuredClone(desktop));events.changed?.();}};window.addEventListener("storage",storage);return()=>window.removeEventListener("storage",storage);},
 };
-declare global { interface Window { testHarness:{drop:(paths:string[])=>void;hover:(active:boolean)=>void;offline:(id:number)=>void;fail:(message:string)=>void;failNextSnapshot:(message:string)=>void;missing:(id:number)=>void;image:(id:number)=>void;tags:(id:number,tags:string[])=>Promise<void>;cancelRelocation:()=>void;cancelOpening:()=>void;calls:()=>string[];complete:()=>void} } }
+declare global { interface Window { testHarness:{foldEntry:()=>void;notifyMetadata:()=>void;drop:(paths:string[])=>void;hover:(active:boolean)=>void;offline:(id:number)=>void;fail:(message:string)=>void;failNextSnapshot:(message:string)=>void;missing:(id:number)=>void;image:(id:number)=>void;tags:(id:number,tags:string[])=>Promise<void>;cancelRelocation:()=>void;cancelOpening:()=>void;calls:()=>string[];complete:()=>void} } }
 window.testHarness={
+  foldEntry:()=>{desktop.edge_hidden=true;publishDesktop();},
+  notifyMetadata:()=>events.metadata?.(),
   drop:paths=>events.drop(paths),fail:message=>{fail=message;},
   hover:active=>events.hover(active),offline:id=>{state.shelves.find(s=>s.id===id)!.available=false;save();},
   missing:id=>{state.items.find(i=>i.id===id)!.status="missing";save();},
@@ -51,4 +71,6 @@ window.testHarness={
   calls:()=>calls,
   complete:()=>{state.items.push(item(next++,"新增文件 (1).txt",3));state.jobs[0].status="completed";state.jobs[0].message="复制完成；来源保留";save();events.finished(state.jobs[0].message);},
 };
-createRoot(document.getElementById("root")!).render(<App backend={backend} native={true}/>);
+if(new URLSearchParams(location.search).has("desktop-entry")){for(let id=3;id<=7;id++)state.shelves.push({id,name:`项目 ${id}`,kind:"persistent",root:null,available:true});desktop.layout.enabled=true;desktop.layout.collapsed=state.shelves.map(s=>s.id);publishDesktop();}
+if(new URLSearchParams(location.search).has("edge")){desktop.edge_hidden=true;desktop.layout.preferences={edge:"right",auto_hide:true,topmost:true};}
+createRoot(document.getElementById("root")!).render(new URLSearchParams(location.search).has("desktop-entry")?<DesktopEntry backend={backend}/>:new URLSearchParams(location.search).has("manager")?<Manager backend={backend}/>:<App backend={backend} native={true} detachedShelfId={ownShelf}/>);

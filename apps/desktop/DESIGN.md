@@ -1,5 +1,7 @@
 # 主工程界面约束
 
+P2 r13在原切架/更多菜单补“拆分为独立窗口”“合并回主窗口”，独立窗仍420×520/最小340×320，不新增常驻导航。全部架可拆出，主窗空状态保留新建与独立窗入口；X继续隐藏到托盘。每窗独立位置/尺寸/置顶/显隐与每架视图记忆，共用原文件与SQLite管线。无头深浅小窗画面仅证明浏览器布局，原生拆合/DPI/拖放待验，最终视觉门槛不变。见[实施与边界](../../docs/stages/P2-detached-shelves.md)。
+
 本页只补充当前候选的实施状态。产品设计以默认分支的 [根目录 design.md](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/blob/main/design.md) 为准，制作顺序见 [roadmap.md](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/blob/main/docs/roadmap.md)；旧候选分支缺少这些文件时先读取 main，不能另建冲突规范。建议尺寸与最终视觉仍待验收。
 
 交互沿用冻结第 6 项：单击选中，空格预览，双击系统默认程序打开；详情从显式按钮或右键进入。上一增量 #21 仅修复该交互；紧凑布局由下述独立候选承载，最终视觉仍待验收。

@@ -45,7 +45,8 @@ test("异常引用保留，筛选隐藏的选择没有动作，切架和重载�
   await page.locator(".explorer-pane").click({position:{x:5,y:5}});await page.keyboard.press("Space");await expect(page.getByRole("dialog")).toHaveCount(0);await page.keyboard.press("Delete");expect(await page.evaluate(()=>window.testHarness.calls())).toEqual([]);
   await page.getByRole("button",{name:"切换文件架",exact:true}).click();await page.getByRole("menuitemradio",{name:"本次中转",exact:true}).click();await expect.poll(()=>order(page)).toEqual([7]);
   dialog=await openFilters(page);await expect(dialog.getByRole("combobox",{name:"文件状态",exact:true})).toHaveValue("");await expect(dialog.getByRole("combobox",{name:"标签",exact:true}).locator("option")).toHaveCount(2);
-  await dialog.getByRole("combobox",{name:"标签",exact:true}).selectOption("另一架标签");await dialog.getByRole("button",{name:"查看结果",exact:true}).click();await page.reload();await expect.poll(()=>order(page)).toEqual([1,2,3,4,5,6,8]);await expect(page.getByRole("button",{name:"清除筛选",exact:true})).toHaveCount(0);
+  await dialog.getByRole("combobox",{name:"标签",exact:true}).selectOption("另一架标签");await dialog.getByRole("button",{name:"查看结果",exact:true}).click();await page.reload();await expect.poll(()=>order(page)).toEqual([7]);await expect(page.getByRole("button",{name:"清除筛选",exact:true})).toHaveCount(0);
+  await page.getByRole("button",{name:"切换文件架",exact:true}).click();await page.getByRole("menuitemradio",{name:"灵感收集",exact:true}).click();await expect.poll(()=>order(page)).toEqual([1,2,3,4,5,6,8]);
 });
 
 test("刷新后已选标签消失仍显示原条件，无结果可明确清除",async({page})=>{

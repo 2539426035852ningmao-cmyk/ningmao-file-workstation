@@ -1,0 +1,55 @@
+# P2 · r13 集中 Windows 原生验收
+
+## r14后续真实复测（2026-10-25）
+
+用户另行批准集中测试，精确r14已启动、未安装。固定显示的bound-target入口实际收到约3次用户投放，生成3份编号副本及3个completed任务；每份与来源SHA256一致，原4目标和5保护对象未变。取消前后7文件/4任务/12条记录完全相同，SQLite integrity_check=ok。恢复后置顶菜单正确勾选；独立架X隐藏、托盘找回及主架菜单恢复抽样通过。
+
+成功反馈仍FAIL R2：用户看不出反应而约重复3次；次数与任务相符，但没有严格单次OS事件追踪，不宣称去重门槛全过。r13历史FAIL不改写，r14新增通过不能覆盖未测的细柄、临时引用目标、DPI、多屏等。Esc取消也停止电脑工具，正常退出NOT COMPLETED，未强杀进程。完整[精确原生记录](../research/P2-detached-shelves-evidence/r14-native-acceptance.json)。后续新双眼候选改变入口几何，必须独立复测，不能继承r14通过。
+
+2026-10-25。用户明确批准本次集中桌面验收。仅操作隔离合成素材，不安装MSI、不读取私人数据库。测试已通过原生“完整退出”结束，两次启动均正常退出；后续默认后台开发。精确机器可读记录见[r13原生证据](../research/P2-detached-shelves-evidence/r13-native-acceptance.json)。
+
+## 结论
+
+**FAIL：r13 Dock入口未完成真实文件接收，P2不能整体验收或自动合并。** 已通过的直接文件架拖入/拖出、拆合、管理中心及恢复结果单独保留，不能覆盖该R3缺陷，也不继承给下一份二进制。
+
+功能源码3061d2077a59050eaf6bad643dfbc32869d2a930，构建f3212e6a1c6f75bff7373a99561f906fc4548027；EXE SHA256 a7137619ced1e893e1e88931616d1a4a704bb64cf8168b796d6d9a32bdbbc867。环境Windows 11家庭中文版10.0.22631 x64。包身份、CI与许可记录见[r13核验](../research/P2-detached-shelves-evidence/r13-verification.json)。
+
+| 范围 | 结果 | 实际证据 |
+| --- | --- | --- |
+| A 悬浮入口 | PASS（部分） | 真实主窗420×520逻辑尺寸；菜单收起、独立入口、点击恢复、窗口移动。X/托盘组合未专项核验。 |
+| B 独立文件架 | PASS（抽样） | 原生新建持久架、拆出、带标签跨架复制引用、手柄排序、明确合并；5条逻辑引用在合并前后不变，顺序[1,3,4,2]。绑定架拆出后直接接收的目标也正确。 |
+| C 贴边/Dock | FAIL（R3） | 细柄和两个入口真实可见。用户完成靠近、Esc取消及投放后，无English (2).txt或新任务；关闭自动收起、固定显示后，用户明确投放顶部bound-target入口仍无新副本/任务。两次不成功记录均保留；未重复要求用户再拖r13。 |
+| D 文件闭环 | PASS（支持范围内） | Explorer真实拖入4项；Ctrl/Shift/框选及Space/Esc用户确认；受控重试后的双项原生拖出哈希一致，来源保留；双击调用系统记事本。绑定目录3份文件副本哈希一致、同名编号、旧目标保留。 |
+| E 管理中心 | PASS（抽样） | 独立窗口开关/再开；English跨架查询2项；筛选内全选加标签仅影响两条记录、保留精选；真实任务显示、桌面设置保存、从中心找回主架。 |
+| F 正常退出与重启 | PASS（本次基线） | 退出仅清1条会话引用，9条持久/绑定记录、非空标签、排序及任务保持，SQLite integrity_check=ok；同包重启恢复两个独立窗、主架收起；再正常退出后原生重新采集的v3与退出前完全一致，包括绑定窗420×453.6及项目窗置顶true。 |
+| F 置顶菜单显示 | FAIL（R2） | 重启后实际原生置顶true，菜单却未勾选；新增浏览器检查复现。仅显示同步，不是原生置顶恢复失败。 |
+
+绑定目录真实批次还包含文件夹，所以任务为**partial 3/4**，明确拒绝递归复制文件夹；不能写作完整3/3成功。文件夹仍可引用，原件保留。首轮组拖出曾观察到目标为空，只有随后受控重试且两份目标哈希匹配才记PASS。
+
+5个受保护合成文件在全过程及退出后SHA256不变。带Windows扩展前缀的绑定路径曾被简单字符串比较误判；文件系统身份核验确认正确，额外选择框已取消。这是核验方法误报，不是产品放错目录。
+
+## 后台修复与研究边界
+
+本机锁定tauri2.12.5/runtime-wry2.12.3的实际源码明确：WindowContent把拖放转换成WindowEvent::DragDrop，普通子Webview才走WebviewEvent。r13 Rust入口和进入拖放记账监听了WebviewEvent；现有文件窗的JS原生监听仍可收到整窗事件，因此直接文件窗能用不证明Dock接线正确。拟修正为既有窗口回调中的唯一原生接收路径，复用run_import和冻结目标ID，不新增JS文件权限、不双重订阅、不新增依赖。
+
+原始来源：[锁定runtime-wry源码](https://github.com/tauri-apps/tauri/blob/tauri-runtime-wry-v2.12.3/crates/tauri-runtime-wry/src/lib.rs)、[窗口事件处理](https://github.com/tauri-apps/tauri/blob/tauri-v2.12.5/crates/tauri/src/manager/window.rs)。社交/社区反馈仅提供线索；[历史多Webview问题#9973](https://github.com/tauri-apps/tauri/issues/9973)、[动态隐藏窗口问题#14643](https://github.com/tauri-apps/tauri/issues/14643)不能直接充当本机根因。后者涉及旧版本且有无法复现的相反反馈；本轮不盲目改可见创建或升级依赖。官方说明见[WebviewWindow原生拖放](https://tauri.app/reference/javascript/api/namespacewebviewwindow/)。
+
+窗口事件接线错误已由锁定源码确认；是否还存在隐藏窗口、坐标或时序问题，须由下一精确候选的真实Drop/取消验证决定。Rust进入拖放安全记账的新增测试初次因测试接缝尚未提取而编译失败，**不是修复前OS拖放行为回归测试通过或失败的替代品**。实际r13失败及文件/任务检查才是原生复现；浏览器新增置顶用例则实际先因未勾选失败。
+
+修正已写入同一阶段分支：仅从现有on_window_event调用原生拖放处理，并移除原错误on_webview_event注册；主/独立文件窗的进入记账也统一修正。菜单勾选同步各自布局字段。后台本机完整62浏览器/32Rust通过（另2个按原设计受控fixture忽略），fmt/Clippy、生产构建、合成材料脚本测试及仓库检查通过。没有用自动输入伪造下一候选的真实Drop通过；Windows云端编译与精确新包另记。
+
+第一轮云端Linux浏览器实际61/62，新置顶用例已通过；旧“Ctrl框选叠加/自动滚动”在添加60条合成记录后立即拖动，未等待异步快照渲染，而文件集更新按设计会取消当前框选。测试补充等待第一条新增卡片可见及两个渲染帧，再开始手势，保留选择框可见、连续滚动和松开停止断言。仅修正测试准备，不改选择业务、不跳过、不增加自动重试；本机该专项通过，完整云端结果另记。首轮失败记录保留。
+
+## 未验证与后续关卡
+
+### r14 后台交付
+
+精确源码563ca7d8ba293dd7b433749445f6e5522ebd4f41 / 构建7e6b78028bfa55c051936e656133be327360ce9c，完整tree同为3c3617e44586d45e6f0ffdf50932f17e62f55ca3。[Desktop](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/actions/runs/40139845977)、[MSI](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/actions/runs/40139845942)、[双平台仓库检查](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/actions/runs/40139867090)全SUCCESS：62浏览器/32Rust、fmt/Clippy和Windows编译。Artifact12578581369，本机r14另存并通过9文件白名单/8哈希/PE/MSI只读检查；完整哈希与许可见[r14精确证据](../research/P2-detached-shelves-evidence/r14-verification.json)。未启动/未安装，新原生NOT RUN。文档头不替换这份包。
+
+下一次集中只先复测Dock固定入口/细柄唤出后的Drop与Esc取消、正确目标且一次副本、所属窗口置顶菜单、直接文件流转抽样；复用已验证隔离合成材料，留存前后目标/任务/SQLite基线，避免再次准备私人素材或反复拖旧r13。未测项目不得因此升级为PASS。
+
+未验证：Win10、指定125%/150%DPI、多屏负坐标/断屏重连、实际安装升级卸载、X/托盘完整组合、原生复制中取消/退出保护、资源性能与超5架原生分页。v1/v2仅以合成旧文件验证在已有v3时逐字节保留；原生从无v3迁移未测，迁移只有Rust自动覆盖。
+
+下一候选先后台修复、完整回归、云端构建、包身份/许可只读检查；准备好后集中复测Dock固定入口、细柄唤出后投放、Esc取消、一次写入及窗口拖放期间生命周期保护。新候选原生未验前不能声称Dock已修好。#30/#32保持R3阶段门槛；不合并、不安装、不发布、不启用LAN、不调用Gemini。Gemini#17仍UNKNOWN、0模型调用，不阻断产品。43项与完整P2→P3→P4路线继续保留。
+
+回滚：使用保留的r10–r13或普通revert；保留来源、SQLite、v1/v2/v3和旧候选，不强推、不删除历史。r13不是已通过Dock投放的安全替代品。

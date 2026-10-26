@@ -48,3 +48,5 @@
 - [视图记忆](tasks/shelf-view-memory.md) · [元数据排序](tasks/metadata-sorting.md) · [组合筛选](tasks/shelf-file-filters.md)
 
 这些链接保留已完成工作的证据；其中历史“尚未实现”不得覆盖当前P2/r21状态。
+
+本分支历史P2基座记录：[拆分与合并](stages/P2-detached-shelves.md)、[管理与贴边](stages/P2-management-edge.md)、[首个桌面闭环](stages/P2-desktop-loop.md)。这些旧候选证据不代表最新r21或整体验收。

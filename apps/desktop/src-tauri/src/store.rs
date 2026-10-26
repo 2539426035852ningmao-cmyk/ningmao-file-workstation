@@ -23,6 +23,12 @@ pub struct Shelf {
     pub available: bool,
 }
 #[derive(Clone, Serialize)]
+pub struct ShelfIdentity {
+    pub id: i64,
+    pub name: String,
+    pub kind: String,
+}
+#[derive(Clone, Serialize)]
 pub struct Item {
     pub id: i64,
     pub shelf_id: i64,
@@ -46,6 +52,20 @@ pub struct Job {
 pub struct Snapshot {
     pub shelves: Vec<Shelf>,
     pub items: Vec<Item>,
+    pub jobs: Vec<Job>,
+}
+#[derive(Serialize)]
+pub struct ManagedReference {
+    pub id: i64,
+    pub shelf_id: i64,
+    pub path: String,
+    pub name: String,
+    pub tags: Vec<String>,
+}
+#[derive(Serialize)]
+pub struct ManagementSnapshot {
+    pub shelves: Vec<ShelfIdentity>,
+    pub items: Vec<ManagedReference>,
     pub jobs: Vec<Job>,
 }
 
@@ -86,13 +106,20 @@ impl Store {
         if value == "ok" { Ok(()) } else { Err(value) }
     }
     pub fn shelves(&self) -> Result<Vec<Shelf>> {
+        let mut shelves = self.shelf_records()?;
+        for shelf in &mut shelves {
+            shelf.available = shelf.root.as_ref().is_none_or(|s| Path::new(s).is_dir());
+        }
+        Ok(shelves)
+    }
+    fn shelf_records(&self) -> Result<Vec<Shelf>> {
         let mut stmt = self
             .db
             .prepare("SELECT id,name,kind,root FROM shelves ORDER BY id")
             .map_err(err)?;
         stmt.query_map([], |r| {
             let root: Option<String> = r.get(3)?;
-            let available = root.as_ref().is_none_or(|s| Path::new(s).is_dir());
+            let available = true;
             Ok(Shelf {
                 id: r.get(0)?,
                 name: r.get(1)?,
@@ -105,11 +132,109 @@ impl Store {
         .collect::<std::result::Result<Vec<_>, _>>()
         .map_err(err)
     }
-    fn shelf(&self, id: i64) -> Result<Shelf> {
-        self.shelves()?
+    // Window hover only needs IDs/names. Never probe bound disks on native drag events.
+    pub fn shelf_catalog(&self) -> Result<Vec<ShelfIdentity>> {
+        self.db
+            .prepare("SELECT id,name,kind FROM shelves ORDER BY id")
+            .map_err(err)?
+            .query_map([], |r| {
+                Ok(ShelfIdentity {
+                    id: r.get(0)?,
+                    name: r.get(1)?,
+                    kind: r.get(2)?,
+                })
+            })
+            .map_err(err)?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(err)
+    }
+    pub fn shelf(&self, id: i64) -> Result<Shelf> {
+        let mut shelf = self
+            .shelf_records()?
             .into_iter()
             .find(|s| s.id == id)
-            .ok_or("文件架不存在。".into())
+            .ok_or("文件架不存在。".to_string())?;
+        shelf.available = shelf.root.as_ref().is_none_or(|s| Path::new(s).is_dir());
+        Ok(shelf)
+    }
+    pub fn validate_item_scope(&self, scope: Option<i64>, ids: &[i64]) -> Result<()> {
+        for id in ids {
+            let shelf: i64 = self
+                .db
+                .query_row("SELECT shelf_id FROM items WHERE id=?1", [id], |r| r.get(0))
+                .map_err(err)?;
+            if scope.is_some_and(|target| shelf != target) {
+                return Err("独立窗口只能操作自己的文件架记录。".into());
+            }
+        }
+        Ok(())
+    }
+    pub fn validate_job_scope(&self, scope: Option<i64>, id: i64) -> Result<()> {
+        if let Some(target) = scope {
+            let shelf: i64 = self
+                .db
+                .query_row("SELECT shelf_id FROM jobs WHERE id=?1", [id], |r| r.get(0))
+                .map_err(err)?;
+            if target != shelf {
+                return Err("此复制任务不属于当前独立架。".into());
+            }
+        }
+        Ok(())
+    }
+    pub fn create_shelf(&mut self, name: &str, session: bool) -> Result<i64> {
+        let name = name.trim();
+        if name.is_empty() || name.chars().count() > 60 || name.chars().any(char::is_control) {
+            return Err("文件架名称需为 1 至 60 个字符，不能包含控制字符。".into());
+        }
+        let tx = self.db.transaction().map_err(err)?;
+        let exists: bool = tx
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM shelves WHERE name=?1)",
+                [name],
+                |r| r.get(0),
+            )
+            .map_err(err)?;
+        if exists {
+            return Err("已有同名文件架，请更换名称。".into());
+        }
+        tx.execute(
+            "INSERT INTO shelves(name,kind) VALUES(?1,?2)",
+            params![name, if session { "session" } else { "persistent" }],
+        )
+        .map_err(err)?;
+        let id = tx.last_insert_rowid();
+        tx.commit().map_err(err)?;
+        Ok(id)
+    }
+    pub fn copy_references(&mut self, target: i64, ids: &[i64]) -> Result<usize> {
+        if self
+            .shelf_catalog()?
+            .into_iter()
+            .find(|s| s.id == target)
+            .ok_or("目标文件架不存在")?
+            .kind
+            == "bound"
+        {
+            return Err("真实目录请使用安全复制文件，不能仅复制引用。".into());
+        }
+        if ids.is_empty()
+            || ids.len() > 256
+            || ids.iter().collect::<std::collections::HashSet<_>>().len() != ids.len()
+        {
+            return Err("请选择 1 至 256 个不同引用。".into());
+        }
+        let tx = self.db.transaction().map_err(err)?;
+        let mut added = 0;
+        for id in ids {
+            let (path, name, tags): (String, String, String) = tx
+                .query_row("SELECT path,name,tags FROM items WHERE id=?1", [id], |r| {
+                    Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+                })
+                .map_err(err)?;
+            added+=tx.execute("INSERT OR IGNORE INTO items(shelf_id,path,name,position,tags) VALUES(?1,?2,?3,COALESCE((SELECT MAX(position)+1 FROM items WHERE shelf_id=?1),0),?4)",params![target,path,name,tags]).map_err(err)?;
+        }
+        tx.commit().map_err(err)?;
+        Ok(added)
     }
     pub fn bind_directory(&mut self, path: &Path) -> Result<i64> {
         let path = canonical_user_path(path)?;
@@ -243,6 +368,97 @@ impl Store {
         }
         Ok(())
     }
+    pub fn tag_references(&mut self, ids: &[i64], tag: &str, remove: bool) -> Result<usize> {
+        let tag = tag.trim();
+        if tag.is_empty() || tag.len() > 128 || tag.chars().any(char::is_control) {
+            return Err("标签需为1至128字节，不能包含控制字符。".into());
+        }
+        if ids.is_empty()
+            || ids.len() > 256
+            || ids.iter().collect::<std::collections::HashSet<_>>().len() != ids.len()
+        {
+            return Err("请选择1至256个不同引用；不会只更新部分选中项。".into());
+        }
+        let tx = self.db.transaction().map_err(err)?;
+        for id in ids {
+            let raw: String = tx
+                .query_row("SELECT tags FROM items WHERE id=?1", [id], |r| r.get(0))
+                .map_err(err)?;
+            let mut tags: Vec<String> = serde_json::from_str(&raw).map_err(err)?;
+            if remove {
+                tags.retain(|value| value != tag);
+            } else if !tags.iter().any(|value| value == tag) {
+                tags.push(tag.into());
+            }
+            if tags.len() > 32 {
+                return Err("单个文件最多32个标签，本次批量修改已取消。".into());
+            }
+            tx.execute(
+                "UPDATE items SET tags=?1 WHERE id=?2",
+                params![serde_json::to_string(&tags).map_err(err)?, id],
+            )
+            .map_err(err)?;
+        }
+        tx.commit().map_err(err)?;
+        Ok(ids.len())
+    }
+    // Metadata only: no stat/read_dir/canonicalize and no insertion into bound shelves.
+    pub fn management_snapshot(&self) -> Result<ManagementSnapshot> {
+        let items = self
+            .db
+            .prepare("SELECT id,shelf_id,path,name,tags FROM items ORDER BY shelf_id,position,id")
+            .map_err(err)?
+            .query_map([], |r| {
+                Ok((
+                    r.get::<_, i64>(0)?,
+                    r.get::<_, i64>(1)?,
+                    r.get::<_, String>(2)?,
+                    r.get::<_, String>(3)?,
+                    r.get::<_, String>(4)?,
+                ))
+            })
+            .map_err(err)?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(err)?
+            .into_iter()
+            .map(|(id, shelf_id, path, name, raw)| {
+                Ok(ManagedReference {
+                    id,
+                    shelf_id,
+                    path,
+                    name,
+                    tags: serde_json::from_str(&raw).map_err(err)?,
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        Ok(ManagementSnapshot {
+            shelves: self.shelf_catalog()?,
+            items,
+            jobs: self.jobs()?,
+        })
+    }
+    fn jobs(&self) -> Result<Vec<Job>> {
+        self.jobs_scoped(None)
+    }
+    fn jobs_scoped(&self, scope: Option<i64>) -> Result<Vec<Job>> {
+        self.db
+            .prepare(
+                "SELECT id,shelf_id,status,message,staging FROM jobs WHERE (?1 IS NULL OR shelf_id=?1) ORDER BY id DESC LIMIT 20",
+            )
+            .map_err(err)?
+            .query_map([scope], |r| {
+                Ok(Job {
+                    id: r.get(0)?,
+                    shelf_id: r.get(1)?,
+                    status: r.get(2)?,
+                    message: r.get(3)?,
+                    staging: r.get(4)?,
+                })
+            })
+            .map_err(err)?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(err)
+    }
     pub fn reorder(&mut self, shelf: i64, ids: &[i64]) -> Result<()> {
         let expected: Vec<i64> = self
             .db
@@ -268,7 +484,18 @@ impl Store {
         tx.commit().map_err(err)
     }
     pub fn snapshot(&mut self) -> Result<Snapshot> {
-        let shelves = self.shelves()?;
+        self.snapshot_scoped(None, &[])
+    }
+    pub fn snapshot_scoped(&mut self, scope: Option<i64>, excluded: &[i64]) -> Result<Snapshot> {
+        let mut shelves: Vec<_> = self
+            .shelf_records()?
+            .into_iter()
+            .filter(|s| scope.map_or(!excluded.contains(&s.id), |id| s.id == id))
+            .collect();
+        for shelf in &mut shelves {
+            shelf.available = shelf.root.as_ref().is_none_or(|s| Path::new(s).is_dir());
+        }
+        let allowed: std::collections::HashSet<i64> = shelves.iter().map(|s| s.id).collect();
         // Shallow enumeration only of explicitly bound roots; never scan reference parents.
         for shelf in &shelves {
             if let Some(root) = &shelf.root
@@ -307,6 +534,7 @@ impl Store {
             .map_err(err)?;
         let items = rows
             .into_iter()
+            .filter(|(_, id, _, _, _)| allowed.contains(id))
             .map(|(id, shelf_id, path, name, tags)| {
                 let meta = fs::symlink_metadata(&path);
                 let (status, bytes, modified, kind) = match meta {
@@ -353,24 +581,7 @@ impl Store {
                 })
             })
             .collect::<Result<Vec<_>>>()?;
-        let jobs = self
-            .db
-            .prepare(
-                "SELECT id,shelf_id,status,message,staging FROM jobs ORDER BY id DESC LIMIT 20",
-            )
-            .map_err(err)?
-            .query_map([], |r| {
-                Ok(Job {
-                    id: r.get(0)?,
-                    shelf_id: r.get(1)?,
-                    status: r.get(2)?,
-                    message: r.get(3)?,
-                    staging: r.get(4)?,
-                })
-            })
-            .map_err(err)?
-            .collect::<std::result::Result<Vec<_>, _>>()
-            .map_err(err)?;
+        let jobs = self.jobs_scoped(scope)?;
         Ok(Snapshot {
             shelves,
             items,

@@ -27,6 +27,10 @@ export function writeViewMemory(views:Record<string,ShelfView>,writable:boolean)
   try {localStorage.setItem(key,JSON.stringify({version:2,shelves:views}));return "";}
   catch {return "视图已切换，但无法保存设置；重启后可能恢复原显示，文件记录不受影响";}
 }
+export function writeShelfView(id:number,view:ShelfView,writable:boolean):string {
+  const latest=readViewMemory();
+  return writeViewMemory({...latest.views,[id]:view},writable && latest.writable);
+}
 export function readTheme():"dark"|"light" {
   try {return localStorage.getItem("ningmao-theme")==="light"?"light":"dark";}
   catch {return "dark";}
@@ -34,4 +38,12 @@ export function readTheme():"dark"|"light" {
 export function writeTheme(theme:"dark"|"light"):string {
   try {localStorage.setItem("ningmao-theme",theme);return "";}
   catch {return "主题已切换，但无法保存设置；重启后可能恢复原主题";}
+}
+export function observeTheme(update:(theme:"dark"|"light")=>void):()=>void {
+  const read=()=>{try{return localStorage.getItem("ningmao-theme");}catch{return undefined;}};
+  let previous=read();
+  const refresh=()=>{const value=read();if(value!==undefined && value!==previous){previous=value;update(value==="light"?"light":"dark");}};
+  const storage=(event:StorageEvent)=>{if(event.key===null || event.key==="ningmao-theme")refresh();};
+  window.addEventListener("storage",storage);window.addEventListener("focus",refresh);
+  return()=>{window.removeEventListener("storage",storage);window.removeEventListener("focus",refresh);};
 }

@@ -1,0 +1,156 @@
+{
+  "schema": 1,
+  "date": "2026-10-25",
+  "candidate": "r13",
+  "sourceCommit": "3061d2077a59050eaf6bad643dfbc32869d2a930",
+  "ciMergeCommit": "f3212e6a1c6f75bff7373a99561f906fc4548027",
+  "exeSha256": "a7137619ced1e893e1e88931616d1a4a704bb64cf8168b796d6d9a32bdbbc867",
+  "os": {
+    "caption": "Windows 11 Home Chinese",
+    "version": "10.0.22631",
+    "architecture": "x64"
+  },
+  "desktopAuthorization": "EXPLICIT_USER_APPROVAL_FOR_THIS_CONCENTRATED_SESSION",
+  "msiInstalled": false,
+  "geminiCalls": 0,
+  "checks": [
+    {
+      "id": "A-start",
+      "status": "PASS",
+      "evidence": "Inspected r13 EXE started in isolated synthetic data/webview roots; native UI observed."
+    },
+    {
+      "id": "A-size",
+      "status": "PASS",
+      "evidence": "Native main layout capture reports logical 420x520; screenshot outer bounds 422x551."
+    },
+    {
+      "id": "A-collapse-expand",
+      "status": "PASS",
+      "evidence": "Menu collapse hid main, a separate native entry appeared, clicking returned same shelf."
+    },
+    {
+      "id": "A-move",
+      "status": "PASS",
+      "evidence": "Main and detached title bar drags visibly changed positions."
+    },
+    {
+      "id": "A-close-tray",
+      "status": "NOT TESTED"
+    },
+    {
+      "id": "B-create",
+      "status": "PASS",
+      "evidence": "Created persistent P2 project shelf through native dialog; SQLite IDs 1,2,3."
+    },
+    {
+      "id": "B-detach",
+      "status": "PASS",
+      "evidence": "Owned native window opened with four items; main changed to session shelf; persisted registry shelf_id=1."
+    },
+    {
+      "id": "B-sort-tags",
+      "status": "PASS",
+      "evidence": "Native handle drag changed order to [1,3,4,2]; English retains favorite tag in SQLite."
+    },
+    {
+      "id": "B-reference-copy",
+      "status": "PASS",
+      "evidence": "Explicit native dialog copied English reference to shelf 3; source retained, tag preserved, total five rows, integrity_check=ok."
+    },
+    {
+      "id": "B-merge",
+      "status": "PASS",
+      "evidence": "Explicit merge destroyed owned native window; main selected shelf 1. Five item rows byte-equivalent in logical snapshot, tags/order [1,3,4,2] preserved; SQLite integrity ok."
+    },
+    {
+      "id": "C-dock-target-drop-cancel",
+      "status": "FAIL",
+      "evidence": "User reported edge reveal, Esc cancellation, then drop. Expected English (2).txt and new copy job absent. Subsequent controlled steady Dock retest also failed; no protected file changed."
+    },
+    {
+      "id": "D-import",
+      "status": "PASS",
+      "evidence": "User dragged four synthetic entries from Explorer; native shelf and SQLite show four references; five protected file hashes unchanged."
+    },
+    {
+      "id": "D-multiselect",
+      "status": "PASS",
+      "evidence": "User reported Ctrl, Shift and marquee selection normal."
+    },
+    {
+      "id": "D-native-group-copy",
+      "status": "PASS",
+      "evidence": "After clearing previous selection, user dragged selected English/Chinese pair to the confirmed r13 destination; both target hashes match retained sources. Initial empty-directory observation is retained as inconclusive, not product success."
+    },
+    {
+      "id": "D-bound-copy",
+      "status": "PASS",
+      "evidence": "Native drop into owned bound shelf produced three byte-identical file copies and English (1).txt; existing English and all five protected files unchanged. Actual batch also included a folder: job is partial 3/4, explicitly rejected recursive folder copy; no claim of full 3/3 completion."
+    },
+    {
+      "id": "D-space-preview",
+      "status": "PASS",
+      "evidence": "User confirmed native Space preview and Esc close; automatic input was inconclusive."
+    },
+    {
+      "id": "D-default-open",
+      "status": "PASS",
+      "evidence": "Native double-click opened English.txt in system Notepad; closed only this synthetic tab without edits."
+    },
+    {
+      "id": "E-manager",
+      "status": "PASS",
+      "evidence": "Native manager opened once with three shelves/five rows, English search returned two rows; filtered select-all batch added P2 acceptance tag only to IDs 2/5, preserving favorite tags/order and five source hashes. Right-edge/auto-hide settings persisted. Manager close checked separately."
+    },
+    {
+      "id": "F-restart",
+      "status": "PASS",
+      "evidence": "Normal full quit cleared only one session reference; nine persistent/bound rows, non-empty tags, manual order [1,3,4,2], jobs, integrity=ok preserved. Same exact r13 restarted with two owned windows visible and main collapsed. Second normal quit recaptured an identical v3 layout, including bound logical 420x453.6 and project topmost=true. Synthetic v1/v2 originals unchanged with v3 already present; no claim of native legacy migration."
+    },
+    {
+      "id": "matrix-win10-dpi-multi-monitor-installation",
+      "status": "NOT TESTED"
+    },
+    {
+      "id": "B-bound-detach",
+      "status": "PASS",
+      "evidence": "Native binding root verified by filesystem identity as the dedicated r13 target; the bound shelf was detached with its own native window while main selected another shelf."
+    },
+    {
+      "id": "C-right-edge-handle",
+      "status": "PASS",
+      "evidence": "After persisting right-edge/auto-hide and collapsing bound shelf 4, native entry screenshot and UIA showed a real folded edge handle; persisted collapsed=[4], bound visible=false."
+    },
+    {
+      "id": "C-multi-dock",
+      "status": "PASS",
+      "evidence": "Native fixed Dock displayed both bound shelf 4 and collection shelf 1; layout persisted collapsed [4,1]. Auto-hide temporarily disabled for a controlled drop retest."
+    },
+    {
+      "id": "C-steady-dock-drop",
+      "status": "FAIL",
+      "risk": "R3",
+      "evidence": "With auto-hide disabled, two steady native Dock buttons visible, user explicitly dropped English onto top bound-target button; no English (2).txt was created and no new job appeared. Source/target protected hashes unchanged. No further repeated human drops requested."
+    },
+    {
+      "id": "F-topmost-menu-state",
+      "status": "FAIL",
+      "risk": "R2",
+      "evidence": "Restored native project window remained topmost=true (native capture after second exit), but menu checkbox was unchecked. Browser regression reproduced unchecked display before fix; display synchronization defect, not failure to restore actual native flag."
+    }
+  ],
+  "toolLimitations": [
+    "Only documented computer-use API used for Windows interactions; cross-window physical drags are supplied by the user.",
+    "Some immediate tool snapshots lag UI changes; stale observations are not treated as successful inputs.",
+    "No native screenshots uploaded because translucent/occluded captures can include unrelated desktop content.",
+    "Initial binding verification compared extended Windows path strings directly and reported a false mismatch; os.path.samefile proved the target was correct, no copy occurred before identity verification. An extra verification picker was cancelled."
+  ],
+  "materialRoot": "P2-acceptance-r3",
+  "protectedSyntheticFiles": 5,
+  "remainingLimitations": [
+    "Recursive folder Copy is not implemented; mixed batch rejected folder while preserving all sources and copying three files."
+  ],
+  "currentCheckpoint": "Concentrated native session finished. Both launches ended through native Full Quit; no r13 process/windows remain. Dock drop R3 and restored topmost menu R2 fixes being prepared in PR32; native retest required for next binary.",
+  "overall": "FAIL: r13 Dock native drop blocks P2 acceptance; partial passes retained."
+}
