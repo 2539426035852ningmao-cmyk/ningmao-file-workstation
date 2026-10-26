@@ -32,8 +32,8 @@
   "performance": "Native idle CPU/RAM and input latency NOT_TESTED; no new polling/input hooks in source",
   "nativeLaunch": true,
   "installed": false,
-  "nativeAcceptance": "PARTIAL: default wake/pause/resume passed; see r21-native-session.json for strict remaining scope",
-  "desktopSession": "User lifted prior desktop-input bans; isolated r21 launched. Input paused after capture/minimize errors pending coordination; not a cancellation of new authorization.",
+  "nativeAcceptance": "PARTIAL: expanded exact-candidate native results and Windows registration probe in r21-native-session.json",
+  "desktopSession": "Two normal exits and one restart completed; no candidate process left running. Prior accidental minimization clarified by user.",
   "schema": "Unchanged SQLite schema2 and layoutv4; wake config is a separate version1 JSON",
   "networkModelFees": "No LAN/discovery/firewall/model download/model requests/paid API; routine GitHub and crate/doc reads only",
   "rollback": "Preserved r19/r20; revert source with data backups, never overwrite or downgrade database",
@@ -41,5 +41,5 @@
   "deliveryPR": 40,
   "deliveryBranch": "feat/p2-management-flow",
   "implementationBranch": "fix/p2-closeout-20261026",
-  "ciVerifiedAtHead": "ac8a5adbb57749a22394627f75165bf7e6b16842; both workflows SUCCESS; see r21-ci.json"
+  "ciVerifiedAtHead": "f717b1a2ea58de8d16a259dcc6c67dc8dd2f5ad3; Desktop40295641668/Preview40295641558 SUCCESS; production implementation unchanged"
 }

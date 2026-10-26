@@ -31,30 +31,91 @@
     },
     {
       "id": "space-preview",
-      "status": "NOT_TESTED",
-      "evidence": "Synthetic Chinese item selected, but after Space input window capture reported minimized; no preview observed, cause not established."
+      "status": "PASS",
+      "evidence": "User confirmed actual Space preview and Esc close on this exact r21; automated key injection did not establish this earlier."
+    },
+    {
+      "id": "default-open",
+      "status": "PASS",
+      "evidence": "Double-clicked synthetic Chinese text; system Notepad opened expected synthetic content. Closed only this test tab; file hash unchanged."
+    },
+    {
+      "id": "native-picker-copy",
+      "status": "PASS",
+      "evidence": "Two separate native picker imports copied English.txt and then Chinese text into the bound shelf. Each created exactly one completed job; source preserved."
+    },
+    {
+      "id": "conflict-numbering",
+      "status": "PASS",
+      "evidence": "Chinese import created 中文 空格 (2).txt. Original and (1) protected copies unchanged; new copy SHA256 equals source."
+    },
+    {
+      "id": "manager-terminal-sync",
+      "status": "PASS",
+      "evidence": "Separate manager task list automatically showed both completed real copy jobs without Refresh. Fast copies do not establish pending/progress/cancel UI coverage."
+    },
+    {
+      "id": "metadata-combined-search",
+      "status": "PASS",
+      "evidence": "Applied internal QA-native tag to synthetic English reference; English QA-native query returned only that reference. No real file edits."
+    },
+    {
+      "id": "configure-and-persist-key",
+      "status": "PASS",
+      "evidence": "Saved Ctrl+Alt+G via manager. Old Ctrl+Alt+Space did not reveal hidden main; new key did. Independent JSON stored G; restart manager displayed G active."
+    },
+    {
+      "id": "normal-exit-and-restart",
+      "status": "PASS",
+      "evidence": "Normal menu exit ended first process; relaunch restored bound shelf 4 entries and two completed jobs; persistent shelf 3 entries and QA-native tag preserved. Session shelf correctly cleared only its single reference."
+    },
+    {
+      "id": "ctrl-group-native-dragout",
+      "status": "PASS",
+      "evidence": "User confirmed Ctrl selection of two files and group drag to initially empty synthetic target. App reported Dropped/Copy. Target exactly two files, both SHA256 equal bound copies and original sources; all sources retained."
+    },
+    {
+      "id": "windows-registration-probe",
+      "status": "PASS",
+      "evidence": "Explicit ignored Rust native test observed ERROR_HOTKEY_ALREADY_REGISTERED while r21 owned G; after second normal exit it registered G successfully and explicitly released its own registration. No input injection or key logging."
     }
   ],
   "automationInterruptions": [
     "Coordinate geometry unavailable on text-only observation; screenshot-backed recovery used.",
-    "Later capture twice reported minimized window and one screenshot id became unavailable; input paused pending coordination. No root cause assigned."
+    "Later capture twice reported minimized window and one screenshot id became unavailable; input paused pending coordination. No root cause assigned.",
+    "Fresh activation/selection used when occluded captures or stale screenshot/geometry were observed; no private background screenshots uploaded."
   ],
   "shortcutRemaining": [
-    "real competing-registration conflict",
-    "configure and persist alternate key",
-    "disable and process-exit release",
-    "restart recovery"
+    "candidate UI error/rollback under actual competing owner",
+    "explicit disabled-setting native cycle"
   ],
   "protectedSyntheticFilesUnchanged": true,
   "database": {
     "integrity": "ok",
     "schema": 2,
     "shelves": 3,
-    "items": 6,
-    "jobs": 0,
-    "recycleJournal": 0
+    "items": 7,
+    "jobs": 2,
+    "recycleJournal": 0,
+    "sessionShelfItems": 0,
+    "testTagPersisted": true
   },
-  "fileOperations": "No native Copy/import/dragout/recycle in this session yet",
+  "fileOperations": "Native picker Copy, same-name protection, group native Copy dragout, default open and user Space preview passed. Native incoming Dock drop/recycle/task-progress-cancel remain unproven for r21.",
   "overall": "PARTIAL",
-  "stageMergeApproved": false
+  "stageMergeApproved": false,
+  "coordinationResolution": "User explicitly explained earlier minimization was accidental manual input; resumed testing. No product defect inferred.",
+  "programRunning": false,
+  "probe": {
+    "test": "native_hotkey_probe::candidate_hotkey_registration_matches_windows",
+    "occupiedPassed": 1,
+    "freePassed": 1,
+    "normalSuite": "ignored: opt-in OS registration needs explicit synthetic fixture and expected state",
+    "clippy": "PASS: selected test target -D warnings",
+    "productionChanges": false,
+    "newDependencies": false,
+    "nativeTimingSeconds": 0.0,
+    "firstProbeCompileSeconds": 17.68,
+    "warmProbeCompileSeconds": 3.35,
+    "measurementsPerCase": 1
+  }
 }

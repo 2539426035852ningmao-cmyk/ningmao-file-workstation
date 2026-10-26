@@ -19,12 +19,12 @@
     {
       "id": "r20-manager-native",
       "status": "NOT_TESTED",
-      "scope": "Source16edf9a/exe520a3dd9…4f1b7b; 96 browser and CI passed, no native launch"
+      "scope": "Historical r20 not launched; r21 now passed real completed-task cross-window auto sync and name+tag combined search. Queued/progress/cancel/late-event UI still NOT_TESTED."
     },
     {
       "id": "r21-shortcut",
       "status": "PARTIAL",
-      "scope": "Native PASS: default registration/wake, pause prevents wake, resume restores wake. Competing registration, configure/persist, disable/exit release and restart still NOT_TESTED. See r21-native-session.json."
+      "scope": "Native default wake/pause/resume, configure G, old-key removal, G save/restart registration PASS. OS probe conflict while occupied and release after exit PASS. Candidate error UI with external owner and explicit disabled cycle NOT_TESTED."
     },
     {
       "id": "r21-window-recovery",
@@ -37,8 +37,8 @@
     },
     {
       "id": "r21-reference-copy-conflict-dragout-sort-preview",
-      "status": "NOT_TESTED",
-      "scope": "Original automated file safety remains passed, not UI proof"
+      "status": "PARTIAL",
+      "scope": "Exact r21: native picker Copy/source protection/Chinese numbering/group dragout/Ctrl selection/Space/default open PASS. Incoming native Dock drag and current candidate sort/Shift/marquee full matrix still pending; do not inherit old candidates."
     },
     {
       "id": "r21-softtrash-system-recycle-multi-reference-zero-shelf",
@@ -48,7 +48,7 @@
     {
       "id": "schema2-wal-future-version-task-recovery",
       "status": "PARTIAL",
-      "scope": "Synthetic automated backup/WAL/future schema and staging safety passed; native integrated restart pending"
+      "scope": "r21 native normal exit/restart, persistent references/tags/completed jobs and scoped session cleanup PASS; synthetic WAL/future-version/interrupt tests already passed. Native interrupted-live-copy recovery not proven."
     },
     {
       "id": "os-dpi-multi-monitor",
