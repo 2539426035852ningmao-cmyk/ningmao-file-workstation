@@ -22,6 +22,8 @@ pub struct Desktop {
     pub drags: Mutex<WindowDrags>,
     pub creating_window: Mutex<()>,
     pub transitioning: AtomicBool,
+    pub sense_enabled: AtomicBool,
+    pub sense_running: AtomicBool,
     peek_target: AtomicI64,
     path: PathBuf,
     writable: bool,
@@ -46,6 +48,8 @@ pub struct View {
     pub geometry: crate::entry::Geometry,
     pub native_dragging: bool,
     pub drag_target: Option<i64>,
+    pub close_lower: bool,
+    pub always_scrollbars: bool,
 }
 
 impl Desktop {
@@ -95,6 +99,8 @@ impl Desktop {
             drags: Mutex::new(WindowDrags::default()),
             creating_window: Mutex::new(()),
             transitioning: AtomicBool::new(false),
+            sense_enabled: AtomicBool::new(false),
+            sense_running: AtomicBool::new(false),
             peek_target: AtomicI64::new(0),
             path,
             writable,
@@ -175,6 +181,7 @@ pub fn view(app: &tauri::AppHandle) -> Result<View> {
     {
         entry.reset();
     }
+    let close_lower = entry.close_lower;
     let presentation = entry.presentation.clone();
     let geometry = entry.geometry(&layout);
     let native_dragging = entry.busy();
@@ -197,6 +204,8 @@ pub fn view(app: &tauri::AppHandle) -> Result<View> {
         geometry,
         native_dragging,
         drag_target,
+        close_lower,
+        always_scrollbars: crate::window_surface::always_scrollbars(),
         warning: state.warning.lock().map_err(error)?.clone(),
         copying: app
             .state::<Runtime>()
@@ -246,7 +255,8 @@ pub(crate) fn entry_geometry(app: &tauri::AppHandle) -> Result<()> {
         .or_else(|| monitors.first().cloned())
         .ok_or("没有可用显示器，文件架保持展开")?;
     let area = monitor.work_area();
-    let pos = crate::entry::place(
+    let entry_state = app.state::<Desktop>().entry.lock().map_err(error)?.clone();
+    let (pos, lower) = crate::window_surface::place(
         initial,
         Rect {
             x: area.position.x,
@@ -255,9 +265,14 @@ pub(crate) fn entry_geometry(app: &tauri::AppHandle) -> Result<()> {
             height: area.size.height,
         },
         monitor.scale_factor(),
-        (data.geometry.width, data.geometry.height),
-        data.layout.preferences.edge,
+        &entry_state,
+        &data.layout,
     );
+    app.state::<Desktop>()
+        .entry
+        .lock()
+        .map_err(error)?
+        .close_lower = lower;
     window
         .set_size(tauri::LogicalSize::new(
             data.geometry.width,
@@ -278,6 +293,11 @@ pub(crate) fn entry_geometry(app: &tauri::AppHandle) -> Result<()> {
     window
         .set_always_on_top(data.layout.preferences.topmost)
         .map_err(error)?;
+    {
+        let e = app.state::<Desktop>();
+        let entry = e.entry.lock().map_err(error)?.clone();
+        crate::window_surface::apply(&window, &entry, &data.layout)?;
+    }
     window.show().map_err(error)?;
     publish(app)
 }
@@ -299,10 +319,8 @@ pub fn present(app: &tauri::AppHandle, id: i64, kind: crate::entry::Kind) -> Res
             .find(|s| s.id == id)
             .map(|s| {
                 (
-                    p.x.saturating_add((s.x * scale).round() as i32)
-                        .saturating_sub((8.0 * scale).round() as i32),
-                    p.y.saturating_add((s.y * scale).round() as i32)
-                        .saturating_sub((8.0 * scale).round() as i32),
+                    p.x.saturating_add((s.x * scale).round() as i32),
+                    p.y.saturating_add((s.y * scale).round() as i32),
                 )
             })
     } else {
@@ -313,7 +331,30 @@ pub fn present(app: &tauri::AppHandle, id: i64, kind: crate::entry::Kind) -> Res
         .lock()
         .map_err(error)?
         .present(&layout, id, kind)?;
-    state.entry.lock().map_err(error)?.anchor = anchor;
+    let mut next = state.entry.lock().map_err(error)?;
+    next.anchor = anchor.and_then(|p| {
+        next.geometry(&layout)
+            .slots
+            .iter()
+            .find(|s| s.id == id)
+            .map(|s| {
+                (
+                    p.0 - (s.x
+                        * app
+                            .get_webview_window("desktop-entry")
+                            .and_then(|w| w.scale_factor().ok())
+                            .unwrap_or(1.0))
+                    .round() as i32,
+                    p.1 - (s.y
+                        * app
+                            .get_webview_window("desktop-entry")
+                            .and_then(|w| w.scale_factor().ok())
+                            .unwrap_or(1.0))
+                    .round() as i32,
+                )
+            })
+    });
+    drop(next);
     state.layout.lock().map_err(error)?.edge_hidden = false;
     if let Err(e) = entry_geometry(app) {
         *state.entry.lock().map_err(error)? = old;
@@ -601,21 +642,6 @@ pub fn hover(app: &tauri::AppHandle, inside: bool) -> Result<()> {
     }
     Ok(())
 }
-pub fn move_entry(window: &tauri::WebviewWindow) -> Result<()> {
-    let state = window.app_handle().state::<Desktop>();
-    if state.entry.lock().map_err(error)?.presentation.kind != crate::entry::Kind::Orb {
-        return Err("请先收回圆球再移动入口。".into());
-    }
-    let layout = state.layout.lock().map_err(error)?;
-    if layout.is_dragging() {
-        return Err("请先完成文件投放。".into());
-    }
-    if layout.preferences.edge != Edge::Free {
-        return Err("贴边模式已固定入口；请在管理中心切换为自由悬浮后移动。".into());
-    }
-    drop(layout);
-    window.start_dragging().map_err(error)
-}
 pub fn notify(app: &tauri::AppHandle) {
     let _ = publish(app);
 }
@@ -678,6 +704,12 @@ pub fn setup(app: &tauri::AppHandle, root: &Path) -> Result<()> {
     .skip_taskbar(true)
     .always_on_top(true)
     .transparent(true)
+    // Use the supported DWM composition path instead of the legacy BlurBehind
+    // redirection bitmap. Native contour/drop slots remain unchanged. Validate
+    // idle/occlusion on Windows; this is not a periodic repaint workaround.
+    .no_redirection_bitmap(true)
+    .shadow(false)
+    .background_color(tauri::utils::config::Color(0, 0, 0, 0))
     .inner_size(64.0, 64.0)
     .build()
     .map_err(error)?;
@@ -782,12 +814,16 @@ pub fn window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
         let scale = window.scale_factor().map_err(error)?;
         match event {
             tauri::DragDropEvent::Enter { position, .. } => {
+                if state.transitioning.load(Ordering::SeqCst) {
+                    return Err("正在调整文件架，请稍后重新投放。".into());
+                }
                 let layout = state.layout.lock().map_err(error)?.clone();
-                let target = state
-                    .entry
-                    .lock()
-                    .map_err(error)?
-                    .begin_drag(&layout, position.x, position.y, scale);
+                let mut entry = state.entry.lock().map_err(error)?;
+                if state.transitioning.load(Ordering::SeqCst) {
+                    return Err("正在调整文件架，请稍后重新投放。".into());
+                }
+                let target = entry.begin_drag(&layout, position.x, position.y, scale);
+                drop(entry);
                 state.layout.lock().map_err(error)?.freeze_drag();
                 publish(&app)?;
                 request_peek(&app, target);
@@ -920,6 +956,8 @@ mod tests {
             total: 1,
             warning: None,
             copying: true,
+            close_lower: false,
+            always_scrollbars: false,
         })
         .unwrap();
         assert_eq!(json["edge_hidden"], true);

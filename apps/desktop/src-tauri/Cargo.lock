@@ -2054,11 +2054,14 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
+ "sha2",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
  "tauri-plugin-window-state",
  "tempfile",
+ "windows 0.62.2",
+ "windows-core 0.62.2",
 ]
 
 [[package]]

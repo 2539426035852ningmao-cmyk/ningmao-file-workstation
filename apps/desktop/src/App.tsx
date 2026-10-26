@@ -1,13 +1,18 @@
+import {WindowControls} from "./components/WindowControls";
+import {SystemRecycle} from "./components/SystemRecycle";
+import {RecycleDrawer} from "./components/RecycleDrawer";
+import {ScrollActivity} from "./components/ScrollActivity";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { DndContext, DragOverlay, KeyboardSensor, PointerSensor, closestCenter, pointerWithin, useSensor, useSensors, type CollisionDetection } from "@dnd-kit/core";
 import { SortableContext, rectSortingStrategy, sortableKeyboardCoordinates, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Archive, ArrowDownToLine, Check, ChevronDown, File, Folder, FolderPlus, GripVertical, Grid2X2, Info, List, Moon, MoreHorizontal, Pin, Plus, RefreshCw, Search, Star, Sun, X } from "lucide-react";
+import { Archive, Trash2, ArrowDownToLine, Check, ChevronDown, File, Folder, FolderPlus, GripVertical, Grid2X2, Info, List, Moon, MoreHorizontal, Pin, Plus, RefreshCw, Search, Star, Sun, X } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Badge } from "./components/ui/badge";
 import { DropdownMenu } from "radix-ui";
+import { useWindowDrag } from "./orb/useWindowDrag";
 import { ShelfMenu } from "./components/ShelfMenu";
 import { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem, ContextMenuSeparator } from "./components/ui/context-menu";
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "./components/ui/sheet";
@@ -42,7 +47,7 @@ function Thumb({item,backend,size=80}:{item:Item;backend:Backend;size?:number}) 
   return <div className="thumb" style={{width:size,height:size}}>{thumb ? <FileThumb key={key} iconSrc={thumb} thumbnailSrc={thumb} size={size} frameClassName="rounded object-contain"/> : item.kind==="folder" ? <Folder size={size*.6}/> : <File size={size*.6}/>}</div>;
 }
 type SelectionKeys={ctrlKey?:boolean;metaKey?:boolean;shiftKey?:boolean};
-function Asset({item,backend,selected,list,size,disabled,select,inspect,open,drag,tag,remove,bound}:{item:Item;backend:Backend;selected:boolean;list:boolean;size:number;disabled:boolean;select:(keys:SelectionKeys)=>void;inspect:()=>void;open:()=>void;drag:()=>void;tag:()=>void;remove:()=>void;bound:boolean}) {
+function Asset({item,backend,selected,list,size,disabled,select,inspect,open,drag,tag,remove}:{item:Item;backend:Backend;selected:boolean;list:boolean;size:number;disabled:boolean;select:(keys:SelectionKeys)=>void;inspect:()=>void;open:()=>void;drag:()=>void;tag:()=>void;remove:()=>void;bound:boolean}) {
   const sortable=useSortable({id:item.id,disabled});
   const press=useRef<{x:number;y:number}|null>(null),nativeDrag=useRef(false);
   return <ContextMenu><ContextMenuTrigger asChild><div ref={sortable.setNodeRef} data-item-id={item.id}
@@ -64,7 +69,7 @@ function Asset({item,backend,selected,list,size,disabled,select,inspect,open,dra
     <ContextMenuItem onSelect={inspect}>文件详情与预览</ContextMenuItem>
     <ContextMenuItem onSelect={tag}>{item.tags.includes("精选")?"移除精选标签":"标记精选"}</ContextMenuItem>
     <ContextMenuSeparator/><ContextMenuItem disabled={item.status!=="normal"} onSelect={()=>void backend.reveal(item.id).catch(()=>{})}>在资源管理器中定位</ContextMenuItem>
-    <ContextMenuItem disabled={bound} onSelect={remove}>仅移除引用（保留原文件）</ContextMenuItem>
+    <ContextMenuItem onSelect={remove}>移入柠猫回收站（保留原文件）</ContextMenuItem>
   </ContextMenuContent></ContextMenu>;
 }
 function VirtualFiles(props:{items:Item[];backend:Backend;selected:number[];list:boolean;size:number;disabled:boolean;select:(id:number,keys:SelectionKeys)=>void;marquee:(ids:number[])=>void;inspect:(id:number)=>void;open:(id:number)=>void;drag:(id:number)=>void;tag:(item:Item)=>void;remove:(id:number)=>void;bound:boolean}) {
@@ -133,7 +138,11 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   const [progress,setProgress]=useState<Progress|null>(null),[tasks,setTasks]=useState(false);
   const [creating,setCreating]=useState(false),[newName,setNewName]=useState(""),[sessionShelf,setSessionShelf]=useState(false),[formError,setFormError]=useState("");
   const [copyTo,setCopyTo]=useState(false),[copyTarget,setCopyTarget]=useState(0),[copyIds,setCopyIds]=useState<number[]>([]);
+  const [recycleOpen,setRecycleOpen]=useState(false);
+  const [systemRecycleIds,setSystemRecycleIds]=useState<number[]|null>(null);
+  const [undo,setUndo]=useState<{entity:string;id:number;ids?:number[]}|null>(null);
   const [repairFeedback,setRepairFeedback]=useState<{error:boolean;message:string}|null>(null);
+  const windowDrag=useWindowDrag(()=>backend.desktopMove(),!busy && !hover && !dragging);
   const activeShelf=useRef(shelfId); activeShelf.current=shelfId;
   const importRef=useRef<(paths:string[])=>void>(()=>{});
   const sensors=useSensors(useSensor(PointerSensor,{activationConstraint:{distance:6}}),useSensor(KeyboardSensor,{coordinateGetter:sortableKeyboardCoordinates}));
@@ -216,7 +225,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
       if(e.code==="Space" && current) {e.preventDefault();setPreview(true);}
       if((e.ctrlKey || e.metaKey) && e.key.toLowerCase()==="a" && e.target instanceof HTMLElement && e.target.closest('.file-scroll')){e.preventDefault();marquee(visible.map(i=>i.id));}
       if(e.key==="Escape") {if(!preview && !details)setSelected(null);setPreview(false);setDetails(false);}
-      if(e.key==="Delete" && chosen.length && !bound && !e.repeat && e.target instanceof HTMLElement && e.target.closest('.file-scroll')){e.preventDefault();void perform(async()=>{try{for(const item of chosen)await backend.remove(item.id);}finally{await refresh();}setSelected(null);setMessage("已移除选中引用，原文件保留。");});}
+      if(e.key==="Delete" && chosen.length && !e.repeat && e.target instanceof HTMLElement && e.target.closest('.file-scroll')){e.preventDefault();void perform(async()=>{try{const ids=chosen.map(i=>i.id);if(backend.removeReferences)await backend.removeReferences(ids);else for(const id of ids)await backend.remove(id);setUndo({entity:"item",id:ids[0],ids});}finally{await refresh();}setSelected(null);setMessage("选中项已移入柠猫回收站，原文件保留。");});}
     };
     window.addEventListener("keydown",fn);return()=>window.removeEventListener("keydown",fn);
   },[current,chosen,visible,bound,backend,preview,details]);
@@ -235,7 +244,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
     };window.addEventListener("keydown",fn);return()=>window.removeEventListener("keydown",fn);
   },[]);
   async function tag(item:Item) { await perform(async()=>{await backend.tags(item.id,item.tags.includes("精选")?item.tags.filter(t=>t!=="精选"):[...item.tags,"精选"]);await refresh();}); }
-  async function remove(id:number) { await perform(async()=>{await backend.remove(id);setSelected(null);setDetails(false);await refresh();setMessage("已移除引用，原文件保留。");}); }
+  async function remove(id:number) { await perform(async()=>{await backend.remove(id);setUndo({entity:"item",id});setSelected(null);setDetails(false);await refresh();setMessage("已移入柠猫回收站，原文件保留。");}); }
   useEffect(()=>setRepairFeedback(null),[selected,shelfId]);
   async function relocate(id:number,directory:boolean) {
     setBusy(true);setRepairFeedback(null);
@@ -254,31 +263,40 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   }
   const detail=chosen.length>1 && !preview?<div className="file-details"><h3>已选 {chosen.length} 项</h3><dl><dt>文件</dt><dd>{chosen.filter(i=>i.kind!=="folder").length} 项</dd><dt>文件夹</dt><dd>{chosen.filter(i=>i.kind==="folder").length} 项</dd><dt>已知文件大小</dt><dd>{sizes(chosen.filter(i=>i.kind!=="folder").reduce((sum,item)=>sum+item.bytes,0))}</dd><dt>异常引用</dt><dd>{chosen.filter(i=>i.status!=="normal").length} 项</dd></dl><p className="muted">汇总仅包含当前可见选中项；文件夹内容不递归统计</p></div>:current && <div className="file-details"><div className="detail-preview"><Thumb item={current} backend={backend} size={preview?220:160}/></div><h3>{current.name}</h3>
     <Badge variant="secondary">{states[current.status] || current.status}</Badge><dl><dt>原始路径</dt><dd>{current.path}</dd><dt>类型</dt><dd>{current.kind.toUpperCase()}</dd><dt>大小</dt><dd>{sizes(current.bytes)}</dd><dt>修改日期</dt><dd>{current.modified?new Date(current.modified*1000).toLocaleString():"不可用"}</dd><dt>标签</dt><dd>{current.tags.join("、") || "无"}</dd></dl>
-    {current.status!=="normal" && <p>{bound?"记录与标签已保留，请恢复绑定目录后刷新；这里不会更改目录绑定。":"记录与标签已保留。恢复原路径后刷新，或手动重新定位；不会自动扫描磁盘。"}</p>}
-    {!bound && ["missing","unreadable"].includes(current.status) && <section className="reference-repair" aria-label="重新定位失效引用" aria-busy={busy}>
+    {current.status!=="normal" && <p>{bound?"记录与标签已保留。可恢复原路径、重新定位同目录项或清理引用；目录绑定不变。":"记录与标签已保留。恢复原路径后刷新，或手动重新定位；不会自动扫描磁盘。"}</p>}
+    {["missing","unreadable"].includes(current.status) && <section className="reference-repair" aria-label="重新定位失效引用" aria-busy={busy}>
       <p>选择你确认的原文件或文件夹，再核对新位置。只修改引用，标签与顺序保留。</p>
-      <div><Button variant="outline" disabled={!native || busy} onClick={()=>void relocate(current.id,false)}>重新定位文件</Button><Button variant="outline" disabled={!native || busy} onClick={()=>void relocate(current.id,true)}>重新定位文件夹</Button></div>
+      <div><Button variant="outline" disabled={!native || busy} onClick={()=>void relocate(current.id,false)}>{bound?"重新定位同目录文件":"重新定位文件"}</Button><Button variant="outline" disabled={!native || busy} onClick={()=>void relocate(current.id,true)}>{bound?"重新定位同目录文件夹":"重新定位文件夹"}</Button></div>
       {repairFeedback && <p role={repairFeedback.error?"alert":"status"}>{repairFeedback.message}</p>}
     </section>}
     <Button variant="outline" onClick={()=>void tag(current)}><Star size={14}/>切换精选标签</Button><p className="muted">图片预览按需加载 PNG / JPEG / WebP；其他类型保留图标。</p></div>;
-  return <div className={`workstation ${hover?"drop-active":""}`}>
-    <header className="shelf-header" data-tauri-drag-region>
+  return <div className={`workstation ${hover?"drop-active":""}`}><ScrollActivity/>
+    <SystemRecycle backend={backend} ids={systemRecycleIds} onClose={()=>setSystemRecycleIds(null)} onChanged={refresh}/>
+    <RecycleDrawer backend={backend} open={recycleOpen} onOpenChange={setRecycleOpen} shelfId={shelfId} onChanged={refresh}/>
+    {undo&&<div className="undo-record" role="status">已移入柠猫回收站 <Button variant="ghost" onClick={()=>void perform(async()=>{for(const id of undo.ids??[undo.id])await backend.restoreTrash?.(undo.entity,id);setUndo(null);await refresh();})}>撤销</Button></div>}
+    <div className="shelf-chrome" {...windowDrag}><header className="shelf-header">
       {!searchOpen && <OrbFace brand/>}
       {searchOpen ? <div className="shelf-search"><Search size={16}/><Input ref={searchInput} aria-label="搜索文件" placeholder="搜索当前文件架" value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==="Escape" && !e.nativeEvent.isComposing){e.preventDefault();e.stopPropagation();closeSearch();}}}/><Button variant="ghost" size="icon" aria-label="关闭搜索" onClick={closeSearch}><X size={16}/></Button></div> : <>
         <ShelfMenu label="文件架" align="start" trigger={<Button className="shelf-switch" variant="ghost" aria-label="切换文件架"><span>{shelf?.name || "主窗口"}</span><ChevronDown size={14}/></Button>}>
-          <DropdownMenu.RadioGroup value={String(shelfId)} onValueChange={id=>switchShelf(Number(id))}>{data.shelves.map(s=><DropdownMenu.RadioItem key={s.id} disabled={detachedShelfId!==undefined} value={String(s.id)}>{s.kind==="bound"?<Folder size={16}/>:<Archive size={16}/>}<span>{s.name}</span><DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>)}</DropdownMenu.RadioGroup>
+          <DropdownMenu.RadioGroup value={String(shelfId)} onValueChange={id=>switchShelf(Number(id))}>{data.shelves.map(s=><div className="shelf-choice" key={s.id}><DropdownMenu.RadioItem disabled={detachedShelfId!==undefined} value={String(s.id)}>{s.kind==="bound"?<Folder size={16}/>:<Archive size={16}/>}<span>{s.name}</span><DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem><button className="shelf-recycle" aria-label={`回收文件架 ${s.name}`} disabled={busy||!!running||hover||!!dragging||!backend.trashShelf} onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();void perform(async()=>{await backend.trashShelf?.(s.id);setUndo({entity:"shelf",id:s.id});await refresh();setMessage("整个文件架已移入柠猫回收站，原文件保留。");});}}><Trash2 size={14}/></button></div>)}</DropdownMenu.RadioGroup>
           {detachedShelfId===undefined && <><DropdownMenu.Separator/>{catalog.filter(s=>detachedIds.includes(s.id)).map(s=><DropdownMenu.Item key={s.id} onSelect={()=>void perform(()=>backend.desktopOpen(s.id))}>打开独立窗口 · {s.name}</DropdownMenu.Item>)}<DropdownMenu.Item disabled={!native || busy} onSelect={()=>{setNewName("");setSessionShelf(false);setFormError("");setCreating(true);}}><Plus size={16}/>新建文件架</DropdownMenu.Item><DropdownMenu.Item disabled={!native || busy || !!running} onSelect={()=>void perform(async()=>{const id=await backend.chooseFolder();await refresh();if(id)await switchShelf(id);})}><FolderPlus size={16}/>绑定文件夹</DropdownMenu.Item></>}
         </ShelfMenu>
+
         <Button ref={searchButton} variant="ghost" size="icon" aria-label="搜索文件" title="搜索文件 Ctrl+F" onClick={()=>setSearchOpen(true)}><Search size={16}/></Button>
       </>}
+      {!searchOpen&&<span className="titlebar-drag-space" aria-hidden="true"/>}
       <Button className="add-files" variant="ghost" size="icon" disabled={!native || loading || !shelf || busy || !!running} aria-label={bound?"添加并复制":"添加引用"} title={bound?"添加并复制，保留来源":"添加引用，保留原文件"} onClick={()=>void perform(async()=>receive(await backend.chooseFiles()))}><Plus size={18}/></Button>
       <Button className="shelf-collapse" variant="ghost" size="icon" aria-label="收起到悬浮入口" title="收起当前文件架" disabled={!native || loading || !shelf || busy || !!dragging || hover} onClick={()=>void perform(()=>backend.desktopCollapse(shelfId))}><ArrowDownToLine size={16}/></Button>
       <ShelfMenu label="更多操作" trigger={<Button variant="ghost" size="icon" aria-label="更多操作" title="更多操作"><MoreHorizontal size={18}/></Button>}>
+        <DropdownMenu.Item className="compact-command" onSelect={()=>setSearchOpen(true)}>搜索文件</DropdownMenu.Item>
+        <DropdownMenu.Item className="compact-command" disabled={!native || !shelf || busy || !!running} onSelect={()=>void perform(async()=>receive(await backend.chooseFiles()))}>添加文件</DropdownMenu.Item>
         <DropdownMenu.Item disabled={!native || loading || !shelf || busy} onSelect={()=>void perform(()=>backend.desktopCollapse(shelfId))}>收起到悬浮入口</DropdownMenu.Item>
         <DropdownMenu.Item disabled={!native || loading || !shelf || busy} onSelect={()=>void perform(()=>detachedShelfId===undefined?backend.desktopDetach(shelfId):backend.desktopMerge(shelfId))}>{detachedShelfId===undefined?"拆分为独立窗口":"合并回主窗口"}</DropdownMenu.Item>
         {detachedShelfId===undefined && <DropdownMenu.Item disabled={!native} onSelect={()=>void perform(()=>backend.desktopDisable())}>关闭悬浮入口</DropdownMenu.Item>}
+        <DropdownMenu.Item onSelect={()=>setRecycleOpen(true)}><Trash2 size={16}/>柠猫回收站</DropdownMenu.Item>
         <DropdownMenu.Item disabled={!native} onSelect={()=>void perform(()=>backend.managerOpen())}>管理中心</DropdownMenu.Item>
         <DropdownMenu.Item disabled={!native || !chosen.length || busy} onSelect={()=>{setCopyIds(chosen.map(i=>i.id));setCopyTarget(catalog.find(s=>s.id!==shelfId && s.kind!=="bound")?.id || 0);setFormError("");setCopyTo(true);}}>复制选中引用到其他架</DropdownMenu.Item><DropdownMenu.Separator/>
+        <DropdownMenu.Item disabled={!backend.planSystemRecycle || !chosen.length || chosen.some(i=>i.status!=="normal") || busy || !!running} onSelect={()=>setSystemRecycleIds(chosen.map(i=>i.id))}>将选中真实文件移入 Windows 回收站…</DropdownMenu.Item><DropdownMenu.Separator/>
         <DropdownMenu.Label className="menu-label">显示与排序</DropdownMenu.Label>
         <DropdownMenu.RadioGroup value={list?"list":"grid"} onValueChange={v=>setView({list:v==="list"})}><DropdownMenu.RadioItem value="grid"><Grid2X2 size={16}/>网格视图<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem><DropdownMenu.RadioItem value="list"><List size={16}/>详细列表<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem></DropdownMenu.RadioGroup>
         <DropdownMenu.RadioGroup value={sort} onValueChange={v=>{if(isSortMode(v))setView({sort:v});}}>{sortOptions.map(option=><DropdownMenu.RadioItem key={option.value} value={option.value}>{option.label}<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>)}</DropdownMenu.RadioGroup>
@@ -291,8 +309,10 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
         <DropdownMenu.CheckboxItem disabled={!native} checked={topmost} onCheckedChange={()=>void perform(async()=>setTopmost(await backend.topmost()))}><Pin size={16}/>窗口置顶<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.CheckboxItem>
         <DropdownMenu.Separator/><DropdownMenu.Item disabled={!native} onSelect={()=>void perform(()=>backend.quit())}>完整退出</DropdownMenu.Item>
       </ShelfMenu>
+      <WindowControls backend={backend} onError={setError}/>
     </header>
-    <div className="shelf-context" data-dropping={hover}><span className="shelf-semantics" title={bound?(shelf?.available?shelf.root || "":"绑定目录离线或不可读，保留原记录"):shelf?.kind==="session"?"完整退出后只清空引用，原文件保留":"持久保存引用，原文件保留"}>{!shelf?"请选择或新建文件架":hover?(bound?"释放以复制 · 保留来源":"释放以添加引用 · 保留原文件"):bound?"复制到目录 · 保留来源":shelf?.kind==="session"?"本次中转 · 仅保存引用":"仅保存引用"}</span><div className="selection-actions">{chosen.length>1 && <span className="selection-count" aria-label="已选数量" role="status">{chosen.length} 项</span>}{filtered && <Button variant="ghost" size="sm" className="filter-clear" aria-label="清除筛选" title="已启用文件筛选，点击清除" onClick={()=>setFilters(defaultFilters)}>已筛选<X size={12}/></Button>}{current && <><Button variant="ghost" size="sm" aria-label="详情" onClick={()=>setDetails(true)}><Info size={14}/>详情</Button><Button variant="ghost" size="sm" disabled={chosen.some(i=>i.status!=="normal")} title="按住左键拖到目标，默认复制选中项" onPointerDown={e=>{if(e.button===0)drag(current.id);}} onKeyDown={e=>{if(e.key==="Enter")setMessage("请用鼠标按住“拖出复制”并拖向目标窗口。");}}><ArrowDownToLine size={14}/>拖出复制</Button></>}</div></div>
+    <div className="shelf-context" data-dropping={hover}><span className="shelf-semantics" title={bound?(shelf?.available?shelf.root || "":"绑定目录离线或不可读，保留原记录"):shelf?.kind==="session"?"完整退出后只清空引用，原文件保留":"持久保存引用，原文件保留"}>{!shelf?"请选择或新建文件架":hover?(bound?"释放以复制 · 保留来源":"释放以添加引用 · 保留原文件"):bound?"复制到目录 · 保留来源":shelf?.kind==="session"?"本次中转 · 仅保存引用":"仅保存引用"}</span><div className="selection-actions">{chosen.length>1 && <span className="selection-count" aria-label="已选数量" role="status">{chosen.length} 项</span>}{filtered && <Button variant="ghost" size="sm" className="filter-clear" aria-label="清除筛选" title="已启用文件筛选，点击清除" onClick={()=>setFilters(defaultFilters)}>已筛选<X size={12}/></Button>}{current && <>{chosen.some(i=>i.status!=="normal")&&<><Button variant="ghost" size="icon" aria-label="清理选中引用" title="移入柠猫回收站，保留原文件" disabled={busy||!!running} onClick={()=>void perform(async()=>{const ids=chosen.map(i=>i.id);if(backend.removeReferences)await backend.removeReferences(ids);else for(const id of ids)await backend.remove(id);setUndo({entity:"item",id:ids[0],ids});setSelected(null);await refresh();})}><Trash2 size={14}/></Button>{chosen.length===1&&<Button variant="ghost" size="sm" onClick={()=>{setDetails(true);}}>更新引用</Button>}</>}<Button variant="ghost" size="sm" aria-label="详情" onClick={()=>setDetails(true)}><Info size={14}/>详情</Button><Button variant="ghost" size="sm" disabled={chosen.some(i=>i.status!=="normal")} title="按住左键拖到目标，默认复制选中项" onPointerDown={e=>{if(e.button===0)drag(current.id);}} onKeyDown={e=>{if(e.key==="Enter")setMessage("请用鼠标按住“拖出复制”并拖向目标窗口。");}}><ArrowDownToLine size={14}/>拖出复制</Button></>}</div></div>
+    </div>
     {bound && !shelf.available && <p className="offline-note" role="status">目录离线，记录已保留 · 恢复目录后刷新</p>}
     {preferenceWarning && <div className="error-bar" role="alert"><span>{preferenceWarning}</span><Button variant="ghost" size="icon" aria-label="关闭设置提示" onClick={()=>{setViewWarning("");setThemeWarning("");}}><X size={15}/></Button></div>}
     {error && <div className="error-bar" role="alert"><span>{error}</span><Button variant="ghost" size="icon" aria-label="关闭错误提示" onClick={()=>setError("")}><X size={15}/></Button></div>}
@@ -303,7 +323,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
         if(from<0 || to<0) return;
         void perform(async()=>{await backend.reorder(shelfId,arrayMove(ids,from,to));await refresh();setMessage("手动顺序已保存，磁盘文件保持不变。");});
       }}>
-        {visible.length?<VirtualFiles items={visible} backend={backend} selected={chosen.map(i=>i.id)} list={list} size={size} disabled={sort!=="manual" || !!query || filtered} bound={!!bound} select={select} marquee={marquee} inspect={id=>{setSelected(id);setDetails(true);}} open={id=>void open(id)} drag={drag} tag={item=>void tag(item)} remove={id=>void remove(id)}/>:<div className="empty-state"><Folder size={32}/><h2>{!shelf?"主窗口暂无文件架":query || filtered?"没有匹配的文件":bound?"拖入文件，安全复制":"拖入文件，添加引用"}</h2><p>{!shelf?"可从左上菜单新建文件架，或将独立文件架合并回来":filtered?"更改筛选或搜索名称":query?"试试其他名称":bound?"重名自动编号，保留原文件":"保留原文件，或点击右上角添加"}</p>{(query || filtered) && <Button variant="outline" onClick={()=>{setQuery("");setFilters(defaultFilters);}}>{filtered?query?"清除筛选和搜索":"清除筛选":"清除搜索"}</Button>}</div>}
+        {visible.length?<VirtualFiles items={visible} backend={backend} selected={chosen.map(i=>i.id)} list={list} size={size} disabled={sort!=="manual" || !!query || filtered} bound={!!bound} select={select} marquee={marquee} inspect={id=>{setSelected(id);setDetails(true);}} open={id=>void open(id)} drag={drag} tag={item=>void tag(item)} remove={id=>void remove(id)}/>:<div className="empty-state"><Folder size={32}/><h2>{!shelf?"主窗口暂无文件架":query || filtered?"没有匹配的文件":bound?"拖入文件，安全复制":"拖入文件，添加引用"}</h2><p>{!shelf?"可从左上菜单新建文件架，或将独立文件架合并回来":filtered?"更改筛选或搜索名称":query?"试试其他名称":bound?"重名自动编号，保留原文件":"保留原文件，或点击右上角添加"}</p>{!shelf&&<div className="empty-actions"><Button onClick={()=>{setNewName("");setFormError("");setCreating(true);}}>新建文件架</Button><Button variant="outline" onClick={()=>setRecycleOpen(true)}>从回收站恢复</Button></div>}{(query || filtered) && <Button variant="outline" onClick={()=>{setQuery("");setFilters(defaultFilters);}}>{filtered?query?"清除筛选和搜索":"清除筛选":"清除搜索"}</Button>}</div>}
         <DragOverlay>{dragItem && <div className="drag-preview" data-testid="drag-preview"><Thumb item={dragItem} backend={backend} size={45}/><span>{dragItem.name}</span><small>调整引用顺序</small></div>}</DragOverlay>
       </DndContext>}
     </main>{inline && current && <aside className="inspector"><header><h2>文件详情</h2><Button variant="ghost" size="icon" aria-label="关闭详情" onClick={()=>setDetails(false)}><X size={15}/></Button></header>{detail}</aside>}</div>

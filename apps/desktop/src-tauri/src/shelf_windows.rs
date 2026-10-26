@@ -89,6 +89,10 @@ pub fn ensure(app: &tauri::AppHandle, id: i64) -> Result<tauri::WebviewWindow> {
     let window =
         tauri::WebviewWindowBuilder::new(app, &label, tauri::WebviewUrl::App("index.html".into()))
             .visible(false)
+            .decorations(false)
+            .transparent(true)
+            .shadow(false)
+            .background_color(tauri::window::Color(0, 0, 0, 0))
             .title(format!("柠猫 · {name}"))
             .inner_size(420.0, 520.0)
             .min_inner_size(340.0, 320.0)
@@ -145,7 +149,7 @@ pub fn capture(window: &tauri::Window) {
     let Some(state) = window.app_handle().try_state::<Desktop>() else {
         return;
     };
-    if window.is_minimized().unwrap_or(true) {
+    if window.is_minimized().unwrap_or(true) || window.is_maximized().unwrap_or(true) {
         return;
     }
     let (Ok(p), Ok(size), Ok(scale)) = (

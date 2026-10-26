@@ -1,0 +1,52 @@
+{
+  "candidate": "r19",
+  "sourceCommit": "cfa01f9cd2f4abd4b499bb2b482dc754464deaa6",
+  "exeSha256": "0401c99174d13ad17e571d517705e47ba3a53326900d67a498fd732f9fbc9182",
+  "date": "2026-10-26",
+  "permission": "User approved concentrated r19 session and then handed over mouse/keyboard for observation",
+  "oldR18ProcessAtStart": "absent; no forced termination",
+  "nativeObservation": {
+    "main": "No system title bar; content window controls and dark rounded surface visible",
+    "initialOrbAttempt": "INDETERMINATE: human changed presentation/position during first interval; discarded",
+    "controlledOrb": {
+      "seconds": 107.9,
+      "result": "No obvious newly developing interior holes; static edge quality not accepted yet"
+    },
+    "controlledCapsule": {
+      "seconds": 108.792,
+      "result": "No obvious newly developing interior holes; static edge quality not accepted yet"
+    },
+    "controlledQuickPeek": {
+      "seconds": 106.476,
+      "result": "No obvious progressive edge loss; final visual acceptance pending"
+    },
+    "nativeHeaderDrag": "PASS: user actual mouse confirmation; earlier automatic injection remained indeterminate",
+    "directCapsuleTop": "PASS: user actual mouse confirmation, including lower close extrusion",
+    "topmost": "true in observed layout; non-topmost not yet tested",
+    "osDpiMultiMonitor": "NOT TESTED full matrix",
+    "nativeFileDropRegression": "NOT TESTED in r19 session"
+  },
+  "checkpoint": {
+    "items": 6,
+    "jobs": 0,
+    "protectedFileHashesUnchanged": 5,
+    "sqliteIntegrity": "ok"
+  },
+  "privateEvidence": "Raw window captures stored locally only; background fragments excluded from public repository",
+  "overall": "PASS for reported r18 visual/interaction regression group, user confirmed; full Windows/file-operation matrix remains NOT TESTED; technical root cause not conclusively proven; no installation/merge/release",
+  "userAcceptance": {
+    "date": "2026-10-26",
+    "response": "全部通过",
+    "scope": [
+      "Expanded capsule directly dragged to top; lower close extrusion",
+      "Full shelf upper blank area dragging and rounded corners",
+      "Orb/capsule/QuickPeek edge quality and previously reported degradation"
+    ],
+    "evidence": "User answered the single grouped native acceptance question; no separate assertion of OS/DPI/non-topmost coverage"
+  },
+  "ciAtEvidenceCommit": {
+    "commit": "e0890b79c91f2cd8c45a3b9a3b73e0cf44153afc",
+    "desktop": "success:40251621223",
+    "preview": "success:40251621224"
+  }
+}

@@ -85,7 +85,8 @@ test("拖入路由、绑定目录、复制进度、取消与失败反馈",async(
   await page.evaluate(()=>window.testHarness.complete());
   await expect(page.getByRole("button",{name:"选择 新增文件 (1).txt",exact:true})).toBeVisible();
   await page.getByRole("button",{name:"选择 新增文件 (1).txt",exact:true}).click({button:"right"});
-  await expect(page.getByRole("menuitem",{name:"仅移除引用（保留原文件）"})).toHaveAttribute("data-disabled","");
+  // B06 now permits software-only recycling of bound records, preserving the real file.
+  await expect(page.getByRole("menuitem",{name:"移入柠猫回收站（保留原文件）"})).toBeEnabled();
   await page.keyboard.press("Escape");
   await page.evaluate(()=>window.testHarness.fail("模拟权限不足：未修改原文件"));
   await page.getByRole("button",{name:"添加并复制",exact:true}).click();
@@ -194,4 +195,5 @@ test("文件夹修复入口、正常引用和绑定目录边界",async({page})=>
   await page.getByRole("menuitem",{name:"文件详情与预览",exact:true}).click();
   await expect(page.getByRole("button",{name:"重新定位文件",exact:true})).toHaveCount(0);
   await expect(page.getByRole("button",{name:"重新定位文件夹",exact:true})).toHaveCount(0);
+  await expect(page.getByRole("button",{name:"重新定位同目录文件",exact:true})).toBeVisible();
 });

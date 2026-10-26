@@ -36,3 +36,11 @@ lto = true
 opt-level = "s"
 panic = "abort"
 strip = true
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "=0.62.2", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging", "Win32_System_Com", "Win32_Storage_FileSystem", "Win32_UI_Shell", "UI_ViewManagement"] }
+
+windows-core = "=0.62.2"
+
+[dev-dependencies]
+sha2 = "=0.10.9"

@@ -288,3 +288,57 @@ select { padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; ba
 @keyframes orb-extend { from { clip-path:inset(0 calc(100% - 48px) 0 0 round 24px); } to { clip-path:inset(0 0 0 0 round 24px); } }
 @keyframes peek-enter { from { clip-path:inset(0 0 calc(100% - 48px) 0 round 24px); } to { clip-path:inset(0 0 0 0 round 20px); } }
 @keyframes peek-content { from { opacity:0; transform:translateY(3px); } to { opacity:1; transform:none; } }
+
+/* UI-B01–05: visible contours and quiet controls. */
+html.desktop-entry-surface,html.desktop-entry-surface body,html.desktop-entry-surface #root { background:transparent!important; border:0; box-shadow:none; }
+.orb-hit,.quick-peek > header { touch-action:none; }
+.orb-control { filter:drop-shadow(0 1px 2px #00000012); }
+.orb-eyes { transform:scaleY(var(--eye-open,1)); }
+.orb-eye-left { transform:translate(var(--gaze-x,0px),var(--gaze-y,0px)); }
+.orb-eye-right { transform:translate(var(--gaze-right-x,0px),var(--gaze-right-y,0px)); }
+.quick-peek { box-shadow:0 1px 5px #00000014; }
+.quick-peek .peek-action { position:relative; width:28px; height:28px; min-width:28px; border:0; border-radius:50%; background:transparent; isolation:isolate; }
+.peek-action::before,.peek-action::after { content:""; position:absolute; border-radius:50%; pointer-events:none; opacity:0; transition:opacity 150ms ease-out; z-index:-1; }
+.peek-action::before { inset:0; border:1px solid var(--action-color); }.peek-action::after { inset:4px; background:var(--action-color); }
+.peek-back { --action-color:var(--blue); }.peek-close { --action-color:#c65b64; }
+.quick-peek .peek-action:hover { background:transparent; }.peek-action:hover::before,.peek-action:focus-visible::before { opacity:.65; }.peek-action:hover::after,.peek-action:focus-visible::after { opacity:.17; }
+.capsule-extrusion { position:absolute; width:26px; height:26px; right:0; top:-15px; pointer-events:none; }
+.capsule-extrusion[data-lower="true"] { top:auto; bottom:-15px; }
+.capsule-bud,.capsule-neck { position:absolute; inset:0; border-radius:50%; background:var(--orb-fill); transform:scale(var(--close-growth,0)); transition:transform 150ms ease-out; }
+.capsule-neck { inset:10px 3px -3px; border-radius:50%; }.capsule-extrusion[data-lower="true"] .capsule-neck { inset:-3px 3px 10px; }
+.capsule-extrusion .capsule-close { top:5px; left:5px; right:auto; width:16px; height:16px; padding:0; border:0; background:#c65b64; color:white; visibility:hidden; opacity:0; transition:opacity 120ms ease-out; pointer-events:none; }
+.capsule-extrusion[data-active="true"] .capsule-close { visibility:visible; opacity:1; pointer-events:auto; }
+.capsule-extrusion:has(.capsule-close:disabled) { cursor:default; }
+html[data-window-moving="true"] .capsule-bud,html[data-window-moving="true"] .capsule-neck,.adaptive-dock[data-dragging="true"] .capsule-bud,.adaptive-dock[data-dragging="true"] .capsule-neck { transition:none; }
+.shelf-menu,.file-scroll,.manager-table-scroll,.manager-main,.peek-catalog > div,[data-scroll-surface] { scrollbar-width:thin; scrollbar-gutter:stable; scrollbar-color:transparent transparent; transition:scrollbar-color 180ms ease-out; }
+[data-scroll-active="true"],.shelf-menu:focus-within,.file-scroll:focus-within,.manager-table-scroll:focus-within,[data-scroll-surface]:focus-within { scrollbar-color:var(--muted-text) transparent; }
+html[data-always-scrollbars="true"] :is(.shelf-menu,.file-scroll,.manager-table-scroll,.manager-main,.peek-catalog > div,[data-scroll-surface]) { scrollbar-color:var(--muted-text) transparent; }
+@media(forced-colors:active) { .shelf-menu,.file-scroll,.manager-table-scroll,.manager-main,.peek-catalog > div,[data-scroll-surface] { scrollbar-color:auto; } }
+@media(prefers-reduced-motion:reduce) { .capsule-bud,.capsule-neck,.capsule-close,.peek-action::before,.peek-action::after { transition:none; } }
+
+.shelf-choice{position:relative;display:flex;align-items:center}.shelf-choice>[role=menuitemradio]{flex:1;padding-right:36px}.shelf-recycle{position:absolute;right:4px;width:28px;height:28px;opacity:0;border:0;border-radius:50%;background:transparent;color:var(--muted-foreground);cursor:pointer}.shelf-choice:hover .shelf-recycle,.shelf-choice:focus-within .shelf-recycle{opacity:1}.shelf-recycle:hover,.shelf-recycle:focus-visible{background:#e8545417;color:#c54646}.recycle-drawer{width:min(390px,100vw)}.recycle-list{overflow:auto;min-height:0;flex:1}.recycle-row{display:flex;flex-direction:column;gap:6px;padding:14px 0;border-bottom:1px solid var(--border)}.recycle-row small,.recycle-row>span{font-size:12px;color:var(--muted-foreground)}.recycle-row>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.recycle-row>div{display:flex;gap:8px}.undo-record{position:fixed;z-index:70;bottom:44px;left:12px;right:12px;display:flex;align-items:center;justify-content:space-between;border:1px solid var(--border);border-radius:10px;background:var(--background);padding:4px 12px;font-size:12px}
+
+.empty-actions{display:flex;gap:8px;justify-content:center}.shelf-recycle{display:grid;place-items:center}
+
+.adaptive-dock .dock-warning{top:18px;right:13px}.orb-receipt{right:4px;bottom:4px}.adaptive-dock .dock-copying{right:16px;top:19px}
+
+/* One custom title row; Chromium owns the anti-aliased visual boundary. */
+.workstation{background:var(--surface);border:0}
+.workstation:has(.window-controls){border-radius:20px}
+.workstation:has(.window-controls) .shelf-header{padding-inline:8px;gap:2px}
+.workstation:has(.window-controls) .shelf-header>.brand-eyes{width:24px;min-width:24px;margin-right:0}
+.workstation:has(.window-controls) .shelf-header [data-slot="button"][data-size="icon"]{width:26px;height:28px}
+.window-controls{display:flex;gap:0;flex-shrink:0;margin-left:3px;padding-left:3px;border-left:1px solid var(--line)}
+.window-controls button{display:grid;place-items:center;width:26px;height:28px;padding:0;border:0;border-radius:5px;color:var(--muted-text);background:transparent;flex-shrink:0}
+.window-controls button:hover{background:var(--hover);color:var(--text)}
+.window-controls .window-hide:hover{background:#c7434b;color:#fff}
+.compact-command{display:none!important}
+@media(max-width:399px){.workstation .shelf-header>button[aria-label="搜索文件"],.workstation .shelf-header>.add-files{display:none}.compact-command{display:flex!important}}
+html[data-file-maximized="true"] .workstation{border-radius:0}
+.orb-control{filter:none}
+
+html[data-file-window="true"],html[data-file-window="true"] body,html[data-file-window="true"] #root{background:transparent!important}
+.shelf-chrome{position:relative;z-index:2;flex-shrink:0;background:var(--surface);box-shadow:0 5px 12px -8px rgb(0 0 0 / .24);user-select:none;touch-action:none}
+.dark .shelf-chrome{box-shadow:0 5px 12px -8px rgb(0 0 0 / .55)}
+.workstation:has(.window-controls) .shelf-switch{flex:0 1 auto;max-width:160px}
+.titlebar-drag-space{flex:1;align-self:stretch;min-width:20px;touch-action:none}
