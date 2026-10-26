@@ -72,6 +72,12 @@
 
 [D-03 详细合同](D03-p4-search-result-privacy-2026-10-26.md) · [决策台 #43](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/issues/43)
 
+### 已确认 D-04：原生插件权限开放边界（2026-10-26）
+
+用户明确选择 **C：分阶段开放 + 原生高权限独立审核**。这是对本表第 **29/30/31/32/33/34/38/39** 项已确认规则的**实施澄清**，不添加第45项，也不改变44项选项：先官方元数据受限示范、再第三方受限接口；只有 Windows 原生隔离、撤权和审计通过真实安全验证后，才另行审核原生高权限插件。来源可信和用户安装不等于自动获得系统权限。
+
+[详细 D-04 执行合同](D04-native-plugin-staged-approval-2026-10-26.md) · [Issue #43](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/issues/43)
+
 ## 三、工程入口与依赖
 
 - 根 43 项：[docs/product-decisions.md](../../docs/product-decisions.md)
