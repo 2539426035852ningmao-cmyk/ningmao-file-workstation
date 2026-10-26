@@ -124,3 +124,5 @@ r15集中验收继续：第一次English引用后1条/0任务，第二次用户�
 - r20精确源16edf9a，EXE520a3dd9…4f1b7b、MSI3576e7df…7bf181；最终96浏览器（管理14）/生产构建/9文件包核验/新合成fixture通过，Rust产品与依赖未改；原生未启动/安装，下一关管理跨窗排队/进度/取消和原文件操作回归。独立Ningmao-r20-user-trial-20261026已准备，r19EXE复核不变。原生取消交互按R3，未批准不合并。详见docs/stages/P2-management-flow.md，GitHub功能PR待建立后以实际链接为准。
 
 - P2管理功能已建立Draft PR #40（base feat/ui-b01-b07），已附到本聊天；r20产物源16edf9a，功能树由86dfecd文档提交保留。96浏览器/Windows包本机通过，GitHub Desktop与Preview初次运行进行中，以实时Checks为准。文档/路线实际入口docs/stages/P2-management-flow.md。本轮不新开原生测试，保留r19给用户。
+
+- 2026-10-26最新顺序合同已从main b57fdc3读入（P4独立44项、原43不变）。当前fix/p2-closeout-20261026从#40起；#30两处纯文档冲突以3389a8d普通merge修复，P0/P1业务子树不变、#30/#32实时CLEAN，未合并main。r20桌面许可后只正常退出r19；用户要求停止频繁控鼠，已暂停所有桌面输入，r20未启动。后台补官方全局唤出和唤出/手动离屏找回，真实OS注册/断屏未验，P2未放行。详见docs/stages/P2-closeout-20261026.md；不启动P3/P4主程序，不再凭本轮旧许可控制桌面。

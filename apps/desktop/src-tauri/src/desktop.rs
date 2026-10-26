@@ -296,6 +296,33 @@ pub fn contains_point(area: Rect, point: (f64, f64)) -> bool {
         && point.1 >= f64::from(area.y)
         && point.1 < f64::from(area.y) + f64::from(area.height)
 }
+/// Physical monitor rectangles; preserve a usable title strip instead of rearranging visible windows.
+pub fn has_visible_title(
+    position: (i32, i32),
+    size: (u32, u32),
+    scale: f64,
+    areas: &[Rect],
+) -> bool {
+    if size.0 == 0 || size.1 == 0 {
+        return false;
+    }
+    let scale = if scale.is_finite() && scale > 0.0 {
+        scale
+    } else {
+        1.0
+    };
+    let (x, y) = (f64::from(position.0), f64::from(position.1));
+    let width = f64::from(size.0);
+    let height = f64::from(size.1).min(44.0 * scale);
+    areas.iter().any(|a| {
+        let overlap_x =
+            ((x + width).min(f64::from(a.x) + f64::from(a.width)) - x.max(f64::from(a.x))).max(0.0);
+        let overlap_y = ((y + height).min(f64::from(a.y) + f64::from(a.height))
+            - y.max(f64::from(a.y)))
+        .max(0.0);
+        overlap_x >= width.min(64.0 * scale) && overlap_y >= height.min(24.0 * scale)
+    })
+}
 pub fn clamp_position(position: (i32, i32), size: (u32, u32), area: Rect) -> (i32, i32) {
     fn axis(value: i32, start: i32, extent: u32, size: u32) -> i32 {
         let start = i64::from(start);

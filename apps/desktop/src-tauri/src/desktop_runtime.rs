@@ -457,6 +457,7 @@ pub fn open(app: &tauri::AppHandle, id: i64, focus: bool) -> Result<()> {
     main.show().map_err(error)?;
     if focus {
         main.unminimize().map_err(error)?;
+        crate::shelf_windows::recover_if_offscreen(&main)?;
         main.set_focus().map_err(error)?;
         entry_geometry(app)?;
         let _ = state.save();

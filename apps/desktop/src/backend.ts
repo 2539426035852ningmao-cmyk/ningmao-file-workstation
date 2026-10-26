@@ -25,7 +25,13 @@ export type TrashEntry={id:number;entity:"item"|"shelf";name:string;shelf_id:num
 export type SystemRecyclePreview={ticket:string;items:{id:number;name:string;path:string;other_references:number;shelf_kind:string}[]};
 export type SystemRecycleOutcome={id:number;status:string;message:string};
 export type RecycleActivity={id:number;shelf_id:number;name:string;status:string;message:string};
+export type WakeShortcutConfig={version:number;enabled:boolean;accelerator:string};
+export type WakeShortcutState={config:WakeShortcutConfig;active:boolean;paused:boolean;warning:string|null};
 export interface Backend {
+  recoverWindows?:()=>Promise<number>;
+  wakeShortcutState?:()=>Promise<WakeShortcutState>;
+  wakeShortcutConfigure?:(config:WakeShortcutConfig)=>Promise<WakeShortcutState>;
+  wakeShortcutPause?:(paused:boolean)=>Promise<WakeShortcutState>;
   windowAction?:(action:"minimize"|"toggle-maximize"|"hide")=>Promise<boolean>;
   windowState?:()=>Promise<boolean>;
   subscribeWindowState?:(callback:(maximized:boolean)=>void)=>Promise<()=>void>;
@@ -76,6 +82,8 @@ export interface Backend {
   subscribe(events: Events): Promise<() => void>;
 }
 export const nativeBackend: Backend = {
+  recoverWindows:()=>invoke("recover_desktop_windows"),
+  wakeShortcutState:()=>invoke("wake_shortcut_state"),wakeShortcutConfigure:config=>invoke("wake_shortcut_configure",{config}),wakeShortcutPause:paused=>invoke("wake_shortcut_pause",{paused}),
   windowAction:action=>invoke("file_window_action",{action}),windowState:()=>invoke("file_window_state"),
   subscribeWindowState:callback=>getCurrentWebviewWindow().listen<boolean>("file-window-state",e=>callback(e.payload)),
   recycleActivity:()=>invoke("recycle_activity"),removeReferences:ids=>invoke("remove_references",{ids}),

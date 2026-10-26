@@ -349,3 +349,6 @@ html[data-file-window="true"],html[data-file-window="true"] body,html[data-file-
 .manager-copy-progress progress::-webkit-progress-bar{background:var(--secondary)}
 .manager-copy-progress progress::-webkit-progress-value{background:var(--blue)}
 .manager-copy-progress progress::-moz-progress-bar{background:var(--blue)}
+
+.manager-shortcut-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.manager-shortcut-actions{display:flex;gap:8px;flex-wrap:wrap}

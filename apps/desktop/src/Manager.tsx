@@ -1,3 +1,4 @@
+import {WakeShortcutSettings} from "./components/WakeShortcutSettings";
 import {ScrollActivity} from "./components/ScrollActivity";
 import {useEffect,useMemo,useRef,useState} from "react";
 import {Archive,Check,File,Folder,Layers,Search,Settings,Tags,ListTodo,RefreshCw,X} from "lucide-react";
@@ -78,7 +79,7 @@ export default function Manager({backend}:{backend:Backend}) {
         <label>入口位置模式<select value={preferences.edge} onChange={e=>patchPreferences({edge:e.target.value as DesktopPreferences["edge"],auto_hide:e.target.value==="free"?false:preferences.auto_hide})}><option value="free">自由悬浮</option><option value="left">屏幕左侧</option><option value="right">屏幕右侧</option><option value="top">屏幕上方</option><option value="bottom">屏幕下方</option></select></label>
         {preferences.edge==="free" && <label>自由排列<select value={preferences.flow??"vertical"} onChange={e=>patchPreferences({flow:e.target.value as DesktopPreferences["flow"]})}><option value="vertical">竖向紧凑</option><option value="horizontal">横向紧凑</option></select></label>}
         <label className="manager-checkbox"><input type="checkbox" checked={preferences.auto_hide} disabled={preferences.edge==="free"} onChange={e=>patchPreferences({auto_hide:e.target.checked})}/>离开入口后自动收起</label><label className="manager-checkbox"><input type="checkbox" checked={preferences.topmost} onChange={e=>patchPreferences({topmost:e.target.checked})}/>悬浮入口置顶</label><Button type="submit" disabled={busy || !dirty}><Check size={15}/>保存桌面设置</Button></form>
-        <h3>显示主题</h3><label>应用主题<select value={theme} onChange={e=>{const value=e.target.value==="dark"?"dark":"light";setTheme(value);const warning=writeTheme(value);if(warning)setError(warning);else setMessage("主题已保存。");}}><option value="dark">深色</option><option value="light">浅色</option></select></label><p className="manager-note">管理中心关闭后释放窗口；软件完整退出仍通过文件架或托盘执行。</p>
+        {backend.recoverWindows&&<Button variant="outline" disabled={busy} onClick={()=>void act(async()=>{const count=await backend.recoverWindows!();setMessage(count?`已找回 ${count} 个屏幕外窗口。`:"窗口已在可见屏幕内。");})}>找回屏幕外窗口</Button>}<WakeShortcutSettings backend={backend}/><h3>显示主题</h3><label>应用主题<select value={theme} onChange={e=>{const value=e.target.value==="dark"?"dark":"light";setTheme(value);const warning=writeTheme(value);if(warning)setError(warning);else setMessage("主题已保存。");}}><option value="dark">深色</option><option value="light">浅色</option></select></label><p className="manager-note">管理中心关闭后释放窗口；软件完整退出仍通过文件架或托盘执行。</p>
       </section>}
     </>}
     <footer className="manager-status" role="status">{message || "记录保存在本机，原文件保留。"}</footer></main>

@@ -7,6 +7,7 @@ import type { Backend, DesktopView, Events, Item, Progress, Snapshot, TrashEntry
 import "../src/style.css";
 const item=(id:number,name:string,shelf_id=1):Item=>({id,name,shelf_id,path:"SYNTHETIC/"+name,kind:"txt",bytes:200,modified:1,status:"normal",tags:[]});
 const initial:Snapshot={shelves:[{id:1,name:"灵感收集",kind:"persistent",root:null,available:true},{id:2,name:"本次中转",kind:"session",root:null,available:true}],items:[item(1,"Alpha.txt"),item(2,"中文 文件.txt"),item(3,"Gamma.txt")],jobs:[]};
+let wakeConfig=JSON.parse(localStorage.getItem("test-wake-shortcut")||'{"version":1,"enabled":true,"accelerator":"Ctrl+Alt+Space"}'),wakePaused=false,wakeAvailable=true;
 let state:Snapshot=JSON.parse(localStorage.getItem("test-state") || JSON.stringify(initial));
 const ownShelf=Number(new URLSearchParams(location.search).get("shelf")) || undefined;
 let events:Events;let fail="";let snapshotFailure="";let next=10;let cancelRelocation=false;let cancelOpening=false;const calls:string[]=[];
@@ -18,6 +19,10 @@ const recycle:{entry:TrashEntry;item?:Item;shelf?:Snapshot["shelves"][number];ch
 function trashItem(id:number){const item=state.items.find(i=>i.id===id)!;const shelf=state.shelves.find(s=>s.id===item.shelf_id)!;recycle.push({entry:{id,entity:"item",name:item.name,shelf_id:shelf.id,shelf_name:shelf.name,shelf_kind:shelf.kind,path:item.path,removed_at:Date.now()/1000,children:0},item});state.items=state.items.filter(i=>i.id!==id);save();}
 let maximized=false;
 const backend:Backend={
+ async recoverWindows(){calls.push("recover-windows");return 0;},
+ async wakeShortcutState(){return {config:{...wakeConfig},active:wakeAvailable&&wakeConfig.enabled&&!wakePaused,paused:wakePaused,warning:null};},
+ async wakeShortcutConfigure(config){calls.push("wake-configure:"+config.accelerator);if(fail){const message=fail;fail="";if(new URLSearchParams(location.search).has("wake-inactive-after-failure"))wakeAvailable=false;throw new Error(message);}wakeConfig={...config};localStorage.setItem("test-wake-shortcut",JSON.stringify(config));return backend.wakeShortcutState!();},
+ async wakeShortcutPause(paused){wakePaused=paused;calls.push("wake-pause:"+paused);return backend.wakeShortcutState!();},
  async windowState(){return maximized;},async windowAction(action){calls.push("window:"+action);if(action==="toggle-maximize")maximized=!maximized;return maximized;},
  async removeReferences(ids){ids.forEach(id=>{calls.push("remove:"+id);trashItem(id);});},async recycleActivity(){return [];},
  async trashEntries(filter){return structuredClone(recycle.filter(r=>filter===null||r.entry.shelf_id===filter).map(r=>r.entry));},

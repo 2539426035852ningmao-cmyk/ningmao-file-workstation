@@ -3,6 +3,7 @@ mod desktop_runtime;
 pub mod entry;
 mod shelf_windows;
 pub mod store;
+mod wake_shortcut;
 pub mod window_surface;
 pub mod windows_recycle;
 use serde::Serialize;
@@ -1344,6 +1345,54 @@ fn desktop_hover(app: tauri::AppHandle, window: tauri::WebviewWindow, inside: bo
     }
     desktop_runtime::hover(&app, inside)
 }
+#[tauri::command]
+async fn wake_shortcut_state(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+) -> Result<wake_shortcut::View> {
+    if window.label() != "manager" {
+        return Err("请在管理中心查看快捷键设置。".into());
+    }
+    wake_shortcut::state(&app)
+}
+#[tauri::command]
+async fn wake_shortcut_configure(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    config: wake_shortcut::Config,
+) -> Result<wake_shortcut::View> {
+    if window.label() != "manager" {
+        return Err("请在管理中心配置快捷键。".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || wake_shortcut::configure(&app, config, None))
+        .await
+        .map_err(error)?
+}
+#[tauri::command]
+async fn wake_shortcut_pause(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    paused: bool,
+) -> Result<wake_shortcut::View> {
+    if window.label() != "manager" {
+        return Err("请在管理中心暂停或恢复快捷键。".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        wake_shortcut::configure(&app, wake_shortcut::Config::default(), Some(paused))
+    })
+    .await
+    .map_err(error)?
+}
+#[tauri::command]
+async fn recover_desktop_windows(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+) -> Result<usize> {
+    if window.label() != "manager" {
+        return Err("请在管理中心找回窗口。".into());
+    }
+    shelf_windows::recover_visible(&app)
+}
 pub fn run() {
     let mut window_state = tauri_plugin_window_state::Builder::default()
         .with_state_flags(tauri_plugin_window_state::StateFlags::SIZE);
@@ -1385,6 +1434,7 @@ pub fn run() {
                 _process_lock: lock,
             });
             desktop_runtime::setup(app.handle(), &root).map_err(std::io::Error::other)?;
+            wake_shortcut::setup(app.handle(), &root);
             let show = tauri::menu::MenuItem::with_id(
                 app,
                 "show",
@@ -1474,6 +1524,10 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            recover_desktop_windows,
+            wake_shortcut_state,
+            wake_shortcut_configure,
+            wake_shortcut_pause,
             snapshot,
             choose_files,
             choose_folder,

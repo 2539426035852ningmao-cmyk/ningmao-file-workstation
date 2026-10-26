@@ -81,3 +81,12 @@ M1-03 原生后端及模板源自本仓 M1-02，create-tauri-app/drag-rs MIT 全
 研究来源固定为 grok-icon-study `b7e6cd48db4eeba13271c653c38e1ad0f48037b4` 和 aora-bot `e3b6148c818da4a8e1966f2bc89cdb3cee473b73`；README、LICENSE/NOTICE 存在再分发或商业使用限制，不作为 Apache-2.0 可复制素材。只研究通用弹簧、状态和节能原则，没有复制提取目录、角色几何、表情数据、动画代码或视觉资产，也没有新增依赖。
 
 本仓 `src/orb/OrbFace.tsx` 的两条曲线、`OrbMotionController.ts` 的阻尼步进和参数、Rust entry 状态/矩形均独立编写，沿用本仓 Apache-2.0。既有 React/Lucide/Tauri/缩略图依赖仍以原锁文件及打包许可清单为准。固定来源链接及逐项处理见 [D-ORB 实施记录](tasks/D-ORB-implementation.md#原创与许可)。这不是取得第三方受限内容的授权声明。
+
+
+## P2全局唤出（2026-10-26）
+
+复用官方tauri-plugin-global-shortcut **2.4.1**，crate上游SHA [6bbd44d4ef254d835a12c6d7bdf2a8a61778031a](https://github.com/tauri-apps/plugins-workspace/tree/6bbd44d4ef254d835a12c6d7bdf2a8a61778031a/plugins/global-shortcut)，Apache-2.0 OR MIT；global-hotkey **0.8.0**固定 [2a620bf3852008b568f6d36c2baedcc3dd0822f2](https://github.com/tauri-apps/global-hotkey/tree/2a620bf3852008b568f6d36c2baedcc3dd0822f2)，同为Apache-2.0 OR MIT。只调用Rust API，不复制上游源码，不安装JS插件包、不开放前端任意热键权限。许可文本由现有收集器随包归集。MSRV1.90符合本项目Rust1.99.1。
+
+社交/社区线索用于确定配置与冲突测试；以锁定源码和[官方变更记录](https://tauri.app/release/global-shortcut/all-versions/)验证2.4.1释放回调锁后再调用处理器、Windows0.8.0使用MOD_NOREPEAT。锁文件保留全部旧包版本，新增8个包（含非Windows目标依赖），Windows实际归集272条/原有1条警示，未新增许可警示。离线解析曾带动无关降级，已撤回且未提交降级。未做完整依赖安全审计，不能据此宣称全面安全放行。
+
+无低级键盘钩子、按键日志或额外轮询。仅一个受限唤出键，通过旧托盘show_main路线；原生拖放时require_idle禁止激活调整。坏/未来设置保留且默认禁用；冲突不写坏旧配置，写入失败回退，回退失败清理本进程注册并明确报告。后台测试使用模拟注册器及官方纯解析器，尚未做Windows真实注册/冲突/释放或资源占用验收。
