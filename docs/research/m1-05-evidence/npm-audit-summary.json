@@ -1,0 +1,14 @@
+{
+  "date": "2026-10-23",
+  "registry": "https://registry.npmjs.org",
+  "scope": "npm audit --omit=dev; npm dependency advisory database only",
+  "vulnerabilities": {
+    "info": 0,
+    "low": 0,
+    "moderate": 0,
+    "high": 0,
+    "critical": 0,
+    "total": 0
+  },
+  "limitations": "不等于 Rust、全部开发依赖或完整安全审计"
+}

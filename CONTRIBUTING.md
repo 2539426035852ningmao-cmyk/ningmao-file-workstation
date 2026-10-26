@@ -1,6 +1,6 @@
 # 贡献指南
 
-感谢参与柠猫文件工作站。先阅读 [43 项决策](docs/product-decisions.md)、[M1 基线](docs/m1-execution-baseline.md)与 [AGENTS.md](AGENTS.md)。当前仅推进 M1-03 双 UI 比较。
+感谢参与柠猫文件工作站。先阅读 [43 项决策](docs/product-decisions.md)、[M1 基线](docs/m1-execution-baseline.md)与 [AGENTS.md](AGENTS.md)。当前在已批准主工程 apps/desktop 推进 M1-05 真实文件闭环。执行 scripts/build-desktop.ps1 -Native / -Browser 验证，原生体验单独实测。
 
 ## 工作流程
 

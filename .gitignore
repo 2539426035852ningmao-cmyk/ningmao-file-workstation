@@ -1,8 +1,11 @@
 # Dependencies and builds
 node_modules/
+dist-test/
 dist/
 build/
 target/
+.license-bundle/
+preview-package/
 **/src-tauri/gen/
 coverage/
 *.tsbuildinfo
@@ -21,6 +24,7 @@ coverage/
 *.db-wal
 *.log
 private/
+work/
 local-data/
 .m1-02-work/
 .m1-03-work/

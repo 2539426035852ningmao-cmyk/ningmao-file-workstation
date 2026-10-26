@@ -38,3 +38,13 @@
 - 设计 SVG、合成浏览器截图、CI 和 Windows 实机结果必须明确不同证据类型，不可混淆。
 - 产品约定调整记录确认日期与用户原选择；遇到未决项先查 [登记簿](open-decisions.md)，不要重新发起完整问卷。
 - 文件、设备、SQLite、网络、模型和费用遵守最小权限与 R3 Gate。默认不公开个人素材、路径、Token 或真实 DB。
+
+## 候选分支保留的历史工程索引
+
+- [P0/P1阶段集成](stages/P0-P1-integration.md) · [原生清单](stages/P0-P1-windows-acceptance.md)
+- [项目记忆](../MEMORY.md) · [完整阶段执行指令](execution/v0.1-p0-p4-2026-10-24.md)
+- [唯一主工程决策](decisions/0001-main-engineering.md) · [M1-05](tasks/M1-05.md) · [M1-06](tasks/M1-06.md)
+- [引用重定位](tasks/reference-relocation.md) · [默认打开](tasks/default-file-opening.md) · [紧凑文件架](tasks/compact-file-shelf.md)
+- [视图记忆](tasks/shelf-view-memory.md) · [元数据排序](tasks/metadata-sorting.md) · [组合筛选](tasks/shelf-file-filters.md)
+
+这些链接保留已完成工作的证据；其中历史“尚未实现”不得覆盖当前P2/r21状态。

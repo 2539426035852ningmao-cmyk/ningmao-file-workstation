@@ -88,3 +88,7 @@ flowchart TD
 6. 若确实要用户决定或单独高风险授权，按 [待决策登记簿](open-decisions.md)一次只提一个最关键问题。
 
 **历史档案**：M1 原始资料仍位于 [milestones/M1.md](milestones/M1.md) 与 [m1-execution-baseline.md](m1-execution-baseline.md)；旧 PR #9/#11/#13 已并入后续候选的祖先线，不要重开这些旧草稿当作新的主工程任务。
+
+## #30 与新 main 的文档同步
+
+本分支普通merge main fc8903d带入D-01～D-04与DevLab合同，六处冲突均为治理/状态/文档。保留最新main入口及历史工程链接，不改变P0/P1应用子树，不构成阶段合并批准。#40本轮新增原生证据以其native-session为准，不把主仓库历史快照当实时结果。

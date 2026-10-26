@@ -1,0 +1,27 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Ningmao File Workstation Preview",
+  "identifier": "app.ningmao.fileworkstation.preview",
+  "bundle": {
+    "targets": [
+      "msi"
+    ],
+    "licenseFile": "../../../LICENSE",
+    "resources": {
+      "../../../LICENSE": "licenses/LICENSE.txt",
+      "../.license-bundle/THIRD_PARTY_NOTICES.txt": "licenses/THIRD_PARTY_NOTICES.txt",
+      "../.license-bundle/manifest.json": "licenses/manifest.json"
+    },
+    "windows": {
+      "allowDowngrades": false,
+      "webviewInstallMode": {
+        "type": "skip"
+      },
+      "wix": {
+        "language": "zh-CN",
+        "upgradeCode": "49745f80-2f01-42df-b527-1ee339187a71",
+        "enableElevatedUpdateTask": false
+      }
+    }
+  }
+}
