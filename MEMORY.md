@@ -126,3 +126,5 @@ r15集中验收继续：第一次English引用后1条/0任务，第二次用户�
 - P2管理功能已建立Draft PR #40（base feat/ui-b01-b07），已附到本聊天；r20产物源16edf9a，功能树由86dfecd文档提交保留。96浏览器/Windows包本机通过，GitHub Desktop与Preview初次运行进行中，以实时Checks为准。文档/路线实际入口docs/stages/P2-management-flow.md。本轮不新开原生测试，保留r19给用户。
 
 - 2026-10-26最新顺序合同已从main b57fdc3读入（P4独立44项、原43不变）。当前fix/p2-closeout-20261026从#40起；#30两处纯文档冲突以3389a8d普通merge修复，P0/P1业务子树不变、#30/#32实时CLEAN，未合并main。r20桌面许可后只正常退出r19；用户要求停止频繁控鼠，已暂停所有桌面输入，r20未启动。后台补官方全局唤出和唤出/手动离屏找回，真实OS注册/断屏未验，P2未放行。详见docs/stages/P2-closeout-20261026.md；不启动P3/P4主程序，不再凭本轮旧许可控制桌面。
+
+- r21构建源76210933f97d9a00b5ed8a3f4f8cd3ee24d73748，EXEc119311a…8f76a / MSI48f46a85…90c70；99浏览器/69Rust/Clippy/9文件包核验通过，2原有受控ignored保留，fresh Store准备另行通过。新增全局唤出与唤出/手动离屏恢复，旧Cargo版本全保留，272许可/1既有警示。r21未启动/安装；用户已暂停桌面输入，不能沿用旧许可。r19/r20EXE哈希不变，r20/r21合成DB本地一致性备份完成。仍P2 PARTIAL，P3/P4无运行时代码/网络/模型行为。证据docs/research/P2-closeout-evidence与集中清单已准备。

@@ -1,0 +1,41 @@
+{
+  "candidate": "r21",
+  "date": "2026-10-26",
+  "sourceCommit": "76210933f97d9a00b5ed8a3f4f8cd3ee24d73748",
+  "baseFeatureCommit": "2de6f4d022cdabc7b7d3de2a49ae779e1b099ce8",
+  "mainContractsCommit": "b57fdc3c2abb3e07b0133d2eb657e899d790fa7a",
+  "pr30DocRepairCommit": "3389a8d4740e64b5c58d4e9df212c7766eac9e59",
+  "exeSha256": "c119311a50ff03cefe686a370602d994ba7a080c7de4ecdbb6b52f432178f76a",
+  "msiSha256": "48f46a851238b9aa76e314caeaeafec11852a6a5f64c3a23d707863836a90c70",
+  "browserPassed": 99,
+  "rustPassed": 69,
+  "existingControlledIgnored": 2,
+  "fixturePreparation": "PASS: one explicit fresh synthetic Store test",
+  "clippy": "PASS: all-targets -D warnings",
+  "repository": "PASS: 60 required files",
+  "package": "PASS: exact 9 files/SHA256/PE/version and read-only MSI checks",
+  "licenses": {
+    "windowsRecords": 272,
+    "existingWarnings": 1,
+    "newWarnings": 0,
+    "newLockPackages": 8,
+    "allPriorPackageVersionsPreserved": true
+  },
+  "size": {
+    "exeBytes": 20076544,
+    "r20ExeBytes": 19573248,
+    "exeIncreaseBytes": 503296,
+    "msiBytes": 6746112,
+    "r20MsiBytes": 6610944,
+    "msiIncreaseBytes": 135168
+  },
+  "performance": "Native idle CPU/RAM and input latency NOT_TESTED; no new polling/input hooks in source",
+  "nativeLaunch": false,
+  "installed": false,
+  "nativeAcceptance": "NOT_TESTED",
+  "desktopSession": "r19 normally exited; r20 never launched; user asked to stop frequent mouse control, all further desktop input paused",
+  "schema": "Unchanged SQLite schema2 and layoutv4; wake config is a separate version1 JSON",
+  "networkModelFees": "No LAN/discovery/firewall/model download/model requests/paid API; routine GitHub and crate/doc reads only",
+  "rollback": "Preserved r19/r20; revert source with data backups, never overwrite or downgrade database",
+  "ciAtBuild": "Not yet created for closeout PR"
+}

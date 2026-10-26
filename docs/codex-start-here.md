@@ -1,5 +1,7 @@
 # Codex入口 · 柠猫文件工作站
 
+2026-10-26当前主线：[P2集中收束](stages/P2-closeout-20261026.md)，先读[顺序合同](execution/P2-to-P3-P4-sequential-delivery-2026-10-26.md)和原43+P4另44项。#30纯文档冲突已修但未阶段合并；r21已构建，99浏览器/69Rust通过，原生未测。用户要求暂停频繁桌面控制，默认后台，不能恢复旧桌面许可。P2未放行前不开发P3/P4运行时。
+
 2026-10-26当前：UI-B01～B07集中Draft #36，r18静置破边/圆角/直接胶囊触顶回归已在r19获得用户“全部通过”确认；完整Windows矩阵和原生文件回归仍待验，精确证据与门槛见[tasks/UI-B01-B07.md](tasks/UI-B01-B07.md)。不自动合并/安装/发布；43项及P2→P3→P4顺序保留。功能继续在独立[Draft PR #40](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/40) / feat/p2-management-flow补[P2管理流程](stages/P2-management-flow.md)，沿用r19基线；以下旧候选条目为历史记录。
 
 
