@@ -9,8 +9,8 @@
   "packageVerification": "PASS: exact 9-file checksums and read-only MSI inspection",
   "fixturePreparation": "PASS: new isolated synthetic Store",
   "installed": false,
-  "nativeLaunch": false,
-  "nativeVisualAcceptance": "NOT TESTED",
+  "nativeLaunch": true,
+  "nativeVisualAcceptance": "PARTIAL: idle observation complete; manual visual and window movement pending",
   "compositionChange": "desktop-entry no_redirection_bitmap(true); candidate mitigation, root cause not proven",
   "nativeRegressionRequired": [
     "orb/capsule/QuickPeek >=90s each, blink cycles, topmost/off, occlusion/background changes",
@@ -24,8 +24,9 @@
     "existingWarnings": 1
   },
   "ciAtSource": {
-    "desktop": "in_progress:40250290094",
-    "preview": "in_progress:40250290118"
+    "note": "same product tree; documentation head 56e69cd",
+    "desktop": "success:40250473908",
+    "preview": "success:40250473961"
   },
   "rollback": "Preserve older isolated candidates; revert source; never downgrade/overwrite database"
 }

@@ -1,0 +1,37 @@
+{
+  "candidate": "r19",
+  "sourceCommit": "cfa01f9cd2f4abd4b499bb2b482dc754464deaa6",
+  "exeSha256": "0401c99174d13ad17e571d517705e47ba3a53326900d67a498fd732f9fbc9182",
+  "date": "2026-10-26",
+  "permission": "User approved concentrated r19 session and then handed over mouse/keyboard for observation",
+  "oldR18ProcessAtStart": "absent; no forced termination",
+  "nativeObservation": {
+    "main": "No system title bar; content window controls and dark rounded surface visible",
+    "initialOrbAttempt": "INDETERMINATE: human changed presentation/position during first interval; discarded",
+    "controlledOrb": {
+      "seconds": 107.9,
+      "result": "No obvious newly developing interior holes; static edge quality not accepted yet"
+    },
+    "controlledCapsule": {
+      "seconds": 108.792,
+      "result": "No obvious newly developing interior holes; static edge quality not accepted yet"
+    },
+    "controlledQuickPeek": {
+      "seconds": 106.476,
+      "result": "No obvious progressive edge loss; final visual acceptance pending"
+    },
+    "nativeHeaderDrag": "INDETERMINATE: automatic drag did not produce reliable displacement; actual mouse pending",
+    "directCapsuleTop": "PENDING actual mouse",
+    "topmost": "true in observed layout; non-topmost not yet tested",
+    "osDpiMultiMonitor": "NOT TESTED full matrix",
+    "nativeFileDropRegression": "NOT TESTED in r19 session"
+  },
+  "checkpoint": {
+    "items": 6,
+    "jobs": 0,
+    "protectedFileHashesUnchanged": 5,
+    "sqliteIntegrity": "ok"
+  },
+  "privateEvidence": "Raw window captures stored locally only; background fragments excluded from public repository",
+  "overall": "PARTIAL; not a proof that idle-edge root cause is fixed; no installation/merge/release"
+}
