@@ -1,0 +1,31 @@
+{
+  "candidate": "r19",
+  "sourceCommit": "cfa01f9cd2f4abd4b499bb2b482dc754464deaa6",
+  "exeSha256": "0401c99174d13ad17e571d517705e47ba3a53326900d67a498fd732f9fbc9182",
+  "msiSha256": "4874b060f1e320da7a242a0df5f6448768260a59bdea43f333788fa785d33355",
+  "browserTests": 92,
+  "rustTests": 57,
+  "clippy": "PASS",
+  "packageVerification": "PASS: exact 9-file checksums and read-only MSI inspection",
+  "fixturePreparation": "PASS: new isolated synthetic Store",
+  "installed": false,
+  "nativeLaunch": false,
+  "nativeVisualAcceptance": "NOT TESTED",
+  "compositionChange": "desktop-entry no_redirection_bitmap(true); candidate mitigation, root cause not proven",
+  "nativeRegressionRequired": [
+    "orb/capsule/QuickPeek >=90s each, blink cycles, topmost/off, occlusion/background changes",
+    "direct expanded capsule move to top, lower close extrusion",
+    "full shelf corners and upper-layer dragging",
+    "native reference/safe copy/outbound Copy/cancel; fixed target identity",
+    "Win10/11 DPI125/150 and multi-monitor"
+  ],
+  "licenses": {
+    "records": 268,
+    "existingWarnings": 1
+  },
+  "ciAtSource": {
+    "desktop": "in_progress:40250290094",
+    "preview": "in_progress:40250290118"
+  },
+  "rollback": "Preserve older isolated candidates; revert source; never downgrade/overwrite database"
+}
