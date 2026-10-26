@@ -92,6 +92,10 @@ flowchart LR
 4. Rust 缓存优先评估 [rust-cache](https://github.com/Swatinem/rust-cache) 等成熟实现；固定审阅过的 action SHA 与可信来源，不直接复制动态 `@main` 或未经审查的第三方 Action。
 5. 严禁复制商业软件专有实现或未授权资源；优先挑成熟合法开源组件小范围探针。
 
+## 6A. 与未来 P4 AI/多模态 Agent 的复用关系（仅研究）
+
+在维护现有 DevLab-C 优先级的前提下，另有 [DevLab-P4 统一能力边界研究](../research/DevLab-P4-unified-capability-boundary-2026-10-26.md)：已核查 `Backend`、Rust `Store`、`management_snapshot`、`snapshot_scoped`、复制任务与窗口权限，建议未来通过最小 DTO/主体授权/任务适配层复用，而**不是直接让 AI Agent 访问现有带完整路径的前端 Snapshot、共享测试命令或复用本地开发权限**。四组模拟场景为元数据越权、重复引用身份、任务异常/重复事件、用户标签确认与撤权。**还未实现或测试，不能冒称已通过。** 当前第一优先仍是 CI 环境安装与 P2 安全收束，不因多模态远景改变 DLV-0～3 顺序。
+
 ## 7. 最终 Codex 回报格式
 
 每一轮只需：
