@@ -6,6 +6,8 @@
 - [轻量悬浮文件架设计规范](../design.md)：窗口尺寸、同心圆圆角、间距、文字层级、扩展入口和阶段验收基线（建议 Token 部分需用户验收）。
 - [Codex 从这里开始](codex-start-here.md)：最新已核查状态、PR 依赖、下一门槛与行动顺序。
 - [阶段路线图](roadmap.md)：P0 核心文件 → P1 小窗 → P2 Dock → P3 网络 → P4 AI 与插件。
+- [P3/P4 开源方案与风险研究（2026-10-26）](research/P3-P4-open-source-reuse-2026-10-26.md)：按社交反馈→技术社区→GitHub→官方文档核对 LocalSend/iroh/FTS5/FastEmbed 等复用候选、许可、安全与待验证边界。
+- [P3/P4 Codex 实施关卡](execution/P3-P4-implementation-gates-2026-10-26.md)：隔离探针、LAN 双机实测、跨架索引、可选 AI 的阶段目标与 R3 审批要求；**文档研究已完成，不代表 P3/P4 已实现或已批准联网/模型费用**。
 
 - [43 项产品与工程决策](product-decisions.md)：逐项保留用户选择，第 25 项保留补充说明。
 - [M1 原始执行基线](m1-execution-baseline.md)：共享记录中的正式交接文本。
