@@ -1,0 +1,100 @@
+name: DevLab browser environment
+on:
+  pull_request:
+    paths: ['.github/workflows/devlab-browser-environment.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: devlab-browser-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  preinstalled:
+    name: Preinstalled environment and all browser regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:47b510dd9230bf0b9bfc9b20102241e577ea7a99334ab4c3ca19f19770e9b8ea
+      options: --init --shm-size=1g
+    outputs:
+      environment: ${{ steps.environment.outcome }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: apps/desktop
+    env:
+      CI: 'true'
+      DEVLAB_IMAGE_VERSION: '1.64.1'
+      DEVLAB_EVIDENCE_DIR: ${{ github.workspace }}/work/devlab-ci
+      PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ github.workspace }}/work/devlab-ci/results.json
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - name: Install locked Node dependencies
+        run: npm ci --registry=https://registry.npmjs.org --ignore-scripts --no-audit --no-fund
+      - name: Verify exact browser version and launch with preinstalled system libraries
+        id: environment
+        run: |
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          import path from 'node:path';
+          import { createRequire } from 'node:module';
+          import { chromium } from 'playwright';
+          const require = createRequire(import.meta.url);
+          const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+          const installed = require('@playwright/test/package.json').version;
+          assert.equal(installed, lock.packages['node_modules/@playwright/test'].version);
+          assert.equal(installed, process.env.DEVLAB_IMAGE_VERSION, 'Update the reviewed image digest together with Playwright');
+          assert.equal(process.env.PLAYWRIGHT_BROWSERS_PATH, '/ms-playwright');
+          assert.ok(chromium.executablePath().startsWith('/ms-playwright/'));
+          const browser = await chromium.launch({ headless: true });
+          const page = await browser.newPage();
+          await page.setContent('<title>Ningmao dependency check</title>');
+          assert.equal(await page.title(), 'Ningmao dependency check');
+          const version = browser.version();
+          await browser.close();
+          fs.mkdirSync(process.env.DEVLAB_EVIDENCE_DIR, { recursive: true });
+          fs.writeFileSync(path.join(process.env.DEVLAB_EVIDENCE_DIR, 'environment.json'), JSON.stringify({
+            sourceCommit: process.env.GITHUB_SHA, node: process.version, platform: process.platform,
+            playwright: installed, chromium: version, executable: path.basename(chromium.executablePath()),
+            image: 'mcr.microsoft.com/playwright:v1.64.1-noble@sha256:47b510dd9230bf0b9bfc9b20102241e577ea7a99334ab4c3ca19f19770e9b8ea',
+            preinstalledLibraryLaunch: 'PASS', evidenceType: 'Linux browser, not Windows native'
+          }, null, 2));
+          JS
+      - name: Build unchanged production and test frontends
+        run: |
+          npm run build
+          npm run build:test
+      - name: Run all browser tests with unchanged assertions and worker count
+        run: npm run test:ui -- --reporter=list,json
+      - name: Upload environment and test evidence
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: devlab-browser-environment-evidence
+          path: work/devlab-ci/
+          if-no-files-found: warn
+          retention-days: 7
+  environment-fallback:
+    name: Original environment fallback
+    needs: preinstalled
+    if: ${{ always() && needs.preinstalled.result == 'failure' && needs.preinstalled.outputs.environment != 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - name: Run original dependency installation and complete browser gate
+        shell: pwsh
+        run: ./scripts/build-desktop.ps1 -Browser

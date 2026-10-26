@@ -109,3 +109,7 @@ flowchart LR
 - **下一闭环**：优先降低用户感知等待时间，别为了 DevLab 引入新的复杂 UI 或强制安装。
 
 **最终守则：DevLab 是加速已有研发循环的辅助设施，不是替代 P2 安全验收的新产品，不是让 Codex 拿到无限权限，更不是把调试后门留在正式版。**
+
+## DLV-0/1 首个隔离实测切片
+
+本轮直接解析f717b1a的真实CI日志：Ubuntu系统依赖安装703.602秒，99项UI仅约1.6分钟。精确环境/源码子树见[baseline.json](../research/DevLab-ci-environment-evidence/baseline.json)。在独立fix/devlab-browser-environment-20261026分支新增实验工作流，采用与锁定Playwright1.64.1一致、MCR核验的官方Noble镜像并固定OCI digest；实际启动浏览器验证系统库，运行原有生产/测试前端构建和全部99项，workers/断言不变。只在环境准备失败时自动走旧环境；断言或构建失败不改道伪造绿灯，原失败保留。未改原Desktop/Preview、Rust/数据库/生产权限，也未提前实现DLV-3。优化前后耗时以Issue #49和该PR实际Checks为准，尚未测量前不承诺倍率。旧工作流保留，删除实验工作流即可回滚。
