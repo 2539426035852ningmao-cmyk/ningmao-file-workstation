@@ -5,6 +5,10 @@
 > **当前唯一实时开发导航：** [项目状态/可视化架构](project-status.md) · [Codex 开工入口](codex-start-here.md) · [待证实/待讨论问题](open-decisions.md)。
 > 核查时最新 P2 为 **r21** [PR #40](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/40)，99 浏览器 + 69 Rust 与 Desktop/Preview CI 成功，但原生全矩阵 **PARTIAL**，#30→#32→#35→#36→#40 功能 PR 尚未合并。**先 P2 真实验收/安全合并 → P3 LAN → P4 分段搜索/AI/插件**。PR 与 CI 状态须实时重查。
 
+### D-01 首个公开测试版本：已确认的发布策略
+
+**2026-10-26 用户选择 A：分阶段发布。** P2 安全和目标 Windows 11 x64 原生验收满足门槛后，可以考虑提供明确标注「未签名 / 仅测试 / 非稳定版」的公开 Preview；稳定 Release 仍需完成宣称平台的原生兼容、安装/升级/卸载、数据安全、关键 DPI/多屏与签名信任方案。Win10 未测不得声称已验收，缩小首个稳定版支持范围另经确认。**不代表现在已通过 P2 或获准发布。** [D-01 正式合同](product/D01-windows-preview-release-policy-2026-10-26.md)。
+
 ## 目标顺序
 
 **快速收集 → 安全复制与整理 → 任意软件间素材流转 → 多设备网络传输 → 经过授权的 AI 检索与修改**。

@@ -119,6 +119,12 @@ flowchart TB
 - **待技术探针，不用产品投票：** LocalSend Core 是否可直接复用、FTS5 中文短词效果、本地模型容量与插件沙箱可行性。
 - **确实需要用户选择或风险授权：** 发布前兼容矩阵与签名成本策略、P3 首次真实 LAN 开端口/配对、P4 具体模型下载/云端出站/真实文件修改；见 [待决策清单](open-decisions.md)。
 
+### D-01 · 首个对外测试版发布门槛（用户已确认 A）
+
+2026-10-26 用户确认 **分阶段发布**：先在 P2 核心文件安全和目标环境 Windows 11 x64 原生测试满足门槛后，才考虑明确标注**未签名、仅供测试**的 Preview；正式稳定版仍要完成实际宣称支持平台的 Windows 兼容、安装/升级/卸载、数据备份恢复、DPI/多屏及签名信任策略审核。没有 Win10 原生证据不得声称支持已经验收。**本决定未批准现在发布任何包，也未批准 R3 合并**。
+
+[完整发布门槛](product/D01-windows-preview-release-policy-2026-10-26.md) · [Issue #43](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/issues/43)
+
 ## 7. 图像证据使用规则
 
 - [双眼入口样机概览 PNG](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/blob/97f779ee900ed10231a2ab18a562812afffcbd87/docs/research/dual-eye-orb-evidence/overview.png) 出自候选分支历史提交，**属于原型/浏览器证据，不是 r21 原生桌面截图**。

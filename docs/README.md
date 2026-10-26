@@ -11,6 +11,7 @@
 | Codex 接管或继续修复 P2 | **[Codex 最新开工入口](codex-start-here.md)** · [P2→P3→P4 顺序交付合同](execution/P2-to-P3-P4-sequential-delivery-2026-10-26.md) |
 | 查主要产品设计 | [`design.md` 全局设计规范](../design.md) · [阶段路线](roadmap.md) |
 | 查冻结需求 | [原 43 项](product-decisions.md) · [P4 新增 44 项](product/P4-confirmed-decisions-01-44-2026-10-26.md) |
+| 首个公开 Windows Preview 的发布范围和安全门槛 | **[D-01 已确认：分阶段发布](product/D01-windows-preview-release-policy-2026-10-26.md)** · [Issue #43](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/issues/43) |
 | 找出哪里需要实测/用户细化 | **[未决项与验证登记簿](open-decisions.md)** |
 | 准备 P3 LAN | [免费/克制 UI 合同](design/P3-free-first-lean-ux-contract-2026-10-26.md) · [复用研究](research/P3-P4-open-source-reuse-2026-10-26.md) |
 | 准备 P4 检索/AI/插件 | [P4 44 项](product/P4-confirmed-decisions-01-44-2026-10-26.md) · [Gate 0–4](execution/P3-P4-implementation-gates-2026-10-26.md) |
