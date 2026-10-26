@@ -7,11 +7,14 @@ export type Job = { id: number; shelf_id: number; status: string; message: strin
 export type Snapshot = { shelves: Shelf[]; items: Item[]; jobs: Job[] };
 export type Progress = { job_id: number; name: string; file_index: number; file_count: number; bytes: number; total: number };
 export type ImportResult = { added: number; job_id: number | null; errors: string[] };
-export type DesktopPreferences={edge:"free"|"left"|"right";auto_hide:boolean;topmost:boolean};
+export type DesktopPreferences={edge:"free"|"left"|"right"|"top"|"bottom";auto_hide:boolean;topmost:boolean;flow?:"vertical"|"horizontal"};
+export type EntryPresentation={kind:"orb"|"capsule"|"quick-peek";shelf_id:number|null};
+export type EntrySlot={id:number;x:number;y:number;width:number;height:number};
+export type PeekData={shelf:CatalogShelf;total:number;items:{id:number;name:string;kind:string;status:string;thumbnail:string|null}[]};
 export type ManagedReference=Pick<Item,"id"|"shelf_id"|"path"|"name"|"tags">;
 export type ManagementSnapshot={shelves:Pick<Shelf,"id"|"name"|"kind">[];items:ManagedReference[];jobs:Job[]};
 export type CatalogShelf=Pick<Shelf,"id"|"name"|"kind">;
-export type DesktopView = {layout:{enabled:boolean;expanded:boolean;active_shelf:number;collapsed:number[];page:number;preferences:DesktopPreferences;main_topmost?:boolean;detached?:{shelf_id:number;visible:boolean;topmost:boolean}[]};entries:{id:number;name:string;kind:string}[];total:number;warning:string|null;copying:boolean;edge_hidden:boolean;catalog?:CatalogShelf[]};
+export type DesktopView = {layout:{enabled:boolean;expanded:boolean;active_shelf:number;collapsed:number[];page:number;preferences:DesktopPreferences;main_topmost?:boolean;detached?:{shelf_id:number;visible:boolean;topmost:boolean}[]};entries:{id:number;name:string;kind:string}[];total:number;warning:string|null;copying:boolean;edge_hidden:boolean;catalog?:CatalogShelf[];presentation?:EntryPresentation;geometry?:{width:number;height:number;slots:EntrySlot[]};native_dragging?:boolean;drag_target?:number|null};
 export function detachedShelfFromLabel(label:string):number|undefined {
   if(!/^shelf-[1-9]\d*$/.test(label))return undefined;
   const id=Number(label.slice(6));return Number.isSafeInteger(id)?id:undefined;
@@ -36,6 +39,8 @@ export interface Backend {
   createShelf(name:string,session:boolean):Promise<number>;
   copyReferences(target:number,ids:number[]):Promise<number>;
   desktopState():Promise<DesktopView>;
+  desktopPresent(shelf:number,kind:EntryPresentation["kind"]):Promise<void>;
+  desktopPeek(shelf:number):Promise<PeekData>;
   desktopCollapse(id:number):Promise<void>;
   desktopOpen(id:number):Promise<void>;
   desktopSelect(id:number):Promise<void>;
@@ -63,6 +68,7 @@ export const nativeBackend: Backend = {
   cancel: jobId => invoke("cancel_copy", { jobId }), topmost: () => invoke("toggle_topmost"), quit: () => invoke("quit"),
   createShelf:(name,session)=>invoke("create_shelf",{name,session}),
   copyReferences:(target,ids)=>invoke("copy_references",{target,ids}),
+  desktopPresent:(shelfId,kind)=>invoke("desktop_present",{shelfId,kind}),desktopPeek:shelfId=>invoke("desktop_peek",{shelfId}),
   desktopState:()=>invoke("desktop_state"),desktopCollapse:shelfId=>invoke("desktop_collapse",{shelfId}),desktopOpen:shelfId=>invoke("desktop_open",{shelfId}),
   desktopSelect:shelfId=>invoke("desktop_select",{shelfId}),desktopPage:delta=>invoke("desktop_page",{delta}),desktopMove:()=>invoke("desktop_move"),desktopDisable:()=>invoke("desktop_disable"),
   managerOpen:()=>invoke("manager_open"),managementSnapshot:()=>invoke("management_snapshot"),

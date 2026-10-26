@@ -1,0 +1,48 @@
+{
+  "candidate": "r15",
+  "sourceCommit": "f7673e6b9065bfe0b6193247743bf660de5368bc",
+  "userReport": "Dropped onto capsule once; received feedback visible, but too long and clipped",
+  "after": {
+    "items": [
+      [
+        1,
+        1,
+        "English.txt",
+        0,
+        "[]"
+      ],
+      [
+        2,
+        1,
+        "中文 空格.txt",
+        1,
+        "[]"
+      ]
+    ],
+    "jobs": [],
+    "integrity": "ok",
+    "protected": [
+      {
+        "file": "source/English.txt",
+        "unchanged": true
+      },
+      {
+        "file": "source/中文 空格.txt",
+        "unchanged": true
+      },
+      {
+        "file": "source/合成图片.png",
+        "unchanged": true
+      },
+      {
+        "file": "source/合成文件夹/说明.txt",
+        "unchanged": true
+      },
+      {
+        "file": "bound-target/English.txt",
+        "unchanged": true
+      }
+    ]
+  },
+  "verdict": "Capsule reference receipt observed by user; exactly one new Chinese reference, no job, integrity ok,5 protected hashes unchanged. UI receipt FAIL R2, short-text patch separate from running binary. Strict OS event trace and full native matrix not complete."
+}

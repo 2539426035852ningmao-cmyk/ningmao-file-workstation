@@ -1,0 +1,146 @@
+{
+  "sourceCommit": "fdf71b902eb1c2d22b25b48c72b5c8220447e562",
+  "date": "2026-10-25",
+  "finalProductAcceptance": "PENDING",
+  "nativeCandidateLaunched": true,
+  "baselineR14Feedback": "Historical FAIL R2 retained; r15 receipt clipping FAIL R2; r16 short receipt user-confirmed fixed",
+  "cases": [
+    {
+      "id": "UI-01",
+      "status": "BROWSER_PASS",
+      "evidence": "皮肤保存/重载、切换主题互不覆盖"
+    },
+    {
+      "id": "UI-02",
+      "status": "BROWSER_PASS",
+      "evidence": "深蓝黑CSS纯色/无背景图/描边/阴影，截图已检查，最终视觉待用户确认"
+    },
+    {
+      "id": "UI-03",
+      "status": "PARTIAL",
+      "evidence": "两条原创SVG、眨眼恢复、按需帧；全部DPI边界待原生"
+    },
+    {
+      "id": "UI-04",
+      "status": "BROWSER_PASS",
+      "evidence": "首击胶囊/次击预览/明确打开/Esc与CtrlEnter"
+    },
+    {
+      "id": "UI-05",
+      "status": "BROWSER_PASS",
+      "evidence": "装饰SVG aria-hidden、非按钮；独立收起有名称"
+    },
+    {
+      "id": "UI-06",
+      "status": "BROWSER_PASS",
+      "evidence": "收起显式id、引用记录不变；窗口实测待验"
+    },
+    {
+      "id": "UI-07",
+      "status": "PARTIAL",
+      "evidence": "串行pending/预览响应序号/原生锁定保护；高速原生竞态未测"
+    },
+    {
+      "id": "UI-08",
+      "status": "BROWSER_PASS",
+      "evidence": "六主题皮肤24形态图，340/420/640旧文件区回归；不是产品视觉批准"
+    },
+    {
+      "id": "UI-09",
+      "status": "BROWSER_PASS",
+      "evidence": "reduced-motion保留交互、取消眼睛RAF/待机计时器"
+    },
+    {
+      "id": "UI-10",
+      "status": "PARTIAL",
+      "evidence": "1/3/8架、五方向、分页和搜索浏览器通过；手动原生位置待验"
+    },
+    {
+      "id": "UI-11",
+      "status": "PARTIAL",
+      "evidence": "空架/失效/取消/复制中及错误文字回归；绑定离线原生待验"
+    },
+    {
+      "id": "UI-12",
+      "status": "BROWSER_PASS",
+      "evidence": "44px单行顶栏，不增加第二标题行"
+    },
+    {
+      "id": "NATIVE-01",
+      "status": "PARTIAL",
+      "evidence": "PARTIAL: r15 two bound capsule releases and r16 one each yielded one new completed Copy job/numbered target; strict OS event tracing not done."
+    },
+    {
+      "id": "NATIVE-02",
+      "status": "NOT_TESTED",
+      "evidence": "矩形/目标ID冻结、跨节点不换目标的Rust模型通过；这些均不代替本次精确EXE的Windows原生验收"
+    },
+    {
+      "id": "NATIVE-03",
+      "status": "PARTIAL",
+      "evidence": "PARTIAL: r16 Leave cancellation zero changes; user approx3 right-click cancels zero changes against fresh9/6/5 baseline. Multi-node geometry not measured live."
+    },
+    {
+      "id": "NATIVE-04",
+      "status": "PARTIAL",
+      "evidence": "PARTIAL: r15 two reference imports, two numbered Copy files, r16 third Copy hash all correct; protected5 sources/old target unchanged. Other file types/drag out not newly controlled."
+    },
+    {
+      "id": "NATIVE-05",
+      "status": "PARTIAL",
+      "evidence": "PARTIAL: r15 normal quit/r16 restart retained5items/2jobs, SQLite ok; final r16 normal quit retained9items/6jobs after manual exploration. Session-only/abnormal-exit lifecycle not newly tested."
+    },
+    {
+      "id": "NATIVE-06",
+      "status": "NOT_TESTED",
+      "evidence": "既有拆合/归属隔离Rust与浏览器回归通过；这些均不代替本次精确EXE的Windows原生验收"
+    },
+    {
+      "id": "NATIVE-07",
+      "status": "PARTIAL",
+      "evidence": "PARTIAL: actual main shelf1/3 own collapse and QuickPeek explicit full-shelf open observed; independent own-window ID not freshly tested."
+    },
+    {
+      "id": "NATIVE-08",
+      "status": "PARTIAL",
+      "evidence": "PARTIAL: Windows11 build22631 sampled; saved logical/physical geometry consistent with125percent. Win10/150percent/multi-monitor/monitor disconnect not tested."
+    },
+    {
+      "id": "NATIVE-09",
+      "status": "PARTIAL",
+      "evidence": "PARTIAL: r15 andr16 actual normal menu quits observed, no force kill; active-job protection and full tray matrix pending."
+    },
+    {
+      "id": "NATIVE-10",
+      "status": "PARTIAL",
+      "evidence": "PARTIAL: old r13 fixed-bound-target case now two r15 capsule Copy successes andr16 one; reference receipt observed. Hidden-handle/strict native event matrix not done."
+    },
+    {
+      "id": "PERF-01",
+      "status": "PARTIAL",
+      "evidence": "DOM hidden停止timer/RAF且卸载清理；真实遮挡/托盘后台资源待测"
+    },
+    {
+      "id": "PERF-02",
+      "status": "PARTIAL",
+      "evidence": "5节点至多1个低频timer、无闲置RAF；未测CPU/GPU或宣称60FPS"
+    },
+    {
+      "id": "A11Y-01",
+      "status": "PARTIAL",
+      "evidence": "键盘切换/Esc/搜索和图标名称自动通过；完整原生焦点、读屏待验"
+    },
+    {
+      "id": "A11Y-02",
+      "status": "BROWSER_PASS",
+      "evidence": "错误role=alert可读，成功role=status，引用/复制文字；不只颜色"
+    },
+    {
+      "id": "A11Y-03",
+      "status": "PARTIAL",
+      "evidence": "六组合截图和皮肤独立测试；最终视觉对比度/系统高对比待验"
+    }
+  ],
+  "nativeAcceptance": "PARTIAL sampled core loop; r15/r16 normally exited; final product acceptance pending",
+  "rightClickExtra": "User requested right-click cancel; verified native Explorer-source behavior approximately3 times, zero changes. First sequence mixed manual experiments and was not judged."
+}

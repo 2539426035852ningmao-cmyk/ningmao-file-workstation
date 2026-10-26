@@ -1,0 +1,116 @@
+{
+  "schema": 1,
+  "date": "2026-10-25",
+  "candidate": "r16",
+  "sourceCommit": "fdf71b902eb1c2d22b25b48c72b5c8220447e562",
+  "ciMergeCommit": "80a1efd6460541b6a498fb4ef1cc905fea2a4e4e",
+  "sourceAndCiEntireTreeEqual": true,
+  "sourceTree": "5325f246bd8bb498116fe602a961dabb220255d3",
+  "changes": "Capsule short receipt; preserve full original in title and QuickPeek. No native geometry, Store or dependency change from r15.",
+  "tests": {
+    "browserPassed": 80,
+    "rustPassed": 36,
+    "rustFixturesIgnored": 2,
+    "fmt": "PASS",
+    "clippy": "PASS",
+    "windowsNativeBuild": "PASS",
+    "repositoryWindows": "PASS",
+    "repositoryUbuntu": "PASS",
+    "msiReadOnly": "PASS",
+    "receiptRegressionRedObserved": true,
+    "focusedBrowserPassed": 18
+  },
+  "runs": {
+    "desktop": 40176694939,
+    "package": 40176694919,
+    "repository": 40177174049
+  },
+  "artifact": {
+    "id": 12592906608,
+    "zipDigest": "sha256:66e9d5dd2de56b757c32def07725f16bdd4c1671db1211cc19ad7a132ffb0ba8",
+    "deliveryName": "M1-06-preview-package-r16",
+    "filesVerified": 9,
+    "hashesVerified": 8
+  },
+  "inspection": {
+    "schema": 1,
+    "architecture": "PE32+ x64",
+    "productName": "Ningmao File Workstation Preview",
+    "version": "0.1.0",
+    "signature": "NotSigned",
+    "sourceCommit": "80a1efd6460541b6a498fb4ef1cc905fea2a4e4e",
+    "files": [
+      {
+        "name": "build-manifest.json",
+        "bytes": 471,
+        "sha256": "76e198218290faba154d430d06b048b1370b27164809a503050e5ff4bc5f7c5c"
+      },
+      {
+        "name": "license-manifest.json",
+        "bytes": 122632,
+        "sha256": "4ab429897836faa2495f0fd66d20ad705d09f481deed93ca6d071592f64ed36f"
+      },
+      {
+        "name": "LICENSE.txt",
+        "bytes": 11357,
+        "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+      },
+      {
+        "name": "msi-inspection.json",
+        "bytes": 9434,
+        "sha256": "42036936c200bf14c19c7fcac5b3028341066a094c583a7ef575c3b850a7e107"
+      },
+      {
+        "name": "Ningmao-Preview-0.1.0-x64.exe",
+        "bytes": 18753024,
+        "sha256": "a6099f202e2dfee3fbb92b2130070e09aa7469ca7e5236f44cc406c0a9c5b359"
+      },
+      {
+        "name": "Ningmao-Preview-0.1.0-x64.msi",
+        "bytes": 6426624,
+        "sha256": "f423cae8d33efea22ade4b67305fb5a019bcb9a52854aafbe4c63b7eb3f2bbc5"
+      },
+      {
+        "name": "README.md",
+        "bytes": 3789,
+        "sha256": "f0fcf5c39816bafa6fc56688b5f04dad0a9a647910d7cd1661fff579550dbf2f"
+      },
+      {
+        "name": "THIRD_PARTY_NOTICES.txt",
+        "bytes": 3480905,
+        "sha256": "8e169fb0809053f18490891095d9df548f2fd1dc5a3a3c940ad7ec5cf788cf6e"
+      }
+    ],
+    "embeddedPayloadSizesMatch": true,
+    "savedInspectionMatches": true,
+    "filesUnchangedAfterInspection": true,
+    "licenseRecords": 268,
+    "licenseWarnings": 1,
+    "boundary": "Read-only checks; embedded file bytes not extracted. No installation, launch, upgrade or uninstall performed; license collection is not complete release clearance."
+  },
+  "native": {
+    "launchedAfterFreshConcentratedPermission": true,
+    "process": 37788,
+    "fixture": "Reuse backed-up isolated r15 synthetic fixture after verified clean r15 exit; no private data",
+    "restoredItems": 5,
+    "restoredJobs": 2,
+    "integrity": "ok",
+    "receiptUserConfirmed": "Dropped; text complete",
+    "singleReportedDropResult": "English (3).txt and one completed Copy job; sources and prior targets retained",
+    "cancelAndFinalExit": "PASS sampled Leave and approximately3 right-click cancellations: fresh9items/6jobs/5targets snapshot identical. Normal quit menu invoked, PID37788 exited, records/jobs retained, integrity ok.",
+    "manualExploration": "Extra3 Copy jobs/sort/theme/resize were user experiments, not attributed to first right-click request; fresh baseline taken before final controlled comparison.",
+    "rightClickScope": "Windows11 Explorer source only; no universal guarantee or added global hook",
+    "fullAcceptance": "PENDING: multi-node frozen geometry, hidden handles, full file interaction regression, Win10/150%/multi-monitor and final visual approval"
+  },
+  "priorCiFailure": {
+    "run": 40175911775,
+    "commit": "99b69a24800e2b4a6d89b815fe9bdf065309eb2f",
+    "result": "78/79; existing metadata-sorting narrow menu locator.focus timed out",
+    "changedSortingCodeOrTest": false,
+    "newSourceFullSuitePassed": 80,
+    "remaining": "Intermittent old focus failure retained; no retry/skip added. Do not label all historical runs green."
+  },
+  "installed": false,
+  "merged": false,
+  "released": false
+}

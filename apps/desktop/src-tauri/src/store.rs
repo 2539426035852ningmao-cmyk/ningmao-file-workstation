@@ -28,6 +28,20 @@ pub struct ShelfIdentity {
     pub name: String,
     pub kind: String,
 }
+#[derive(Serialize)]
+pub struct PeekItem {
+    pub id: i64,
+    pub name: String,
+    pub kind: String,
+    pub status: String,
+    pub thumbnail: Option<String>,
+}
+#[derive(Serialize)]
+pub struct EntryPreview {
+    pub shelf: ShelfIdentity,
+    pub total: usize,
+    pub items: Vec<PeekItem>,
+}
 #[derive(Clone, Serialize)]
 pub struct Item {
     pub id: i64,
@@ -401,6 +415,43 @@ impl Store {
         }
         tx.commit().map_err(err)?;
         Ok(ids.len())
+    }
+    // Read registered rows only. No paths in DTO and never enumerate a bound directory.
+    pub fn entry_preview(&self, shelf_id: i64) -> Result<EntryPreview> {
+        let shelf = self
+            .shelf_catalog()?
+            .into_iter()
+            .find(|s| s.id == shelf_id)
+            .ok_or("文件架不存在")?;
+        let total = self
+            .db
+            .query_row(
+                "SELECT COUNT(*) FROM items WHERE shelf_id=?1",
+                [shelf_id],
+                |r| r.get::<_, i64>(0),
+            )
+            .map_err(err)? as usize;
+        let items = self
+            .db
+            .prepare("SELECT id,name FROM items WHERE shelf_id=?1 ORDER BY id DESC LIMIT 3")
+            .map_err(err)?
+            .query_map([shelf_id], |r| {
+                Ok(PeekItem {
+                    id: r.get(0)?,
+                    name: r.get(1)?,
+                    kind: "file".into(),
+                    status: "recorded".into(),
+                    thumbnail: None,
+                })
+            })
+            .map_err(err)?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(err)?;
+        Ok(EntryPreview {
+            shelf,
+            total,
+            items,
+        })
     }
     // Metadata only: no stat/read_dir/canonicalize and no insertion into bound shelves.
     pub fn management_snapshot(&self) -> Result<ManagementSnapshot> {

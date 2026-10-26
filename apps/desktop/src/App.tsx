@@ -15,6 +15,7 @@ import { FileThumb } from "./components/spaceui/FileThumb";
 import type { Backend, CatalogShelf, DesktopView, Item, Progress, Snapshot } from "./backend";
 import { defaultView,observeTheme,readTheme,readViewMemory,writeTheme,writeShelfView,type ShelfView } from "./preferences";
 import { isSortMode,sortItems,sortOptions } from "./sorting";
+import {OrbFace} from "./orb/OrbFace";
 import { defaultFilters,filterItems,type ShelfFilters } from "./filters";
 
 const collision: CollisionDetection = args => { const hits=pointerWithin(args); return hits.length ? hits : closestCenter(args); };
@@ -262,14 +263,16 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
     <Button variant="outline" onClick={()=>void tag(current)}><Star size={14}/>切换精选标签</Button><p className="muted">图片预览按需加载 PNG / JPEG / WebP；其他类型保留图标。</p></div>;
   return <div className={`workstation ${hover?"drop-active":""}`}>
     <header className="shelf-header" data-tauri-drag-region>
+      {!searchOpen && <OrbFace brand/>}
       {searchOpen ? <div className="shelf-search"><Search size={16}/><Input ref={searchInput} aria-label="搜索文件" placeholder="搜索当前文件架" value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==="Escape" && !e.nativeEvent.isComposing){e.preventDefault();e.stopPropagation();closeSearch();}}}/><Button variant="ghost" size="icon" aria-label="关闭搜索" onClick={closeSearch}><X size={16}/></Button></div> : <>
-        <ShelfMenu label="文件架" align="start" trigger={<Button className="shelf-switch" variant="ghost" aria-label="切换文件架">{bound?<Folder size={16}/>:<Archive size={16}/>}<span>{shelf?.name || "主窗口"}</span><ChevronDown size={14}/></Button>}>
+        <ShelfMenu label="文件架" align="start" trigger={<Button className="shelf-switch" variant="ghost" aria-label="切换文件架"><span>{shelf?.name || "主窗口"}</span><ChevronDown size={14}/></Button>}>
           <DropdownMenu.RadioGroup value={String(shelfId)} onValueChange={id=>switchShelf(Number(id))}>{data.shelves.map(s=><DropdownMenu.RadioItem key={s.id} disabled={detachedShelfId!==undefined} value={String(s.id)}>{s.kind==="bound"?<Folder size={16}/>:<Archive size={16}/>}<span>{s.name}</span><DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>)}</DropdownMenu.RadioGroup>
           {detachedShelfId===undefined && <><DropdownMenu.Separator/>{catalog.filter(s=>detachedIds.includes(s.id)).map(s=><DropdownMenu.Item key={s.id} onSelect={()=>void perform(()=>backend.desktopOpen(s.id))}>打开独立窗口 · {s.name}</DropdownMenu.Item>)}<DropdownMenu.Item disabled={!native || busy} onSelect={()=>{setNewName("");setSessionShelf(false);setFormError("");setCreating(true);}}><Plus size={16}/>新建文件架</DropdownMenu.Item><DropdownMenu.Item disabled={!native || busy || !!running} onSelect={()=>void perform(async()=>{const id=await backend.chooseFolder();await refresh();if(id)await switchShelf(id);})}><FolderPlus size={16}/>绑定文件夹</DropdownMenu.Item></>}
         </ShelfMenu>
         <Button ref={searchButton} variant="ghost" size="icon" aria-label="搜索文件" title="搜索文件 Ctrl+F" onClick={()=>setSearchOpen(true)}><Search size={16}/></Button>
       </>}
       <Button className="add-files" variant="ghost" size="icon" disabled={!native || loading || !shelf || busy || !!running} aria-label={bound?"添加并复制":"添加引用"} title={bound?"添加并复制，保留来源":"添加引用，保留原文件"} onClick={()=>void perform(async()=>receive(await backend.chooseFiles()))}><Plus size={18}/></Button>
+      <Button className="shelf-collapse" variant="ghost" size="icon" aria-label="收起到悬浮入口" title="收起当前文件架" disabled={!native || loading || !shelf || busy || !!dragging || hover} onClick={()=>void perform(()=>backend.desktopCollapse(shelfId))}><ArrowDownToLine size={16}/></Button>
       <ShelfMenu label="更多操作" trigger={<Button variant="ghost" size="icon" aria-label="更多操作" title="更多操作"><MoreHorizontal size={18}/></Button>}>
         <DropdownMenu.Item disabled={!native || loading || !shelf || busy} onSelect={()=>void perform(()=>backend.desktopCollapse(shelfId))}>收起到悬浮入口</DropdownMenu.Item>
         <DropdownMenu.Item disabled={!native || loading || !shelf || busy} onSelect={()=>void perform(()=>detachedShelfId===undefined?backend.desktopDetach(shelfId):backend.desktopMerge(shelfId))}>{detachedShelfId===undefined?"拆分为独立窗口":"合并回主窗口"}</DropdownMenu.Item>

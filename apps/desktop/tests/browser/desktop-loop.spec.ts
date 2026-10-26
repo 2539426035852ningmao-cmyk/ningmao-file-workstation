@@ -21,6 +21,6 @@ test("新建失败保持输入并可修正重试",async({page})=>{
 });
 test("轻量入口点击显式目标ID，Dock分页不截断文件架",async({page})=>{
   await page.setViewportSize({width:64,height:312});await page.goto("/tests/harness.html?desktop-entry");await expect(page.getByRole("button",{name:/^展开 /})).toHaveCount(5);await expect(page.getByRole("button",{name:"上一页文件架"})).toBeDisabled();
-  await page.getByRole("button",{name:"下一页文件架"}).click();await expect(page.getByRole("button",{name:/^展开 /})).toHaveCount(2);await page.getByRole("button",{name:"展开 项目 7",exact:true}).click();await expect.poll(()=>page.evaluate(()=>window.testHarness.calls())).toContain("expand:7");await expect(page.getByRole("button",{name:"下一页文件架"})).toBeDisabled();
+  await page.getByRole("button",{name:"下一页文件架"}).click();await expect(page.getByRole("button",{name:/^展开 /})).toHaveCount(2);await page.getByRole("button",{name:"展开 项目 7",exact:true}).press("Control+Enter");await expect.poll(()=>page.evaluate(()=>window.testHarness.calls())).toContain("expand:7");await expect(page.getByRole("button",{name:"下一页文件架"})).toBeDisabled();
   await page.screenshot({path:process.env.M105_TEST_OUTPUT?`${process.env.M105_TEST_OUTPUT}/p2-dock.png`:"test-results/p2-dock.png"});
 });

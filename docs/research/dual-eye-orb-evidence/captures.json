@@ -1,0 +1,160 @@
+{
+  "sourceCommit": "f7673e6b9065bfe0b6193247743bf660de5368bc",
+  "environment": "Windows host, headless Chromium, CSS viewport420x520, emulated deviceScaleFactor1",
+  "nativeWindows": false,
+  "source": "actual Playwright rendering; synthetic registered files; not product approval",
+  "files": [
+    {
+      "name": "overview.png",
+      "sha256": "ddeff7ce90dd4a2e9368c77fae5c11a3ad5035e894d623d87058e3846aed28eb",
+      "bytes": 67104
+    },
+    {
+      "name": "screenshots/dark-brand-blue-capsule.png",
+      "sha256": "ea4c461b608696c14ef850684476e45e1f4852c605fb44c741e516be126a2f64",
+      "bytes": 4488
+    },
+    {
+      "name": "screenshots/dark-brand-blue-orb.png",
+      "sha256": "52bde49bc2b30c07ab49c83d8cf7e800d1c2c0cb3462a1793856cd7aa97b7177",
+      "bytes": 1933
+    },
+    {
+      "name": "screenshots/dark-brand-blue-peek.png",
+      "sha256": "746eb04a9ff7e919cb239caef45d4bdc5dcd8c71c31925c8471f03094e9e7e86",
+      "bytes": 10826
+    },
+    {
+      "name": "screenshots/dark-brand-blue-shelf.png",
+      "sha256": "1528fc8332386bd529eef072583380a890332607f57f7c541b379d6658b1d186",
+      "bytes": 8591
+    },
+    {
+      "name": "screenshots/dark-navy-black-capsule.png",
+      "sha256": "fe346204434358fcdde80e979aa9719495cd194f856b9a6630d7fe3a6d1a3715",
+      "bytes": 4517
+    },
+    {
+      "name": "screenshots/dark-navy-black-orb.png",
+      "sha256": "cab3f65a85397d5f710d993f21faa55658f247e460bfdba273466ebe5596198d",
+      "bytes": 2001
+    },
+    {
+      "name": "screenshots/dark-navy-black-peek.png",
+      "sha256": "746eb04a9ff7e919cb239caef45d4bdc5dcd8c71c31925c8471f03094e9e7e86",
+      "bytes": 10826
+    },
+    {
+      "name": "screenshots/dark-navy-black-shelf.png",
+      "sha256": "1528fc8332386bd529eef072583380a890332607f57f7c541b379d6658b1d186",
+      "bytes": 8591
+    },
+    {
+      "name": "screenshots/dark-warm-white-capsule.png",
+      "sha256": "ac784f5921f17328101ec9dcdcb914f2a881a49f5456aa6718ca2fe6b9209238",
+      "bytes": 4532
+    },
+    {
+      "name": "screenshots/dark-warm-white-orb.png",
+      "sha256": "4f1180e1d4f76739f0f54e443adc67e66e6b8bd248449a7a281d3f790bc6ee35",
+      "bytes": 1923
+    },
+    {
+      "name": "screenshots/dark-warm-white-peek.png",
+      "sha256": "746eb04a9ff7e919cb239caef45d4bdc5dcd8c71c31925c8471f03094e9e7e86",
+      "bytes": 10826
+    },
+    {
+      "name": "screenshots/dark-warm-white-shelf.png",
+      "sha256": "f64415a891cdc75ecbc0fa38e8dad9db4fe3983e76f69099acd37b8c02f183ba",
+      "bytes": 8589
+    },
+    {
+      "name": "screenshots/dock-1-shelves.png",
+      "sha256": "4f1180e1d4f76739f0f54e443adc67e66e6b8bd248449a7a281d3f790bc6ee35",
+      "bytes": 1923
+    },
+    {
+      "name": "screenshots/dock-3-shelves.png",
+      "sha256": "d8cc64522ace1debb7f4113c8f09cf5ae3e468e2a26755cbdaf66c918dd6a64d",
+      "bytes": 2277
+    },
+    {
+      "name": "screenshots/dock-8-shelves.png",
+      "sha256": "8ff37bd6a59f85950ab25bde2b8a49b2df4c712c4d5a74e6087794407977f138",
+      "bytes": 3416
+    },
+    {
+      "name": "screenshots/light-brand-blue-capsule.png",
+      "sha256": "f158b55462552638b98fa21778fa06a5f5d3b11bfeefb3e527d9841864882e0b",
+      "bytes": 4483
+    },
+    {
+      "name": "screenshots/light-brand-blue-orb.png",
+      "sha256": "08402e1c0ef497887286ff3773dae306db02a912b63df8cbc979f113f14754ba",
+      "bytes": 1921
+    },
+    {
+      "name": "screenshots/light-brand-blue-peek.png",
+      "sha256": "a16eb89eeeb439e6a0d5bd8b0c9eea1abd44cf4a9069bf5c01ba50382998880e",
+      "bytes": 10636
+    },
+    {
+      "name": "screenshots/light-brand-blue-shelf.png",
+      "sha256": "5f42ecc9fe012693ba7f08786ff531e77c019d5dbe07953c63a14f324a05a0c8",
+      "bytes": 9104
+    },
+    {
+      "name": "screenshots/light-navy-black-capsule.png",
+      "sha256": "f41ee0b39d4c100d2882d5e6d4c37cba9b4b9139b7a37b68826021af5853f2ad",
+      "bytes": 4529
+    },
+    {
+      "name": "screenshots/light-navy-black-orb.png",
+      "sha256": "eaad54197fb968c0234af1d39aa87aa363ee42e046a3522b7509398a79c5fb46",
+      "bytes": 1998
+    },
+    {
+      "name": "screenshots/light-navy-black-peek.png",
+      "sha256": "a16eb89eeeb439e6a0d5bd8b0c9eea1abd44cf4a9069bf5c01ba50382998880e",
+      "bytes": 10636
+    },
+    {
+      "name": "screenshots/light-navy-black-shelf.png",
+      "sha256": "5f42ecc9fe012693ba7f08786ff531e77c019d5dbe07953c63a14f324a05a0c8",
+      "bytes": 9104
+    },
+    {
+      "name": "screenshots/light-warm-white-capsule.png",
+      "sha256": "afac23821614e208069e65bf234e769b1f8a43139b708cb1df02a52f1d061022",
+      "bytes": 4443
+    },
+    {
+      "name": "screenshots/light-warm-white-orb.png",
+      "sha256": "3d994dbd17838977237c768e715be4df2584c6b669c825b937cc66a6531d77d0",
+      "bytes": 1916
+    },
+    {
+      "name": "screenshots/light-warm-white-peek.png",
+      "sha256": "a16eb89eeeb439e6a0d5bd8b0c9eea1abd44cf4a9069bf5c01ba50382998880e",
+      "bytes": 10636
+    },
+    {
+      "name": "screenshots/light-warm-white-shelf.png",
+      "sha256": "1af5889c4aea61870a4027360c257520ff52d9d5b1743823e35e07eb5f2bcee4",
+      "bytes": 9100
+    },
+    {
+      "name": "browser-blink.webm",
+      "sha256": "6cbb861c90da5e9cdcb0d614c243efabf024e2b4e07ff0da99c9d09a7ee6c088",
+      "bytes": 26762,
+      "storage": "local delivery; not committed"
+    },
+    {
+      "name": "browser-morph.webm",
+      "sha256": "8f13602ff867aea4460fce2ea89435b947d9e47451a999ea8f8c750f02f7cb18",
+      "bytes": 476759,
+      "storage": "local delivery; not committed"
+    }
+  ]
+}

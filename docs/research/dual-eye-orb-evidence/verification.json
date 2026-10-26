@@ -1,0 +1,93 @@
+{
+  "schema": 1,
+  "candidate": "r15",
+  "date": "2026-10-25",
+  "sourceCommit": "f7673e6b9065bfe0b6193247743bf660de5368bc",
+  "ciMergeCommit": "5807e059c00743186f441b820a46531e756a0b9a",
+  "sourceAndCiEntireTreeEqual": true,
+  "sourceTree": "93ea68b79e5f40218580dc8f4cf2690dd6b01d72",
+  "appTree": "0215e601372d190690c6d185ff0f726ff77bc2e0",
+  "checks": {
+    "browserPassed": 79,
+    "rustPassed": 36,
+    "rustFixturesIgnored": 2,
+    "fmt": "PASS",
+    "clippy": "PASS",
+    "windowsNativeBuild": "PASS",
+    "repositoryWindows": "PASS",
+    "repositoryUbuntu": "PASS",
+    "msiReadOnly": "PASS"
+  },
+  "runs": {
+    "desktop": 40175210134,
+    "package": 40175210205,
+    "repository": 40175276229
+  },
+  "artifact": {
+    "id": 12591409160,
+    "zipDigest": "sha256:a232555096ee79f840595f4e968003af354622ade84b1c966182b72c7c9ce490",
+    "filesVerified": 9,
+    "hashesVerified": 8,
+    "deliveryName": "M1-06-preview-package-r15"
+  },
+  "readOnlyInspection": {
+    "schema": 1,
+    "architecture": "PE32+ x64",
+    "productName": "Ningmao File Workstation Preview",
+    "version": "0.1.0",
+    "signature": "NotSigned",
+    "sourceCommit": "5807e059c00743186f441b820a46531e756a0b9a",
+    "files": [
+      {
+        "name": "build-manifest.json",
+        "bytes": 471,
+        "sha256": "bc431b385ec29725a7cab306a70e34b272eade5fc6e2ac5ca8ae216221008124"
+      },
+      {
+        "name": "license-manifest.json",
+        "bytes": 122632,
+        "sha256": "4ab429897836faa2495f0fd66d20ad705d09f481deed93ca6d071592f64ed36f"
+      },
+      {
+        "name": "LICENSE.txt",
+        "bytes": 11357,
+        "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+      },
+      {
+        "name": "msi-inspection.json",
+        "bytes": 9434,
+        "sha256": "d8829613f16809b56a9de2e01e0734da9cb7062bcfd6a2b365d4479c03dc953a"
+      },
+      {
+        "name": "Ningmao-Preview-0.1.0-x64.exe",
+        "bytes": 18752512,
+        "sha256": "52ae055061e0cec063eb4abdab5a11778190ec435e897617a6426f9a47bcc940"
+      },
+      {
+        "name": "Ningmao-Preview-0.1.0-x64.msi",
+        "bytes": 6422528,
+        "sha256": "dd85ba18b5c963e81ab5e96e6500b5df5dcc3acb182181d8a1ff7797edba4d43"
+      },
+      {
+        "name": "README.md",
+        "bytes": 3789,
+        "sha256": "f0fcf5c39816bafa6fc56688b5f04dad0a9a647910d7cd1661fff579550dbf2f"
+      },
+      {
+        "name": "THIRD_PARTY_NOTICES.txt",
+        "bytes": 3480905,
+        "sha256": "8e169fb0809053f18490891095d9df548f2fd1dc5a3a3c940ad7ec5cf788cf6e"
+      }
+    ],
+    "embeddedPayloadSizesMatch": true,
+    "savedInspectionMatches": true,
+    "filesUnchangedAfterInspection": true,
+    "licenseRecords": 268,
+    "licenseWarnings": 1,
+    "boundary": "Read-only checks; embedded file bytes not extracted. No installation, launch, upgrade or uninstall performed; license collection is not complete release clearance."
+  },
+  "installed": false,
+  "nativeAcceptance": "Historical r15 partial native results recorded; normal menu quit observed. Receipt clipping FAIL R2 fixed and separately tested in r16. Full D-ORB acceptance pending.",
+  "originality": "Independent eye paths/motion and no new dependency; restricted reference code/assets excluded",
+  "rollback": "63377ae/r14; keep SQLite, source assets and all v1/v2/v3/v4 layout files"
+}

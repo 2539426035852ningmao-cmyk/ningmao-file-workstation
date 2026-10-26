@@ -1,0 +1,49 @@
+{
+  "schema": 1,
+  "date": "2026-10-25",
+  "candidate": "r15",
+  "sourceCommit": "f7673e6b9065bfe0b6193247743bf660de5368bc",
+  "exeSha256": "52ae055061e0cec063eb4abdab5a11778190ec435e897617a6426f9a47bcc940",
+  "os": "Windows11 Home build22631",
+  "freshDesktopPermission": true,
+  "syntheticOnly": true,
+  "processId": 13092,
+  "installed": false,
+  "observed": [
+    "new isolated Store opened with 0 items/0 jobs, integrity ok",
+    "full shelf own collapse command created actual orb window",
+    "first actual click expanded capsule; second click QuickPeek with 0 items and clear empty prompt",
+    "QuickPeek explicit close returned orb",
+    "current Explorer source English.txt selected; first real reference drop requested",
+    "User reported expanded; first post-drop DB contains only English.txt in shelf1, no jobs, integrity ok and all5 protected hashes unchanged; exact event channel not traced",
+    "Second Chinese reference: user confirmed one capsule-centered release and visible receipt;2 references/0jobs, integrity ok and protected hashes unchanged. Receipt clipped: FAIL R2.",
+    "Actual QuickPeek displayed both registered files and explicit Open shelf returned full shelf. Bound shelf3 now selected from isolated fixture root; collapsed and expanded own capsule.",
+    "r15 bound Copy twice: English(1)/(2) and2 completed jobs, hashes equal source and prior targets retained; normal menu quit, PID13092 absent."
+  ],
+  "protectedObjectsUnchanged": 5,
+  "nativeDropsVerified": 3,
+  "remaining": [
+    "frozen multi-node target and real rectangle measurement during active drag",
+    "full shelf native multi-select/drag out/order/Space/default-open controlled regression on new exact EXE",
+    "independent detach/merge/tray/active-job exit guard on new exact EXE",
+    "Win10/150percent/multi-monitor/occlusion performance and complete accessibility",
+    "final product visual approval; no auto merge/install/release"
+  ],
+  "oldR14": "not present in returned windows/process inventory at session start; no force-kill and no claim of observed normal exit",
+  "screenshots": "inspected via Windows tool only; not uploaded because transparent windows and Explorer include unrelated desktop context",
+  "nativeRecording": "NOT RECORDED; browser WebM remains explicitly synthetic",
+  "nativeReferenceImportsVerified": 2,
+  "nativeCapsuleDropsUserConfirmed": 1,
+  "feedbackRegression": {
+    "status": "FAIL R2 in r15",
+    "userReport": "receipt too long and clipped",
+    "patchCommit": "fdf71b902eb1c2d22b25b48c72b5c8220447e562",
+    "redTestObserved": true,
+    "focusedBrowserPassed": 18,
+    "runningR15Changed": false
+  },
+  "sessionStatus": "CONCENTRATED SESSION FINISHED; r15 and r16 clean menu exits observed; return to background",
+  "nativeDropsVerifiedScope": "r15 bound Copy twice and r16 once, each one new completed job/numbered file per user-reported physical release; not OS event trace",
+  "normalR15ExitObserved": true,
+  "r16Evidence": "r16-verification.json"
+}

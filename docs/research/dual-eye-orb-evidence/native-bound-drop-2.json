@@ -1,0 +1,99 @@
+{
+  "candidate": "r15",
+  "sourceCommit": "f7673e6b9065bfe0b6193247743bf660de5368bc",
+  "userSingleReleaseConfirmed": true,
+  "after": {
+    "items": [
+      [
+        1,
+        1,
+        "English.txt",
+        0,
+        "[]"
+      ],
+      [
+        2,
+        1,
+        "中文 空格.txt",
+        1,
+        "[]"
+      ],
+      [
+        3,
+        3,
+        "English.txt",
+        0,
+        "[]"
+      ],
+      [
+        4,
+        3,
+        "English (1).txt",
+        1,
+        "[]"
+      ],
+      [
+        5,
+        3,
+        "English (2).txt",
+        2,
+        "[]"
+      ]
+    ],
+    "jobs": [
+      [
+        1,
+        3,
+        "completed",
+        "复制完成；已完成 1/1 项，来源保留。"
+      ],
+      [
+        2,
+        3,
+        "completed",
+        "复制完成；已完成 1/1 项，来源保留。"
+      ]
+    ],
+    "targets": [
+      {
+        "name": "English (1).txt",
+        "sha256": "2c2467c923d71798072e56b9eb7fb837ac4293b1d7c690f2e3b88f1cc392fce1",
+        "matchesEnglishSource": true
+      },
+      {
+        "name": "English (2).txt",
+        "sha256": "2c2467c923d71798072e56b9eb7fb837ac4293b1d7c690f2e3b88f1cc392fce1",
+        "matchesEnglishSource": true
+      },
+      {
+        "name": "English.txt",
+        "sha256": "72b16ba6530a4633aca0a0b9aaa457cc0e8d1df919ec8221be3b3eee4408fd2a",
+        "matchesEnglishSource": false
+      }
+    ],
+    "integrity": "ok",
+    "protected": [
+      {
+        "file": "source/English.txt",
+        "unchanged": true
+      },
+      {
+        "file": "source/中文 空格.txt",
+        "unchanged": true
+      },
+      {
+        "file": "source/合成图片.png",
+        "unchanged": true
+      },
+      {
+        "file": "source/合成文件夹/说明.txt",
+        "unchanged": true
+      },
+      {
+        "file": "bound-target/English.txt",
+        "unchanged": true
+      }
+    ]
+  },
+  "verdict": "One completed job and one numbered copy per reported physical drop. Sources and prior targets retained. No claim of full OS event tracing or complete native matrix."
+}

@@ -92,3 +92,5 @@ flowchart TD
 ## #30 与新 main 的文档同步
 
 本分支普通merge main fc8903d带入D-01～D-04与DevLab合同，六处冲突均为治理/状态/文档。保留最新main入口及历史工程链接，不改变P0/P1应用子树，不构成阶段合并批准。#40本轮新增原生证据以其native-session为准，不把主仓库历史快照当实时结果。
+
+本分支D-ORB历史与回滚：[实施记录](tasks/D-ORB-implementation.md)、[r16证据及未验收边界](research/dual-eye-orb-evidence/README.md)。历史PASS只归对应二进制，不提升最新r21关卡。
