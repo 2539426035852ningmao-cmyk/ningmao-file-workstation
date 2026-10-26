@@ -59,7 +59,7 @@ test("Ctrl框选叠加/取消选择，虚拟列表框选在边缘连续滚动",a
   await page.evaluate(()=>window.testHarness.drop(Array.from({length:60},(_,i)=>`SYNTHETIC/滚动${i}.txt`)));
   // drop schedules an async snapshot; wait for its rendered items and resize effects
   // before starting a gesture that intentionally cancels when the item set changes.
-  await expect(file(page,"滚动0.txt")).toBeVisible();
+  await expect(file(page,"滚动0.txt")).toBeVisible();await expect(page.getByRole("button",{name:"添加引用",exact:true})).toBeEnabled();
   await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
   const area=await page.getByTestId("file-scroll").boundingBox();if(!area)throw Error("missing area");await page.mouse.move(area.x+2,area.y+20);await page.mouse.down();await page.mouse.move(area.x+area.width-12,area.y+area.height-4,{steps:12});
   await expect(page.getByTestId("selection-marquee")).toBeVisible();await expect.poll(()=>page.getByTestId("file-scroll").evaluate(el=>el.scrollTop)).toBeGreaterThan(100);await page.mouse.up();
