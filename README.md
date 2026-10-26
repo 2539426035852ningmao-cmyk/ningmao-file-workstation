@@ -57,6 +57,12 @@ flowchart TB
 
 **最新 r21 证据：** 99 项浏览器测试、69 项 Rust 测试（另有按现有规则忽略的受控入口），[Desktop CI](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/actions/runs/40295641668) 与 [Preview CI](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/actions/runs/40295641558) 均成功。Windows 11 实机仅确认默认快捷键唤出/暂停/恢复等部分动作，跨窗真实 Copy、回收、DPI/多屏等仍待集中验收。[精确矩阵见候选分支](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/blob/feat/p2-management-flow/docs/research/P2-closeout-evidence/native-matrix.json)。
 
+## 测试预览版与正式稳定版
+
+用户已于 2026-10-26 **确认分阶段发布策略 A（D-01）**：在核心文件安全及 **Windows 11 x64 原生验收通过之后**，可以考虑发布明确标注**未签名、仅供测试、非稳定发行**的 Preview；不能据此宣称 Win10 已验证或省略正式稳定版的跨平台/安装升级与数据安全门槛。目前**没有**已批准或已发布的正式 Preview/Release。
+
+[查看 D-01 发布政策与验收清单](docs/product/D01-windows-preview-release-policy-2026-10-26.md) · [GitHub 决策记录 #43](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/issues/43)
+
 ## 发展路线：先做稳，再扩展
 
 ```mermaid
