@@ -58,7 +58,7 @@
     {
       "id": "pr30-conflict",
       "status": "PASS",
-      "scope": "Two doc conflicts fixed by ordinary merge; apps tree unchanged 09dcbb3a11e511d9eeee06d5b47f734fea74374b; not a stage merge approval"
+      "scope": "Latest main fc8903d introduced six governance-document conflicts; ordinary merge 3651746 resolved them. Subsequent browser test readiness/CI-budget fix lives on PR30 35143d2 and is carried into PR40; no app src/src-tauri runtime change or stage-merge approval."
     },
     {
       "id": "stack-stage-merge",
