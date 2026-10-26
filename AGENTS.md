@@ -4,12 +4,12 @@
 
 - 中文名称：柠猫文件工作站；英文名称：Ningmao File Workstation。
 - 仅操作用户授权的本仓库 `2539426035852ningmao-cmyk/ningmao-file-workstation`；不得擅自修改其他项目。
-- 先读 `docs/product-decisions.md`、`docs/m1-execution-baseline.md` 及当前任务记录，保留全部 43 项决策，不重复大范围产品规划。
+- 先读 `docs/project-status.md`、`docs/codex-start-here.md`、`docs/product-decisions.md`（原43项）、`docs/product/P4-confirmed-decisions-01-44-2026-10-26.md`（独立44项）及当前任务记录；保留全部确认决定，不重做问卷，历史M1基线按需核查。
 - UI 任务同时阅读根目录 `design.md`，遵循紧凑悬浮架、同心圆圆角与渐进式操作规范；其中草案尺寸需验收，不能以视觉改动破坏文件安全功能。
 - 所有 Codex 新任务先阅读 `docs/codex-start-here.md` 与 `docs/roadmap.md`，核对当前 PR/CI 状态，避免 README 落后导致重复建设。
 - Gemini 独立审查按 `GEMINI.md` 和 `docs/AI_REVIEW_WORKFLOW.md` 实施。先核验官方 CLI、费用设置和只读权限，不得因历史成功而宣称当前联调通过；Gemini 不得替代 Codex 实测或人工验收。
-- 已批准独立 Tauri 2 + Rust + React + TypeScript + SQLite 主工程，shadcn/ui 主设计系统，按需复用 SpaceUI FileThumb；工程代码仍在未合并的 Draft #9 及其下游分支。
-- M1-01/02/03 已验收并合入。M1-04 选型已获批准；正式主工程与文件功能在未合并的 #9 → #11 → #13 Draft 链中，仍待精确候选 Windows 实机验收。不得误判 main 的研究原型为正式应用。
+- 已批准独立 Tauri 2 + Rust + React + TypeScript + SQLite 主工程，shadcn/ui 主设计系统，按需复用 SpaceUI FileThumb；最新应用代码目前在 #30→#32→#35→#36→#40 的堆叠候选PR中。每次开工实时核查分支和 CI，不以历史 PR #9/#11/#13 作为当前开发入口。
+- M1-01/02/03 已验收并合入。当前 P2 r21 候选已实现多项功能，浏览器/Rust/CI 有证据，但 Windows 原生总验收仍 PARTIAL，完整主工程未正式合入 main。阶段交付执行 `docs/execution/P2-to-P3-P4-sequential-delivery-2026-10-26.md`；P3/P4 仅规划与候选研究，不得冒称交付。
 - 采用独立功能分支和 PR，不向 main 直接推送功能修改，不绕过保护规则。
 - 普通、可逆且已授权的工作自主推进；真实文件高风险操作、重大架构和最终视觉方向需要用户验收。
 
@@ -21,6 +21,8 @@
 - 已提供的项目规范与本机证据先读取；纯本地编辑不强行外部检索。
 - 引入第三方代码前记录 URL、Commit/Release、许可证、修改情况、署名与 NOTICE 义务、兼容性、安全和维护成本。没有授权或许可不兼容的代码不得复制。
 - 不因复用整体更换框架；实验中采用部分 Holdem、SpaceUI、shadcn/ui 能力不代表批准最终主工程或设计系统。
+
+- 产品/技术未决项先在 `docs/open-decisions.md` 分类：需实测则由 Codex 验证、需用户取舍才逐项沟通；每次只问一个阻塞问题。高风险授权独立列明，用户对文档优化的授权不等于批准无条件联网、收费、真实文件修改或阶段 R3 合并。
 
 ## 数据安全
 
