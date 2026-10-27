@@ -1,0 +1,65 @@
+{
+  "date": "2026-10-27",
+  "stage": "P2",
+  "overall": "PASS_SCOPED",
+  "candidate": {
+    "name": "r22",
+    "functionalSource": "4f2f8cbebeb4b677420e8c46b9f59dbacc8d01b2",
+    "buildCommit": "8875147dd3a9e818a98afe204573d141d9e71b0f",
+    "exeSha256": "48993a4adeb1b9af0cf8e241c003094b3a3d3bdf1d665595b7bdd9ed5ea2fd30",
+    "runtimeChanged": false,
+    "packageRebuilt": false
+  },
+  "setup": {
+    "host": "Windows11 Home Chinese 10.0.22631",
+    "fixture": "Existing explicit prepare_candidate_fixture in a new synthetic-only root on a drive with more than24GiB free; no existing database overwritten.",
+    "source": "256 regular-file hardlink paths to one generated64MiB payload, verified shared file identity and SHA256. Distinct output files copied normally; possible output16GiB. Five original small synthetic source/target files protected separately.",
+    "reason": "Previous16MiB batch finished before click; C drive had little free space. This changes only synthetic inputs/location, no artificial production slowdown, permissions, networking or private data.",
+    "control": "Real native picker selected all256 source paths, actual packaged Tauri UI, manager task page already open. No browser mock or diagnostic backend."
+  },
+  "checks": [
+    {
+      "id": "live-progress",
+      "status": "PASS",
+      "observed": "Manager progress2/256 in accessibility and5/256 in screenshot; main compact progress visible."
+    },
+    {
+      "id": "cancel-request",
+      "status": "PASS",
+      "observed": "One actual manager cancel click during copying; UI displayed copying81/256, disabled cancelling button, and explicit request-wait message."
+    },
+    {
+      "id": "cancel-terminal",
+      "status": "PASS",
+      "observed": "Job1 cancelled80/256; main, manager and SQLite agreed. Progress/cancel controls removed. Current unfinished batch-080 not published, later175 paths not started."
+    },
+    {
+      "id": "safe-output",
+      "status": "PASS",
+      "observed": "Exactly batch-000 through079 published:80 SHA256 matches. All256 source paths retained shared identity/size and unchanged payload; five original synthetic hashes unchanged. No .ningmao-copy-* files, no reference for unfinished file; bound refs82, total refs86 before clean exit. Schema2 integrity ok."
+    },
+    {
+      "id": "manual-retry",
+      "status": "PASS",
+      "observed": "Native picker manually reselected batch-080 only. New job2 completed1/1, original job1 stayed cancelled. Exactly one additional output; all81 output hashes correct, no overwrite/staging leak. Not automatic resume."
+    },
+    {
+      "id": "normal-restart",
+      "status": "PASS",
+      "observed": "Owned PID41044 exited via full-exit menu; expected session-reference cleanup left86 persistent refs. Restart PID15424: seven logical tables equal post-exit backup,81 outputs unchanged, no auto-resume/duplicate jobs; native task drawer showed completed1/1 and cancelled80/256."
+    }
+  ],
+  "scopeLimit": [
+    "One native cancellation and one manual retry; no timing/performance bound inferred.",
+    "Source paths share a regular-file identity; not coverage of256 independent source entities or reparse points.",
+    "Queued-before-first-byte cancellation, abnormal real-app termination, late terminal events and native system recycle remain separate gates."
+  ],
+  "separateRecyclePreparation": "After the cancellation/restart checkpoint, native-created persistent shelf4 and copied synthetic English reference1 to reference88, preserving selected tag. Preview lists exactly one42-byte synthetic English.txt and one other reference. Source still exists, recycle journal empty, backup saved. UI deletion awaits explicit action-time user approval; not claimed PASS.",
+  "ciBaseline": {
+    "head": "4042c02e2c33667170d4a5955f45f1ad9b53e1b3",
+    "desktop": "40447931992 SUCCESS",
+    "preview": "40447932757 SUCCESS",
+    "newRuntimeChanges": false
+  },
+  "rollback": "Old candidates and r22 payload unchanged. Isolated before/cancel/retry/normal-exit/restart/pre-recycle SQLite backups local only. No schema/production code/permissions change; no merge/install/release/model/network/fee. Revert evidence only; do not downgrade or overwrite user databases."
+}

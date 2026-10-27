@@ -2,6 +2,10 @@
 
 ## 当前有效检查点（2026-10-27，优先于下方历史“当前任务”措辞）
 
+原生取消关卡新增PASS（精确r22不变）：新D盘合成root，256个普通硬链接路径共享64MiB源（不使用私人素材/网络/调速）。真实复制中一次点击，实际显示81/256、“取消中…”禁用与等待提示，随后主架/管理/DB一致cancelled80/256；80目标逐一hash正确，256来源别名/载荷及5旧小文件不变，无staging。只重选未完成batch-080，job2 completed1/1，旧job1仍cancelled，81目标hash正确。PID41044正常退出，PID15424重启后七表完全不变、86持久引用/81副本，原生任务抽屉两终态保留，无自动续传。见r22-inflight-cancel-native.json；旧16MiB漏测记录保留。4042c02 Desktop40447931992/Preview40447932757已全SUCCESS。P2仍PARTIAL。
+
+另已在当前重启实例原生创建持久架4“回收关联验证”，为合成English引用1标记精选并复制引用到架4（新ID88、标签相同）。实体回收预览仅42字节English.txt、其他引用1项；来源存在、journal0、回收前备份完成。已通过异步问题请求此次界面删除的action-time确认（computer-use规则，即使广泛授权仍须确认），未收到批准不可执行。当前停在预览（未点继续/未回收），PID15424仍运行；此与此前正常退出的取消检查点分开记录。不能写所有程序已退出或实体回收PASS。
+
 另用新合成root复用原fixture，原生选择256×64KiB（16MiB）批次，管理自动进度15/38/256与主架compact进度已捕获、两窗完成256/256一致。取消点击执行前已完成，因此原生取消仍NOT_TESTED，不虚构通过/产品FAIL且未重复尝试。256副本逐一hash一致、261保护对象不变、无staging；正常退出PID19952、261持久引用、schema2完整。见docs/research/P2-closeout-evidence/r22-batch-progress-native.json。恢复测试提交c016973的Desktop40447123100/Preview40447123057已SUCCESS；只读证据提交的最新Checks需实时核查。
 
 新增r22真实恢复闭环完成：EXE48993a4a…2fd30不变，新合成root与显式ignored Store fixture预置零活跃架、整架及单项回收。原生空状态新建ID3，恢复整架1保留身份/标签/顺序且不连带恢复单项；单项恢复后顺序3/1/2。正常退出/重启、来源暂改名→引用失效→原路径返回→正常，七表逻辑不变、三来源hash不变、schema2完整。两个PID36648/40636均正常结束、窗口为零。10回收后端测试+新fixture1通过。仅测试/证据变更，不改运行代码、不重建替换r22；未执行原生移除/清理/Windows回收，不能把预置状态冒称这些UI通过。详见docs/research/P2-closeout-evidence/r22-recovery-native.json。P2仍PARTIAL，下一优先取消/中断、Dock、托盘/DPI多屏，R3合并未批准。
