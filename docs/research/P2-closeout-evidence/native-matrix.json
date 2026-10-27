@@ -70,6 +70,11 @@
       "id": "r21-fast-copy-terminal-feedback",
       "status": "FAIL",
       "scope": "2026-10-27 actual target sharing conflict: job3 failed0/1, manager correct, main stale copying-started. Data protection and unlocked retry PASS (job4). App-only message revision guard has three deterministic red-to-green browser cases, r22 native candidate still pending. Do not count r21 fixed."
+    },
+    {
+      "id": "r22-fast-copy-terminal-feedback",
+      "status": "PASS",
+      "scope": "Exact EXE48993a4a…2fd30/build8875147, code4f2f8cb: actual OS32 failure0/1 and unlocked retry1/1 main+manager+DB consistent; six protected files unchanged, no staging leak, normal exit. Only this acceptance subset; original r21 FAIL preserved and no general r22 inheritance."
     }
   ],
   "desktopAuthorization": "2026-10-26 user lifted prior launch/input bans; separate safety gates unchanged"

@@ -14,8 +14,106 @@
     "allBrowserTests": 102,
     "allBrowserMinutes": 2.0
   },
-  "binaryBuild": "PENDING_CI",
-  "nativeAcceptance": "NOT_TESTED",
-  "currentResults": "See Issue31 / PR40 live source-bound build and native follow-up; this is the pre-build checkpoint, not a claim of native success.",
-  "rollback": "Revert4f2f8cb or use preserved r21 isolated package; old r21 still has documented terminal-feedback FAIL. No schema downgrade or source-file restore needed."
+  "binaryBuild": "CI_PASS",
+  "nativeAcceptance": "PASS_SCOPED",
+  "currentResults": "This record is scoped to the exact EXE/buildCommit above; later evidence-only commits must not be mistaken for this tested binary. P2 overall remains PARTIAL.",
+  "rollback": "Revert4f2f8cb or use preserved r21 isolated package; old r21 still has documented terminal-feedback FAIL. No schema downgrade or source-file restore needed.",
+  "ciHead": "d08ef466ff3b8ea7f381efa72084f0a90b3f64c9",
+  "buildCommit": "8875147dd3a9e818a98afe204573d141d9e71b0f",
+  "appTree": "075b9b7164fb30712ff9a5cbd17b68730521ad93",
+  "exeSha256": "48993a4adeb1b9af0cf8e241c003094b3a3d3bdf1d665595b7bdd9ed5ea2fd30",
+  "msiSha256": "0c105f4b9e5f98e3624f3a3df40b9744e7c74465092846cc198c3f0aa3e6ddcc",
+  "packageVerification": {
+    "files": 9,
+    "hashes": 8,
+    "pe": "PE32+ x64",
+    "signed": false,
+    "licenseRecords": 272,
+    "existingLicenseWarnings": 1,
+    "msiReadOnlyInspection": true,
+    "embeddedPayloadSizesMatch": true,
+    "installed": false
+  },
+  "ci": {
+    "desktop": 40439156377,
+    "preview": 40439156414,
+    "status": "SUCCESS"
+  },
+  "native": {
+    "method": "Exact downloaded and verified r22 EXE in new synthetic fixture; real Windows target-directory share conflict, no UI injection or runtime debug API",
+    "failed": {
+      "jobs": [
+        {
+          "id": 1,
+          "status": "failed",
+          "error32": true,
+          "zeroOfOne": true
+        }
+      ],
+      "items": 6,
+      "targetExists": false
+    },
+    "retry": {
+      "protectedFilesUnchanged": 6,
+      "newCopySHA256": "ff8668a048a312ed2fc0d308c7e94196a428cfcde4c6dbb8b73643e416d5424b",
+      "copyMatchesSource": true,
+      "partialFiles": 0,
+      "jobs": [
+        [
+          1,
+          "failed"
+        ],
+        [
+          2,
+          "completed"
+        ]
+      ],
+      "itemsBeforeExit": 7,
+      "integrity": "ok"
+    },
+    "afterNormalExit": {
+      "candidate": "r22",
+      "exeSHA256": "48993a4adeb1b9af0cf8e241c003094b3a3d3bdf1d665595b7bdd9ed5ea2fd30",
+      "protectedUnchanged": 6,
+      "integrity": "ok",
+      "schema": 2,
+      "itemsAfterNormalExit": 6,
+      "referencesByShelf": [
+        [
+          1,
+          3
+        ],
+        [
+          3,
+          3
+        ]
+      ],
+      "jobs": [
+        [
+          1,
+          "failed"
+        ],
+        [
+          2,
+          "completed"
+        ]
+      ],
+      "partialFiles": 0,
+      "nativeFailureMessageConsistent": true,
+      "nativeRetryMessageConsistent": true,
+      "processRunning": false
+    },
+    "mainFailedMessage": "OS32, failed0/1 persisted after start-response completion",
+    "managerFailedMessage": "Automatically showed the same failed0/1, no manual refresh",
+    "successfulRetryMessage": "Main/manager completed1/1, one new target, source/copy equal",
+    "processRunning": false,
+    "rawDesktopImagesOrDbPublished": false
+  },
+  "notTested": [
+    "Actual native cancellation timing/queue/progress",
+    "Recycle/zero-shelf complete UI",
+    "Actual Dock incoming drop and remaining original interactions",
+    "Tray menu, DPI/multi-monitor/Win10",
+    "All r21 native PASS are not automatically inherited by r22"
+  ]
 }
