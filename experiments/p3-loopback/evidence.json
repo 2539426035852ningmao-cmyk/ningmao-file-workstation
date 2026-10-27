@@ -150,9 +150,9 @@
   "platform": "Windows11 x64",
   "sourceSha256": {
     "main.rs": "bb383dfa40ad24bd454704abbde59b82d981ac760e675df6f5bb4271c681fe78",
-    "destination.rs": "087c4216ad34ace32ea8669bafeaae5bc41f2c922dc93a0d5848c9d59a420d7b"
+    "destination.rs": "a21f29fc0fac73ea2d78a79fca6ee6ad5365d4c9048dafa4ae98f87803a28be9"
   },
-  "executableSha256": "dae1ef64ce34df63b4e3b1e8ece84036144407eee89520ac2ae8640c3de16368",
+  "executableSha256": "da8f88b3cf9105c718487d9d130b4f8d703c18da577371814cb537bc2793dc9c",
   "directoryGuards": {
     "preexistingLeafJunctionRejected": true,
     "ancestorJunctionRejected": true,
@@ -167,7 +167,8 @@
     "windowsCreate": "cap-std 4.0.3 descriptor-relative create-new; READ-only share on staged file",
     "windowsPublish": "NtSetInformationFile FileRenameInformation, captured file+root handles, replacement disabled",
     "windowsCleanup": "FileDispositionInfo on captured file handle",
-    "linuxIO": "openat NOFOLLOW + owned directory descriptor via /proc/self/fd; no path fallback"
+    "linuxIO": "openat NOFOLLOW + owned directory descriptor via /proc/self/fd; no path fallback",
+    "windowsComponents": "validated for DOS devices/ADS before any component open; shares existing filename constraints"
   },
   "resourceMeasurement": {
     "status": "NOT_REMEASURED_AFTER_FINAL_LOCAL_VOLUME_POLICY",
@@ -224,5 +225,6 @@
     "Normal file ACLs enforced, no elevation or bypass-access-check API",
     "No cross-process resume; failed cleanup needs future task journal",
     "Linux requires /proc, fail closed otherwise"
-  ]
+  ],
+  "loopbackSourceDelta": "The last full Windows run precedes the additional pure Windows component-name precheck; its names are valid and native receiver integration is confirmed by CI."
 }

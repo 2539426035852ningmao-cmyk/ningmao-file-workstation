@@ -170,7 +170,11 @@ fn open_chain(path: &Path) -> Result<Vec<File>> {
                 continue;
             }
             Component::RootDir => current.push(part.as_os_str()),
-            Component::Normal(p) => current.push(p),
+            Component::Normal(p) => {
+                // Reject devices/ADS before opening a component, not only after inspecting it.
+                validate_name(p.to_str().ok_or("unsupported directory encoding")?)?;
+                current.push(p);
+            }
             _ => return Err("unsupported directory component".into()),
         }
         // Pin directory identity against rename/deletion, as in the workstation Copy guard.
