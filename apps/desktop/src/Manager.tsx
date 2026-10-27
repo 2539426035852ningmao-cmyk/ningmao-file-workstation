@@ -1,4 +1,5 @@
 import {WakeShortcutSettings} from "./components/WakeShortcutSettings";
+import {GlobalSearch} from "./components/GlobalSearch";
 import {ScrollActivity} from "./components/ScrollActivity";
 import {useEffect,useMemo,useRef,useState} from "react";
 import {Archive,Check,File,Folder,Layers,Search,Settings,Tags,ListTodo,RefreshCw,X} from "lucide-react";
@@ -83,5 +84,6 @@ export default function Manager({backend}:{backend:Backend}) {
       </section>}
     </>}
     <footer className="manager-status" role="status">{message || "记录保存在本机，原文件保留。"}</footer></main>
+    <GlobalSearch backend={backend} revision={data}/>
   </div>;
 }

@@ -52,6 +52,7 @@ struct Runtime {
     recycle_test_root: Option<PathBuf>,
     recycle_plans: Mutex<std::collections::HashMap<String, PlannedRecycle>>,
     recycling: Mutex<Option<(String, Arc<AtomicBool>)>>,
+    search_focus: Mutex<std::collections::HashMap<String, SearchLocation>>,
     _process_lock: File,
 }
 fn error(e: impl std::fmt::Display) -> String {
@@ -1290,6 +1291,79 @@ async fn management_snapshot(
     .await
 }
 #[tauri::command]
+async fn search_metadata(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    query: String,
+    kind: String,
+) -> Result<store::SearchResponse> {
+    let scope = metadata_scope(&window)?;
+    let catalog = database(app.clone(), move |s| s.search_catalog(scope)).await?;
+    let mut response = tauri::async_runtime::spawn_blocking(move || catalog.search(&query, &kind))
+        .await
+        .map_err(error)??;
+    database(app, move |s| {
+        s.revalidate_search(scope, &mut response)?;
+        Ok(response)
+    })
+    .await
+}
+#[derive(Clone, Serialize)]
+struct SearchLocation {
+    shelf_id: i64,
+    item_id: i64,
+}
+#[tauri::command]
+async fn focus_search_result(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    shelf_id: i64,
+    item_id: i64,
+) -> Result<()> {
+    let scope = metadata_scope(&window)?;
+    database(app.clone(), move |s| {
+        s.validate_search_location(scope, shelf_id, item_id)
+    })
+    .await?;
+    let label = shelf_windows::label_for(&app, shelf_id)?;
+    // A newly created detached WebView may not have installed its listener yet.
+    // Keep one pending target per window; only that window can consume it.
+    app.state::<Runtime>()
+        .search_focus
+        .lock()
+        .map_err(error)?
+        .insert(label.clone(), SearchLocation { shelf_id, item_id });
+    if let Err(e) = desktop_runtime::open(&app, shelf_id, true) {
+        app.state::<Runtime>()
+            .search_focus
+            .lock()
+            .map_err(error)?
+            .remove(&label);
+        return Err(e);
+    }
+    app.emit_to(label.as_str(), "search-focus", ())
+        .map_err(error)
+}
+#[tauri::command]
+async fn take_search_focus(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+) -> Result<Option<SearchLocation>> {
+    let scope = shelf_windows::scope(&window)?;
+    let target = app
+        .state::<Runtime>()
+        .search_focus
+        .lock()
+        .map_err(error)?
+        .remove(window.label());
+    if let Some(ref location) = target {
+        let shelf = location.shelf_id;
+        let item = location.item_id;
+        database(app, move |s| s.validate_search_location(scope, shelf, item)).await?;
+    }
+    Ok(target)
+}
+#[tauri::command]
 async fn tag_references(
     app: tauri::AppHandle,
     window: tauri::WebviewWindow,
@@ -1431,6 +1505,7 @@ pub fn run() {
                     .and_then(|p| std::fs::canonicalize(p).ok()),
                 recycle_plans: Mutex::new(Default::default()),
                 recycling: Mutex::new(None),
+                search_focus: Mutex::new(Default::default()),
                 _process_lock: lock,
             });
             desktop_runtime::setup(app.handle(), &root).map_err(std::io::Error::other)?;
@@ -1569,6 +1644,9 @@ pub fn run() {
             desktop_disable,
             manager_open,
             management_snapshot,
+            search_metadata,
+            focus_search_result,
+            take_search_focus,
             tag_references,
             desktop_configure,
             desktop_hover,

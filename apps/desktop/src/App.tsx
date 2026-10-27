@@ -1,4 +1,5 @@
 import {WindowControls} from "./components/WindowControls";
+import {GlobalSearch} from "./components/GlobalSearch";
 import {SystemRecycle} from "./components/SystemRecycle";
 import {RecycleDrawer} from "./components/RecycleDrawer";
 import {ScrollActivity} from "./components/ScrollActivity";
@@ -72,7 +73,7 @@ function Asset({item,backend,selected,list,size,disabled,select,inspect,open,dra
     <ContextMenuItem onSelect={remove}>移入柠猫回收站（保留原文件）</ContextMenuItem>
   </ContextMenuContent></ContextMenu>;
 }
-function VirtualFiles(props:{items:Item[];backend:Backend;selected:number[];list:boolean;size:number;disabled:boolean;select:(id:number,keys:SelectionKeys)=>void;marquee:(ids:number[])=>void;inspect:(id:number)=>void;open:(id:number)=>void;drag:(id:number)=>void;tag:(item:Item)=>void;remove:(id:number)=>void;bound:boolean}) {
+function VirtualFiles(props:{items:Item[];backend:Backend;selected:number[];list:boolean;size:number;disabled:boolean;select:(id:number,keys:SelectionKeys)=>void;marquee:(ids:number[])=>void;inspect:(id:number)=>void;open:(id:number)=>void;drag:(id:number)=>void;tag:(item:Item)=>void;remove:(id:number)=>void;bound:boolean;revealItem:number|null;revealed:()=>void}) {
   const scroll=useRef<HTMLDivElement>(null),space=useRef<HTMLDivElement>(null),frame=useRef(0);
   const [width,setWidth]=useState(600);
   const [box,setBox]=useState<{left:number;top:number;width:number;height:number}|null>(null);
@@ -82,6 +83,7 @@ function VirtualFiles(props:{items:Item[];backend:Backend;selected:number[];list
   const rowHeight=props.list?44:props.size+80;
   const virtual=useVirtualizer({count:Math.ceil(props.items.length/columns),getScrollElement:()=>scroll.current,estimateSize:()=>rowHeight,overscan:2,useFlushSync:false});
   useEffect(()=>virtual.measure(),[virtual,props.list,props.size,columns]);
+  useEffect(()=>{if(props.revealItem===null)return;const index=props.items.findIndex(i=>i.id===props.revealItem);if(index<0)return;virtual.scrollToIndex(Math.floor(index/columns),{align:"center"});props.revealed();},[props.revealItem,props.items,columns,virtual]);
   function updateBox(){
     const start=gesture.current;if(!start || !space.current)return;
     const rect=space.current.getBoundingClientRect(),x=Math.max(0,Math.min(rect.width,start.clientX-rect.left)),y=Math.max(0,Math.min(virtual.getTotalSize(),start.clientY-rect.top));
@@ -119,6 +121,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   const selected=selection.focus;
   function setSelected(id:number|null){setSelection({ids:id===null?[]:[id],anchor:id,focus:id});}
   const [searchOpen,setSearchOpen]=useState(false);
+  const [revealItem,setRevealItem]=useState<number|null>(null);
   const searchInput=useRef<HTMLInputElement>(null),searchButton=useRef<HTMLButtonElement>(null);
   const restoreSearchFocus=useRef(false);
   const [feedback,setFeedback]=useState(false);
@@ -196,6 +199,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
       finished:message=>{copyFinished.current++;setMessage(message);setProgress(null);void refresh().catch(e=>setError(String(e)));},
       drag:message=>setMessage(`系统拖出结果：${message}；已请求复制。`),
       activate:activateShelf,changed:()=>{void refresh().catch(e=>setError(String(e)));},error:setError,
+      focus:location=>{activateShelf(location.shelf_id);void backend.snapshot().then(value=>{if(!live||activeShelf.current!==location.shelf_id)return;setData(value);if(value.items.some(i=>i.id===location.item_id&&i.shelf_id===location.shelf_id)){setSelected(location.item_id);setRevealItem(location.item_id);}else setError("搜索结果已变化，请重新搜索。");}).catch(()=>{if(live)setError("暂时无法定位搜索结果。");});},
       metadata:()=>{void backend.managementSnapshot().then(value=>{const tags=new Map(value.items.map(i=>[i.id,i.tags]));setData(old=>({...old,items:old.items.map(i=>tags.has(i.id)?{...i,tags:tags.get(i.id)!}:i)}));}).catch(e=>setError(String(e)));},
       desktop:desktopChanged,
     }).then(fn=>{if(live) cleanup=fn;else fn();}).catch(e=>setError(String(e)));
@@ -274,6 +278,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
     </section>}
     <Button variant="outline" onClick={()=>void tag(current)}><Star size={14}/>切换精选标签</Button><p className="muted">图片预览按需加载 PNG / JPEG / WebP；其他类型保留图标。</p></div>;
   return <div className={`workstation ${hover?"drop-active":""}`}><ScrollActivity/>
+    <GlobalSearch backend={backend} revision={data} scoped={detachedShelfId!==undefined}/>
     <SystemRecycle backend={backend} ids={systemRecycleIds} onClose={()=>setSystemRecycleIds(null)} onChanged={refresh}/>
     <RecycleDrawer backend={backend} open={recycleOpen} onOpenChange={setRecycleOpen} shelfId={shelfId} onChanged={refresh}/>
     {undo&&<div className="undo-record" role="status">已移入柠猫回收站 <Button variant="ghost" onClick={()=>void perform(async()=>{for(const id of undo.ids??[undo.id])await backend.restoreTrash?.(undo.entity,id);setUndo(null);await refresh();})}>撤销</Button></div>}
@@ -326,7 +331,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
         if(from<0 || to<0) return;
         void perform(async()=>{await backend.reorder(shelfId,arrayMove(ids,from,to));await refresh();setMessage("手动顺序已保存，磁盘文件保持不变。");});
       }}>
-        {visible.length?<VirtualFiles items={visible} backend={backend} selected={chosen.map(i=>i.id)} list={list} size={size} disabled={sort!=="manual" || !!query || filtered} bound={!!bound} select={select} marquee={marquee} inspect={id=>{setSelected(id);setDetails(true);}} open={id=>void open(id)} drag={drag} tag={item=>void tag(item)} remove={id=>void remove(id)}/>:<div className="empty-state"><Folder size={32}/><h2>{!shelf?"主窗口暂无文件架":query || filtered?"没有匹配的文件":bound?"拖入文件，安全复制":"拖入文件，添加引用"}</h2><p>{!shelf?"可从左上菜单新建文件架，或将独立文件架合并回来":filtered?"更改筛选或搜索名称":query?"试试其他名称":bound?"重名自动编号，保留原文件":"保留原文件，或点击右上角添加"}</p>{!shelf&&<div className="empty-actions"><Button onClick={()=>{setNewName("");setFormError("");setCreating(true);}}>新建文件架</Button><Button variant="outline" onClick={()=>setRecycleOpen(true)}>从回收站恢复</Button></div>}{(query || filtered) && <Button variant="outline" onClick={()=>{setQuery("");setFilters(defaultFilters);}}>{filtered?query?"清除筛选和搜索":"清除筛选":"清除搜索"}</Button>}</div>}
+        {visible.length?<VirtualFiles revealItem={revealItem} revealed={()=>setRevealItem(null)} items={visible} backend={backend} selected={chosen.map(i=>i.id)} list={list} size={size} disabled={sort!=="manual" || !!query || filtered} bound={!!bound} select={select} marquee={marquee} inspect={id=>{setSelected(id);setDetails(true);}} open={id=>void open(id)} drag={drag} tag={item=>void tag(item)} remove={id=>void remove(id)}/>:<div className="empty-state"><Folder size={32}/><h2>{!shelf?"主窗口暂无文件架":query || filtered?"没有匹配的文件":bound?"拖入文件，安全复制":"拖入文件，添加引用"}</h2><p>{!shelf?"可从左上菜单新建文件架，或将独立文件架合并回来":filtered?"更改筛选或搜索名称":query?"试试其他名称":bound?"重名自动编号，保留原文件":"保留原文件，或点击右上角添加"}</p>{!shelf&&<div className="empty-actions"><Button onClick={()=>{setNewName("");setFormError("");setCreating(true);}}>新建文件架</Button><Button variant="outline" onClick={()=>setRecycleOpen(true)}>从回收站恢复</Button></div>}{(query || filtered) && <Button variant="outline" onClick={()=>{setQuery("");setFilters(defaultFilters);}}>{filtered?query?"清除筛选和搜索":"清除筛选":"清除搜索"}</Button>}</div>}
         <DragOverlay>{dragItem && <div className="drag-preview" data-testid="drag-preview"><Thumb item={dragItem} backend={backend} size={45}/><span>{dragItem.name}</span><small>调整引用顺序</small></div>}</DragOverlay>
       </DndContext>}
     </main>{inline && current && <aside className="inspector"><header><h2>文件详情</h2><Button variant="ghost" size="icon" aria-label="关闭详情" onClick={()=>setDetails(false)}><X size={15}/></Button></header>{detail}</aside>}</div>

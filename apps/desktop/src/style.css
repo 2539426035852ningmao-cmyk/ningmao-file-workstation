@@ -352,3 +352,24 @@ html[data-file-window="true"],html[data-file-window="true"] body,html[data-file-
 
 .manager-shortcut-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .manager-shortcut-actions{display:flex;gap:8px;flex-wrap:wrap}
+.global-search[data-slot="sheet-content"]{inset:12px 12px auto;max-width:560px;max-height:calc(100dvh - 24px);margin-inline:auto;border:1px solid var(--line);border-radius:var(--radius-window);gap:0;overflow:hidden;animation-duration:160ms}
+.global-search [data-slot="sheet-header"]{padding:16px 48px 12px 16px;gap:4px}
+.global-search [data-slot="sheet-title"]{font-size:15px}
+.global-search [data-slot="sheet-description"]{font-size:12px}
+.global-search-close{position:absolute;top:10px;right:10px}
+.global-search-controls{display:flex;gap:8px;padding:0 16px 12px;flex-shrink:0}
+.global-search-input{display:flex;align-items:center;flex:1;min-width:0;gap:8px;color:var(--muted-text)}
+.global-search-input input{font-size:13px}
+.global-search-controls select{max-width:112px;font-size:12px}
+.global-search-summary{padding:0 16px 8px;margin:0;color:var(--muted-text);font-size:12px}
+.global-search-results{overflow-y:auto;min-height:0;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.global-search-results>button{display:flex;align-items:center;gap:12px;width:calc(100% - 16px);margin:0 8px 4px;padding:10px 8px;text-align:left;border:0;border-radius:var(--radius-control);background:transparent;color:var(--text)}
+.global-search-results>button:hover,.global-search-results>button[aria-selected="true"]{background:var(--hover)}
+.global-search-results>button>svg{flex-shrink:0;color:var(--muted-text)}
+.global-search-info{display:grid;min-width:0;gap:2px;flex:1}
+.global-search-info>strong{font-size:13px;font-weight:600;overflow-wrap:anywhere}
+.global-search-info>span,.global-search-info>small{font-size:12px;color:var(--muted-text);overflow-wrap:anywhere}
+.global-search-count{font-size:11px;color:var(--muted-text);flex-shrink:0}
+.global-search-message{padding:0 16px 16px;overflow-y:auto;font-size:13px}
+.global-search footer{display:flex;justify-content:space-between;padding:10px 16px;border-top:1px solid var(--line);color:var(--muted-text);font-size:11px;flex-shrink:0}
+@media(prefers-reduced-motion:reduce){.global-search[data-slot="sheet-content"]{animation:none;transition:none}}

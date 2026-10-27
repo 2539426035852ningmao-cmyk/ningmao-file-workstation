@@ -1,5 +1,7 @@
 use base64::Engine;
+mod search;
 use rusqlite::{Connection, OptionalExtension, params};
+pub use search::{SearchCatalog, SearchHit, SearchReference, SearchResponse};
 use serde::Serialize;
 use std::{
     fs::{self, File, OpenOptions},
