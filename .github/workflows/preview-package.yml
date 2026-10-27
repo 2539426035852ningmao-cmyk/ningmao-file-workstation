@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'apps/desktop/**'
+      - 'crates/transfer-contract/**'
       - 'licenses/**'
       - 'scripts/*'
       - 'docs/preview-package.md'

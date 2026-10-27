@@ -6,6 +6,7 @@ license = "Apache-2.0"
 publish = false
 
 [dependencies]
+ningmao-transfer-contract = { path = "../../crates/transfer-contract" }
 httparse = "=1.10.1"
 rcgen = { version = "=0.14.8", default-features = false, features = ["crypto", "ring"] }
 rustls = { version = "=0.23.43", default-features = false, features = ["ring", "std", "tls12"] }
@@ -24,3 +25,9 @@ rustix = { version = "=1.1.6", features = ["fs"] }
 
 [profile.dev]
 debug = 0
+
+[dev-dependencies]
+# Compile the exact desktop Store/adapter without pulling Tauri into the isolated probe.
+base64 = "=0.22.1"
+image = { version = "=0.25.10", default-features = false, features = ["png", "jpeg", "webp"] }
+rusqlite = { version = "=0.40.2", features = ["bundled"] }

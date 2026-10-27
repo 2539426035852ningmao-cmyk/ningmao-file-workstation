@@ -1,7 +1,7 @@
 name: P3 isolated loopback
 on:
   pull_request:
-    paths: ['experiments/p3-loopback/**', '.github/workflows/p3-loopback.yml']
+    paths: ['experiments/p3-loopback/**', 'crates/transfer-contract/**', 'apps/desktop/src-tauri/src/transfer_tasks.rs', 'apps/desktop/src-tauri/src/store.rs', '.github/workflows/p3-loopback.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -28,7 +28,9 @@ jobs:
           $ErrorActionPreference = 'Stop'
           cargo fmt --manifest-path experiments/p3-loopback/Cargo.toml --check
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          cargo clippy --locked --manifest-path experiments/p3-loopback/Cargo.toml -- -D warnings
+          cargo fmt --manifest-path crates/transfer-contract/Cargo.toml --check
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cargo clippy --locked --manifest-path experiments/p3-loopback/Cargo.toml --all-targets -- -D warnings
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           cargo test --locked --manifest-path experiments/p3-loopback/Cargo.toml
           if ($LASTEXITCODE) { exit $LASTEXITCODE }

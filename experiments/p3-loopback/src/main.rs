@@ -1,4 +1,5 @@
 mod destination;
+mod tasks;
 use destination::Destination;
 use rustls::{
     ClientConfig, ClientConnection, RootCertStore, ServerConfig, ServerConnection, StreamOwned,
@@ -198,6 +199,7 @@ fn stage_body(
     temp: &mut fs::File,
     length: u64,
     cancelled: &AtomicBool,
+    mut progress: impl FnMut(u64) -> Result<()>,
 ) -> Result<String> {
     if length > MAX_FILE {
         return Err("payload limit".into());
@@ -235,6 +237,7 @@ fn stage_body(
         temp.write_all(&buffer[..n])?;
         sha.update(&buffer[..n]);
         left -= n as u64;
+        progress(n as u64)?;
     }
     temp.sync_all()?;
     Ok(format!("{:x}", sha.finalize()))
@@ -292,6 +295,7 @@ struct FileMeta {
     sha256: String,
 }
 struct Session {
+    task: Arc<Mutex<tasks::ReceiverTask>>,
     id: String,
     files: HashMap<String, (FileMeta, String)>,
     cancelled: Arc<AtomicBool>,
@@ -314,6 +318,7 @@ fn handle_control(
     session: &mut Option<Session>,
     path: &str,
     body: &[u8],
+    journal: &tasks::Journal,
 ) -> Result<(u16, Value)> {
     let Some((route, q)) = params(path) else {
         return Ok((400, json!({})));
@@ -354,7 +359,13 @@ fn handle_control(
             .map(|(id, (_, token))| (id.clone(), token.clone()))
             .collect();
         let response = json!({"sessionId":id,"files":tokens});
+        let task = Arc::new(Mutex::new(tasks::ReceiverTask::new(
+            journal.clone(),
+            files.len() as u32,
+            files.values().map(|(f, _)| f.size).sum(),
+        )?));
         *session = Some(Session {
+            task,
             id,
             files,
             cancelled: Arc::new(AtomicBool::new(false)),
@@ -371,6 +382,7 @@ fn handle_control(
     }
     if route == "/api/localsend/v2/cancel" {
         s.cancelled.store(true, Ordering::SeqCst);
+        s.task.lock().map_err(|_| "task lock")?.cancel()?;
         let completed = s.completed;
         *session = None;
         return Ok((200, json!({"completedFiles":completed})));
@@ -388,7 +400,7 @@ fn handle_upload(
     let Some((_, q)) = params(path) else {
         return Ok((400, json!({})));
     };
-    let (f, cancelled, session_id) = {
+    let (f, cancelled, session_id, task) = {
         let mut guard = session.lock().map_err(|_| "session lock")?;
         let Some(s) = guard.as_mut() else {
             return Ok((403, json!({})));
@@ -407,7 +419,8 @@ fn handle_upload(
         }
         let (f, _) = s.files.remove(*id).ok_or("file reservation")?;
         s.in_flight += 1;
-        (f, s.cancelled.clone(), s.id.clone())
+        s.task.lock().map_err(|_| "task lock")?.start()?;
+        (f, s.cancelled.clone(), s.id.clone(), s.task.clone())
     };
     // Stage and hash outside the session lock: cancel must remain responsive during slow I/O.
     let staged = (|| -> Result<Option<destination::Staged>> {
@@ -419,33 +432,47 @@ fn handle_upload(
             reader.write_all(b"HTTP/1.1 100 Continue\r\nContent-Length: 0\r\n\r\n")?;
             reader.flush()?;
         }
-        let sha = stage_body(reader, temp.as_file_mut(), length, &cancelled)?;
+        let sha = stage_body(reader, temp.as_file_mut(), length, &cancelled, |n| {
+            task.lock().map_err(|_| "task lock")?.advance(n)
+        })?;
+        task.lock().map_err(|_| "task lock")?.verifying()?;
         Ok((sha == f.sha256.to_lowercase()).then_some(temp))
     })();
     let mut guard = session.lock().map_err(|_| "session lock")?;
-    let current = guard.as_mut().filter(|s| s.id == session_id);
-    if let Some(s) = current {
-        s.in_flight -= 1;
-        if cancelled.load(Ordering::SeqCst) {
-            return Ok((409, json!({"status":"cancelled"})));
+    let outcome = (|| -> Result<(u16, Value)> {
+        let current = guard.as_mut().filter(|s| s.id == session_id);
+        if let Some(s) = current {
+            s.in_flight -= 1;
+            if cancelled.load(Ordering::SeqCst) {
+                return Ok((409, json!({"status":"cancelled"})));
+            }
+            let Some(temp) = staged? else {
+                return Ok((422, json!({})));
+            };
+            // Publish and cancellation acknowledgement are serialized. Nothing publishes after an ack.
+            task.lock().map_err(|_| "task lock")?.verifying()?;
+            destination.publish(&f.file_name, temp)?;
+            s.completed += 1;
+            Ok((200, json!({})))
+        } else {
+            Ok((409, json!({"status":"cancelled"})))
         }
-        let Some(temp) = staged? else {
-            return Ok((422, json!({})));
-        };
-        // Publish and cancellation acknowledgement are serialized. Nothing publishes after an ack.
-        destination.publish(&f.file_name, temp)?;
-        s.completed += 1;
-        Ok((200, json!({})))
-    } else {
-        Ok((409, json!({"status":"cancelled"})))
-    }
+    })();
+    // Keep the session lock through terminal publication: a late cancel cannot race a committed file.
+    // The closure has dropped every uncommitted staging handle before terminal publication.
+    task.lock()
+        .map_err(|_| "task lock")?
+        .finish(matches!(outcome, Ok((200, _))))?;
+    outcome
 }
+
 fn serve(
     root: &Path,
     destination: &Destination,
     session: &Mutex<Option<Session>>,
     config: Arc<ServerConfig>,
     socket: TcpStream,
+    journal: &tasks::Journal,
 ) -> Result<()> {
     socket.set_nonblocking(false)?;
     socket.set_read_timeout(Some(Duration::from_millis(500)))?;
@@ -462,7 +489,7 @@ fn serve(
         let mut body = vec![0; length as usize];
         stream.read_exact(&mut body)?;
         let mut guard = session.lock().map_err(|_| "session lock")?;
-        handle_control(root, &mut guard, &path, &body)
+        handle_control(root, &mut guard, &path, &body, journal)
     })();
     let (status, value) = match result {
         Ok(r) => r,
@@ -533,6 +560,12 @@ fn receive(root: &Path) -> Result<()> {
         root.join("ready.json"),
         serde_json::to_vec(&json!({"port":listener.local_addr()?.port()}))?,
     )?;
+    let journal = Arc::new(Mutex::new(
+        fs::OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .open(root.join("task-events.jsonl"))?,
+    ));
     let session = Arc::new(Mutex::new(None::<Session>));
     let mut workers: Vec<std::thread::JoinHandle<()>> = Vec::new();
     while !root.join("stop").exists() {
@@ -566,14 +599,16 @@ fn receive(root: &Path) -> Result<()> {
         let session = session.clone();
         let config = config.clone();
         let destination = destination.clone();
+        let journal = journal.clone();
         workers.push(std::thread::spawn(move || {
-            if let Err(e) = serve(&root, &destination, &session, config, socket) {
+            if let Err(e) = serve(&root, &destination, &session, config, socket, &journal) {
                 eprintln!("connection failed: {e}");
             }
         }));
     }
     if let Some(s) = session.lock().map_err(|_| "session lock")?.as_ref() {
         s.cancelled.store(true, Ordering::SeqCst);
+        s.task.lock().map_err(|_| "task lock")?.cancel()?;
     }
     for worker in workers {
         worker.join().map_err(|_| "connection worker panicked")?;
@@ -864,8 +899,25 @@ fn send_tests(root: &Path) -> Result<()> {
     }
     assert_eq!(digest(&fs::read(root.join("source/角色.txt"))?), sha);
     assert_eq!(fs::read_dir(root.join("received"))?.count(), 4);
+    phase(root, "partial-batch-and-empty-file")?;
+    let mut bad = file("partial-bad.txt");
+    bad["sha256"] = json!("0".repeat(64));
+    let (status, plan) = prepare(root, json!({"a":file("partial-good.txt"),"b":bad}))?;
+    assert_eq!(status, 200);
+    assert_eq!(upload(root, &plan, "a", &source, None)?, 200);
+    assert_eq!(upload(root, &plan, "b", &source, None)?, 422);
+    cancel(root, &plan)?; // late cancellation must preserve the partial terminal record
+    assert_eq!(hash_file(&root.join("received/partial-good.txt"))?, sha);
+    assert!(!root.join("received/partial-bad.txt").exists());
+    let (status, plan) = prepare(
+        root,
+        json!({"e":{"fileName":"empty.txt","size":0,"sha256":digest(b"")}}),
+    )?;
+    assert_eq!(status, 200);
+    assert_eq!(upload(root, &plan, "e", b"", None)?, 200);
+    assert_eq!(fs::metadata(root.join("received/empty.txt"))?.len(), 0);
     let streaming = streaming_tests(root)?;
-    assert_eq!(fs::read_dir(root.join("received"))?.count(), 6);
+    assert_eq!(fs::read_dir(root.join("received"))?.count(), 8);
     let mut report = json!({"status":"SUCCESS","scope":"TWO_PROCESS_LOOPBACK_MTLS","singleFile":true,"batchFiles":2,"sha256":sha,"sourcePreserved":true,"collisionProtected":true,"receiverRejected":true,"badNamesRejected":5,"badTokenRejected":true,"replayRejected":true,"cancelBeforeUpload":true,"checksumMismatchRejected":true,"disconnectNoPublish":true,"unpairedClientCertificateRejected":true,"untrustedServerCertificateRejected":true,"lan":"NOT_TESTED","streaming":"PASS"});
     report
         .as_object_mut()
@@ -1288,7 +1340,14 @@ mod tests {
             stop: false,
         };
         let mut temp = tempfile::NamedTempFile::new().unwrap();
-        super::stage_body(&mut source, temp.as_file_mut(), 2 * 1024 * 1024, &cancel).unwrap();
+        super::stage_body(
+            &mut source,
+            temp.as_file_mut(),
+            2 * 1024 * 1024,
+            &cancel,
+            |_| Ok(()),
+        )
+        .unwrap();
         assert_eq!(source.remaining, 0);
         assert!(source.max_request <= 64 * 1024);
         assert_eq!(temp.as_file().metadata().unwrap().len(), 2 * 1024 * 1024);
@@ -1301,7 +1360,14 @@ mod tests {
         let mut temp = tempfile::NamedTempFile::new().unwrap();
         let path = temp.path().to_path_buf();
         assert!(
-            super::stage_body(&mut source, temp.as_file_mut(), 2 * 1024 * 1024, &cancel).is_err()
+            super::stage_body(
+                &mut source,
+                temp.as_file_mut(),
+                2 * 1024 * 1024,
+                &cancel,
+                |_| Ok(())
+            )
+            .is_err()
         );
         assert!(source.remaining > 0);
         drop(temp);
