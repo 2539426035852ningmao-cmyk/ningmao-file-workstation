@@ -205,6 +205,95 @@
         "External hotkey owner error UI",
         "Pointer sort completion and Shift multiselect full native matrix"
       ]
+    },
+    {
+      "clientDate": "2026-10-27",
+      "id": "native-copy-failure-and-retry",
+      "validationSource": "df0f000565cc0d20bcdfbdcd3663c79d313b5cbd",
+      "binaryChanged": false,
+      "steps": [
+        {
+          "id": "source-lock-picker-block",
+          "status": "PARTIAL",
+          "evidence": "Windows chooser rejected the exclusively held synthetic source before returning it to the application; no job was created. Not app failure handling PASS."
+        },
+        {
+          "id": "verified-target-directory-sharing",
+          "status": "PASS",
+          "evidence": "Temporary handle to only synthetic bound-target; a competing equivalent directory read was rejected with OS32 before app submission. No ACL or directory contents changed. Initial unsigned-argument helper setup failed before submission and is not treated as product evidence."
+        },
+        {
+          "id": "native-failed-copy-data-safety",
+          "status": "PASS",
+          "evidence": "Native picker submitted one synthetic file while target guard was held; job3 failed with OS32 and0/1, no target published, items stayed7."
+        },
+        {
+          "id": "native-terminal-message-consistency",
+          "status": "FAIL",
+          "evidence": "After job3 had finished, manager automatically showed failed0/1 and sharing error; main still showed copying-started. Stable later snapshot retained stale message. New r22 required; do not silently rewrite this r21 result."
+        },
+        {
+          "id": "native-retry-unlocked",
+          "status": "PASS",
+          "evidence": "Released own directory handle, submitted same file again. Job4 completed, exactly one new target/reference, source/copy content equal, ten protected files unchanged and no staging leak. Main completed feedback appeared on this slower successful attempt."
+        },
+        {
+          "id": "normal-exit",
+          "status": "PASS",
+          "evidence": "Normal full-exit menu; candidate PID26352 absent, original r21 EXE SHA unchanged; local before/after consistent backups retained."
+        }
+      ],
+      "failedCheck": {
+        "jobs": [
+          {
+            "id": 1,
+            "status": "completed",
+            "sharingViolation32": false,
+            "completedZero": false
+          },
+          {
+            "id": 2,
+            "status": "completed",
+            "sharingViolation32": false,
+            "completedZero": false
+          },
+          {
+            "id": 3,
+            "status": "failed",
+            "sharingViolation32": true,
+            "completedZero": true
+          }
+        ],
+        "items": 7,
+        "targetExists": false
+      },
+      "retryCheck": {
+        "protectedUnchanged": 10,
+        "newCopyMatches": true,
+        "jobs": [
+          [
+            1,
+            "completed"
+          ],
+          [
+            2,
+            "completed"
+          ],
+          [
+            3,
+            "failed"
+          ],
+          [
+            4,
+            "completed"
+          ]
+        ],
+        "items": 8,
+        "partialFiles": 0,
+        "integrity": "ok"
+      },
+      "sourceAndPrivateData": "Only generated synthetic fixtures; no private files, raw DB or raw desktop screenshots published",
+      "newCandidateAcceptance": "NOT_TESTED pending separate r22 build and native retest"
     }
   ]
 }

@@ -53,6 +53,12 @@ const backend:Backend={
     calls.push("import:"+shelf+":"+paths.length);
     if(fail){const message=fail;fail="";throw new Error(message);}
     if(shelf!==3){for(const path of paths)state.items.push(item(next++,path.split("/").pop()!,shelf));save();return {added:paths.length,job_id:null,errors:[]};}
+    const early=new URLSearchParams(location.search).get("finish-before-import-return");
+    if(early && ["failed","completed","cancelled"].includes(early)) {
+      const message=early==="failed"?"复制有错误；已完成 0/1 项，来源保留。合成目录被占用。":early==="cancelled"?"已取消；已完成 0/1 项，来源保留。":"复制完成；已完成 1/1 项，来源保留。";
+      state.jobs=[{id:1,shelf_id:shelf,status:early,message,staging:null}];save();events.finished(message);
+      return {added:0,job_id:1,errors:[]};
+    }
     const job={id:1,shelf_id:shelf,status:"copying",message:"复制合成测试文件",staging:null};state.jobs=[job];save();
     setTimeout(()=>events.progress({job_id:1,name:"新增文件.txt",file_index:1,file_count:1,bytes:500,total:1000}),300);
     return {added:0,job_id:1,errors:[]};
