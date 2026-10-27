@@ -1,0 +1,279 @@
+{
+  "$comment": "Ningmao original design motion contract v1; specification only, not runtime configuration or evidence of implementation. No copied third-party character paths.",
+  "version": "1.0.0-design-draft",
+  "asOf": "2026-10-25",
+  "theme": {
+    "appTheme": [
+      "dark",
+      "light",
+      "system"
+    ],
+    "orbAppearance": [
+      "warm-white",
+      "navy-black",
+      "brand-blue"
+    ],
+    "independent": true,
+    "skins": {
+      "warm-white": {
+        "fill": "#F5F3EF",
+        "eye": "#191B20"
+      },
+      "navy-black": {
+        "fill": "#191E28",
+        "eye": "#F5F6F8",
+        "flat": true,
+        "outerStroke": false,
+        "glow": false,
+        "radialHighlight": false
+      },
+      "brand-blue": {
+        "fill": "#2869D6",
+        "eye": "#F8FAFF"
+      }
+    }
+  },
+  "geometry": {
+    "orb": {
+      "width": 48,
+      "height": 48,
+      "radius": "50%"
+    },
+    "capsule": {
+      "minWidth": 160,
+      "maxWidth": 200,
+      "height": 48
+    },
+    "quickPeek": {
+      "targetWidth": 300,
+      "targetHeight": 224
+    },
+    "shelf": {
+      "defaultWidth": 420,
+      "defaultHeight": 520,
+      "minWidth": 340,
+      "minHeight": 320
+    },
+    "header": {
+      "heightSuggested": [
+        44,
+        48
+      ],
+      "brandEyesHitTarget": false,
+      "brandEyesApprox": [
+        22,
+        20
+      ],
+      "brandBlockApprox": [
+        28,
+        28
+      ]
+    }
+  },
+  "presentationStates": [
+    "orb",
+    "capsule",
+    "quick-peek",
+    "shelf-open",
+    "dock",
+    "edge-handle"
+  ],
+  "events": [
+    "CLICK_ORB",
+    "CLICK_CAPSULE",
+    "CLICK_OPEN_SHELF",
+    "CLICK_COLLAPSE_BUTTON",
+    "ESC",
+    "BACK",
+    "OPEN_DIRECT",
+    "RESTORE_SHELF",
+    "EDGE_REVEAL",
+    "DOCK_OPEN",
+    "DRAG_ENTER",
+    "DRAG_OVER",
+    "DRAG_DROP",
+    "DRAG_LEAVE",
+    "DRAG_CANCEL",
+    "NATIVE_BUSY",
+    "NATIVE_IDLE"
+  ],
+  "routes": [
+    {
+      "from": "orb",
+      "on": "CLICK_ORB",
+      "to": "capsule"
+    },
+    {
+      "from": "capsule",
+      "on": "CLICK_CAPSULE",
+      "to": "quick-peek"
+    },
+    {
+      "from": "capsule",
+      "on": "ESC",
+      "to": "orb"
+    },
+    {
+      "from": "quick-peek",
+      "on": "CLICK_OPEN_SHELF",
+      "to": "shelf-open"
+    },
+    {
+      "from": "quick-peek",
+      "on": "ESC",
+      "to": "capsule"
+    },
+    {
+      "from": "capsule",
+      "on": "OPEN_DIRECT",
+      "to": "shelf-open"
+    },
+    {
+      "from": "orb",
+      "on": "OPEN_DIRECT",
+      "to": "shelf-open"
+    },
+    {
+      "from": "shelf-open",
+      "on": "CLICK_COLLAPSE_BUTTON",
+      "to": "dock-or-own-orb",
+      "guard": "nativeDragIdle && lifecycleAllowsCollapse && resolvedShelfIdMatchesWindow"
+    },
+    {
+      "from": "dock",
+      "on": "DOCK_OPEN",
+      "to": "shelf-open",
+      "guard": "resolveExplicitShelfId"
+    },
+    {
+      "from": "edge-handle",
+      "on": "EDGE_REVEAL",
+      "to": "dock",
+      "guard": "nativeDragTargetRemainsStable"
+    }
+  ],
+  "poseStates": [
+    "idle",
+    "gaze",
+    "blink",
+    "pressed",
+    "opening",
+    "working",
+    "success",
+    "error",
+    "reduced-motion-static"
+  ],
+  "motionMsRecommended": {
+    "gaze": [
+      100,
+      160
+    ],
+    "blink": [
+      110,
+      160
+    ],
+    "press": [
+      70,
+      110
+    ],
+    "orbToCapsule": [
+      200,
+      250
+    ],
+    "capsuleToPeek": [
+      210,
+      280
+    ],
+    "contentFadeIn": [
+      100,
+      160
+    ],
+    "shelfToEntry": [
+      200,
+      280
+    ],
+    "dockReorder": [
+      160,
+      240
+    ]
+  },
+  "priority": [
+    "native-file-drag-and-security",
+    "error-and-job",
+    "window-lifecycle",
+    "direct-pointer-action",
+    "idle-eye-motion"
+  ],
+  "dock": {
+    "orientationByEdge": {
+      "left": "vertical",
+      "right": "vertical",
+      "top": "horizontal",
+      "bottom": "horizontal",
+      "free": "compact-user-controlled"
+    },
+    "manualOverridesWin": true,
+    "allowDetachMerge": true,
+    "preserveIdentity": true,
+    "defaultAnimatedEntrypoints": "active-only",
+    "moreMenuThresholdSuggested": 6
+  },
+  "nativeDropInvariants": {
+    "importOnlyOnDrop": true,
+    "oneCommitPerDrop": true,
+    "latchDestinationShelfId": true,
+    "displayCopyVsReference": true,
+    "freezeLayoutWhileDragging": true,
+    "neverMoveSource": true,
+    "neverOverwriteExisting": true,
+    "temporaryShelf": "reference-only",
+    "boundShelf": "safe-copy-renaming-collisions",
+    "rejectMissingOrInvalidSource": true,
+    "releaseLatchOn": [
+      "drop",
+      "cancel",
+      "leave"
+    ]
+  },
+  "accessibility": {
+    "eyesInWindow": "aria-hidden decorative; no button semantics",
+    "collapseButton": "explicit and keyboard-focusable",
+    "reducedMotion": "disable nonessential motion; keep state changes and file tasks functional",
+    "visualWarningsRequireText": true
+  },
+  "testCaseIds": [
+    "UI-01",
+    "UI-02",
+    "UI-03",
+    "UI-04",
+    "UI-05",
+    "UI-06",
+    "UI-07",
+    "UI-08",
+    "UI-09",
+    "UI-10",
+    "UI-11",
+    "UI-12",
+    "NATIVE-01",
+    "NATIVE-02",
+    "NATIVE-03",
+    "NATIVE-04",
+    "NATIVE-05",
+    "NATIVE-06",
+    "NATIVE-07",
+    "NATIVE-08",
+    "NATIVE-09",
+    "NATIVE-10",
+    "PERF-01",
+    "PERF-02",
+    "A11Y-01",
+    "A11Y-02",
+    "A11Y-03"
+  ],
+  "referenceDocs": [
+    "../../design.md",
+    "docs/design/dual-eye-orb-v1.md",
+    "docs/design/orb-implementation-readiness.md",
+    "docs/handoff/CODEX-DUAL-EYE-ORB.md"
+  ]
+}
