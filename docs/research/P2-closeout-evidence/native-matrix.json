@@ -105,6 +105,11 @@
       "id": "r23-native-interrupted-worker-startup",
       "status": "PASS",
       "scope": "Source05b031c/EXE928f2e81e8b829193e515c2aa12f78a456a4343095d92aefe49043a005ac419c: reused existing production CopyPlan worker, killed after actual1MiB of8MiB while SQLite/handles live. Started actual packaged-code r23 EXE: task drawer visibly showed interrupted and retained staging position. Prior completed/source hashes intact, incomplete target absent, staging1MiB retained, schema2/integrity ok; normal UI exit cleared only live session refs; process/window gone. This is killed Rust copy worker→real app recovery, NOT a GUI-launched in-flight copy killed mid-transfer; that remains NOT_TESTED."
+    },
+    {
+      "id": "r24-dock-late-copy-start-ack",
+      "status": "PARTIAL",
+      "scope": "Source 9101d837b0f60be5f50629e5a5bc4cc6adb3b243: deterministic old behavior red (completed result followed by late start), fix sends reference-only receipt and retains existing copying-state/terminal messages. Rust targeted1/orb3/desktop-loop5 and browser1 pass. Actual r24 process hidden startup reached window+isolated lock, alive2s then only owned no-job process terminated; 5 protected files and SQLite schema2 integrity unchanged. This is not native Windows drag/drop, not a GUI acceptance or tray test; those remain NOT_TESTED."
     }
   ],
   "desktopAuthorization": "2026-10-26 user lifted prior launch/input bans; separate safety gates unchanged",
@@ -113,5 +118,11 @@
     "exeSha256": "928f2e81e8b829193e515c2aa12f78a456a4343095d92aefe49043a005ac419c",
     "package": "Local Windows debug no-bundle build; no MSI installation",
     "stableR22Preserved": true
+  },
+  "r24Candidate": {
+    "source": "9101d837b0f60be5f50629e5a5bc4cc6adb3b243",
+    "exeSha256": "2ca7060d4af05e978745283c1843dbf8a4fb5f67b5f60acef219c823638af59f",
+    "package": "Local Windows x64 debug no-bundle build; hidden startup smoke only",
+    "stableR22AndR23Preserved": true
   }
 }
