@@ -124,8 +124,17 @@ node tools/devlab/run.mjs management
 
 每次建立新的、Git 忽略的 work/devlab 子目录，启动既有本机 loopback 测试服务与无头 Chromium。Playwright 新 Context 提供隔离 localStorage，所有素材仍是 Harness 的 SYNTHETIC 虚拟路径。输出 report.json、results.json、run.log 及每项 trace.zip；trace 内含截图/DOM 记录。报告绑定 HEAD、dirty 标记、Node/Playwright、受测源码与 Harness 的前后 SHA256 聚合指纹、各步骤时长和精确范围；有失败、跳过、flaky、数量不符或运行中源码变化均不能报告 PASS。
 
-**证据上限是 BROWSER_SYNTHETIC**：没有创建真正 Windows 工作站进程，没有调用真实文件 Copy/Shell，realFileHashProtection 为 NOT_EXERCISED，不能冒充原生拖放、真实文件哈希保护或 DLV-3 已交付。DLV-2 的真实文件夹具/后端组合切片仍待后续按安全规则复用 stage-acceptance；不为这一步新增原生后门、网络接口或 Agent 权限。
+**证据上限是 BROWSER_SYNTHETIC**：没有创建真正 Windows 工作站进程，没有调用真实文件 Copy/Shell，realFileHashProtection 为 NOT_EXERCISED，不能冒充原生拖放、真实文件哈希保护或 DLV-3 已交付。真实文件夹具/后端组合的已实现增量见下方2026-10-27第二切片，后续仍按安全规则复用 stage-acceptance；不为这一步新增原生后门、网络接口或 Agent 权限。
 
 仅接受以上固定场景名，拒绝额外路径/命令参数；直接调用已有 Node 入口，不拼接 Shell。控制器守护测试验证“退出0但漏测/跳过/有错误”仍失败，以及未知输入在创建产物/启动工具前被拒绝。CI 仅跑这些控制器守护，完整应用 CI 继续由原工作流承担。原始 trace/log/result 留在本机（可能带本机路径），公开仅同步脱敏摘要。
 
 DLV-1 官方容器实测同源码原路线151s、预装167s，各n=1，未获益所以不推广默认；DLV-2的收益是集中可复用证据，不承诺让不变的测试执行更快。回滚只删除 tools/devlab 与独立守护工作流，原 Harness、工作站及稳定候选不受影响。
+
+
+### 2026-10-27 DLV-2 第二切片：真实合成文件与 Store
+
+新增固定命令 `node tools/devlab/run.mjs native-fixture`，仅支持 Windows。它复用既有 `candidate_fixture::prepare_candidate_fixture`，不再建第二套文件/数据库实现。原测试在新的、此前不存在的子目录建立真实来源、引用和绑定目录，执行中文文件两次 Copy/自动编号、Store integrity check，再正常关闭 Store；控制器核验5个合成来源/副本的SHA256、中文和英文已知内容、PNG签名、目录/文件及标记非符号链接。原始SQLite/日志留在被忽略的 work/devlab，只公开相对文件名与哈希摘要。
+
+只使用已安装且版本核对为1.99.1的Cargo与rustc；兼容本机 stable 别名指向1.99.1，先列出已安装工具链再选择，`rustup run`不安装新版本，Cargo使用`--offline --locked`和单编译任务。首次按字面1.99.1工具链名称尝试失败时已明确FAIL；核查发现本机实际安装的是stable别名，改为识别已安装别名并验证真实版本，无安装、升级或全局配置修改。本样本完整8.25秒（含复用编译缓存，n=1），不是普遍提速倍数承诺；浏览器路径的执行器改动后，6项选择回归重新通过。
+
+此报告scope为`RUST_STORE_SYNTHETIC`，`native=NOT_TESTED`明确指未启动工作站GUI；真实文件保护只限该新夹具中的已知来源和两个编号副本，不能替代本轮单独记录的r21原生窗口测试，更不等于回收/取消/Dock系统投放全验收。未暴露任意SQL、Shell或外部路径参数；没有Tauri开发后门、网络服务或Release业务改动。Node守护检查新增“即使测试退出0，来源或编号副本被改也拒绝PASS”的真实磁盘检查，三项控制器测试通过。旧浏览器工具行为/原始证据保留；回滚只移除这一模式，r21包与用户数据无需回退。

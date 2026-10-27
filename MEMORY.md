@@ -144,3 +144,5 @@ r15集中验收继续：第一次English引用后1条/0任务，第二次用户�
 
 - 2026-10-26 DLV-2首切片已复用既有Harness/Playwright，新增无依赖外部tools/devlab/run.mjs，固定selection/orb/management白名单，JSON/日志/trace和前后源码夹具指纹。现有6/18/14项场景各PASS，守护2项验证漏测/跳过/异常及额外路径拒绝；原先orb清单误计10但实际18时控制器正确FAIL，修正清单后复测，无删断言。无原生程序启动、无真实Copy、无安装/新权限，Native明确NOT_TESTED，不替代P2剩余验收。独立PR与原生诊断后续门槛不混合，原r21保留。
 - 2026-10-26依赖链同步：#30 35143d2已CI成功且CLEAN；后续#32因基线更新实际出现5份治理文档与1份测试冲突，已普通merge d2f3444，再沿#35 ffbf2ed→#36 85fd45d回到#40，均逐步确认运行时代码/锁文件无变化，不强推、不合并main。DevLab DLV-2浏览器首切片在独立Draft #52 / 507891f，6/18/14场景本机PASS、控制器守护双平台CI PASS，原生诊断/真实Copy未实现。r21 EXE复核仍c119311a…8f76a，当前程序已退出；剩余Native/R3仍不放行。
+
+- 2026-10-27 #52 DLV-2补固定native-fixture命令：复用现有candidate_fixture和Store，离线/锁定依赖/已有Rust1.99.1，真实新合成目录中Copy两次和编号/5文件哈希/已知来源内容/integrity可重复验证，约8.25s(n=1)。先前工具链字面名失败已查清是stable别名，未安装或改全局。控制器3守护与6项浏览器回归通过；scope RUST_STORE_SYNTHETIC，GUI仍NOT_TESTED，不冒充原生Dock/回收/进度取消。业务代码、SQLite schema、依赖与r21包不变；新原生窗口会话证据在#40。
