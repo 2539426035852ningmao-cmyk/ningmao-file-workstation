@@ -19,13 +19,14 @@ const recycle:{entry:TrashEntry;item?:Item;shelf?:Snapshot["shelves"][number];ch
 function trashItem(id:number){const item=state.items.find(i=>i.id===id)!;const shelf=state.shelves.find(s=>s.id===item.shelf_id)!;recycle.push({entry:{id,entity:"item",name:item.name,shelf_id:shelf.id,shelf_name:shelf.name,shelf_kind:shelf.kind,path:item.path,removed_at:Date.now()/1000,children:0},item});state.items=state.items.filter(i=>i.id!==id);save();}
 let maximized=false;
 const backend:Backend={
- async searchMetadata(query,kind){
+ async searchMetadata(query,kind,source,status){
    calls.push("search:"+query);syncState();
    if(fail){const message=fail;fail="";throw new Error(message);}
    const terms=query.trim().toLowerCase().split(/\s+/),groups=new Map<string,SearchHit>();
-   const allowed=state.items.filter(i=>!ownShelf||i.shelf_id===ownShelf);
+   const allowed=state.items.filter(i=>(!ownShelf||i.shelf_id===ownShelf)&&(source==="all"||state.shelves.find(s=>s.id===i.shelf_id)?.kind===source));
+   const groupsByKind:Record<string,string[]>={image:["png","jpg","jpeg","webp","gif","bmp","tif","tiff","avif","heic","svg"],video:["mp4","mov","mkv","avi","webm","m4v","mpg","mpeg"],audio:["mp3","wav","flac","m4a","aac","ogg","opus"],document:["pdf","doc","docx","xls","xlsx","ppt","pptx","txt","md","rtf","odt","ods","odp","csv"]};
    for(const item of allowed){
-     if(kind!=="all"&&item.kind!==kind||!terms.every(t=>item.name.toLowerCase().includes(t)||item.tags.join(" ").toLowerCase().includes(t)))continue;
+     if((kind!=="all"&&!(groupsByKind[kind]?.includes(item.kind)??item.kind===kind))||(status!=="all"&&item.status!==status)||!terms.every(t=>item.name.toLowerCase().includes(t)||item.tags.join(" ").toLowerCase().includes(t)))continue;
      if(groups.has(item.path))continue;
      groups.set(item.path,{name:item.name,kind:item.kind,status:item.status,match_kind:terms.every(t=>item.name.toLowerCase().includes(t))?"name":"tag",references:allowed.filter(i=>i.path===item.path).map(i=>({item_id:i.id,shelf_id:i.shelf_id,shelf_name:state.shelves.find(s=>s.id===i.shelf_id)!.name}))});
    }

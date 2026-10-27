@@ -1320,12 +1320,21 @@ async fn search_metadata(
     window: tauri::WebviewWindow,
     query: String,
     kind: String,
+    source: Option<String>,
+    status: Option<String>,
 ) -> Result<store::SearchResponse> {
     let scope = metadata_scope(&window)?;
     let catalog = database(app.clone(), move |s| s.search_catalog(scope)).await?;
-    let mut response = tauri::async_runtime::spawn_blocking(move || catalog.search(&query, &kind))
-        .await
-        .map_err(error)??;
+    let mut response = tauri::async_runtime::spawn_blocking(move || {
+        catalog.search_filtered(
+            &query,
+            &kind,
+            source.as_deref().unwrap_or("all"),
+            status.as_deref().unwrap_or("all"),
+        )
+    })
+    .await
+    .map_err(error)??;
     database(app, move |s| {
         s.revalidate_search(scope, &mut response)?;
         Ok(response)

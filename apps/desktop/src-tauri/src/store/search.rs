@@ -30,6 +30,7 @@ pub struct SearchResponse {
 }
 struct Row {
     reference: SearchReference,
+    shelf_kind: String,
     path: String,
     name: String,
     tags: Vec<String>,
@@ -51,7 +52,8 @@ fn local_metadata_allowed(path: &Path) -> bool {
         let p = text.strip_prefix(r"\\?\").unwrap_or(&text);
         if p.as_bytes().get(1) == Some(&b':') {
             let root = HSTRING::from(format!("{}\\", &p[..2]));
-            if unsafe { GetDriveTypeW(PCWSTR(root.as_ptr())) } == 4 {
+            // Unknown, disconnected and network drives are not probed during metadata search.
+            if [0, 1, 4].contains(&unsafe { GetDriveTypeW(PCWSTR(root.as_ptr())) }) {
                 return false;
             }
         }
@@ -92,12 +94,47 @@ fn identity(path: &Path) -> Option<String> {
 }
 impl SearchCatalog {
     pub fn search(self, query: &str, kind: &str) -> Result<SearchResponse> {
+        self.search_filtered(query, kind, "all", "all")
+    }
+    pub fn search_filtered(
+        self,
+        query: &str,
+        kind: &str,
+        source: &str,
+        state: &str,
+    ) -> Result<SearchResponse> {
         if query.chars().count() > 160 || kind.len() > 24 {
             return Err("搜索内容过长，请缩短后重试。".into());
         }
         let terms: Vec<_> = query.split_whitespace().map(str::to_lowercase).collect();
         let kind = kind.trim().to_lowercase();
-        if terms.is_empty() && (kind == "all" || kind.is_empty()) {
+        if !["all", "persistent", "session", "bound"].contains(&source)
+            || !["all", "normal", "missing", "offline", "unavailable"].contains(&state)
+        {
+            return Err("未知搜索筛选条件。".into());
+        }
+        if terms.is_empty()
+            && (kind == "all" || kind.is_empty())
+            && source == "all"
+            && state == "all"
+        {
+            return Ok(SearchResponse {
+                hits: vec![],
+                truncated: false,
+            });
+        }
+        // If no authorized name/tag can match, there is no reason to probe file metadata.
+        // This preserves hard-link aggregation whenever at least one match exists.
+        if !terms.is_empty()
+            && !self.0.iter().any(|row| {
+                let name = row.name.to_lowercase();
+                let tags = row.tags.join(" ").to_lowercase();
+                (source == "all" || row.shelf_kind == source)
+                    && terms
+                        .iter()
+                        .all(|term| name.contains(term) || tags.contains(term))
+            })
+        {
             return Ok(SearchResponse {
                 hits: vec![],
                 truncated: false,
@@ -107,6 +144,9 @@ impl SearchCatalog {
         // Metadata-only O(n) over registered references. Add an index only after measuring this ceiling.
         // Called outside the shared Store mutex by IPC, so offline metadata cannot block Copy cancellation.
         for row in self.0 {
+            if source != "all" && row.shelf_kind != source {
+                continue;
+            }
             let path = Path::new(&row.path);
             let meta = if local_metadata_allowed(path) {
                 Some(fs::symlink_metadata(path))
@@ -116,6 +156,9 @@ impl SearchCatalog {
             let status = match &meta {
                 Some(Ok(m)) if is_link(m) => "unavailable",
                 Some(Ok(_)) => "normal",
+                Some(Err(e)) if cfg!(windows) && matches!(e.raw_os_error(), Some(21 | 1167)) => {
+                    "offline"
+                }
                 Some(Err(e)) if e.kind() == std::io::ErrorKind::NotFound => "missing",
                 Some(Err(_)) => "unavailable",
                 None => "offline",
@@ -138,7 +181,8 @@ impl SearchCatalog {
             };
             let name = row.name.to_lowercase();
             let tags = row.tags.join(" ").to_lowercase();
-            let matches = (kind == "all" || kind.is_empty() || kind == extension)
+            let matches = matches_kind(&kind, &extension)
+                && (state == "all" || state == status)
                 && terms.iter().all(|t| name.contains(t) || tags.contains(t));
             let match_kind = if terms.iter().all(|t| name.contains(t)) {
                 "name"
@@ -147,7 +191,7 @@ impl SearchCatalog {
             };
             let hit = grouped.entry(key).or_insert_with(|| SearchHit {
                 name: row.name.clone(),
-                kind: extension,
+                kind: extension.clone(),
                 status: status.into(),
                 match_kind: match_kind.into(),
                 references: vec![],
@@ -156,6 +200,8 @@ impl SearchCatalog {
             if matches {
                 if hit.matched.is_empty() {
                     hit.name = row.name;
+                    hit.kind = extension;
+                    hit.status = status.into();
                     hit.match_kind = match_kind.into();
                 }
                 hit.matched.push(row.reference.item_id);
@@ -163,7 +209,7 @@ impl SearchCatalog {
             hit.references.push(row.reference);
         }
         for hit in grouped.values_mut() {
-            let matched = &hit.matched;
+            let matched: HashSet<_> = hit.matched.iter().copied().collect();
             hit.references
                 .sort_by_key(|r| !matched.contains(&r.item_id));
         }
@@ -182,9 +228,37 @@ impl SearchCatalog {
         Ok(SearchResponse { hits, truncated })
     }
 }
+fn matches_kind(filter: &str, extension: &str) -> bool {
+    match filter {
+        "" | "all" => true,
+        "image" => [
+            "png", "jpg", "jpeg", "webp", "gif", "bmp", "tif", "tiff", "avif", "heic", "svg",
+        ]
+        .contains(&extension),
+        "video" => ["mp4", "mov", "mkv", "avi", "webm", "m4v", "mpg", "mpeg"].contains(&extension),
+        "audio" => ["mp3", "wav", "flac", "m4a", "aac", "ogg", "opus"].contains(&extension),
+        "document" => [
+            "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "md", "rtf", "odt", "ods",
+            "odp", "csv",
+        ]
+        .contains(&extension),
+        other => other == extension,
+    }
+}
 impl Store {
+    pub fn search_filtered(
+        &self,
+        scope: Option<i64>,
+        query: &str,
+        kind: &str,
+        source: &str,
+        status: &str,
+    ) -> Result<SearchResponse> {
+        self.search_catalog(scope)?
+            .search_filtered(query, kind, source, status)
+    }
     pub fn search_catalog(&self, scope: Option<i64>) -> Result<SearchCatalog> {
-        let mut q=self.db.prepare("SELECT i.id,i.shelf_id,s.name,i.path,i.name,i.tags FROM items i JOIN shelves s ON s.id=i.shelf_id WHERE i.trashed_at IS NULL AND s.trashed_at IS NULL AND (?1 IS NULL OR i.shelf_id=?1) ORDER BY i.id").map_err(super::err)?;
+        let mut q=self.db.prepare("SELECT i.id,i.shelf_id,s.name,i.path,i.name,i.tags,s.kind FROM items i JOIN shelves s ON s.id=i.shelf_id WHERE i.trashed_at IS NULL AND s.trashed_at IS NULL AND (?1 IS NULL OR i.shelf_id=?1) ORDER BY i.id").map_err(super::err)?;
         let rows = q
             .query_map([scope], |r| {
                 Ok((
@@ -194,18 +268,21 @@ impl Store {
                     r.get::<_, String>(3)?,
                     r.get::<_, String>(4)?,
                     r.get::<_, String>(5)?,
+                    r.get::<_, String>(6)?,
                 ))
             })
             .map_err(super::err)?;
         let mut out = vec![];
         for row in rows {
-            let (id, shelf_id, shelf_name, path, name, tags) = row.map_err(super::err)?;
+            let (id, shelf_id, shelf_name, path, name, tags, shelf_kind) =
+                row.map_err(super::err)?;
             out.push(Row {
                 reference: SearchReference {
                     item_id: id,
                     shelf_id,
                     shelf_name,
                 },
+                shelf_kind,
                 path,
                 name,
                 tags: serde_json::from_str(&tags).map_err(super::err)?,
@@ -235,9 +312,12 @@ impl Store {
         for h in &mut response.hits {
             h.references.retain(|r| active.contains(&r.item_id));
         }
-        response
-            .hits
-            .retain(|h| !h.references.is_empty() && h.matched.iter().any(|id| active.contains(id)));
+        // The visible name and match label came from the first matching reference.
+        // If that reference was revoked during the search, discard this stale hit;
+        // a fresh query can safely rebuild it from any surviving alias.
+        response.hits.retain(|h| {
+            !h.references.is_empty() && h.matched.first().is_some_and(|id| active.contains(id))
+        });
         Ok(())
     }
     pub fn validate_search_location(

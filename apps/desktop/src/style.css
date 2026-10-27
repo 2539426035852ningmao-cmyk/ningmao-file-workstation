@@ -360,7 +360,8 @@ html[data-file-window="true"],html[data-file-window="true"] body,html[data-file-
 .global-search-controls{display:flex;gap:8px;padding:0 16px 12px;flex-shrink:0}
 .global-search-input{display:flex;align-items:center;flex:1;min-width:0;gap:8px;color:var(--muted-text)}
 .global-search-input input{font-size:13px}
-.global-search-controls select{max-width:112px;font-size:12px}
+.global-search-filters{display:flex;gap:8px;padding:0 16px 12px;flex-shrink:0}
+.global-search-filters select{flex:1;min-width:0;font-size:12px}
 .global-search-summary{padding:0 16px 8px;margin:0;color:var(--muted-text);font-size:12px}
 .global-search-results{overflow-y:auto;min-height:0;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
 .global-search-results>button{display:flex;align-items:center;gap:12px;width:calc(100% - 16px);margin:0 8px 4px;padding:10px 8px;text-align:left;border:0;border-radius:var(--radius-control);background:transparent;color:var(--text)}

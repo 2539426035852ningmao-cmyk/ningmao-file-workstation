@@ -31,7 +31,7 @@ export type RecycleActivity={id:number;shelf_id:number;name:string;status:string
 export type WakeShortcutConfig={version:number;enabled:boolean;accelerator:string};
 export type WakeShortcutState={config:WakeShortcutConfig;active:boolean;paused:boolean;warning:string|null};
 export interface Backend {
-  searchMetadata?:(query:string,kind:string)=>Promise<SearchResponse>;
+  searchMetadata?:(query:string,kind:string,source:string,status:string)=>Promise<SearchResponse>;
   focusSearchResult?:(shelf:number,item:number)=>Promise<void>;
   recoverWindows?:()=>Promise<number>;
   wakeShortcutState?:()=>Promise<WakeShortcutState>;
@@ -87,7 +87,7 @@ export interface Backend {
   subscribe(events: Events): Promise<() => void>;
 }
 export const nativeBackend: Backend = {
-  searchMetadata:(query,kind)=>invoke("search_metadata",{query,kind}),
+  searchMetadata:(query,kind,source,status)=>invoke("search_metadata",{query,kind,source,status}),
   focusSearchResult:(shelfId,itemId)=>invoke("focus_search_result",{shelfId,itemId}),
   recoverWindows:()=>invoke("recover_desktop_windows"),
   wakeShortcutState:()=>invoke("wake_shortcut_state"),wakeShortcutConfigure:config=>invoke("wake_shortcut_configure",{config}),wakeShortcutPause:paused=>invoke("wake_shortcut_pause",{paused}),

@@ -9,6 +9,20 @@ async function setup(page:Page,query=""){
   await page.goto("/tests/harness.html"+query);await expect(query.includes("manager")?page.getByRole("heading",{name:"总览",exact:true}):page.getByRole("button",{name:"更多操作",exact:true})).toBeVisible();
   await page.keyboard.press("Control+k");return page.getByRole("dialog",{name:query.includes("shelf=")?"搜索当前文件架":"跨文件架搜索",exact:true});
 }
+test("类别、架类型和失效状态可以单独或组合筛选",async({page})=>{
+  const dialog=await setup(page),results=dialog.getByRole("listbox").getByRole("option");
+  await dialog.getByRole("combobox",{name:"搜索类型"}).selectOption("image");
+  await expect(results).toHaveCount(1);await expect(results.first()).toContainText("角色 Design.png");
+  await dialog.getByRole("combobox",{name:"搜索类型"}).selectOption("all");
+  await dialog.getByRole("combobox",{name:"文件架类型"}).selectOption("persistent");
+  await dialog.getByRole("combobox",{name:"文件状态"}).selectOption("missing");
+  await expect(results).toHaveCount(1);await expect(results.first()).toContainText("角色 offline.txt");
+  await dialog.getByRole("combobox",{name:"文件架类型"}).selectOption("bound");
+  await expect(dialog.getByText("没有匹配的文件",{exact:true})).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Control+k");
+  await expect(dialog.getByRole("combobox",{name:"文件状态"})).toHaveValue("all");
+});
 test("中文英文、标签及类型搜索聚合同文件引用，不暴露路径，键盘关闭",async({page})=>{
   const dialog=await setup(page),input=dialog.getByRole("textbox",{name:"名称或标签"});await input.fill("角色");
   await expect(dialog.getByRole("listbox").getByRole("option")).toHaveCount(2);await expect(dialog.getByText("2 处引用",{exact:true})).toBeVisible();await expect(dialog.getByText(/TXT · 引用失效/)).toBeVisible();
@@ -37,5 +51,6 @@ test("管理中心共用搜索，最小窗口与减少动态效果下仍能键�
   const dialog=await setup(page,"?manager");await page.setViewportSize({width:340,height:320});await page.emulateMedia({reducedMotion:"reduce"});
   await dialog.getByRole("textbox",{name:"名称或标签"}).fill("offline");await expect(dialog.getByRole("listbox").getByRole("option")).toHaveCount(1);
   const box=await dialog.boundingBox();expect(box!.width).toBeLessThanOrEqual(340);expect(box!.y+box!.height).toBeLessThanOrEqual(320);
+  const dir=process.env.SEARCH_EVIDENCE;if(dir){mkdirSync(dir,{recursive:true});await page.screenshot({path:path.join(dir,"search-minimum.png")});}
   await page.keyboard.press("Enter");await expect(dialog).toHaveCount(0);expect(await page.evaluate(()=>window.testHarness.calls())).toContain("search-focus:2:4");
 });
