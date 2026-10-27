@@ -1,3 +1,7 @@
+# 最新检查点：P4 本地搜索筛选与安全（2026-10-28）
+
+继续原 Draft #54 / feat/p4-local-search，普通合并 #40 3ea8419（仅MEMORY冲突双侧保留），功能代码 `06825d4d1fcfe50599824259504a165cc3d3f186`。新增图片/视频/文档/音频/文件夹、文件架类型及状态组合筛选；未挂载盘符标离线；撤销首个命中引用时丢弃过期结果，重查可见剩余别名；不改schema2、不引入依赖/全盘扫描/联网。Rust 5 PASS + 规模显式1 PASS、搜索浏览器5 PASS、Clippy/生产构建通过。Windows原生CtrlK图片、失效引用筛选与定位、绑定目录筛选与编号副本定位PASS（仅合成数据），正常退出，5保护文件不变、schema2完整；EXE SHA256 `833c3ff7da359a456a4aa1e6ea7e505191e153fa5b7cecb1019527d305a6b1f1`。10k已登记小文件3次：无命中由3179/3132/3229ms降到37/33/37ms；有命中仍约2.8–3.0秒，需后续优化，未做FTS迁移。新浅深与340×320截图均浏览器合成，不冒充原生；实际拔盘/独立架冷启动/管理跨窗仍未验。P2仍PARTIAL，旧r22/r23/r24、P3 #55与DevLab #52均保留，不自动合并/安装/发布、LAN、模型或费用。CI待本PR精确HEAD，见既有P4证据README和PR评论。
+
 # 最新有效检查点：P2 Dock 终态通知（2026-10-28）
 
 继续原 Draft #40 / feat/p2-management-flow；代码 9101d837b0f60be5f50629e5a5bc4cc6adb3b243（r24）。真实执行路径中复制 worker 可能先 emit 终态，而 Dock 异步回调随后 emit “复制任务已开始”，覆盖已完成/失败/取消/保存失败状态。定向测试先红（实际结果含迟到开始），后修复为仅引用导入发“已接收”，复制用既有 view.copying 与 copy-finished；不改落点锁/Copy/SQLite/权限/前端运行代码。专项1PASS、orb_entry3、desktop_loop5、模拟浏览器1、Clippy/fmt/生产构建PASS。后台隐藏启动本机r24并观察窗口句柄、隔离锁和存活2秒；只结束自有空任务进程，5保护合成文件、schema2/integrity/0任务不变；未测试GUI和实际Dock原生拖放，不冒称通过。EXE SHA256 2ca7060d4af05e978745283c1843dbf8a4fb5f67b5f60acef219c823638af59f，独立D盘合成试用目录与隔离启动器，保留r23/r22。P2仍PARTIAL，托盘和Dock真实验收待续；详情既有native-matrix。CI待本次PR头，正式合并/安装/发布/LAN另需批准。此前r23 CI于2ff4313三项全SUCCESS（40532410324/40532410656），记录Issue37#issuecomment-6446477420；P3 #55、P4 #54、DevLab #52独立成果保留。
