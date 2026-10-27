@@ -642,6 +642,7 @@ fn partial_upload(
     Ok(stream)
 }
 fn streaming_tests(root: &Path) -> Result<Value> {
+    phase(root, "large-file-transfer")?;
     let source = root.join("source/large.bin");
     let size = fs::metadata(&source)?.len();
     let sha = hash_file(&source)?;
@@ -665,6 +666,7 @@ fn streaming_tests(root: &Path) -> Result<Value> {
         200
     );
     assert_eq!(hash_file(&root.join("received/large.bin"))?, sha);
+    phase(root, "mid-stream-cancel")?;
     eprintln!("large stream/hash verified");
     let (status, plan) = prepare(root, json!({"f":meta("cancelled-mid-flight.bin")}))?;
     assert_eq!(status, 200);
@@ -689,6 +691,7 @@ fn streaming_tests(root: &Path) -> Result<Value> {
     await_staging(root, false)?;
     assert!(!root.join("received/cancelled-mid-flight.bin").exists());
     assert_eq!(request(root, &upload_path(&plan, "f")?, b"")?.0, 403);
+    phase(root, "large-disconnect")?;
     let (status, plan) = prepare(root, json!({"f":meta("disconnected-large.bin")}))?;
     assert_eq!(status, 200);
     let pending = partial_upload(root, &plan, size)?;
@@ -699,6 +702,7 @@ fn streaming_tests(root: &Path) -> Result<Value> {
     assert!(!root.join("received/disconnected-large.bin").exists());
     cancel(root, &plan)?;
     // A failed/cancelled stream cannot poison the next accepted session.
+    phase(root, "recovery-transfer")?;
     let (status, plan) = prepare(root, json!({"f":meta("after-cancel.bin")}))?;
     assert_eq!(status, 200);
     assert_eq!(
@@ -724,7 +728,12 @@ fn streaming_tests(root: &Path) -> Result<Value> {
         json!({"streamingBytes":size,"streamingSha256":sha,"streamChunkBytes":CHUNK,"largeFileHashVerified":true,"sourceLargeFilePreserved":true,"partialStagingObserved":true,"cancelDuringUpload":true,"cancelAckMillis":cancel_ms,"cancelAckCompletedFiles":0,"noPublishAfterCancelAck":true,"disconnectDuringUpload":true,"stagingCleaned":true,"nextSessionSucceeded":true,"maxConcurrentConnections":4,"fileLimitBytes":MAX_FILE,"controlLimitBytes":MAX_CONTROL}),
     )
 }
+fn phase(root: &Path, label: &str) -> Result<()> {
+    fs::write(root.join("probe-phase.txt"), label)?;
+    Ok(())
+}
 fn send_tests(root: &Path) -> Result<()> {
+    phase(root, "certificates-and-metadata")?;
     eprintln!("start receiver rejection check");
     let original = fs::read(root.join("keys.json"))?;
     let mut wrong = load(root)?;
@@ -756,6 +765,7 @@ fn send_tests(root: &Path) -> Result<()> {
     for name in ["../escape", "a\\b", "NUL.txt", "a:stream", "tail."] {
         assert_eq!(prepare(root, json!({"f":file(name)}))?.0, 400);
     }
+    phase(root, "single-file-and-rejected-body")?;
     let (status, p) = prepare(root, json!({"f":file("角色.txt")}))?;
     assert_eq!(status, 200);
     struct NeverRead;
@@ -790,6 +800,7 @@ fn send_tests(root: &Path) -> Result<()> {
     bad["sha256"] = json!("0".repeat(64));
     let (_, p) = prepare(root, json!({"f":bad}))?;
     assert_eq!(upload(root, &p, "f", &source, None)?, 422);
+    phase(root, "small-disconnect-and-baseline")?;
     let (_, p) = prepare(root, json!({"f":file("disconnected.txt")}))?;
     let mut stream = client(root)?;
     write!(
@@ -852,12 +863,48 @@ fn spawn(mode: &str, root: &Path) -> Result<Worker> {
     }
     Ok(Worker(command.spawn()?))
 }
-fn wait(worker: &mut Worker) -> Result<()> {
+fn wait(worker: &mut Worker, root: &Path, mode: &str) -> Result<()> {
     let start = Instant::now();
     loop {
         if let Some(status) = worker.0.try_wait()? {
             if !status.success() {
-                return Err("controlled worker failed".into());
+                let label = fs::read_to_string(root.join("probe-phase.txt")).unwrap_or_default();
+                // Never forward raw logs, account data, certificate material or request tokens.
+                let log = fs::read_to_string(root.join(format!("{mode}.log"))).unwrap_or_default();
+                let mut numeric = Vec::new();
+                for line in log.lines() {
+                    let t = line.trim();
+                    for key in ["left:", "right:"] {
+                        if let Some(v) = t
+                            .strip_prefix(key)
+                            .and_then(|v| v.trim().parse::<u64>().ok())
+                        {
+                            numeric.push(format!("{key}{v}"));
+                        }
+                    }
+                }
+                let known = [
+                    "staging observation deadline",
+                    "source ended early",
+                    "incomplete upload",
+                    "upload deadline",
+                    "response framing",
+                    "response length",
+                    "session lock",
+                ];
+                let category = known
+                    .into_iter()
+                    .find(|v| log.contains(v))
+                    .unwrap_or("worker assertion or I/O failure");
+                return Err(format!(
+                    "controlled worker failed; phase={}; category={category}; numeric={numeric:?}",
+                    label
+                        .chars()
+                        .filter(|c| c.is_ascii_alphanumeric() || *c == '-')
+                        .take(64)
+                        .collect::<String>()
+                )
+                .into());
             }
             return Ok(());
         }
@@ -908,9 +955,9 @@ fn probe(root: &Path) -> Result<()> {
         std::thread::sleep(Duration::from_millis(20));
     }
     let mut sender = spawn("send", root)?;
-    wait(&mut sender)?;
+    wait(&mut sender, root, "send")?;
     fs::write(root.join("stop"), b"stop")?;
-    wait(&mut receiver)?;
+    wait(&mut receiver, root, "receive")?;
     println!("{}", fs::read_to_string(root.join("sender-result.json"))?);
     Ok(())
 }
