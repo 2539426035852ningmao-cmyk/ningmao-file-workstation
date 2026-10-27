@@ -1,6 +1,30 @@
+## 最新：2026-10-27 Linux取消终态兼容修复，须核对最新CI
+
+上一轮因用户中断暂停，恢复后已核对无实验进程。P3目录保护已在Windows本机10单测、Clippy、64MiB回环通过；此前Linux文件/目录9单测通过但完整回环失败。结构化诊断定位mid-stream-upload-terminal读取409时ConnectionReset errno104，Windows后续独立CI通过（此前部分Windows为matrix联动取消）。本轮添加写半关闭+500ms/4MiB有界丢弃密文、发送端终态后关闭，新增排队正文TCP测试；不写入丢弃字节、不改变取消/发布锁。新CI必须完成后才报告双平台恢复。安全诊断只含阶段/数值/IO种类，无原始日志和凭据。
+
+精确源码/二进制哈希以experiments/p3-loopback/evidence.json及PR53最新HEAD为准，下方dae1/da8f/ea45等均为先前构建，不冒充当前。目录安全、流式与原生总关卡仍分别标注；不改P2/P4业务/DB、main或稳定r22，不做LAN/防火墙/模型/费用/安装/发布/合并，不操作鼠标。流程恢复后继续收束PR53和Issue37，不另开重复PR。
+
+## 2026-10-27 最新继续 · P3接收目录保护（优先于旧“尚未实现目录防御”）
+
+在原Draft #53 / feat/p3-loopback-transfer / f6b4c57上继续，仅实验模块，未改P2/P4业务/DB。原junction越界实际红态；新增Destination/Staged捕获目录身份与暂存生命周期：逐级拒绝目录链接，Windows固定祖先/叶目录，拒绝UNC/设备/远程映射卷；cap-std4.0.3只用于句柄相对create-new，NtSetInformationFile普通FileRenameInformation按源文件+RootDirectory句柄禁止覆盖，FileDispositionInfo按文件句柄清理。Linux openat NOFOLLOW和拥有生命周期的/proc FD相对落盘，原路径替换则拒绝发布，无/proc不回退。未用BypassAccessCheck/提权/账户策略修改。
+
+Windows本机9单测、fmt/全目标Clippy、64MiB真实双进程完整回归通过。保留旧过严共享锁导致正常发布失败、Win32相对rename错误87的过程，不把失败抹掉。最终源码及EXE/许可/边界见experiments/p3-loopback/README.md与evidence.json；最终EXE dae1ef64ce34df63b4e3b1e8ece84036144407eee89520ac2ae8640c3de16368。目录guard前一构建测量ea45f973…及f6旧测量只作历史，不冒充最终HEAD峰值。
+
+锁定新增cap-std家族11包，全部许可元数据/授权文本有记录；windows-sys/rustix原已在锁中，本轮显式引用。仍为R3隔离实验、Draft不自动合并；本机无桌面控制，程序均结束，无LAN/广播/防火墙/模型/费用/私人素材/安装发布。实际ACL拒绝、Win10、FAT/ReFS、低空间/异常退出清理、饱和/并行、任务接入/设备配对/官方互通未完成。下一步做任务中心接入准备，不能把目录子集验收冒称LAN产品已交付。
+
+## 2026-10-27 本轮继续 · P3流式/传输中取消已运行（优先于旧16MiB说明）
+
+当前feat/p3-loopback-transfer / Draft #53，以原0657a1f继续，不新增PR、不改P2/P4主程序或DB。仅127.0.0.1:0；64KiB正文分块、临时文件+增量SHA256+防覆盖发布；有界4连接、会话锁外IO，另一TLS连接可取消，确认与最终发布同锁排序。标准Expect:100-continue先授权再发正文，拒绝时NeverRead断言证明不读取源正文。4单测、fmt/Clippy、本机64MiB真实两进程完整/部分写入后取消/断线清理/新会话恢复通过。最终原始实验stream-07-memory：取消确认10ms，完整清理另等409/临时文件消失；三个受控进程峰值6,885,376/9,121,792/9,220,096字节，非通用上限。EXE67b0e77bac39189fe23193bc276a7b0754aff2eadfde3cffb14c34db757d937b。2/5失败及4性能采样UNKNOWN均保留，不掩盖；Windows目录项大小滞后改为句柄元数据已补回归。证据在experiments/p3-loopback/README.md与evidence.json。
+
+512MiB仅接纳限，实测64MiB；并行/饱和/慢磁盘、接收目录重解析防御、真实授权配对、断点续传、任务UI/官方LocalSend互通仍未完成，不得宣称正式LAN交付。正常结束后实验进程退出，未广播/配置网络/防火墙/模型/费用/安装/发布/合并，r22和私人素材未触碰。
+
+上轮P4 peer分支feat/p4-local-search / Draft #54 / f8d3ab8998bfe324791ff4a8ec51d15badbc4a6b已106浏览器+Rust全量+Windows构建和包检查CI全绿（40490602524/40490602518），有原生中文聚合/绑定架定位/CtrlF子集；FTS/增量索引/完整边界仍未完成。DevLab #52 / 6b0dca4双平台通过。本分支不含P4代码，不要误判丢失或重新实现；普通后续先核对远端PR证据。
+
 # 项目交接记忆
 
 ## 当前有效检查点（2026-10-27，优先于下方历史“当前任务”措辞）
+
+用户最新加速交接明确允许P2继续收束时在隔离分支推进P3 loopback和P4-A，覆盖此前绝对串行措辞；无真实LAN/防火墙、模型/费用、私人数据或R3合并扩大授权。P3从8ae8a59分出feat/p3-loopback-transfer，仅experiments/p3-loopback和独立CI，不改P2。当前已真实双子进程mTLS收发：单文件+两文件批量/哈希/重名保护/拒收/恶意路径/错误令牌及重放/不可信两端证书/上传前取消/断线不发布均通过，2单测、fmt/Clippy通过；Windows接收socket继承非阻塞的首次失败已修正且保留事实。Core cfd6991公开启动API会绑定wildcard，不在仅loopback许可下运行，故选独立最小协议适配（未复制其源码）；真实LAN/流式背压/进行中网络取消及官方客户端互通未完成，<=16MiB明确实验限制。版本/98依赖许可证metadata/协议62bd340/机器证据在实验README与evidence.json。构建和新测试材料在D盘专用目录，不读私人素材；无安装/发布/合并。下一闭环P4-A复用现有Store，只读schema2、轻量DTO、CtrlK名称/标签搜索与定位。
 
 用户已明确批准仅合成English.txt（42字节）进入Windows回收站。本轮r22原生实体回收/跨架失效/软件记录恢复/Windows实体还原/重启防重放PASS（只此子集）：旧300s票据到期正确拒绝且无操作，正常重新预览同一文件；单文件二次确认后仅发起引用1进软回收，架4引用88失效且精选标签保留，journal1 committed。软件恢复还原ID1/标签但实体仍不在；Windows单项属性匹配42字节/删除时刻，点击还原回到原路径且SHA256一致。两架刷新/重启均正常，原顺序/标签保留。5小保护文件、256源别名/64MiB载荷、81独立副本hash不变；87引用/schema2完整，数据六表等于前基线，正常退出重启七表不变、无重复回收。PID15424/30128均正常退出，测试窗口为零，回收站/属性标签已关闭，原Explorer测试文件夹保留。详见r22-system-recycle-native.json；之前“待批准/仍运行”段落是旧检查点，已由本段收束。不改业务代码/权限/包，不合并/发布；P2仍PARTIAL，原生批量/回收取消/更多异常、Dock/托盘/DPI多屏仍独立门槛。b06a4bd Desktop40451577252/Preview40451577263已全绿。
 

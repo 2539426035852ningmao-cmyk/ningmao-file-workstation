@@ -1,0 +1,36 @@
+name: P3 isolated loopback
+on:
+  pull_request:
+    paths: ['experiments/p3-loopback/**', '.github/workflows/p3-loopback.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    env:
+      RUSTUP_TOOLCHAIN: '1.99.1'
+      CARGO_BUILD_JOBS: '2'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {persist-credentials: false}
+      - name: Rust
+        shell: pwsh
+        run: rustup toolchain install 1.99.1 --profile minimal --component clippy,rustfmt
+      - name: Check and run two controlled processes
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          cargo fmt --manifest-path experiments/p3-loopback/Cargo.toml --check
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cargo clippy --locked --manifest-path experiments/p3-loopback/Cargo.toml -- -D warnings
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cargo test --locked --manifest-path experiments/p3-loopback/Cargo.toml
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cargo run --locked --manifest-path experiments/p3-loopback/Cargo.toml -- probe (Join-Path $env:RUNNER_TEMP 'ningmao-p3-probe')
+          exit $LASTEXITCODE
