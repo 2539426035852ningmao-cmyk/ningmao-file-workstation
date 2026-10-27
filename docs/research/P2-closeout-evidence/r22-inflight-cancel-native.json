@@ -61,5 +61,6 @@
     "preview": "40447932757 SUCCESS",
     "newRuntimeChanges": false
   },
-  "rollback": "Old candidates and r22 payload unchanged. Isolated before/cancel/retry/normal-exit/restart/pre-recycle SQLite backups local only. No schema/production code/permissions change; no merge/install/release/model/network/fee. Revert evidence only; do not downgrade or overwrite user databases."
+  "rollback": "Old candidates and r22 payload unchanged. Isolated before/cancel/retry/normal-exit/restart/pre-recycle SQLite backups local only. No schema/production code/permissions change; no merge/install/release/model/network/fee. Revert evidence only; do not downgrade or overwrite user databases.",
+  "recycleFollowup": "User subsequently approved the single42B file; actual recycle, cross-shelf invalid-reference, software-record restore and Windows entity restore completed; final normal exit. See r22-system-recycle-native.json. Earlier preparation paragraph is historical, not current pending state."
 }
