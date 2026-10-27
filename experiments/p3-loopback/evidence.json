@@ -3,7 +3,7 @@
   "badTokenRejected": true,
   "batchFiles": 2,
   "cancelAckCompletedFiles": 0,
-  "cancelAckMillis": 10,
+  "cancelAckMillis": 9,
   "cancelBeforeUpload": true,
   "cancelDuringUpload": true,
   "checksumMismatchRejected": true,
@@ -145,14 +145,14 @@
     "zeroize@1.9.1": "Apache-2.0 OR MIT",
     "zmij@1.0.23": "MIT"
   },
-  "unitTests": 9,
+  "unitTests": 10,
   "clippy": "PASS",
   "platform": "Windows11 x64",
   "sourceSha256": {
-    "main.rs": "bb383dfa40ad24bd454704abbde59b82d981ac760e675df6f5bb4271c681fe78",
+    "main.rs": "c78500309925b79f7339969986e821e401270674c128a9444a6bea8ce56a4c1b",
     "destination.rs": "a21f29fc0fac73ea2d78a79fca6ee6ad5365d4c9048dafa4ae98f87803a28be9"
   },
-  "executableSha256": "da8f88b3cf9105c718487d9d130b4f8d703c18da577371814cb537bc2793dc9c",
+  "executableSha256": "07f98d8fe735cbe0dfb21fee408cc5a675612e9142a26673409ca9a289c2cce1",
   "directoryGuards": {
     "preexistingLeafJunctionRejected": true,
     "ancestorJunctionRejected": true,
@@ -216,6 +216,11 @@
       "case": "Win32 relative rename prototype",
       "result": "FAIL normal publication",
       "reason": "SetFileInformationByHandle with a relative root returned ERROR_INVALID_PARAMETER on this host; final implementation uses ordinary NtSetInformationFile by captured handles."
+    },
+    {
+      "case": "CI 40504046957 / 40504407846 / 40505304879 / 40505852480",
+      "result": "Linux FAIL; early Windows legs cancelled by matrix fail-fast, later Windows PASS",
+      "reason": "10/27 sanitized diagnostics isolated ConnectionReset errno104 while reading mid-stream cancellation terminal. Unit filesystem tests passed. Now write-half-close and bounded discard before socket drop; fixed-phase/error-kind diagnostics contain no raw logs or credentials."
     }
   ],
   "scopeLimits": [
@@ -226,5 +231,15 @@
     "No cross-process resume; failed cleanup needs future task journal",
     "Linux requires /proc, fail closed otherwise"
   ],
-  "loopbackSourceDelta": "The last full Windows run precedes the additional pure Windows component-name precheck; its names are valid and native receiver integration is confirmed by CI."
+  "loopbackSourceDelta": "Full local Windows run precedes final strict drain-slice bound; exact HEAD is exercised by both CI platforms.",
+  "transportClose": {
+    "status": "LOCAL_WINDOWS_PASS; CI_PENDING",
+    "rejectedSocketRegression": true,
+    "halfCloseWrite": true,
+    "rawDiscardMaxBytes": 4194304,
+    "rawDiscardBudgetMillis": 500,
+    "partialSenderClosesAfterTerminal": true,
+    "remainingStagingOrQueuedBytesNotPublished": true,
+    "source": "RFC9293 section 3.6.1"
+  }
 }

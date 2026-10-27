@@ -475,7 +475,41 @@ fn serve(
     let _=write!(stream,"HTTP/1.1 {status} Result\r\nContent-Length: {}\r\nConnection: close\r\nContent-Type: application/json\r\n\r\n",bytes.len()).and_then(|_|stream.write_all(&bytes)).and_then(|_|stream.flush());
     stream.conn.send_close_notify();
     let _ = stream.flush();
+    if status >= 400 {
+        let _ = finish_rejected_socket(&mut stream.sock);
+    }
     Ok(())
+}
+
+fn finish_rejected_socket(socket: &mut TcpStream) -> usize {
+    // Closing with unread request bytes may reset TCP and discard the rejection response (RFC9293 3.6.1).
+    // Stop sending first; discard only a bounded amount of ciphertext, never stage or publish it.
+    let _ = socket.shutdown(std::net::Shutdown::Write);
+    if socket
+        .set_read_timeout(Some(Duration::from_millis(50)))
+        .is_err()
+    {
+        return 0;
+    }
+    let start = Instant::now();
+    let mut discarded = 0;
+    let mut buffer = [0; CHUNK];
+    while start.elapsed() < Duration::from_millis(500) && discarded < 4 * 1024 * 1024 {
+        let remaining = (4 * 1024 * 1024 - discarded).min(CHUNK);
+        match socket.read(&mut buffer[..remaining]) {
+            Ok(0) => break,
+            Ok(n) => discarded += n,
+            Err(e)
+                if [
+                    io::ErrorKind::WouldBlock,
+                    io::ErrorKind::TimedOut,
+                    io::ErrorKind::Interrupted,
+                ]
+                .contains(&e.kind()) => {}
+            Err(_) => break,
+        }
+    }
+    discarded
 }
 
 fn receive(root: &Path) -> Result<()> {
@@ -691,6 +725,7 @@ fn streaming_tests(root: &Path) -> Result<Value> {
     assert!(cancel_ms < 3000);
     phase(root, "mid-stream-upload-terminal")?;
     assert_eq!(read_response(&mut pending)?.0, 409);
+    drop(pending); // terminal response ends this connection; don't retain a half-closed upload socket
     phase(root, "mid-stream-cleanup")?;
     eprintln!("cancel acknowledged and upload stopped");
     await_staging(root, false)?;
@@ -1001,6 +1036,37 @@ fn main() {
 }
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn rejected_socket_preserves_response_with_queued_request_bytes() {
+        use std::{
+            io::{Read, Write},
+            net::{Shutdown, TcpListener, TcpStream},
+            time::Duration,
+        };
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = std::thread::spawn(move || {
+            let (mut socket, _) = listener.accept().unwrap();
+            socket.write_all(b"409").unwrap();
+            super::finish_rejected_socket(&mut socket)
+        });
+        let mut client = TcpStream::connect(address).unwrap();
+        client
+            .set_read_timeout(Some(Duration::from_secs(3)))
+            .unwrap();
+        client
+            .set_write_timeout(Some(Duration::from_secs(3)))
+            .unwrap();
+        for _ in 0..16 {
+            client.write_all(&[42; 65536]).unwrap();
+        }
+        let mut response = [0; 3];
+        client.read_exact(&mut response).unwrap();
+        assert_eq!(&response, b"409");
+        client.shutdown(Shutdown::Both).unwrap();
+        drop(client);
+        assert!(server.join().unwrap() <= 4 * 1024 * 1024);
+    }
     #[test]
     fn staged_cleanup_owns_directory_until_after_parent_guard_drops() {
         use std::io::Write;

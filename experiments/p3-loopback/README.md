@@ -44,3 +44,11 @@ Linux以rustix openat+DIRECTORY+NOFOLLOW逐级获取目录，IO锚定自有`/pro
 - 已查[旧Windows设备名安全公告](https://github.com/bytecodealliance/cap-std/security/advisories/GHSA-hxf5-99xg-86hw)，公告修复线3.4.1；锁定4.0.3，且本项目继续独立拒绝保留设备名/超标数字等，不能把依赖版本当作整体验收。
 - 普通句柄相对重命名依据[Microsoft FILE_RENAME_INFO](https://learn.microsoft.com/windows/win32/api/winbase/ns-winbase-file_rename_info)及[NtSetInformationFile](https://learn.microsoft.com/windows-hardware/drivers/ddi/ntifs/nf-ntifs-ntsetinformationfile)，实际Win32接口兼容性失败已记录，最终NT接口经本机测试。
 - `windows-sys 0.61.2`与`rustix 1.1.6`原已在锁文件中，本轮显式声明所需target API。增加cap-std家族11个锁定包，许可证metadata与包内授权文本已核对：Apache-2.0/MIT可选；winx为Apache-2.0 WITH LLVM-exception，须保留其例外文本。不是商业限制许可，不新增收费服务；后续发行仍须生成完整NOTICE。当前仅实验源码及本机二进制，不作正式发行许可清关声明。
+
+### Linux取消终态兼容修复
+
+云端9项文件/目录单测通过后，Linux完整回环在`mid-stream-upload-terminal`读取409时失败，结构化诊断为ConnectionReset/errno104；Windows独立流程通过。此前matrix默认fail-fast联动取消的Windows不当作独立功能失败，现分别保留结果。
+
+停止接收正文时，直接关闭还有未读数据的TCP可能导致响应被RST截断（[RFC9293 §3.6.1](https://www.rfc-editor.org/rfc/rfc9293.html#section-3.6.1)）。接收端先发送终态/TLS close_notify，半关闭写侧，再在500ms/4MiB上限内丢弃残留密文；不会写入或发布这些字节。超过有界预算可断开，不把连接重置冒充成功。部分上传发送端读完终态后立即关闭连接。新增真实回环TCP回归，合计10项本机通过；修后Windows64MiB/mTLS完整回归通过。新HEAD的Linux仍以最新CI结果为准，未拿Windows代替。
+
+诊断只输出固定阶段、数值断言和I/O种类/OS编号，不转发原始日志、请求、私钥或令牌。旧CI失败记录保留，不重写成通过。

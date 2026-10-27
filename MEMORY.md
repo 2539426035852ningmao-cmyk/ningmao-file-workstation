@@ -1,3 +1,9 @@
+## 最新：2026-10-27 Linux取消终态兼容修复，须核对最新CI
+
+上一轮因用户中断暂停，恢复后已核对无实验进程。P3目录保护已在Windows本机10单测、Clippy、64MiB回环通过；此前Linux文件/目录9单测通过但完整回环失败。结构化诊断定位mid-stream-upload-terminal读取409时ConnectionReset errno104，Windows后续独立CI通过（此前部分Windows为matrix联动取消）。本轮添加写半关闭+500ms/4MiB有界丢弃密文、发送端终态后关闭，新增排队正文TCP测试；不写入丢弃字节、不改变取消/发布锁。新CI必须完成后才报告双平台恢复。安全诊断只含阶段/数值/IO种类，无原始日志和凭据。
+
+精确源码/二进制哈希以experiments/p3-loopback/evidence.json及PR53最新HEAD为准，下方dae1/da8f/ea45等均为先前构建，不冒充当前。目录安全、流式与原生总关卡仍分别标注；不改P2/P4业务/DB、main或稳定r22，不做LAN/防火墙/模型/费用/安装/发布/合并，不操作鼠标。流程恢复后继续收束PR53和Issue37，不另开重复PR。
+
 ## 2026-10-27 最新继续 · P3接收目录保护（优先于旧“尚未实现目录防御”）
 
 在原Draft #53 / feat/p3-loopback-transfer / f6b4c57上继续，仅实验模块，未改P2/P4业务/DB。原junction越界实际红态；新增Destination/Staged捕获目录身份与暂存生命周期：逐级拒绝目录链接，Windows固定祖先/叶目录，拒绝UNC/设备/远程映射卷；cap-std4.0.3只用于句柄相对create-new，NtSetInformationFile普通FileRenameInformation按源文件+RootDirectory句柄禁止覆盖，FileDispositionInfo按文件句柄清理。Linux openat NOFOLLOW和拥有生命周期的/proc FD相对落盘，原路径替换则拒绝发布，无/proc不回退。未用BypassAccessCheck/提权/账户策略修改。
