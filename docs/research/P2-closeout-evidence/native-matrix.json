@@ -24,21 +24,22 @@
     {
       "id": "r21-shortcut",
       "status": "PARTIAL",
-      "scope": "Native default wake/pause/resume, configure G, old-key removal, G save/restart registration PASS. OS probe conflict while occupied and release after exit PASS. Candidate error UI with external owner and explicit disabled cycle NOT_TESTED."
+      "scope": "Native default wake/pause/resume/configureG/old-key removal/save/restart/OS occupied-free PASS. 2026-10-27 explicit disable-save-no-wake/re-enable-save-wake PASS and post-exit free probe PASS. External-owner candidate error UI remains NOT_TESTED."
     },
     {
       "id": "r21-window-recovery",
       "status": "PARTIAL",
-      "scope": "Wake and manual scoped recovery implemented; 3 geometry tests passed. Real disconnect/reconnect and full automatic hotplug remain NOT_TESTED/not claimed implemented"
+      "scope": "Native own-manager occlusion wake and minimized-window manual recovery no-op PASS; explicit shortcut restored minimized main. Existing geometry3PASS. Physical disconnect/reconnect and hotplug remain NOT_TESTED/not claimed implemented."
     },
     {
       "id": "r21-shape-tray-topmost-occlusion",
-      "status": "NOT_TESTED"
+      "status": "PARTIAL",
+      "scope": "2026-10-27 exact r21 native full→orb→capsule→peek, Esc returns, focused CtrlEnter direct open, close-entry preserving full shelf, main topmost on/off with own manager occlusion, main X hide and shortcut restore PASS. Actual tray icon/menu, all edge modes/themes/idle/DPI remain NOT_TESTED."
     },
     {
       "id": "r21-reference-copy-conflict-dragout-sort-preview",
       "status": "PARTIAL",
-      "scope": "Exact r21: native picker Copy/source protection/Chinese numbering/group dragout/Ctrl selection/Space/default open PASS. Incoming native Dock drag and current candidate sort/Shift/marquee full matrix still pending; do not inherit old candidates."
+      "scope": "Exact r21 picker Copy/source/Chinese numbering/Ctrl group dragout/Space/default open PASS. 2026-10-27 marquee4/CtrlA/Escape PASS with nine protected synthetic hashes and full DB logical dump unchanged. Pointer sort automation dropped onto itself; not sort PASS or proven product bug. Incoming Dock/Shift and remaining matrix pending."
     },
     {
       "id": "r21-softtrash-system-recycle-multi-reference-zero-shelf",
