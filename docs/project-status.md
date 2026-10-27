@@ -1,5 +1,8 @@
 # 项目状态与技术图解 · 唯一总览入口
 
+> 2026-10-27候选增量：r22真实复制失败/重试、零架新建、整架/单项恢复、失效引用返回及正常重启已有精确原生子集证据；P2总关卡仍PARTIAL。见[恢复验收](research/P2-closeout-evidence/r22-recovery-native.json)与[失败反馈修复](research/P2-closeout-evidence/r22-copy-feedback.json)。下方r21快照为历史，开工仍需实时核查PR40。
+
+
 > 当前候选增量：本轮r21已完成部分文件/管理/快捷键/重启原生闭环，详见[精确记录](research/P2-closeout-evidence/r21-native-session.json)；下方是main归档的历史核查快照，P2总体仍PARTIAL。
 
 > **快照：2026-10-26 17:33 (Asia/Singapore) 前后的 GitHub 核查**；PR 状态可能继续变化。启动开发或执行合并时必须重新读取远端 HEAD、PR 和 CI；本页**不是自动更新的实时仪表盘**。

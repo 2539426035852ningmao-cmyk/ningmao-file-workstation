@@ -75,6 +75,11 @@
       "id": "r22-fast-copy-terminal-feedback",
       "status": "PASS",
       "scope": "Exact EXE48993a4a…2fd30/build8875147, code4f2f8cb: actual OS32 failure0/1 and unlocked retry1/1 main+manager+DB consistent; six protected files unchanged, no staging leak, normal exit. Only this acceptance subset; original r21 FAIL preserved and no general r22 inheritance."
+    },
+    {
+      "id": "r22-zero-shelf-restore-invalid-reference",
+      "status": "PARTIAL",
+      "scope": "Exact EXE48993a4a…2fd30 native zero-state/new shelf/whole and individual restore/identity-tags-order/normal restart/source-missing-and-return PASS. Three source hashes and seven tables unchanged. Recycle state prepared through opt-in Store fixture; native remove/purge/system recycle NOT_TESTED. See r22-recovery-native.json; no r21 result inheritance."
     }
   ],
   "desktopAuthorization": "2026-10-26 user lifted prior launch/input bans; separate safety gates unchanged"
