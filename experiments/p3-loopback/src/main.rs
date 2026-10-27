@@ -670,9 +670,12 @@ fn streaming_tests(root: &Path) -> Result<Value> {
     eprintln!("large stream/hash verified");
     let (status, plan) = prepare(root, json!({"f":meta("cancelled-mid-flight.bin")}))?;
     assert_eq!(status, 200);
+    phase(root, "mid-stream-stage-observation")?;
     let mut pending = partial_upload(root, &plan, size)?;
+    phase(root, "mid-stream-busy-request")?;
     eprintln!("partial stream observed before cancel");
     assert_eq!(prepare(root, json!({"f":meta("busy.bin")}))?.0, 409);
+    phase(root, "mid-stream-cancel-ack")?;
     let started = Instant::now();
     let (status, ack) = request(
         root,
@@ -686,7 +689,9 @@ fn streaming_tests(root: &Path) -> Result<Value> {
     assert_eq!(status, 200);
     assert_eq!(ack["completedFiles"], 0);
     assert!(cancel_ms < 3000);
+    phase(root, "mid-stream-upload-terminal")?;
     assert_eq!(read_response(&mut pending)?.0, 409);
+    phase(root, "mid-stream-cleanup")?;
     eprintln!("cancel acknowledged and upload stopped");
     await_staging(root, false)?;
     assert!(!root.join("received/cancelled-mid-flight.bin").exists());
@@ -883,6 +888,10 @@ fn wait(worker: &mut Worker, root: &Path, mode: &str) -> Result<()> {
                         }
                     }
                 }
+                let io_summary = log
+                    .lines()
+                    .find(|line| line.starts_with("probe_io_kind="))
+                    .unwrap_or("no-io-classification");
                 let known = [
                     "staging observation deadline",
                     "source ended early",
@@ -897,7 +906,7 @@ fn wait(worker: &mut Worker, root: &Path, mode: &str) -> Result<()> {
                     .find(|v| log.contains(v))
                     .unwrap_or("worker assertion or I/O failure");
                 return Err(format!(
-                    "controlled worker failed; phase={}; category={category}; numeric={numeric:?}",
+                    "controlled worker failed; phase={}; category={category}; numeric={numeric:?}; {io_summary}",
                     label
                         .chars()
                         .filter(|c| c.is_ascii_alphanumeric() || *c == '-')
@@ -979,6 +988,13 @@ fn run() -> Result<()> {
 }
 fn main() {
     if let Err(e) = run() {
+        if let Some(io) = e.downcast_ref::<io::Error>() {
+            eprintln!(
+                "probe_io_kind={:?};os_code={:?}",
+                io.kind(),
+                io.raw_os_error()
+            );
+        }
         eprintln!("{e}");
         std::process::exit(1);
     }
