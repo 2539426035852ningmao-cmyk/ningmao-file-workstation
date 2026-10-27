@@ -15,9 +15,19 @@ cargo run --locked --manifest-path experiments/p3-loopback/Cargo.toml -- probe <
 
 Windows真实双进程已验证64MiB完整传输及后续新会话：同SHA256、来源保留、既有文件不覆盖；传到临时文件后暂停，再经独立连接取消；传输中断线；残缺文件不发布，临时文件最终清除，后续会话继续成功。已有小文件/批量/证书/路径/令牌/哈希回归同时执行。4个单测、fmt、Clippy通过。
 
-本次本机取消**确认**10ms；完整取消仍等待上传返回409及临时文件清除，不能把确认耗时当作全部清理耗时。三个受控进程的Windows峰值工作集为6,885,376 / 9,121,792 / 9,220,096字节，包含OS/DLL开销，仅代表该次实验，不是通用预算。完整公开脱敏数据见`evidence.json`；原始失败记录保留在本机，不上传实验私钥、令牌或未脱敏日志。
+## 接收目录身份与句柄边界
 
-边界：控制JSON最多64KiB；文件接纳上限512MiB，**实际只验证64MiB**；上传60秒安全截止。仅有同步有界流，慢磁盘背压、控制通道饱和和并行上传未专项压测。不支持跨进程断点续传、设备发现或产品接收UI，不是两台设备/官方LocalSend互通。正式接入前仍须完成接收目录权限/重解析点防御、真实授权/配对、任务中心接入与专项许可。无新增依赖，Cargo.lock未改。
+逐级打开接收路径，拒绝已有目录链接/重解析点、相对路径及`..`；Windows额外拒绝UNC/设备路径和远程映射卷。目录身份从选定开始保持到发布与清理结束，不从上传参数接收新的落盘目录。实际目录权限由系统检查，无法打开或创建时安全失败，不提权。
+
+Windows复用既有Safe Copy的无删除共享目录句柄，固定各级目录；使用cap-std的相对句柄create-new建立临时文件，创建成功后才发100 Continue。暂存文件禁止其他写入/删除共享。发布使用普通`NtSetInformationFile(FileRenameInformation)`，文件和RootDirectory均为已捕获句柄，ReplaceIfExists为false；取消/失败通过文件句柄的FileDispositionInfo清理，不拼接可变路径做删除。没有使用任何BypassAccessCheck类、修改账户权限或安全策略。
+
+Linux以rustix openat+DIRECTORY+NOFOLLOW逐级获取目录，IO锚定自有`/proc/self/fd`描述符；发布前复核原路径绑定，替换则拒绝。暂存对象持有自己的目录描述符，保证上层guard释放后仍能清理；缺少/proc时失败关闭，无不安全回退。
+
+新增5项目录/生命周期回归与原4项合计9项，本机Windows通过：叶目录junction与祖先junction拒绝、父/叶改名在句柄持有期间受阻、句柄释放后能改名、异目录暂存拒绝、旧硬链接内容保留并编号新副本、暂存对象独立清理。原探针的junction越界用例首先实际失败，修复后通过；过严共享锁及Win32相对重命名的失败尝试也保留说明。原生64MiB双进程/哈希/来源/同名/中途取消/断线清理/后续任务整套再次通过，最终EXE哈希见evidence.json。
+
+本轮目录guard构建（加本地卷类型策略之前）的三个实验进程峰值工作集为6,938,624 / 9,150,464 / 9,371,648字节，EXE4,364,288字节；该测量二进制ea45f973…已保留，不冒充最终HEAD的内存预算。最终本机取消**确认**约10ms；完整清理仍另等上传409及暂存消失。旧构建f6b4c57的测量保持历史记录，不与新源码混用。
+
+边界：控制JSON最多64KiB；文件接纳上限512MiB，**实际只验证64MiB**；上传60秒安全截止。慢磁盘背压、控制通道饱和、并行上传、实际用户ACL拒绝、FAT/ReFS、异常进程/断电清理与Win10仍未专项验收。没有断点续传、设备发现、产品接收UI或任务中心接入，不是两台设备/官方LocalSend互通。真实LAN仍需专项许可，不把目录子集通过当成P3整体安全清关。
 
 ## 复用与边界
 
@@ -27,3 +37,10 @@ Windows真实双进程已验证64MiB完整传输及后续新会话：同SHA256�
 - 原生Windows测试发现accept继承非阻塞状态，已显式切回阻塞以匹配本探针同步TLS；非阻塞只用于带停止标记的accept轮询。
 
 实际证据见 `evidence.json`。真实LAN监听/广播/设备配对/防火墙仍需专项许可。本实验不合入main，不发布，不替代P2关卡。
+
+### 本轮新增复用与许可
+
+- Windows仅用cap-std `4.0.3`作句柄相对创建，源码版本`b7acf8e8807fe3fab991884d2208b7e03d35a409`（crate .cargo_vcs_info），来源[上游](https://github.com/bytecodealliance/cap-std)。未复制其实现代码。源码审阅发现其Windows hard_link/rename/remove_file仍组合路径，因此本实验没有调用这些操作，发布/清理采用原生句柄接口。
+- 已查[旧Windows设备名安全公告](https://github.com/bytecodealliance/cap-std/security/advisories/GHSA-hxf5-99xg-86hw)，公告修复线3.4.1；锁定4.0.3，且本项目继续独立拒绝保留设备名/超标数字等，不能把依赖版本当作整体验收。
+- 普通句柄相对重命名依据[Microsoft FILE_RENAME_INFO](https://learn.microsoft.com/windows/win32/api/winbase/ns-winbase-file_rename_info)及[NtSetInformationFile](https://learn.microsoft.com/windows-hardware/drivers/ddi/ntifs/nf-ntifs-ntsetinformationfile)，实际Win32接口兼容性失败已记录，最终NT接口经本机测试。
+- `windows-sys 0.61.2`与`rustix 1.1.6`原已在锁文件中，本轮显式声明所需target API。增加cap-std家族11个锁定包，许可证metadata与包内授权文本已核对：Apache-2.0/MIT可选；winx为Apache-2.0 WITH LLVM-exception，须保留其例外文本。不是商业限制许可，不新增收费服务；后续发行仍须生成完整NOTICE。当前仅实验源码及本机二进制，不作正式发行许可清关声明。

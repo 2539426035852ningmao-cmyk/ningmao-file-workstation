@@ -1,3 +1,5 @@
+mod destination;
+use destination::Destination;
 use rustls::{
     ClientConfig, ClientConnection, RootCertStore, ServerConfig, ServerConnection, StreamOwned,
     pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer, ServerName},
@@ -193,7 +195,7 @@ fn hash_file(path: &Path) -> Result<String> {
 }
 fn stage_body(
     reader: &mut impl Read,
-    temp: &mut tempfile::NamedTempFile,
+    temp: &mut fs::File,
     length: u64,
     cancelled: &AtomicBool,
 ) -> Result<String> {
@@ -234,7 +236,7 @@ fn stage_body(
         sha.update(&buffer[..n]);
         left -= n as u64;
     }
-    temp.as_file().sync_all()?;
+    temp.sync_all()?;
     Ok(format!("{:x}", sha.finalize()))
 }
 fn read_header(reader: &mut impl Read) -> Result<(String, u64, bool)> {
@@ -307,28 +309,6 @@ fn params(path: &str) -> Option<(&str, HashMap<&str, &str>)> {
     }
     Some((route, map))
 }
-fn publish(root: &Path, name: &str, mut temp: tempfile::NamedTempFile) -> Result<()> {
-    validate_name(name)?;
-    let p = Path::new(name);
-    let stem = p.file_stem().ok_or("stem")?.to_string_lossy();
-    let ext = p
-        .extension()
-        .map(|e| format!(".{}", e.to_string_lossy()))
-        .unwrap_or_default();
-    for n in 0..1000 {
-        let target = root.join(if n == 0 {
-            name.to_owned()
-        } else {
-            format!("{stem} ({n}){ext}")
-        });
-        match temp.persist_noclobber(target) {
-            Ok(_) => return Ok(()),
-            Err(e) if e.error.kind() == io::ErrorKind::AlreadyExists => temp = e.file,
-            Err(e) => return Err(e.error.into()),
-        }
-    }
-    Err("collision limit".into())
-}
 fn handle_control(
     root: &Path,
     session: &mut Option<Session>,
@@ -398,7 +378,7 @@ fn handle_control(
     Ok((404, json!({})))
 }
 fn handle_upload(
-    root: &Path,
+    destination: &Destination,
     session: &Mutex<Option<Session>>,
     path: &str,
     length: u64,
@@ -430,18 +410,16 @@ fn handle_upload(
         (f, s.cancelled.clone(), s.id.clone())
     };
     // Stage and hash outside the session lock: cancel must remain responsive during slow I/O.
-    let staged = (|| -> Result<Option<tempfile::NamedTempFile>> {
+    let staged = (|| -> Result<Option<destination::Staged>> {
         if f.size != length {
             return Ok(None);
         }
+        let mut temp = destination.stage()?;
         if expect {
             reader.write_all(b"HTTP/1.1 100 Continue\r\nContent-Length: 0\r\n\r\n")?;
             reader.flush()?;
         }
-        let mut temp = tempfile::Builder::new()
-            .prefix(".ningmao-receive-")
-            .tempfile_in(root.join("received"))?;
-        let sha = stage_body(reader, &mut temp, length, &cancelled)?;
+        let sha = stage_body(reader, temp.as_file_mut(), length, &cancelled)?;
         Ok((sha == f.sha256.to_lowercase()).then_some(temp))
     })();
     let mut guard = session.lock().map_err(|_| "session lock")?;
@@ -455,7 +433,7 @@ fn handle_upload(
             return Ok((422, json!({})));
         };
         // Publish and cancellation acknowledgement are serialized. Nothing publishes after an ack.
-        publish(&root.join("received"), &f.file_name, temp)?;
+        destination.publish(&f.file_name, temp)?;
         s.completed += 1;
         Ok((200, json!({})))
     } else {
@@ -464,6 +442,7 @@ fn handle_upload(
 }
 fn serve(
     root: &Path,
+    destination: &Destination,
     session: &Mutex<Option<Session>>,
     config: Arc<ServerConfig>,
     socket: TcpStream,
@@ -475,7 +454,7 @@ fn serve(
     let result = (|| -> Result<(u16, Value)> {
         let (path, length, expect) = read_header(&mut stream)?;
         if params(&path).is_some_and(|(route, _)| route == "/api/localsend/v2/upload") {
-            return handle_upload(root, session, &path, length, &mut stream, expect);
+            return handle_upload(destination, session, &path, length, &mut stream, expect);
         }
         if length > MAX_CONTROL as u64 {
             return Ok((413, json!({})));
@@ -500,6 +479,8 @@ fn serve(
 }
 
 fn receive(root: &Path) -> Result<()> {
+    let _root_guard = Destination::open(root)?;
+    let destination = Arc::new(Destination::open(&root.join("received"))?);
     let k = load(root)?;
     let verifier =
         rustls::server::WebPkiClientVerifier::builder(Arc::new(roots(&k.client_cert)?)).build()?;
@@ -550,8 +531,9 @@ fn receive(root: &Path) -> Result<()> {
         let root = root.to_owned();
         let session = session.clone();
         let config = config.clone();
+        let destination = destination.clone();
         workers.push(std::thread::spawn(move || {
-            if let Err(e) = serve(&root, &session, config, socket) {
+            if let Err(e) = serve(&root, &destination, &session, config, socket) {
                 eprintln!("connection failed: {e}");
             }
         }));
@@ -886,7 +868,9 @@ fn wait(worker: &mut Worker) -> Result<()> {
     }
 }
 fn probe(root: &Path) -> Result<()> {
+    let _parent_guard = Destination::open(root.parent().ok_or("synthetic parent required")?)?;
     fs::create_dir(root)?;
+    let _root_guard = Destination::open(root)?;
     fs::write(root.join("SYNTHETIC-ONLY.txt"), MARKER)?;
     for dir in ["source", "received"] {
         fs::create_dir(root.join(dir))?;
@@ -955,6 +939,178 @@ fn main() {
 #[cfg(test)]
 mod tests {
     #[test]
+    fn staged_cleanup_owns_directory_until_after_parent_guard_drops() {
+        use std::io::Write;
+        let root = tempfile::tempdir().unwrap();
+        let mut temp = {
+            let dir = super::Destination::open(root.path()).unwrap();
+            dir.stage().unwrap()
+        };
+        temp.write_all(b"synthetic staged bytes").unwrap();
+        drop(temp);
+        assert_eq!(std::fs::read_dir(root.path()).unwrap().count(), 0);
+    }
+    fn directory_link(link: &std::path::Path, target: &std::path::Path) {
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            let result = std::process::Command::new("cmd.exe")
+                .args(["/c", "mklink", "/J"])
+                .arg(link)
+                .arg(target)
+                .creation_flags(0x08000000)
+                .output()
+                .unwrap();
+            assert!(result.status.success(), "synthetic junction setup failed");
+        }
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(target, link).unwrap();
+    }
+    fn remove_directory_link(link: &std::path::Path) {
+        #[cfg(windows)]
+        std::fs::remove_dir(link).unwrap();
+        #[cfg(unix)]
+        std::fs::remove_file(link).unwrap();
+    }
+    #[test]
+    fn directory_ancestor_link_and_unsafe_paths_are_rejected() {
+        let root = tempfile::tempdir().unwrap();
+        let outside = root.path().join("outside");
+        std::fs::create_dir(&outside).unwrap();
+        std::fs::create_dir(outside.join("child")).unwrap();
+        let link = root.path().join("redirect");
+        directory_link(&link, &outside);
+        assert!(super::Destination::open(&link.join("child")).is_err());
+        remove_directory_link(&link);
+        assert!(super::Destination::open(std::path::Path::new("relative")).is_err());
+        assert!(super::Destination::open(&root.path().join("child/../outside")).is_err());
+        assert!(super::Destination::open(&root.path().join("missing")).is_err());
+        let file = root.path().join("file.txt");
+        std::fs::write(&file, b"synthetic").unwrap();
+        assert!(super::Destination::open(&file).is_err());
+        #[cfg(windows)]
+        for path in [
+            r"\\server\share",
+            r"\\?\UNC\server\share",
+            r"\\.\C:\",
+            r"\\?\GLOBALROOT\Device",
+        ] {
+            assert!(super::Destination::open(std::path::Path::new(path)).is_err());
+        }
+    }
+    #[test]
+    fn directory_binding_survives_replacement_attempts_and_releases_on_drop() {
+        use std::io::Write;
+        let root = tempfile::tempdir().unwrap();
+        let branch = root.path().join("branch");
+        let received = branch.join("received");
+        std::fs::create_dir_all(&received).unwrap();
+        let outside = root.path().join("outside");
+        std::fs::create_dir_all(outside.join("received")).unwrap();
+        std::fs::write(outside.join("sentinel"), b"protected").unwrap();
+        let dir = super::Destination::open(&received).unwrap();
+        let mut temp = dir.stage().unwrap();
+        temp.write_all(b"synthetic payload").unwrap();
+        let moved = root.path().join("moved");
+        let renamed = std::fs::rename(&branch, &moved);
+        #[cfg(windows)]
+        {
+            assert!(renamed.is_err());
+            assert!(std::fs::rename(&received, root.path().join("moved-leaf")).is_err());
+            dir.check().unwrap();
+            dir.publish("payload.bin", temp).unwrap();
+            drop(dir);
+            std::fs::rename(&branch, &moved).unwrap(); // all directory handles have been released
+            assert_eq!(
+                std::fs::read(moved.join("received/payload.bin")).unwrap(),
+                b"synthetic payload"
+            );
+        }
+        #[cfg(target_os = "linux")]
+        {
+            renamed.unwrap();
+            directory_link(&branch, &outside);
+            assert!(dir.check().is_err());
+            assert!(dir.publish("payload.bin", temp).is_err());
+            assert_eq!(
+                std::fs::read_dir(moved.join("received")).unwrap().count(),
+                0
+            );
+            drop(dir);
+            remove_directory_link(&branch);
+        }
+        assert!(!outside.join("received/payload.bin").exists());
+        assert_eq!(
+            std::fs::read(outside.join("sentinel")).unwrap(),
+            b"protected"
+        );
+    }
+    #[test]
+    fn guarded_publish_rejects_foreign_staging_and_preserves_existing_hardlink() {
+        use std::io::Write;
+        let root = tempfile::tempdir().unwrap();
+        let a = root.path().join("a");
+        let b = root.path().join("b");
+        std::fs::create_dir(&a).unwrap();
+        std::fs::create_dir(&b).unwrap();
+        let sentinel = root.path().join("sentinel");
+        std::fs::write(&sentinel, b"protected hardlink").unwrap();
+        std::fs::hard_link(&sentinel, a.join("payload.txt")).unwrap();
+        let one = super::Destination::open(&a).unwrap();
+        let two = super::Destination::open(&b).unwrap();
+        let temp = one.stage().unwrap();
+        assert!(two.publish("payload.txt", temp).is_err());
+        assert_eq!(std::fs::read_dir(&a).unwrap().count(), 1);
+        let mut temp = one.stage().unwrap();
+        temp.write_all(b"new payload").unwrap();
+        one.publish("payload.txt", temp).unwrap();
+        assert_eq!(
+            std::fs::read(a.join("payload (1).txt")).unwrap(),
+            b"new payload"
+        );
+        assert_eq!(std::fs::read(&sentinel).unwrap(), b"protected hardlink");
+        drop(one);
+        drop(two);
+    }
+    #[test]
+    fn redirected_receive_directory_must_not_publish_outside() {
+        use std::io::Write;
+        let root = tempfile::tempdir().unwrap();
+        let outside = root.path().join("outside");
+        std::fs::create_dir(&outside).unwrap();
+        std::fs::write(outside.join("sentinel.txt"), b"protected synthetic").unwrap();
+        let link = root.path().join("received");
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            let result = std::process::Command::new("cmd.exe")
+                .args(["/c", "mklink", "/J"])
+                .arg(&link)
+                .arg(&outside)
+                .creation_flags(0x08000000)
+                .output()
+                .unwrap();
+            assert!(result.status.success(), "synthetic junction setup failed");
+        }
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&outside, &link).unwrap();
+        let result = super::Destination::open(&link).and_then(|dir| {
+            let mut temp = dir.stage()?;
+            temp.write_all(b"synthetic payload")?;
+            dir.publish("payload.bin", temp)
+        });
+        #[cfg(windows)]
+        std::fs::remove_dir(&link).unwrap();
+        #[cfg(unix)]
+        std::fs::remove_file(&link).unwrap();
+        assert!(result.is_err(), "redirected directory was accepted");
+        assert!(!outside.join("payload.bin").exists());
+        assert_eq!(
+            std::fs::read(outside.join("sentinel.txt")).unwrap(),
+            b"protected synthetic"
+        );
+    }
+    #[test]
     fn partial_staging_is_observable_before_writer_closes() {
         use std::io::Write;
         let root = tempfile::tempdir().unwrap();
@@ -1003,7 +1159,7 @@ mod tests {
             stop: false,
         };
         let mut temp = tempfile::NamedTempFile::new().unwrap();
-        super::stage_body(&mut source, &mut temp, 2 * 1024 * 1024, &cancel).unwrap();
+        super::stage_body(&mut source, temp.as_file_mut(), 2 * 1024 * 1024, &cancel).unwrap();
         assert_eq!(source.remaining, 0);
         assert!(source.max_request <= 64 * 1024);
         assert_eq!(temp.as_file().metadata().unwrap().len(), 2 * 1024 * 1024);
@@ -1015,7 +1171,9 @@ mod tests {
         };
         let mut temp = tempfile::NamedTempFile::new().unwrap();
         let path = temp.path().to_path_buf();
-        assert!(super::stage_body(&mut source, &mut temp, 2 * 1024 * 1024, &cancel).is_err());
+        assert!(
+            super::stage_body(&mut source, temp.as_file_mut(), 2 * 1024 * 1024, &cancel).is_err()
+        );
         assert!(source.remaining > 0);
         drop(temp);
         assert!(!path.exists());

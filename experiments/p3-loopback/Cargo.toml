@@ -15,5 +15,12 @@ sha2 = "=0.10.9"
 tempfile = "=3.27.0"
 uuid = { version = "=1.24.0", features = ["v4"] }
 
+[target.'cfg(windows)'.dependencies]
+cap-std = "=4.0.3"
+windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Wdk_Storage_FileSystem", "Win32_System_IO"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+rustix = { version = "=1.1.6", features = ["fs"] }
+
 [profile.dev]
 debug = 0

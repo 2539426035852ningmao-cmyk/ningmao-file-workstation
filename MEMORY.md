@@ -1,3 +1,11 @@
+## 2026-10-27 最新继续 · P3接收目录保护（优先于旧“尚未实现目录防御”）
+
+在原Draft #53 / feat/p3-loopback-transfer / f6b4c57上继续，仅实验模块，未改P2/P4业务/DB。原junction越界实际红态；新增Destination/Staged捕获目录身份与暂存生命周期：逐级拒绝目录链接，Windows固定祖先/叶目录，拒绝UNC/设备/远程映射卷；cap-std4.0.3只用于句柄相对create-new，NtSetInformationFile普通FileRenameInformation按源文件+RootDirectory句柄禁止覆盖，FileDispositionInfo按文件句柄清理。Linux openat NOFOLLOW和拥有生命周期的/proc FD相对落盘，原路径替换则拒绝发布，无/proc不回退。未用BypassAccessCheck/提权/账户策略修改。
+
+Windows本机9单测、fmt/全目标Clippy、64MiB真实双进程完整回归通过。保留旧过严共享锁导致正常发布失败、Win32相对rename错误87的过程，不把失败抹掉。最终源码及EXE/许可/边界见experiments/p3-loopback/README.md与evidence.json；最终EXE dae1ef64ce34df63b4e3b1e8ece84036144407eee89520ac2ae8640c3de16368。目录guard前一构建测量ea45f973…及f6旧测量只作历史，不冒充最终HEAD峰值。
+
+锁定新增cap-std家族11包，全部许可元数据/授权文本有记录；windows-sys/rustix原已在锁中，本轮显式引用。仍为R3隔离实验、Draft不自动合并；本机无桌面控制，程序均结束，无LAN/广播/防火墙/模型/费用/私人素材/安装发布。实际ACL拒绝、Win10、FAT/ReFS、低空间/异常退出清理、饱和/并行、任务接入/设备配对/官方互通未完成。下一步做任务中心接入准备，不能把目录子集验收冒称LAN产品已交付。
+
 ## 2026-10-27 本轮继续 · P3流式/传输中取消已运行（优先于旧16MiB说明）
 
 当前feat/p3-loopback-transfer / Draft #53，以原0657a1f继续，不新增PR、不改P2/P4主程序或DB。仅127.0.0.1:0；64KiB正文分块、临时文件+增量SHA256+防覆盖发布；有界4连接、会话锁外IO，另一TLS连接可取消，确认与最终发布同锁排序。标准Expect:100-continue先授权再发正文，拒绝时NeverRead断言证明不读取源正文。4单测、fmt/Clippy、本机64MiB真实两进程完整/部分写入后取消/断线清理/新会话恢复通过。最终原始实验stream-07-memory：取消确认10ms，完整清理另等409/临时文件消失；三个受控进程峰值6,885,376/9,121,792/9,220,096字节，非通用上限。EXE67b0e77bac39189fe23193bc276a7b0754aff2eadfde3cffb14c34db757d937b。2/5失败及4性能采样UNKNOWN均保留，不掩盖；Windows目录项大小滞后改为句柄元数据已补回归。证据在experiments/p3-loopback/README.md与evidence.json。

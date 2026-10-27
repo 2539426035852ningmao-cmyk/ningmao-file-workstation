@@ -36,6 +36,7 @@
   "P2Ancestor": "8ae8a590c467368178d1eaca0b017544d23d36d1",
   "protocolReference": "62bd3406ec80d62f2ed46269cdc06c4dcc391083",
   "licenseMetadata": {
+    "ambient-authority@0.0.2": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
     "asn1-rs@0.7.2": "MIT OR Apache-2.0",
     "asn1-rs-derive@0.6.0": "MIT OR Apache-2.0",
     "asn1-rs-impl@0.2.0": "MIT/Apache-2.0",
@@ -44,6 +45,8 @@
     "bitflags@2.13.2": "MIT OR Apache-2.0",
     "block-buffer@0.10.4": "MIT OR Apache-2.0",
     "bumpalo@3.20.3": "MIT OR Apache-2.0",
+    "cap-primitives@4.0.3": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+    "cap-std@4.0.3": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
     "cc@1.10.0": "MIT OR Apache-2.0",
     "cfg-if@1.0.5": "MIT OR Apache-2.0",
     "cpufeatures@0.2.17": "MIT OR Apache-2.0",
@@ -56,6 +59,7 @@
     "errno@0.3.14": "MIT OR Apache-2.0",
     "fastrand@2.5.0": "Apache-2.0 OR MIT",
     "find-msvc-tools@0.1.15": "MIT OR Apache-2.0",
+    "fs-set-times@0.20.3": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
     "futures-core@0.3.34": "MIT OR Apache-2.0",
     "futures-task@0.3.34": "MIT OR Apache-2.0",
     "futures-util@0.3.34": "MIT OR Apache-2.0",
@@ -63,14 +67,18 @@
     "getrandom@0.2.17": "MIT OR Apache-2.0",
     "getrandom@0.4.3": "MIT OR Apache-2.0",
     "httparse@1.10.1": "MIT OR Apache-2.0",
+    "io-extras@0.19.0": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+    "io-lifetimes@2.0.4": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+    "io-lifetimes@3.0.1": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+    "ipnet@2.12.2": "MIT OR Apache-2.0",
     "itoa@1.0.18": "MIT OR Apache-2.0",
     "js-sys@0.3.106": "MIT OR Apache-2.0",
     "lazy_static@1.5.1": "MIT OR Apache-2.0",
     "libc@0.2.191": "MIT OR Apache-2.0",
     "linux-raw-sys@0.12.1": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+    "maybe-owned@0.3.4": "MIT OR Apache-2.0",
     "memchr@2.8.3": "Unlicense OR MIT",
     "minimal-lexical@0.2.1": "MIT/Apache-2.0",
-    "ningmao-loopback-probe@0.1.0": "Apache-2.0",
     "nom@7.1.3": "MIT",
     "num-bigint@0.4.8": "MIT OR Apache-2.0",
     "num-conv@0.2.2": "MIT OR Apache-2.0",
@@ -87,6 +95,7 @@
     "ring@0.17.14": "Apache-2.0 AND ISC",
     "rusticata-macros@4.1.0": "MIT/Apache-2.0",
     "rustix@1.1.6": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+    "rustix-linux-procfs@0.1.1": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
     "rustls@0.23.43": "Apache-2.0 OR ISC OR MIT",
     "rustls-pki-types@1.15.1": "MIT OR Apache-2.0",
     "rustls-webpki@0.103.16": "ISC",
@@ -130,37 +139,52 @@
     "windows_x86_64_gnu@0.52.6": "MIT OR Apache-2.0",
     "windows_x86_64_gnullvm@0.52.6": "MIT OR Apache-2.0",
     "windows_x86_64_msvc@0.52.6": "MIT OR Apache-2.0",
+    "winx@0.36.4": "Apache-2.0 WITH LLVM-exception",
     "x509-parser@0.18.1": "MIT OR Apache-2.0",
     "yasna@0.6.0": "MIT OR Apache-2.0",
     "zeroize@1.9.1": "Apache-2.0 OR MIT",
     "zmij@1.0.23": "MIT"
   },
-  "unitTests": 4,
+  "unitTests": 9,
   "clippy": "PASS",
   "platform": "Windows11 x64",
-  "rejectedUploadBodyNeverRead": true,
-  "oversizedControlRejected": true,
-  "oversizedFileMetadataRejected": true,
-  "sourceSha256": "bf2661fca1382e907c66d24ba2100247eae89fcf91ddf6e86534fc9ba70f9370",
-  "resourceMeasurement": {
-    "status": "MEASURED",
-    "elapsedMillis": 11230,
-    "processCount": 3,
-    "perProcessPeakWorkingSetBytes": [
-      6885376,
-      9121792,
-      9220096
-    ],
-    "executableSha256": "67b0e77bac39189fe23193bc276a7b0754aff2eadfde3cffb14c34db757d937b",
-    "method": "Windows Process.PeakWorkingSet64, three exact-path controlled processes; OS/DLL/runtime included; not a portable ceiling"
+  "sourceSha256": {
+    "main.rs": "bb383dfa40ad24bd454704abbde59b82d981ac760e675df6f5bb4271c681fe78",
+    "destination.rs": "087c4216ad34ace32ea8669bafeaae5bc41f2c922dc93a0d5848c9d59a420d7b"
   },
-  "scopeLimits": [
-    "Loopback only; no LAN/discovery/firewall",
-    "64MiB actually tested; 512MiB admission cap is not a verified full-size transfer",
-    "At most 4 connection workers; saturated-control-path/parallel uploads not load-tested",
-    "No product receive UI, real-device pairing or official LocalSend interoperability",
-    "No resume across process death; receiver-directory/reparse defenses remain before product integration"
-  ],
+  "executableSha256": "dae1ef64ce34df63b4e3b1e8ece84036144407eee89520ac2ae8640c3de16368",
+  "directoryGuards": {
+    "preexistingLeafJunctionRejected": true,
+    "ancestorJunctionRejected": true,
+    "windowsRenameBlockedWhilePinned": true,
+    "foreignStagingRejected": true,
+    "oldHardlinkProtected": true,
+    "directoryHandlesReleasedAfterDrop": true,
+    "stagingOwnsCleanupLifetime": true,
+    "relativeParentDeviceUNCRejected": true,
+    "mappedRemoteVolumePolicy": "rejected by GetDriveTypeW before opening; actual mapped remote volume NOT_TESTED",
+    "linuxReplacementCheck": "CI_PENDING",
+    "windowsCreate": "cap-std 4.0.3 descriptor-relative create-new; READ-only share on staged file",
+    "windowsPublish": "NtSetInformationFile FileRenameInformation, captured file+root handles, replacement disabled",
+    "windowsCleanup": "FileDispositionInfo on captured file handle",
+    "linuxIO": "openat NOFOLLOW + owned directory descriptor via /proc/self/fd; no path fallback"
+  },
+  "resourceMeasurement": {
+    "status": "NOT_REMEASURED_AFTER_FINAL_LOCAL_VOLUME_POLICY",
+    "priorGuardBuild": {
+      "status": "MEASURED",
+      "elapsedMillis": 10790,
+      "processCount": 3,
+      "perProcessPeakWorkingSetBytes": [
+        6938624,
+        9150464,
+        9371648
+      ],
+      "executableSha256": "ea45f973859d5760e8b5b9006d44a47348eeb66f8ed5522dd0f2597746bf911f",
+      "executableBytes": 4364288,
+      "method": "Windows Process.PeakWorkingSet64; exact-path three controlled processes; includes OS/DLL/runtime; not a universal ceiling"
+    }
+  },
   "priorFailures": [
     {
       "case": "stream-02",
@@ -176,6 +200,29 @@
       "case": "stream-05-memory",
       "result": "FAIL",
       "reason": "Unexpected connection reset before large transfer. Prior logs lack exact request route; early rejection while sender writes body was repaired with standard Expect:100-continue and a denied-body-never-read assertion."
+    },
+    {
+      "case": "original redirected destination test",
+      "result": "FAIL before guard",
+      "reason": "A synthetic Windows junction redirected publication into the synthetic outside folder."
+    },
+    {
+      "case": "overstrict directory share guard",
+      "result": "FAIL normal publication",
+      "reason": "Denying directory write sharing blocked valid rename/hardlink operations."
+    },
+    {
+      "case": "Win32 relative rename prototype",
+      "result": "FAIL normal publication",
+      "reason": "SetFileInformationByHandle with a relative root returned ERROR_INVALID_PARAMETER on this host; final implementation uses ordinary NtSetInformationFile by captured handles."
     }
+  ],
+  "scopeLimits": [
+    "Only isolated loopback, no product task/UI integration or LAN",
+    "Actual streamed size 64MiB; 512MiB is only admission cap",
+    "Real user ACL failures, FAT/ReFS, Windows10, low-space/crash cleanup and saturated control channel NOT_TESTED",
+    "Normal file ACLs enforced, no elevation or bypass-access-check API",
+    "No cross-process resume; failed cleanup needs future task journal",
+    "Linux requires /proc, fail closed otherwise"
   ]
 }
