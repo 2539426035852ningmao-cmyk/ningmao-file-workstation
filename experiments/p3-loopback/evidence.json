@@ -2,24 +2,37 @@
   "badNamesRejected": 5,
   "badTokenRejected": true,
   "batchFiles": 2,
+  "cancelAckCompletedFiles": 0,
+  "cancelAckMillis": 10,
   "cancelBeforeUpload": true,
+  "cancelDuringUpload": true,
   "checksumMismatchRejected": true,
   "collisionProtected": true,
+  "controlLimitBytes": 65536,
+  "disconnectDuringUpload": true,
   "disconnectNoPublish": true,
+  "fileLimitBytes": 536870912,
   "lan": "NOT_TESTED",
+  "largeFileHashVerified": true,
+  "maxConcurrentConnections": 4,
+  "nextSessionSucceeded": true,
+  "noPublishAfterCancelAck": true,
+  "partialStagingObserved": true,
   "receiverRejected": true,
   "replayRejected": true,
   "scope": "TWO_PROCESS_LOOPBACK_MTLS",
   "sha256": "591011a9a08b456c2eadc062b3bf48e54d46d90904dc7e07ec6effdc77363689",
   "singleFile": true,
+  "sourceLargeFilePreserved": true,
   "sourcePreserved": true,
+  "stagingCleaned": true,
   "status": "SUCCESS",
-  "streaming": "NOT_IMPLEMENTED; bounded16MiB probe",
+  "streamChunkBytes": 65536,
+  "streaming": "PASS",
+  "streamingBytes": 67108864,
+  "streamingSha256": "79192e1be3028ac0ba18a27c81f633ebde167724fbebdd1c1de00fa174416270",
   "unpairedClientCertificateRejected": true,
   "untrustedServerCertificateRejected": true,
-  "unitTests": 2,
-  "clippy": "PASS",
-  "platform": "Windows11 x64",
   "P2Ancestor": "8ae8a590c467368178d1eaca0b017544d23d36d1",
   "protocolReference": "62bd3406ec80d62f2ed46269cdc06c4dcc391083",
   "licenseMetadata": {
@@ -122,6 +135,47 @@
     "zeroize@1.9.1": "Apache-2.0 OR MIT",
     "zmij@1.0.23": "MIT"
   },
-  "sourceSha256": "800bcc67d81e0f8a65f21a13f6faef343836978de70bd3155d0be3b7efcb27ac",
-  "initialFailure": "Windows accepted sockets inherited nonblocking; corrected explicitly. Earlier probes failed, not counted as successes."
+  "unitTests": 4,
+  "clippy": "PASS",
+  "platform": "Windows11 x64",
+  "rejectedUploadBodyNeverRead": true,
+  "oversizedControlRejected": true,
+  "oversizedFileMetadataRejected": true,
+  "sourceSha256": "bf2661fca1382e907c66d24ba2100247eae89fcf91ddf6e86534fc9ba70f9370",
+  "resourceMeasurement": {
+    "status": "MEASURED",
+    "elapsedMillis": 11230,
+    "processCount": 3,
+    "perProcessPeakWorkingSetBytes": [
+      6885376,
+      9121792,
+      9220096
+    ],
+    "executableSha256": "67b0e77bac39189fe23193bc276a7b0754aff2eadfde3cffb14c34db757d937b",
+    "method": "Windows Process.PeakWorkingSet64, three exact-path controlled processes; OS/DLL/runtime included; not a portable ceiling"
+  },
+  "scopeLimits": [
+    "Loopback only; no LAN/discovery/firewall",
+    "64MiB actually tested; 512MiB admission cap is not a verified full-size transfer",
+    "At most 4 connection workers; saturated-control-path/parallel uploads not load-tested",
+    "No product receive UI, real-device pairing or official LocalSend interoperability",
+    "No resume across process death; receiver-directory/reparse defenses remain before product integration"
+  ],
+  "priorFailures": [
+    {
+      "case": "stream-02",
+      "result": "FAIL",
+      "reason": "Partial-staging observation timed out; Windows directory-entry metadata lagged while writer held file open. Replaced by file-handle metadata; regression added."
+    },
+    {
+      "case": "stream-04-memory",
+      "result": "UNKNOWN for memory; transfer PASS",
+      "reason": "Monitor compared unnormalized paths and collected zero process samples; not used as memory evidence."
+    },
+    {
+      "case": "stream-05-memory",
+      "result": "FAIL",
+      "reason": "Unexpected connection reset before large transfer. Prior logs lack exact request route; early rejection while sender writes body was repaired with standard Expect:100-continue and a denied-body-never-read assertion."
+    }
+  ]
 }
