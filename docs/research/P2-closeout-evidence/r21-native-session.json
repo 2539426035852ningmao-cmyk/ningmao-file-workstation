@@ -117,5 +117,94 @@
     "firstProbeCompileSeconds": 17.68,
     "warmProbeCompileSeconds": 3.35,
     "measurementsPerCase": 1
-  }
+  },
+  "followupSessions": [
+    {
+      "clientDate": "2026-10-27",
+      "timezone": "Asia/Hong_Kong",
+      "validationSource": "72465393b69ba809c9aa5df519b7a014ed423321",
+      "binaryChanged": false,
+      "method": "Actual existing r21 Windows executable, own synthetic data, Computer Use API. No harness/browser result is presented as native.",
+      "steps": [
+        {
+          "id": "native-marquee-select",
+          "status": "PASS",
+          "evidence": "Dragged from file-area whitespace; all four bound items visibly selected, 4-item counter. Escape cleared selection; Ctrl+A selected four again."
+        },
+        {
+          "id": "pointer-handle-sort",
+          "status": "PARTIAL",
+          "evidence": "Automation started drag but native announcement ended item5 over item5, no reorder. Not established as product failure or sort PASS; do not repeat manual basics without better automation."
+        },
+        {
+          "id": "topmost-manager-occlusion",
+          "status": "PASS",
+          "evidence": "Enabled topmost via menu; persisted main_topmost=true and full shelf stayed above activated own manager. Disabled via menu; main_topmost=false and manager then covered shelf. CtrlAltG brought non-topmost shelf forward again without explicit main activation."
+        },
+        {
+          "id": "minimize-recovery-respect",
+          "status": "PASS",
+          "evidence": "Minimized main, manager recovery action reported all windows in visible area and did not restore it. Explicit CtrlAltG then restored main. This is not a physical monitor-disconnect test."
+        },
+        {
+          "id": "close-hide-disable-enable",
+          "status": "PASS",
+          "evidence": "Main X hid shelf with process alive and no orb enabled. Manager disabled and saved G: JSON enabled=false, UI shortcut disabled, G did not reveal main. Re-enabled and saved G: UI current CtrlAltG, same chord restored hidden main."
+        },
+        {
+          "id": "r21-shape-and-keyboard-loop",
+          "status": "PASS",
+          "evidence": "Collapsed full shelf to real orb; click→capsule→peek loaded four stored records and three recent synthetic cards. Escape→capsule→orb. With orb focused via Tab, CtrlEnter opened full shelf directly. CtrlEnter without focus was a no-op, not counted as failure."
+        },
+        {
+          "id": "close-entry-preserves-shelf",
+          "status": "PASS",
+          "evidence": "Closed floating entry through own menu; enabled=false, expanded=true and full shelf with four bound items remained visible."
+        },
+        {
+          "id": "normal-exit-release",
+          "status": "PASS",
+          "evidence": "Explicit full-exit menu closed own main/manager/entry; PID absent and own window list empty. Existing opt-in Win32 hotkey free probe then passed1/1; probe released its own registration, compile18.27s/test<0.01s."
+        }
+      ],
+      "after": {
+        "protectedFileCount": 9,
+        "allProtectedHashesUnchanged": true,
+        "logicalDumpUnchanged": true,
+        "integrity": "ok",
+        "schema": 2,
+        "items": 7,
+        "shelves": 3,
+        "jobs": [
+          [
+            "completed",
+            2
+          ]
+        ],
+        "referenceRows": [
+          [
+            1,
+            3
+          ],
+          [
+            3,
+            4
+          ]
+        ],
+        "wakeConfigRestored": true
+      },
+      "programRunning": false,
+      "rawDesktopScreenshotsPublished": false,
+      "rollback": "No app/SQLite migration; existing r21 and local consistent before/after backups retained. G enabled and main_topmost=false restored; test entry position may be retained.",
+      "notTested": [
+        "Actual incoming native Dock drop",
+        "Tray icon/menu itself",
+        "Real task queue/progress/cancel UI",
+        "Soft/system recycle and zero-shelf full UI",
+        "Physical DPI/monitor hotplug/Win10",
+        "External hotkey owner error UI",
+        "Pointer sort completion and Shift multiselect full native matrix"
+      ]
+    }
+  ]
 }
