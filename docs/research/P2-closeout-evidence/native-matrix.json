@@ -80,6 +80,11 @@
       "id": "r22-zero-shelf-restore-invalid-reference",
       "status": "PARTIAL",
       "scope": "Exact EXE48993a4a…2fd30 native zero-state/new shelf/whole and individual restore/identity-tags-order/normal restart/source-missing-and-return PASS. Three source hashes and seven tables unchanged. Recycle state prepared through opt-in Store fixture; native remove/purge/system recycle NOT_TESTED. See r22-recovery-native.json; no r21 result inheritance."
+    },
+    {
+      "id": "r22-live-batch-progress-and-cancel",
+      "status": "PARTIAL",
+      "scope": "256 synthetic64KiB files via native picker. Main and manager real progress/automatic completion256/256 PASS;256 new copy hashes correct,261 protected hashes unchanged, no staging, normal exit. Cancel click ran after completion; in-flight cancellation NOT_TESTED, no false PASS/FAIL. See r22-batch-progress-native.json."
     }
   ],
   "desktopAuthorization": "2026-10-26 user lifted prior launch/input bans; separate safety gates unchanged"
