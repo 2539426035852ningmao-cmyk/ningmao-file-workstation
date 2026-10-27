@@ -15,7 +15,9 @@ test("中文英文、标签及类型搜索聚合同文件引用，不暴露路�
   expect(await dialog.innerHTML()).not.toContain("SYNTHETIC/private");
   await input.fill("收藏");await dialog.getByRole("combobox",{name:"搜索类型"}).selectOption("png");await expect(dialog.getByRole("listbox").getByRole("option")).toHaveCount(1);await expect(dialog.getByText(/标签匹配/)).toBeVisible();
   await input.fill("DESIGN");await expect(dialog.getByRole("listbox").getByRole("option")).toHaveCount(1);
-  const dir=process.env.SEARCH_EVIDENCE;if(dir){mkdirSync(dir,{recursive:true});await page.evaluate(()=>document.documentElement.className="light");await page.screenshot({path:path.join(dir,"search-light.png")});await page.evaluate(()=>document.documentElement.className="dark");await page.screenshot({path:path.join(dir,"search-dark.png")});}
+  await page.evaluate(()=>document.documentElement.className="light");await expect(dialog).toHaveCSS("background-color","rgb(255, 255, 255)");
+  const dir=process.env.SEARCH_EVIDENCE;if(dir){mkdirSync(dir,{recursive:true});await page.screenshot({path:path.join(dir,"search-light.png")});}
+  await page.evaluate(()=>document.documentElement.className="dark");await expect(dialog).toHaveCSS("background-color","rgb(25, 27, 32)");if(dir)await page.screenshot({path:path.join(dir,"search-dark.png")});
   await page.keyboard.press("Escape");await expect(dialog).toHaveCount(0);expect((await page.evaluate(()=>JSON.parse(localStorage.getItem("test-state")!).items)).length).toBe(items.length);
 });
 test("定位跨架结果清除旧过滤并滚动到目标，Ctrl F 保持可用",async({page})=>{
