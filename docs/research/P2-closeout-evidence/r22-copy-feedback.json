@@ -1,0 +1,21 @@
+{
+  "candidate": "r22",
+  "clientDate": "2026-10-27",
+  "sourceCommit": "4f2f8cbebeb4b677420e8c46b9f59dbacc8d01b2",
+  "problem": "Fast copy-finished event arrives before import_paths response; later started message overwrites terminal feedback. Actual r21 native target-sharing failure proves main/manager disagreement.",
+  "scope": "App.tsx feedback priority only; existing Rust/Copy/DB/permissions/dependency code unchanged",
+  "red": {
+    "browserCases": 3,
+    "result": "All failed with copying-started replacing expected failed/completed/cancelled terminal text"
+  },
+  "green": {
+    "fileShelfTests": 10,
+    "seconds": 21.8,
+    "allBrowserTests": 102,
+    "allBrowserMinutes": 2.0
+  },
+  "binaryBuild": "PENDING_CI",
+  "nativeAcceptance": "NOT_TESTED",
+  "currentResults": "See Issue31 / PR40 live source-bound build and native follow-up; this is the pre-build checkpoint, not a claim of native success.",
+  "rollback": "Revert4f2f8cb or use preserved r21 isolated package; old r21 still has documented terminal-feedback FAIL. No schema downgrade or source-file restore needed."
+}
