@@ -1,0 +1,84 @@
+{
+  "date": "2026-10-27",
+  "stage": "P2",
+  "overall": "PASS_SCOPED",
+  "candidate": {
+    "name": "r22",
+    "functionalSource": "4f2f8cbebeb4b677420e8c46b9f59dbacc8d01b2",
+    "buildCommit": "8875147dd3a9e818a98afe204573d141d9e71b0f",
+    "exeSha256": "48993a4adeb1b9af0cf8e241c003094b3a3d3bdf1d665595b7bdd9ed5ea2fd30",
+    "runtimeChanged": false,
+    "packageRebuilt": false,
+    "installed": false
+  },
+  "method": {
+    "host": "Windows11 Home Chinese 10.0.22631",
+    "setup": "New opt-in Rust Store fixture: two recycled shelves, three persistent references, one individually removed reference, tags and manual order. Root must not exist. No private files or existing database.",
+    "native": "Computer Use on actual r22 Tauri/WebView2: zero-state creation, whole shelf and item restore, selection, refresh, normal exit/restart.",
+    "verification": "Read-only SQLite queries/consistent backups and SHA256. No production diagnostic interface or browser mock.",
+    "boundary": "Recycle state prepared in new fixture before launch. No native remove, purge or Windows Recycle Bin action. Preparation is not proof of those UI paths."
+  },
+  "checks": [
+    {
+      "id": "zero-active-shelves",
+      "status": "PASS",
+      "observed": "Native empty state offered create/recover; recycled shelves not reseeded."
+    },
+    {
+      "id": "create-from-zero",
+      "status": "PASS",
+      "observed": "Created persistent shelf3; recycled shelves1/2 retained."
+    },
+    {
+      "id": "whole-shelf-restore",
+      "status": "PASS",
+      "observed": "Restored shelf1: original IDs3/1, tags on ID1, manual order retained; individually removed ID2 stayed recycled."
+    },
+    {
+      "id": "individual-restore",
+      "status": "PASS",
+      "observed": "Restored ID2 separately; cards Gamma.txt, Alpha.txt, Chinese recovery text in original order IDs3/1/2."
+    },
+    {
+      "id": "normal-exit-restart",
+      "status": "PASS",
+      "observed": "PID36648 ended via full-exit menu. Restart PID40636 displayed original content/order; all seven logical tables matched pre-exit backup."
+    },
+    {
+      "id": "invalid-reference-return",
+      "status": "PASS",
+      "observed": "Renamed only synthetic Alpha source; native refresh showed reference invalid, IDs/tags/positions unchanged. Returned exact original path and refreshed: normal TXT restored."
+    },
+    {
+      "id": "final-safety",
+      "status": "PASS",
+      "observed": "Normal full exit, both PIDs ended, fresh window inventory empty. Three source hashes unchanged, schema2 integrity ok, seven tables unchanged after restart/offline round trip. 2 active shelves, 1 recycled shelf, 3 active refs, 0 jobs/journal entries."
+    },
+    {
+      "id": "native-remove-purge-system-recycle",
+      "status": "NOT_TESTED",
+      "observed": "No UI deletion performed; backend tests do not prove UI acceptance."
+    },
+    {
+      "id": "live-copy-cancel",
+      "status": "NOT_TESTED",
+      "observed": "No copy started in this fixture."
+    }
+  ],
+  "automated": {
+    "preparation": "1 explicit opt-in test passed",
+    "recycleLifecycle": "10 passed, 0 failed on current Windows host",
+    "rustfmt": "PASS",
+    "priorRuntime": "Prior102 browser/69Rust/CI evidence retained for unchanged runtime; not claimed rerun here.",
+    "ci": "Read latest PR checks; no new build substituted for tested r22."
+  },
+  "rollback": "Old candidates/payload unchanged; isolated before/after consistent backups local only. Revert this test/evidence commit. No user migration, deletion, network listener, model or fees.",
+  "remaining": [
+    "native soft-remove/system recycle UI",
+    "live queue/progress/cancel/interrupted app recovery",
+    "Dock incoming drag/drop",
+    "tray and remaining window cases",
+    "physical DPI/multi-monitor/Win10",
+    "R3 stage merge approval"
+  ]
+}

@@ -75,6 +75,26 @@
       "id": "r22-fast-copy-terminal-feedback",
       "status": "PASS",
       "scope": "Exact EXE48993a4a…2fd30/build8875147, code4f2f8cb: actual OS32 failure0/1 and unlocked retry1/1 main+manager+DB consistent; six protected files unchanged, no staging leak, normal exit. Only this acceptance subset; original r21 FAIL preserved and no general r22 inheritance."
+    },
+    {
+      "id": "r22-zero-shelf-restore-invalid-reference",
+      "status": "PARTIAL",
+      "scope": "Exact EXE48993a4a…2fd30 native zero-state/new shelf/whole and individual restore/identity-tags-order/normal restart/source-missing-and-return PASS. Three source hashes and seven tables unchanged. Recycle state prepared through opt-in Store fixture; native remove/purge/system recycle NOT_TESTED. See r22-recovery-native.json; no r21 result inheritance."
+    },
+    {
+      "id": "r22-live-batch-progress-and-cancel",
+      "status": "PARTIAL",
+      "scope": "256 synthetic64KiB files via native picker. Main and manager real progress/automatic completion256/256 PASS;256 new copy hashes correct,261 protected hashes unchanged, no staging, normal exit. Cancel click ran after completion; in-flight cancellation NOT_TESTED, no false PASS/FAIL. See r22-batch-progress-native.json."
+    },
+    {
+      "id": "r22-inflight-cancel-wait-retry-restart",
+      "status": "PASS",
+      "scope": "Exact r22 48993a4a…2fd30: actual native copying→one cancel click→disabled cancelling/wait→cancelled80/256 main/manager/DB.80 verified copies retained, unfinished/current/later outputs absent, source aliases and five original hashes unchanged, no staging. Manual one-file retry completed1/1,81 copies verified; normal exit/restart seven tables unchanged and two terminal jobs visible. Ordinary hardlinked synthetic sources only; pre-byte/real-app abnormal exit separate. See r22-inflight-cancel-native.json."
+    },
+    {
+      "id": "r22-native-system-recycle-cross-shelf-record-entity-restore",
+      "status": "PASS",
+      "scope": "User approved only one42B synthetic English file. Old expired ticket rejected without changes; fresh native preview/second confirm→Windows recycle→only initiating ref1 trashed, ref88 invalid/tag kept. Software restore kept IDs/tags but no entity; actual Windows single-item restore returned same path/SHA256; native both shelves normal.87 refs/schema2 integrity;5 small protected files/source aliases/81 copy hashes unchanged, no staging; normal exit/restart seven tables unchanged/no replay, all test windows exited. Single regular file/opt-in test root only; not batch/purge or whole shelf UI acceptance. See r22-system-recycle-native.json."
     }
   ],
   "desktopAuthorization": "2026-10-26 user lifted prior launch/input bans; separate safety gates unchanged"

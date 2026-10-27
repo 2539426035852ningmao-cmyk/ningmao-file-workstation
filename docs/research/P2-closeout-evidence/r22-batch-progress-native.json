@@ -1,0 +1,37 @@
+{
+  "date": "2026-10-27",
+  "stage": "P2",
+  "overall": "PARTIAL",
+  "candidate": {
+    "name": "r22",
+    "functionalSource": "4f2f8cbebeb4b677420e8c46b9f59dbacc8d01b2",
+    "buildCommit": "8875147dd3a9e818a98afe204573d141d9e71b0f",
+    "exeSha256": "48993a4adeb1b9af0cf8e241c003094b3a3d3bdf1d665595b7bdd9ed5ea2fd30",
+    "runtimeChanged": false
+  },
+  "setup": "Reused existing explicit prepare_candidate_fixture on another new synthetic root. Added256 uniquely named64KiB files (16MiB total); zero initial jobs; manager task page opened before submission. Existing fixture source3/bound2 plus batch256 all hashed before launch.",
+  "native": [
+    {
+      "id": "live-progress",
+      "status": "PASS",
+      "observed": "Actual native multi-file picker selected256 files. Manager auto-updated copying/bytes/progress, accessibility15/256 and screenshot38/256; main compact progress38/256 visible. No manual refresh."
+    },
+    {
+      "id": "cancel",
+      "status": "NOT_TESTED",
+      "observed": "Attempted one observed cancel-button click, but by execution the batch was already completed256/256 and the button gone. No cancelled job; neither cancel success nor product failure inferred. No repeated attempt."
+    },
+    {
+      "id": "completion",
+      "status": "PASS",
+      "observed": "Main and manager both completed256/256; exactly256 new copies, each SHA256 matches its source.261 pre-existing protected objects unchanged; no staging leak. SQLite one completed job, no duplicate."
+    },
+    {
+      "id": "exit",
+      "status": "PASS",
+      "observed": "Owned PID19952 exited through full-exit menu, fresh window inventory empty.261 persistent refs retained after expected session-reference cleanup; sources and old targets unchanged; schema2 integrity ok."
+    }
+  ],
+  "remaining": "True in-flight cancel/cancel-wait, queued-before-first-byte, interrupted real-app recovery, native system recycle/Dock/DPI gates remain unproven.",
+  "safety": "Only generated files, no installation, release, merge, real user files, network or models. Backups/raw paths stay local, candidate hash unchanged."
+}
