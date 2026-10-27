@@ -1,3 +1,7 @@
+# 最新候选检查点：P3 任务 Store 适配（2026-10-27）
+
+`feat/p3-task-integration` 从 #53 06758d7 分出，代码 b1b7311da2cb9ad9727afd055056f9fdb1245a1d。真实 mTLS 双进程回环事件已通过桌面实际 Store 持久化：11单元+4 Store（含11任务真实流）/fmt/all-target Clippy PASS，schema2/来源/旧目标/引用ID标签保留，进度/取消等待/四种终态/重开一致。不是桌面 GUI 网络联调；无新 IPC/默认监听，管理文案/单复制 Runtime 未改，尚无崩溃一致性、持久化任务关联/自动重放/逐文件结果/加入架。详见 docs/research/P3-task-store-integration.md 和 JSON；CI待本PR精确HEAD，#53旧PASS不继承。C盘仅约150MB，构建/合成材料用D盘。无LAN/防火墙/模型/费用/安装/发布/合并，r22和私人数据未触碰。P2仍PARTIAL，P4 peer #54不在此分支，不重复实现。
+
 ## 最新：2026-10-27 Linux取消终态兼容修复，须核对最新CI
 
 上一轮因用户中断暂停，恢复后已核对无实验进程。P3目录保护已在Windows本机10单测、Clippy、64MiB回环通过；此前Linux文件/目录9单测通过但完整回环失败。结构化诊断定位mid-stream-upload-terminal读取409时ConnectionReset errno104，Windows后续独立CI通过（此前部分Windows为matrix联动取消）。本轮添加写半关闭+500ms/4MiB有界丢弃密文、发送端终态后关闭，新增排队正文TCP测试；不写入丢弃字节、不改变取消/发布锁。新CI必须完成后才报告双平台恢复。安全诊断只含阶段/数值/IO种类，无原始日志和凭据。
