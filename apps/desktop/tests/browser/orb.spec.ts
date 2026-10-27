@@ -44,7 +44,9 @@ test("原生锁定信号保持形态和命中区，解除后成功文字可读",
   await expect(page.getByTestId("morph-capsule")).toBeDisabled();
   await page.keyboard.press("Escape");expect(await page.getByTestId("morph-capsule").boundingBox()).toEqual(before);
   await expect(page.getByRole("button",{name:"下一页文件架"})).toBeDisabled();
-  await page.evaluate(()=>{window.testHarness.nativeDrag(false);window.testHarness.notifyFinished("复制完成；已完成 1/1 项，来源保留。");});
+  await page.evaluate(()=>{window.testHarness.nativeDrag(false);window.testHarness.notifyCopying(true);});
+  await expect(page.getByText("正在复制",{exact:true})).toBeVisible();
+  await page.evaluate(()=>{window.testHarness.notifyCopying(false);window.testHarness.notifyFinished("复制完成；已完成 1/1 项，来源保留。");});
   await expect(page.getByRole("status")).toContainText("复制完成");
   await page.getByRole("button",{name:"查看 灵感收集 轻预览",exact:true}).click();
   await page.getByRole("button",{name:"打开文件架",exact:true}).click();
