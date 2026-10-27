@@ -95,7 +95,23 @@
       "id": "r22-native-system-recycle-cross-shelf-record-entity-restore",
       "status": "PASS",
       "scope": "User approved only one42B synthetic English file. Old expired ticket rejected without changes; fresh native preview/second confirm→Windows recycle→only initiating ref1 trashed, ref88 invalid/tag kept. Software restore kept IDs/tags but no entity; actual Windows single-item restore returned same path/SHA256; native both shelves normal.87 refs/schema2 integrity;5 small protected files/source aliases/81 copy hashes unchanged, no staging; normal exit/restart seven tables unchanged/no replay, all test windows exited. Single regular file/opt-in test root only; not batch/purge or whole shelf UI acceptance. See r22-system-recycle-native.json."
+    },
+    {
+      "id": "r23-terminal-persistence-error",
+      "status": "PARTIAL",
+      "scope": "Real SQLite trigger failure reproduced false completed response under old finalizer (1FAIL/1PASS); fixed finalizer2PASS, error now uses existing desktop-error and non-success interrupted payload. Source05b031c; new schema/dependencies/Copy engine unchanged. Native modal picker could be opened but not reliably targeted; no file submitted, native failed-terminal-write notification NOT_TESTED. Initial test trigger removed; protected5 unchanged."
+    },
+    {
+      "id": "r23-native-interrupted-worker-startup",
+      "status": "PASS",
+      "scope": "Source05b031c/EXE928f2e81e8b829193e515c2aa12f78a456a4343095d92aefe49043a005ac419c: reused existing production CopyPlan worker, killed after actual1MiB of8MiB while SQLite/handles live. Started actual packaged-code r23 EXE: task drawer visibly showed interrupted and retained staging position. Prior completed/source hashes intact, incomplete target absent, staging1MiB retained, schema2/integrity ok; normal UI exit cleared only live session refs; process/window gone. This is killed Rust copy worker→real app recovery, NOT a GUI-launched in-flight copy killed mid-transfer; that remains NOT_TESTED."
     }
   ],
-  "desktopAuthorization": "2026-10-26 user lifted prior launch/input bans; separate safety gates unchanged"
+  "desktopAuthorization": "2026-10-26 user lifted prior launch/input bans; separate safety gates unchanged",
+  "r23Candidate": {
+    "source": "05b031c076e17062cdb89beddc533bb5a04ade17",
+    "exeSha256": "928f2e81e8b829193e515c2aa12f78a456a4343095d92aefe49043a005ac419c",
+    "package": "Local Windows debug no-bundle build; no MSI installation",
+    "stableR22Preserved": true
+  }
 }

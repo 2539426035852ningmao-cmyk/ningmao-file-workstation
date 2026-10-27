@@ -1,3 +1,15 @@
+# 最新有效检查点（2026-10-27 新全面接管指令）
+
+用户新附件 d67a7b33 已完整读取：优先P2真实Preview阻塞，其次复用P3 #53/#55、P4 #54、DevLab #52；不新增同方向PR/重复框架/大报告，L1→L2→L3分级；D-01 Win11 Preview不被Win10/多屏设备无限阻塞，文件安全/R3合并/LAN/费用/发布门槛仍独立。
+
+当前回到 feat/p2-management-flow / 原Draft #40。新修复代码 `05b031c076e17062cdb89beddc533bb5a04ade17`（r23）：copy_job原先忽略finish_job写库错误却广播成功；以真实SQLite触发器故障复现1FAIL/1PASS后改为typed CopyFinished、interrupted非成功与既有desktop-error明确提示。没有改Store/Copy引擎/schema/依赖/权限。2专项、process_safety5PASS1受控worker ignored、file_safety7、all-target Clippy/生产前端/Windows debug构建PASS。EXE SHA256 `928f2e81e8b829193e515c2aa12f78a456a4343095d92aefe49043a005ac419c`，在D盘独立r23目录，旧r22不覆盖；本机未重打MSI。构建第一次因命令工作目录错误失败，已纠正，不记产品缺陷。
+
+原生：初次Hidden启动无输入几何，job0后只终止自有实例；Normal启动成功，原生添加对话框可开但未暴露可独立目标，输入未提交；停止反复点击，故失败落库通知的真实UI仍NOT_TESTED，不冒充通过。触发器已移除、5保护文件不变。改用既有copy_worker_fixture真实CopyPlan在1MiB/8MiB处停住后仅终止该测试子进程，再启动r23读取同一DB；实际任务抽屉显示上次中断和暂存位置。完成副本和来源hash、未完成不发布、1MiB暂存保留/schema2/integrity ok，UI正常完整退出后进程为零。不是GUI发起复制时杀进程；保留该范围未测。详见既有native-matrix新增两行。
+
+P2仍PARTIAL，Dock真投放/冻结、托盘、回收异常等门槛未擅自放行；后续先复用已确认的r22原生证据并完成必要r23增量。不自动合并main/安装/发布，无私人素材、LAN、防火墙、模型或费用。本轮CI待#40精确新HEAD，避免仅为补记文档再打包。
+
+P3 #55 HEAD35c1afa / 代码b1b7311：五项CI全SUCCESS（40517705535双OS11+4/真实64MiB与Store，40517705538桌面102浏览器/69Rust，40517705524包核验）；最终记录Issue37#issuecomment-6444297072。关联内存/无自动重放、桌面Runtime未接、无LAN。P4 #54 f8d3ab8与DevLab #52 6b0dca4另支保留，不在此分支，不重复实现。后续P3先按需普通merge新P2修复，禁止丢掉其传输/Store代码。
+
 # 项目交接记忆
 
 ## 当前有效检查点（2026-10-27，优先于下方历史“当前任务”措辞）
