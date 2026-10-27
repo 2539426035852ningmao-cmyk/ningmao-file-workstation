@@ -145,6 +145,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   const windowDrag=useWindowDrag(()=>backend.desktopMove(),!busy && !hover && !dragging);
   const activeShelf=useRef(shelfId); activeShelf.current=shelfId;
   const importRef=useRef<(paths:string[])=>void>(()=>{});
+  const copyFinished=useRef(0);
   const sensors=useSensors(useSensor(PointerSensor,{activationConstraint:{distance:6}}),useSensor(KeyboardSensor,{coordinateGetter:sortableKeyboardCoordinates}));
   const shelf=data.shelves.find(s=>s.id===shelfId),bound=shelf?.kind==="bound";
   const items=data.items.filter(item=>item.shelf_id===shelfId);
@@ -178,9 +179,11 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
     if(!paths.length) return;
     if(activeShelf.current<=0){setError("请先新建文件架，或将独立文件架合并回主窗口。");return;}
     setBusy(true); setError("");
+    const finishedAtStart=copyFinished.current;
     try {
       const result=await backend.importPaths(activeShelf.current,paths);
-      setMessage(result.job_id ? "复制任务已开始；来源保留。" : `已处理 ${result.added} 项引用；原文件保持不变。`);
+      // A fast worker can finish before the import IPC response reaches this window.
+      if(copyFinished.current===finishedAtStart)setMessage(result.job_id ? "复制任务已开始；来源保留。" : `已处理 ${result.added} 项引用；原文件保持不变。`);
       if(result.errors.length) setError(result.errors.join("；"));
       await refresh();
     } catch(e) { setError(String(e)); } finally { setBusy(false); }
@@ -190,7 +193,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
     let live=true; let cleanup:(()=>void)|undefined;
     void backend.subscribe({
       drop:paths=>importRef.current(paths),hover:setHover,progress:setProgress,
-      finished:message=>{setMessage(message);setProgress(null);void refresh().catch(e=>setError(String(e)));},
+      finished:message=>{copyFinished.current++;setMessage(message);setProgress(null);void refresh().catch(e=>setError(String(e)));},
       drag:message=>setMessage(`系统拖出结果：${message}；已请求复制。`),
       activate:activateShelf,changed:()=>{void refresh().catch(e=>setError(String(e)));},error:setError,
       metadata:()=>{void backend.managementSnapshot().then(value=>{const tags=new Map(value.items.map(i=>[i.id,i.tags]));setData(old=>({...old,items:old.items.map(i=>tags.has(i.id)?{...i,tags:tags.get(i.id)!}:i)}));}).catch(e=>setError(String(e)));},
