@@ -5,6 +5,15 @@ edition = "2024"
 license = "Apache-2.0"
 publish = false
 
+[features]
+default = ["probe-cli"]
+probe-cli = []
+
+[[bin]]
+name = "ningmao-loopback-probe"
+path = "src/main.rs"
+required-features = ["probe-cli"]
+
 [dependencies]
 ningmao-transfer-contract = { path = "../../crates/transfer-contract" }
 httparse = "=1.10.1"

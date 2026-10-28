@@ -631,3 +631,29 @@ fn in_process_worker_events_reach_store_and_persistence_failure_is_not_success()
     );
     store.integrity_check().unwrap();
 }
+
+#[test]
+fn linked_loopback_client_rejects_invalid_tokens_before_opening_a_socket() {
+    use ningmao_loopback_probe::LoopbackClient;
+    let key = rcgen::generate_simple_self_signed(vec!["localhost".into()]).unwrap();
+    let cert = key.cert.der().to_vec();
+    let client =
+        LoopbackClient::new(cert.clone(), cert, key.signing_key.serialize_der(), 1).unwrap();
+    assert!(
+        client
+            .upload("valid", "f", "unsafe&token", 1, &mut std::io::empty())
+            .is_err()
+    );
+    assert!(
+        client
+            .upload(
+                "valid",
+                "f",
+                "token",
+                512 * 1024 * 1024 + 1,
+                &mut std::io::empty()
+            )
+            .is_err()
+    );
+    assert!(client.cancel("bad?session").is_err());
+}
