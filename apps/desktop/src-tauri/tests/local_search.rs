@@ -309,17 +309,129 @@ fn registered_metadata_search_scale_probe() {
             .unwrap();
         }
         tx.commit().unwrap();
+        if end == 10_000 {
+            let paths: Vec<_> = (0..end)
+                .map(|n| {
+                    root.join(if n == 999 || n == 9_999 {
+                        format!("needle-{n}.txt")
+                    } else {
+                        format!("标本-{n:05}.txt")
+                    })
+                })
+                .collect();
+            for _ in 0..3 {
+                let now = Instant::now();
+                let _catalog = store.search_catalog(None).unwrap();
+                let catalog_ms = now.elapsed().as_millis();
+                let now = Instant::now();
+                for p in &paths {
+                    std::hint::black_box(fs::symlink_metadata(p).unwrap());
+                }
+                let metadata_ms = now.elapsed().as_millis();
+                #[cfg(windows)]
+                let drive_ms = {
+                    use windows::{
+                        Win32::Storage::FileSystem::GetDriveTypeW,
+                        core::{HSTRING, PCWSTR},
+                    };
+                    let now = Instant::now();
+                    for p in &paths {
+                        let text = p.to_string_lossy();
+                        let root = HSTRING::from(format!("{}\\", &text[..2]));
+                        std::hint::black_box(unsafe { GetDriveTypeW(PCWSTR(root.as_ptr())) });
+                    }
+                    now.elapsed().as_millis()
+                };
+                #[cfg(not(windows))]
+                let drive_ms = 0;
+                #[cfg(windows)]
+                let identity_ms = {
+                    use std::os::windows::io::AsRawHandle;
+                    use windows::Win32::{
+                        Foundation::HANDLE,
+                        Storage::FileSystem::{
+                            BY_HANDLE_FILE_INFORMATION, GetFileInformationByHandle,
+                        },
+                    };
+                    let now = Instant::now();
+                    for p in &paths {
+                        let f = fs::File::open(p).unwrap();
+                        let mut info = BY_HANDLE_FILE_INFORMATION::default();
+                        unsafe {
+                            GetFileInformationByHandle(HANDLE(f.as_raw_handle()), &mut info)
+                                .unwrap()
+                        };
+                        std::hint::black_box(info);
+                    }
+                    now.elapsed().as_millis()
+                };
+                #[cfg(not(windows))]
+                let identity_ms = 0;
+                println!(
+                    "stages catalog_ms={catalog_ms} drive_ms={drive_ms} metadata_ms={metadata_ms} identity_ms={identity_ms}"
+                );
+            }
+            #[cfg(windows)]
+            {
+                use std::os::windows::io::AsRawHandle;
+                use windows::{
+                    Win32::{
+                        Foundation::HANDLE,
+                        Storage::FileSystem::{
+                            BY_HANDLE_FILE_INFORMATION, GetDriveTypeW, GetFileInformationByHandle,
+                        },
+                    },
+                    core::{HSTRING, PCWSTR},
+                };
+                fn probe(paths: &[std::path::PathBuf]) {
+                    for p in paths {
+                        let text = p.to_string_lossy();
+                        let root = HSTRING::from(format!("{}\\", &text[..2]));
+                        std::hint::black_box(unsafe { GetDriveTypeW(PCWSTR(root.as_ptr())) });
+                        std::hint::black_box(fs::symlink_metadata(p).unwrap());
+                        let f = fs::File::open(p).unwrap();
+                        let mut info = BY_HANDLE_FILE_INFORMATION::default();
+                        unsafe {
+                            GetFileInformationByHandle(HANDLE(f.as_raw_handle()), &mut info)
+                                .unwrap()
+                        };
+                        std::hint::black_box(info);
+                    }
+                }
+                for order in [[1, 2, 4], [4, 2, 1], [1, 2, 4]] {
+                    for threads in order {
+                        let now = Instant::now();
+                        std::thread::scope(|s| {
+                            for chunk in paths.chunks(paths.len().div_ceil(threads)) {
+                                s.spawn(move || probe(chunk));
+                            }
+                        });
+                        println!(
+                            "probe_pair threads={threads} milliseconds={}",
+                            now.elapsed().as_millis()
+                        );
+                    }
+                }
+            }
+        }
         for query in ["needle", "标本", "不存在的素材"] {
             let mut samples = Vec::new();
             for _ in 0..3 {
                 let now = Instant::now();
-                let mut response = store
-                    .search_catalog(None)
-                    .unwrap()
-                    .search(query, "all")
-                    .unwrap();
+                let catalog = store.search_catalog(None).unwrap();
+                let catalog_ms = now.elapsed().as_millis();
+                let stage = Instant::now();
+                let mut response = catalog.search(query, "all").unwrap();
+                let search_ms = stage.elapsed().as_millis();
+                let stage = Instant::now();
                 store.revalidate_search(None, &mut response).unwrap();
+                let revalidate_ms = stage.elapsed().as_millis();
                 samples.push(now.elapsed().as_millis());
+                if end == 10_000 {
+                    println!(
+                        "query={query} stages catalog_ms={catalog_ms} search_ms={search_ms} revalidate_ms={revalidate_ms}"
+                    );
+                }
                 if query == "不存在的素材" {
                     assert!(response.hits.is_empty());
                 } else if query == "needle" {
@@ -395,4 +507,78 @@ fn superseded_search_stops_before_scanning_remaining_files() {
             .search_filtered_cancelable("素材", "all", "all", "all", &canceled)
             .is_err()
     );
+}
+
+#[test]
+fn large_search_keeps_hard_link_aliases_and_matching_reference_first() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("db.sqlite3");
+    let mut store = Store::open(&path).unwrap();
+    let target = dir.path().join("目标素材.txt");
+    let alias = dir.path().join("不同名称的别名.txt");
+    fs::write(&target, b"synthetic").unwrap();
+    fs::hard_link(&target, &alias).unwrap();
+    let matched = store.add_reference(1, &target).unwrap();
+    for n in 0..260 {
+        let file = dir.path().join(format!("other-{n:03}.txt"));
+        fs::write(&file, b"synthetic").unwrap();
+        store.add_reference(1, &file).unwrap();
+    }
+    let other = store.add_reference(1, &alias).unwrap();
+    let missing = dir.path().join("离线前已登记.txt");
+    fs::write(&missing, b"synthetic").unwrap();
+    let missing_id = store.add_reference(1, &missing).unwrap();
+    fs::remove_file(&missing).unwrap();
+    let result = store.search_metadata(None, "目标素材", "all").unwrap();
+    assert_eq!(result.hits.len(), 1);
+    assert_eq!(
+        result.hits[0]
+            .references
+            .iter()
+            .map(|r| r.item_id)
+            .collect::<Vec<_>>(),
+        vec![matched, other]
+    );
+    assert_eq!(result.hits[0].name, "目标素材.txt");
+    let first = store.search_catalog(None).unwrap();
+    let second = store.search_catalog(None).unwrap();
+    let (first, second) = std::thread::scope(|scope| {
+        let worker = scope.spawn(|| first.search("目标素材", "all").unwrap());
+        let other = second.search("目标素材", "all").unwrap();
+        (worker.join().unwrap(), other)
+    });
+    for result in [first, second] {
+        assert_eq!(
+            result.hits[0]
+                .references
+                .iter()
+                .map(|r| r.item_id)
+                .collect::<Vec<_>>(),
+            vec![matched, other]
+        );
+    }
+    let missing_result = store
+        .search_filtered(None, "离线前", "all", "all", "missing")
+        .unwrap();
+    assert_eq!(missing_result.hits.len(), 1);
+    assert_eq!(missing_result.hits[0].references[0].item_id, missing_id);
+    #[cfg(windows)]
+    {
+        use windows::{
+            Win32::Storage::FileSystem::GetDriveTypeW,
+            core::{HSTRING, PCWSTR},
+        };
+        let letter = (b'D'..=b'Z')
+            .find(|letter| {
+                let root = HSTRING::from(format!("{}:\\", char::from(*letter)));
+                unsafe { GetDriveTypeW(PCWSTR(root.as_ptr())) == 1 }
+            })
+            .expect("test needs an unused drive letter");
+        Connection::open(&path).unwrap().execute("INSERT INTO items(shelf_id,path,name,position,tags) VALUES(1,?1,'离线盘素材.txt',999,'[]')", [format!("{}:\\synthetic-only\\离线盘素材.txt", char::from(letter))]).unwrap();
+        let offline = store
+            .search_filtered(None, "离线盘", "all", "all", "offline")
+            .unwrap();
+        assert_eq!(offline.hits.len(), 1);
+        assert_eq!(offline.hits[0].status, "offline");
+    }
 }

@@ -5,7 +5,10 @@ use std::{
     collections::{HashMap, HashSet},
     fs,
     path::Path,
-    sync::atomic::{AtomicBool, Ordering},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+    },
 };
 
 #[derive(Clone, Serialize)]
@@ -37,6 +40,78 @@ struct Row {
     path: String,
     name: String,
     tags: Vec<String>,
+}
+struct ProbedRow {
+    row: Row,
+    status: &'static str,
+    extension: String,
+    key: String,
+}
+
+// At most one additional probing worker exists across all windows. Concurrent
+// searches can still run on their existing runtime workers without waiting.
+static EXTRA_SEARCH_WORKER: AtomicBool = AtomicBool::new(false);
+struct ExtraWorker;
+impl ExtraWorker {
+    fn try_acquire() -> Option<Self> {
+        EXTRA_SEARCH_WORKER
+            .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
+            .ok()
+            .map(|_| Self)
+    }
+}
+impl Drop for ExtraWorker {
+    fn drop(&mut self) {
+        EXTRA_SEARCH_WORKER.store(false, Ordering::Release);
+    }
+}
+
+fn probe_rows(rows: Vec<Row>, canceled: &AtomicBool) -> Result<Vec<ProbedRow>> {
+    let mut result = Vec::with_capacity(rows.len());
+    for row in rows {
+        if canceled.load(Ordering::Relaxed) {
+            return Err("搜索已被更新的查询取代。".into());
+        }
+        let path = Path::new(&row.path);
+        let meta = if local_metadata_allowed(path) {
+            Some(fs::symlink_metadata(path))
+        } else {
+            None
+        };
+        let status = match &meta {
+            Some(Ok(m)) if is_link(m) => "unavailable",
+            Some(Ok(_)) => "normal",
+            Some(Err(e)) if cfg!(windows) && matches!(e.raw_os_error(), Some(21 | 1167)) => {
+                "offline"
+            }
+            Some(Err(e)) if e.kind() == std::io::ErrorKind::NotFound => "missing",
+            Some(Err(_)) => "unavailable",
+            None => "offline",
+        };
+        let extension = if meta
+            .as_ref()
+            .is_some_and(|m| m.as_ref().is_ok_and(|m| m.is_dir()))
+        {
+            "folder".into()
+        } else {
+            path.extension()
+                .and_then(|s| s.to_str())
+                .unwrap_or("file")
+                .to_lowercase()
+        };
+        let key = if status == "normal" {
+            identity(path).unwrap_or_else(|| format!("path:{}", row.path))
+        } else {
+            format!("path:{}", row.path)
+        };
+        result.push(ProbedRow {
+            row,
+            status,
+            extension,
+            key,
+        });
+    }
+    Ok(result)
 }
 fn local_metadata_allowed(path: &Path) -> bool {
     let text = path.to_string_lossy();
@@ -159,45 +234,55 @@ impl SearchCatalog {
         let mut grouped: HashMap<String, SearchHit> = HashMap::new();
         // Metadata-only O(n) over registered references. Add an index only after measuring this ceiling.
         // Called outside the shared Store mutex by IPC, so offline metadata cannot block Copy cancellation.
-        for row in self.0 {
+        let mut rows: Vec<_> = self
+            .0
+            .into_iter()
+            .filter(|row| source == "all" || row.shelf_kind == source)
+            .collect();
+        let extra = (rows.len() >= 256).then(ExtraWorker::try_acquire).flatten();
+        let probed = if let Some(_permit) = extra {
+            let tail = Arc::new(Mutex::new(Some(rows.split_off(rows.len() / 2))));
+            // Concatenate in catalogue order, regardless of worker completion order.
+            std::thread::scope(|scope| -> Result<Vec<ProbedRow>> {
+                let worker_tail = Arc::clone(&tail);
+                let worker = std::thread::Builder::new().spawn_scoped(scope, move || {
+                    let batch = worker_tail
+                        .lock()
+                        .map_err(super::err)?
+                        .take()
+                        .ok_or("搜索数据不可用。")?;
+                    probe_rows(batch, canceled)
+                });
+                let mut first = probe_rows(rows, canceled)?;
+                let second = match worker {
+                    Ok(worker) => worker
+                        .join()
+                        .map_err(|_| "搜索工作线程异常。".to_string())??,
+                    Err(_) => {
+                        let batch = tail
+                            .lock()
+                            .map_err(super::err)?
+                            .take()
+                            .ok_or("搜索数据不可用。")?;
+                        probe_rows(batch, canceled)?
+                    }
+                };
+                first.extend(second);
+                Ok(first)
+            })?
+        } else {
+            probe_rows(rows, canceled)?
+        };
+        for ProbedRow {
+            row,
+            status,
+            extension,
+            key,
+        } in probed
+        {
             if canceled.load(Ordering::Relaxed) {
                 return Err("搜索已被更新的查询取代。".into());
             }
-            if source != "all" && row.shelf_kind != source {
-                continue;
-            }
-            let path = Path::new(&row.path);
-            let meta = if local_metadata_allowed(path) {
-                Some(fs::symlink_metadata(path))
-            } else {
-                None
-            };
-            let status = match &meta {
-                Some(Ok(m)) if is_link(m) => "unavailable",
-                Some(Ok(_)) => "normal",
-                Some(Err(e)) if cfg!(windows) && matches!(e.raw_os_error(), Some(21 | 1167)) => {
-                    "offline"
-                }
-                Some(Err(e)) if e.kind() == std::io::ErrorKind::NotFound => "missing",
-                Some(Err(_)) => "unavailable",
-                None => "offline",
-            };
-            let extension = if meta
-                .as_ref()
-                .is_some_and(|m| m.as_ref().is_ok_and(|m| m.is_dir()))
-            {
-                "folder".into()
-            } else {
-                path.extension()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or("file")
-                    .to_lowercase()
-            };
-            let key = if status == "normal" {
-                identity(path).unwrap_or_else(|| format!("path:{}", row.path))
-            } else {
-                format!("path:{}", row.path)
-            };
             let name = row.name.to_lowercase();
             let tags = row.tags.join(" ").to_lowercase();
             let matches = matches_kind(&kind, &extension)
@@ -367,5 +452,18 @@ impl Store {
             return Err("搜索结果已变化，请重新搜索。".into());
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ExtraWorker;
+
+    #[test]
+    fn extra_search_worker_is_bounded_and_released() {
+        let permit = ExtraWorker::try_acquire().expect("first worker allowed");
+        assert!(ExtraWorker::try_acquire().is_none());
+        drop(permit);
+        assert!(ExtraWorker::try_acquire().is_some());
     }
 }
