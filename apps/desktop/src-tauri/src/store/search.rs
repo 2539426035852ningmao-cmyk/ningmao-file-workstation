@@ -22,6 +22,8 @@ pub struct SearchHit {
     pub references: Vec<SearchReference>,
     #[serde(skip)]
     matched: Vec<i64>,
+    #[serde(skip)]
+    matched_tags: Vec<String>,
 }
 #[derive(Serialize)]
 pub struct SearchResponse {
@@ -196,6 +198,7 @@ impl SearchCatalog {
                 match_kind: match_kind.into(),
                 references: vec![],
                 matched: vec![],
+                matched_tags: vec![],
             });
             if matches {
                 if hit.matched.is_empty() {
@@ -203,6 +206,7 @@ impl SearchCatalog {
                     hit.kind = extension;
                     hit.status = status.into();
                     hit.match_kind = match_kind.into();
+                    hit.matched_tags = row.tags.clone();
                 }
                 hit.matched.push(row.reference.item_id);
             }
@@ -315,9 +319,23 @@ impl Store {
         // The visible name and match label came from the first matching reference.
         // If that reference was revoked during the search, discard this stale hit;
         // a fresh query can safely rebuild it from any surviving alias.
-        response.hits.retain(|h| {
-            !h.references.is_empty() && h.matched.first().is_some_and(|id| active.contains(id))
-        });
+        let mut current = self
+            .db
+            .prepare("SELECT name,tags FROM items WHERE id=?1")
+            .map_err(super::err)?;
+        let mut valid_hits = Vec::with_capacity(response.hits.len());
+        for hit in response.hits.drain(..) {
+            if let Some(id) = hit.matched.first().filter(|id| active.contains(id)) {
+                let (name, tags): (String, String) = current
+                    .query_row([id], |r| Ok((r.get(0)?, r.get(1)?)))
+                    .map_err(super::err)?;
+                let tags: Vec<String> = serde_json::from_str(&tags).map_err(super::err)?;
+                if !hit.references.is_empty() && hit.name == name && hit.matched_tags == tags {
+                    valid_hits.push(hit);
+                }
+            }
+        }
+        response.hits = valid_hits;
         Ok(())
     }
     pub fn validate_search_location(

@@ -340,3 +340,42 @@ fn registered_metadata_search_scale_probe() {
         10_000
     );
 }
+
+#[test]
+fn changed_tags_invalidate_an_in_flight_match() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut store = Store::open(&dir.path().join("db.sqlite3")).unwrap();
+    let file = dir.path().join("普通素材.txt");
+    fs::write(&file, b"synthetic").unwrap();
+    let item = store.add_reference(1, &file).unwrap();
+    store.set_tags(item, vec!["待撤销标签".into()]).unwrap();
+    let catalog = store.search_catalog(None).unwrap();
+    store.set_tags(item, vec![]).unwrap();
+    let mut result = catalog.search("待撤销标签", "all").unwrap();
+    assert_eq!(result.hits.len(), 1);
+    store.revalidate_search(None, &mut result).unwrap();
+    assert!(
+        result.hits.is_empty(),
+        "revoked tag must not remain searchable"
+    );
+}
+
+#[test]
+fn changed_name_invalidate_an_in_flight_match() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("db.sqlite3");
+    let mut store = Store::open(&path).unwrap();
+    let file = dir.path().join("旧名称.txt");
+    fs::write(&file, b"synthetic").unwrap();
+    let item = store.add_reference(1, &file).unwrap();
+    let catalog = store.search_catalog(None).unwrap();
+    let db = Connection::open(&path).unwrap();
+    db.execute(
+        "UPDATE items SET name=?1 WHERE id=?2",
+        rusqlite::params!["新名称.txt", item],
+    )
+    .unwrap();
+    let mut result = catalog.search("旧名称", "all").unwrap();
+    store.revalidate_search(None, &mut result).unwrap();
+    assert!(result.hits.is_empty());
+}
