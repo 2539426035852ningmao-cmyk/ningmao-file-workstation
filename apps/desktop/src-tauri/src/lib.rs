@@ -49,6 +49,8 @@ struct Runtime {
     store: Mutex<Store>,
     active: Mutex<Option<(i64, Arc<AtomicBool>)>>,
     thumbnail: Mutex<()>,
+    #[cfg(windows)]
+    duplicate_scan_active: AtomicBool,
     data_root: PathBuf,
     recycle_test_root: Option<PathBuf>,
     recycle_plans: Mutex<std::collections::HashMap<String, PlannedRecycle>>,
@@ -956,6 +958,7 @@ async fn analyze_duplicates(
     {
         tauri::async_runtime::spawn_blocking(move || {
             let state = app.state::<Runtime>();
+            let _permit = store::ScanPermit::acquire(&state.duplicate_scan_active)?;
             let plan = state
                 .store
                 .lock()
@@ -1590,6 +1593,8 @@ pub fn run() {
                 ),
                 active: Mutex::new(None),
                 thumbnail: Mutex::new(()),
+                #[cfg(windows)]
+                duplicate_scan_active: AtomicBool::new(false),
                 data_root: root.clone(),
                 recycle_test_root: std::env::var_os("NINGMAO_RECYCLE_TEST_ROOT")
                     .and_then(|p| std::fs::canonicalize(p).ok()),

@@ -148,8 +148,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   const [duplicateBusy,setDuplicateBusy]=useState(false);
   const [duplicateResult,setDuplicateResult]=useState<{report:DuplicateReport;names:Record<number,string>}|null>(null);
   const duplicateResultRef=useRef(duplicateResult);duplicateResultRef.current=duplicateResult;
-  const duplicateLive=useRef(true),duplicateKey=useRef(""),duplicateData=useRef(data.items);
-  duplicateData.current=data.items;
+  const duplicateLive=useRef(true),duplicateKey=useRef(""),duplicateData=useRef("");
   useEffect(()=>{duplicateLive.current=true;return()=>{duplicateLive.current=false;};},[]);
   const windowDrag=useWindowDrag(()=>backend.desktopMove(),!busy && !hover && !dragging);
   const activeShelf=useRef(shelfId); activeShelf.current=shelfId;
@@ -164,8 +163,10 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   const selectedIds=useMemo(()=>new Set(selection.ids),[selection.ids]);
   const chosen=useMemo(()=>visible.filter(i=>selectedIds.has(i.id)),[visible,selectedIds]);
   const selectionKey=`${shelfId}:${chosen.map(i=>i.id).join(",")}`;
+  const duplicateFingerprint=JSON.stringify(chosen.map(i=>[i.id,i.shelf_id,i.path,i.name,i.kind,i.bytes,i.modified,i.status]));
   duplicateKey.current=selectionKey;
-  useEffect(()=>{if(duplicateResultRef.current){setDuplicateResult(null);setMessage("文件或选择已变化，请重新比较。");}},[selectionKey,data.items]);
+  duplicateData.current=duplicateFingerprint;
+  useEffect(()=>{if(duplicateResultRef.current){setDuplicateResult(null);setMessage("文件或选择已变化，请重新比较。");}},[selectionKey,duplicateFingerprint]);
   const current=chosen.find(i=>i.id===selected) || chosen[0],dragItem=data.items.find(i=>i.id===dragging);
   function select(id:number,keys:SelectionKeys={}){
     setSelection(previous=>{const visibleIds=visible.map(i=>i.id),visibleSet=new Set(visibleIds),ids=previous.ids.filter(id=>visibleSet.has(id)),add=keys.ctrlKey || keys.metaKey;
@@ -183,7 +184,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   async function perform(action:()=>Promise<unknown>) { setError(""); try { await action(); } catch(e) { setError(String(e)); } }
   async function analyzeSelected(){
     if(!backend.analyzeDuplicates || duplicateBusy || chosen.length<2 || chosen.length>32)return;
-    const key=selectionKey,items=data.items,ids=chosen.map(i=>i.id),names=Object.fromEntries(chosen.map(i=>[i.id,i.name]));
+    const key=selectionKey,items=duplicateFingerprint,ids=chosen.map(i=>i.id),names=Object.fromEntries(chosen.map(i=>[i.id,i.name]));
     setDuplicateBusy(true);setError("");
     try {const report=await backend.analyzeDuplicates(ids);if(duplicateLive.current){if(duplicateKey.current===key && duplicateData.current===items)setDuplicateResult({report,names});else setMessage("文件或选择已变化，请重新比较。");}}
     catch(e){if(duplicateLive.current){if(duplicateKey.current===key && duplicateData.current===items)setError(String(e));else setMessage("文件或选择已变化，请重新比较。");}}

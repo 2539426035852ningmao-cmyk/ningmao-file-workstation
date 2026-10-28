@@ -3,6 +3,8 @@ use base64::Engine;
 mod duplicates;
 mod search;
 #[cfg(windows)]
+pub(crate) use duplicates::ScanPermit;
+#[cfg(windows)]
 pub use duplicates::{DuplicatePlan, DuplicateReport, PendingDuplicateScan};
 use rusqlite::{Connection, OptionalExtension, params};
 pub use search::{SearchCatalog, SearchHit, SearchReference, SearchResponse};

@@ -55,3 +55,21 @@ test("分析时选择变化会丢弃旧结果并提示重新比较",async({page}
   await expect(page.getByText("文件或选择已变化，请重新比较。")).toBeVisible();
   await expect(page.getByRole("dialog",{name:"重复文件分析"})).toHaveCount(0);
 });
+
+test("分析期间无变化刷新不会丢弃有效结果",async({page})=>{
+  await selectTwo(page,"?duplicates-delay"); await launch(page);
+  await expect(page.getByText("正在比较选中文件内容…")).toBeVisible();
+  await page.getByRole("button",{name:"更多操作",exact:true}).click();
+  await page.getByRole("menuitem",{name:"刷新文件状态"}).click();
+  await expect(page.getByRole("dialog",{name:"重复文件分析"})).toBeVisible({timeout:5000});
+});
+
+test("分析期间所选引用状态变化会拒绝旧结果",async({page})=>{
+  await selectTwo(page,"?duplicates-delay"); await launch(page);
+  await expect(page.getByText("正在比较选中文件内容…")).toBeVisible();
+  await page.evaluate(()=>window.testHarness.missing(1));
+  await page.getByRole("button",{name:"更多操作",exact:true}).click();
+  await page.getByRole("menuitem",{name:"刷新文件状态"}).click();
+  await expect(page.getByText("文件或选择已变化，请重新比较。")).toBeVisible();
+  await expect(page.getByRole("dialog",{name:"重复文件分析"})).toHaveCount(0);
+});
