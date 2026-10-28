@@ -86,8 +86,9 @@ impl TransferTasks {
             Failed => ("failed", "接收失败，来源和已存在文件保留"),
             Cancelled => ("cancelled", "已取消，已完成文件保留"),
         };
-        store.finish_job(
+        store.finish_transfer_job(
             id,
+            shelf,
             status,
             &format!(
                 "接收文件：{label} · {}/{} 项 · {}/{} B",

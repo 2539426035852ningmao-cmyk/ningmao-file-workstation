@@ -4,6 +4,7 @@ pub mod entry;
 mod shelf_windows;
 pub mod store;
 pub mod transfer_tasks;
+pub mod transfer_runtime;
 mod wake_shortcut;
 pub mod window_surface;
 pub mod windows_recycle;

@@ -164,7 +164,7 @@ fn real_worker_events_reach_existing_store_without_schema_or_file_changes() {
     let started = Instant::now();
     let mut file = None;
     let mut pending = Vec::new();
-    let mut adapter = TransferTasks::default();
+    let mut runtime = transfer_runtime::TransferRuntime::default();
     let mut events: HashMap<String, Vec<TaskEvent>> = HashMap::new();
     let mut exit = None;
     loop {
@@ -183,7 +183,9 @@ fn real_worker_events_reach_existing_store_without_schema_or_file_changes() {
             let line: Vec<_> = pending.drain(..=end).collect();
             assert!(line.len() <= 1024);
             let event: TaskEvent = serde_json::from_slice(&line).unwrap();
-            let id = adapter.apply(&mut store, 2, &event).unwrap().unwrap();
+            let progress = runtime.accept(&mut store, 2, &line).unwrap().unwrap();
+            let id = progress.job_id;
+            assert_eq!(progress.phase, event.phase);
             let jobs = store.management_snapshot().unwrap().jobs;
             let job = jobs.iter().find(|j| j.id == id).unwrap();
             if event.phase == Phase::Cancelling {
@@ -210,6 +212,9 @@ fn real_worker_events_reach_existing_store_without_schema_or_file_changes() {
         "probe failed; local worker diagnostics retained until assertion"
     );
     assert!(pending.is_empty());
+    runtime
+        .worker_exited(&mut store, exit.unwrap().success(), true)
+        .unwrap();
     let report: serde_json::Value =
         serde_json::from_slice(&fs::read(root.join("sender-result.json")).unwrap()).unwrap();
     assert_eq!(report["status"], "SUCCESS");
@@ -236,7 +241,11 @@ fn real_worker_events_reach_existing_store_without_schema_or_file_changes() {
         let mut late = last.clone();
         late.sequence += 1;
         late.phase = Phase::Receiving;
-        assert!(adapter.apply(&mut store, 2, &late).is_err());
+        assert!(
+            runtime
+                .accept(&mut store, 2, &serde_json::to_vec(&late).unwrap())
+                .is_err()
+        );
     }
     for phase in ["Completed", "Partial", "Failed", "Cancelled"] {
         assert!(terminals.contains(phase), "missing {phase}");
@@ -269,5 +278,188 @@ fn real_worker_events_reach_existing_store_without_schema_or_file_changes() {
     println!(
         "real_worker_task_store=SUCCESS tasks={} progress=true cancel_wait=true schema=2 integrity=ok",
         events.len()
+    );
+}
+
+#[test]
+fn runtime_marks_unfinished_worker_interrupted_and_never_assumes_success() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut store = store::Store::open(&dir.path().join("db.sqlite3")).unwrap();
+    let mut runtime = transfer_runtime::TransferRuntime::default();
+    let queued = serde_json::to_vec(&event(1, Phase::Queued, 0)).unwrap();
+    let id = runtime
+        .accept(&mut store, 2, &queued)
+        .unwrap()
+        .unwrap()
+        .job_id;
+    runtime
+        .accept(
+            &mut store,
+            2,
+            &serde_json::to_vec(&event(2, Phase::Receiving, 50)).unwrap(),
+        )
+        .unwrap();
+    assert!(runtime.worker_exited(&mut store, true, true).is_err());
+    let job = store
+        .management_snapshot()
+        .unwrap()
+        .jobs
+        .into_iter()
+        .find(|j| j.id == id)
+        .unwrap();
+    assert_eq!(job.status, "interrupted");
+    assert!(!job.message.contains("接收完成"));
+    assert!(runtime.worker_exited(&mut store, true, true).is_err());
+    assert!(runtime.accept(&mut store, 2, &queued).is_err());
+}
+
+#[test]
+fn runtime_reports_failed_persistence_and_preserves_previous_job_state() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("db.sqlite3");
+    let mut store = store::Store::open(&path).unwrap();
+    let mut runtime = transfer_runtime::TransferRuntime::default();
+    let id = runtime
+        .accept(
+            &mut store,
+            2,
+            &serde_json::to_vec(&event(1, Phase::Queued, 0)).unwrap(),
+        )
+        .unwrap()
+        .unwrap()
+        .job_id;
+    runtime
+        .accept(
+            &mut store,
+            2,
+            &serde_json::to_vec(&event(2, Phase::Receiving, 100)).unwrap(),
+        )
+        .unwrap();
+    runtime
+        .accept(
+            &mut store,
+            2,
+            &serde_json::to_vec(&event(3, Phase::Verifying, 100)).unwrap(),
+        )
+        .unwrap();
+    let db = rusqlite::Connection::open(&path).unwrap();
+    db.execute_batch("CREATE TRIGGER fail_terminal BEFORE UPDATE OF status ON jobs WHEN NEW.status='completed' BEGIN SELECT RAISE(FAIL, 'synthetic'); END;").unwrap();
+    assert!(
+        runtime
+            .accept(
+                &mut store,
+                2,
+                &serde_json::to_vec(&event(4, Phase::Completed, 100)).unwrap()
+            )
+            .is_err()
+    );
+    let job = store
+        .management_snapshot()
+        .unwrap()
+        .jobs
+        .into_iter()
+        .find(|j| j.id == id)
+        .unwrap();
+    assert_eq!(job.status, "copying");
+    assert!(runtime.worker_exited(&mut store, true, true).is_err());
+    assert_eq!(
+        store
+            .management_snapshot()
+            .unwrap()
+            .jobs
+            .into_iter()
+            .find(|j| j.id == id)
+            .unwrap()
+            .status,
+        "interrupted"
+    );
+}
+#[path = "../../../apps/desktop/src-tauri/src/transfer_runtime.rs"]
+mod transfer_runtime;
+
+#[test]
+fn runtime_does_not_report_success_for_a_missing_job_record() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("db.sqlite3");
+    let mut store = store::Store::open(&path).unwrap();
+    let mut runtime = transfer_runtime::TransferRuntime::default();
+    let id = runtime
+        .accept(
+            &mut store,
+            2,
+            &serde_json::to_vec(&event(1, Phase::Queued, 0)).unwrap(),
+        )
+        .unwrap()
+        .unwrap()
+        .job_id;
+    runtime
+        .accept(
+            &mut store,
+            2,
+            &serde_json::to_vec(&event(2, Phase::Receiving, 100)).unwrap(),
+        )
+        .unwrap();
+    runtime
+        .accept(
+            &mut store,
+            2,
+            &serde_json::to_vec(&event(3, Phase::Verifying, 100)).unwrap(),
+        )
+        .unwrap();
+    let db = rusqlite::Connection::open(&path).unwrap();
+    db.execute("DELETE FROM jobs WHERE id=?1", [id]).unwrap();
+    assert!(
+        runtime
+            .accept(
+                &mut store,
+                2,
+                &serde_json::to_vec(&event(4, Phase::Completed, 100)).unwrap()
+            )
+            .is_err()
+    );
+    assert!(runtime.worker_exited(&mut store, true, true).is_err());
+}
+
+#[test]
+fn runtime_never_overwrites_a_terminal_job_changed_elsewhere() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("db.sqlite3");
+    let mut store = store::Store::open(&path).unwrap();
+    let mut runtime = transfer_runtime::TransferRuntime::default();
+    let id = runtime
+        .accept(
+            &mut store,
+            2,
+            &serde_json::to_vec(&event(1, Phase::Queued, 0)).unwrap(),
+        )
+        .unwrap()
+        .unwrap()
+        .job_id;
+    let db = rusqlite::Connection::open(&path).unwrap();
+    db.execute(
+        "UPDATE jobs SET status='cancelled',message='settled' WHERE id=?1",
+        [id],
+    )
+    .unwrap();
+    assert!(
+        runtime
+            .accept(
+                &mut store,
+                2,
+                &serde_json::to_vec(&event(2, Phase::Receiving, 50)).unwrap()
+            )
+            .is_err()
+    );
+    assert!(runtime.worker_exited(&mut store, true, true).is_err());
+    let job = store
+        .management_snapshot()
+        .unwrap()
+        .jobs
+        .into_iter()
+        .find(|j| j.id == id)
+        .unwrap();
+    assert_eq!(
+        (job.status.as_str(), job.message.as_str()),
+        ("cancelled", "settled")
     );
 }
