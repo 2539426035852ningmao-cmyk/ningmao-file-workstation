@@ -1051,9 +1051,13 @@ fn probe(root: &Path) -> Result<()> {
         std::thread::sleep(Duration::from_millis(20));
     }
     let mut sender = spawn("send", root)?;
-    wait(&mut sender, root, "send")?;
+    let sender_result = wait(&mut sender, root, "send");
+    // Always let the receiver cancel and join its connection workers before propagating
+    // sender failure. Killing it early could leave an in-flight staging file behind.
     fs::write(root.join("stop"), b"stop")?;
-    wait(&mut receiver, root, "receive")?;
+    let receiver_result = wait(&mut receiver, root, "receive");
+    sender_result?;
+    receiver_result?;
     println!("{}", fs::read_to_string(root.join("sender-result.json"))?);
     Ok(())
 }

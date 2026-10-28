@@ -463,3 +463,127 @@ fn runtime_never_overwrites_a_terminal_job_changed_elsewhere() {
         ("cancelled", "settled")
     );
 }
+
+#[test]
+fn cancellation_of_live_synthetic_probe_drains_worker_and_preserves_files() {
+    use sha2::{Digest, Sha256};
+    use std::{
+        fs,
+        io::Read,
+        process::{Command, Stdio},
+        time::{Duration, Instant},
+    };
+    struct Worker(std::process::Child);
+    impl Drop for Worker {
+        fn drop(&mut self) {
+            if self.0.try_wait().ok().flatten().is_none() {
+                let _ = self.0.kill();
+            }
+            let _ = self.0.wait();
+        }
+    }
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().join("owned-synthetic-probe");
+    let mut store = store::Store::open(&temp.path().join("state.db")).unwrap();
+    let mut command = Command::new(env!("CARGO_BIN_EXE_ningmao-loopback-probe"));
+    command
+        .arg("probe")
+        .arg(&root)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(0x08000000);
+    }
+    let mut worker = Worker(command.spawn().unwrap());
+    let mut runtime = transfer_runtime::TransferRuntime::default();
+    let mut journal = None;
+    let mut pending = Vec::new();
+    let mut cancel_job = None;
+    let mut exit = None;
+    let started = Instant::now();
+    loop {
+        assert!(
+            started.elapsed() < Duration::from_secs(90),
+            "probe deadline"
+        );
+        if journal.is_none() {
+            journal = fs::File::open(root.join("task-events.jsonl")).ok();
+        }
+        if let Some(file) = journal.as_mut() {
+            file.read_to_end(&mut pending).unwrap();
+        }
+        assert!(pending.len() <= 256 * 1024);
+        while let Some(end) = pending.iter().position(|b| *b == b'\n') {
+            let line: Vec<_> = pending.drain(..=end).collect();
+            let event: TaskEvent = serde_json::from_slice(&line).unwrap();
+            let progress = runtime.accept(&mut store, 2, &line).unwrap().unwrap();
+            if cancel_job.is_none()
+                && event.phase == Phase::Receiving
+                && event.total >= 64 * 1024 * 1024
+                && event.bytes > 0
+                && event.bytes < event.total
+            {
+                fs::write(root.join("stop"), b"stop").unwrap();
+                cancel_job = Some(progress.job_id);
+            }
+        }
+        if exit.is_some() {
+            break;
+        }
+        exit = worker.0.try_wait().unwrap();
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    let id = cancel_job.expect("live synthetic 64 MiB upload must have entered progress");
+    assert!(
+        !exit.unwrap().success(),
+        "cancelled probe must not report success"
+    );
+    assert!(pending.is_empty());
+    assert!(runtime.worker_exited(&mut store, false, true).is_err());
+    let job = store
+        .management_snapshot()
+        .unwrap()
+        .jobs
+        .into_iter()
+        .find(|j| j.id == id)
+        .unwrap();
+    assert!(
+        job.status == "cancelled" || job.status == "interrupted",
+        "unexpected state: {}",
+        job.status
+    );
+    assert!(!job.message.contains("接收完成"));
+    assert_eq!(
+        fs::read(root.join("received/角色.txt")).unwrap(),
+        b"existing-target"
+    );
+    assert_eq!(
+        fs::read(root.join("source/角色.txt")).unwrap(),
+        b"Ningmao synthetic encrypted file\n".repeat(4096)
+    );
+    let mut f = fs::File::open(root.join("source/large.bin")).unwrap();
+    let mut hash = Sha256::new();
+    let mut buffer = [0; 65536];
+    loop {
+        let n = f.read(&mut buffer).unwrap();
+        if n == 0 {
+            break;
+        }
+        hash.update(&buffer[..n]);
+    }
+    let mut expected = Sha256::new();
+    for _ in 0..1024 {
+        expected.update([42; 65536]);
+    }
+    assert_eq!(hash.finalize(), expected.finalize());
+    assert!(!fs::read_dir(root.join("received")).unwrap().any(|e| {
+        e.unwrap()
+            .file_name()
+            .to_string_lossy()
+            .starts_with(".ningmao-receive-")
+    }));
+    store.integrity_check().unwrap();
+}
