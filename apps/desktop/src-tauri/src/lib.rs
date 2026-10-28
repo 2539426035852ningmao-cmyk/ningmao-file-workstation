@@ -1,6 +1,7 @@
 pub mod desktop;
 mod desktop_runtime;
 pub mod entry;
+mod search_control;
 mod shelf_windows;
 pub mod store;
 mod wake_shortcut;
@@ -53,6 +54,7 @@ struct Runtime {
     recycle_plans: Mutex<std::collections::HashMap<String, PlannedRecycle>>,
     recycling: Mutex<Option<(String, Arc<AtomicBool>)>>,
     search_focus: Mutex<std::collections::HashMap<String, SearchLocation>>,
+    search_control: search_control::SearchControl,
     _process_lock: File,
 }
 fn error(e: impl std::fmt::Display) -> String {
@@ -1324,17 +1326,26 @@ async fn search_metadata(
     status: Option<String>,
 ) -> Result<store::SearchResponse> {
     let scope = metadata_scope(&window)?;
+    let guard = app
+        .state::<Runtime>()
+        .search_control
+        .start(window.label())?;
     let catalog = database(app.clone(), move |s| s.search_catalog(scope)).await?;
+    let canceled = guard.canceled.clone();
     let mut response = tauri::async_runtime::spawn_blocking(move || {
-        catalog.search_filtered(
+        catalog.search_filtered_cancelable(
             &query,
             &kind,
             source.as_deref().unwrap_or("all"),
             status.as_deref().unwrap_or("all"),
+            &canceled,
         )
     })
     .await
     .map_err(error)??;
+    if guard.canceled.load(Ordering::Relaxed) {
+        return Err("搜索已被更新的查询取代。".into());
+    }
     database(app, move |s| {
         s.revalidate_search(scope, &mut response)?;
         Ok(response)
@@ -1539,6 +1550,7 @@ pub fn run() {
                 recycle_plans: Mutex::new(Default::default()),
                 recycling: Mutex::new(None),
                 search_focus: Mutex::new(Default::default()),
+                search_control: Default::default(),
                 _process_lock: lock,
             });
             desktop_runtime::setup(app.handle(), &root).map_err(std::io::Error::other)?;

@@ -5,6 +5,7 @@ use std::{
     collections::{HashMap, HashSet},
     fs,
     path::Path,
+    sync::atomic::{AtomicBool, Ordering},
 };
 
 #[derive(Clone, Serialize)]
@@ -105,6 +106,19 @@ impl SearchCatalog {
         source: &str,
         state: &str,
     ) -> Result<SearchResponse> {
+        self.search_filtered_cancelable(query, kind, source, state, &AtomicBool::new(false))
+    }
+    pub fn search_filtered_cancelable(
+        self,
+        query: &str,
+        kind: &str,
+        source: &str,
+        state: &str,
+        canceled: &AtomicBool,
+    ) -> Result<SearchResponse> {
+        if canceled.load(Ordering::Relaxed) {
+            return Err("搜索已被更新的查询取代。".into());
+        }
         if query.chars().count() > 160 || kind.len() > 24 {
             return Err("搜索内容过长，请缩短后重试。".into());
         }
@@ -146,6 +160,9 @@ impl SearchCatalog {
         // Metadata-only O(n) over registered references. Add an index only after measuring this ceiling.
         // Called outside the shared Store mutex by IPC, so offline metadata cannot block Copy cancellation.
         for row in self.0 {
+            if canceled.load(Ordering::Relaxed) {
+                return Err("搜索已被更新的查询取代。".into());
+            }
             if source != "all" && row.shelf_kind != source {
                 continue;
             }

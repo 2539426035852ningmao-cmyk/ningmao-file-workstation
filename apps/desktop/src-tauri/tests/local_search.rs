@@ -379,3 +379,20 @@ fn changed_name_invalidate_an_in_flight_match() {
     store.revalidate_search(None, &mut result).unwrap();
     assert!(result.hits.is_empty());
 }
+
+#[test]
+fn superseded_search_stops_before_scanning_remaining_files() {
+    use std::sync::atomic::AtomicBool;
+    let dir = tempfile::tempdir().unwrap();
+    let mut store = Store::open(&dir.path().join("db.sqlite3")).unwrap();
+    let file = dir.path().join("合成素材.txt");
+    fs::write(&file, b"synthetic").unwrap();
+    store.add_reference(1, &file).unwrap();
+    let catalog = store.search_catalog(None).unwrap();
+    let canceled = AtomicBool::new(true);
+    assert!(
+        catalog
+            .search_filtered_cancelable("素材", "all", "all", "all", &canceled)
+            .is_err()
+    );
+}
