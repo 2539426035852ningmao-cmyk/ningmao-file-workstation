@@ -1,3 +1,7 @@
+# 最新检查点：P2 Dock 零成功反馈（2026-10-28）
+
+#40 修复引用投放零项误报成功：空投放/全部失败不发成功回执；部分成功明确提示数量及失败，不以成功前缀显示。旧代码零项错误实际复现；dock 定向2 PASS、orb_entry3 PASS、Clippy/前端构建通过。不改变文件/数据库/布局或复制终态；真实 OLE 能否发生空路径未证实，最新候选实际 Dock/托盘仍待原生验收，P2 总体 PARTIAL。精确 HEAD/CI 见 #40；不自动合并、安装或发布。
+
 # 最新有效检查点：P2 Dock 终态通知（2026-10-28）
 
 继续原 Draft #40 / feat/p2-management-flow；代码 9101d837b0f60be5f50629e5a5bc4cc6adb3b243（r24）。真实执行路径中复制 worker 可能先 emit 终态，而 Dock 异步回调随后 emit “复制任务已开始”，覆盖已完成/失败/取消/保存失败状态。定向测试先红（实际结果含迟到开始），后修复为仅引用导入发“已接收”，复制用既有 view.copying 与 copy-finished；不改落点锁/Copy/SQLite/权限/前端运行代码。专项1PASS、orb_entry3、desktop_loop5、模拟浏览器1、Clippy/fmt/生产构建PASS。后台隐藏启动本机r24并观察窗口句柄、隔离锁和存活2秒；只结束自有空任务进程，5保护合成文件、schema2/integrity/0任务不变；未测试GUI和实际Dock原生拖放，不冒称通过。EXE SHA256 2ca7060d4af05e978745283c1843dbf8a4fb5f67b5f60acef219c823638af59f，独立D盘合成试用目录与隔离启动器，保留r23/r22。P2仍PARTIAL，托盘和Dock真实验收待续；详情既有native-matrix。CI待本次PR头，正式合并/安装/发布/LAN另需批准。此前r23 CI于2ff4313三项全SUCCESS（40532410324/40532410656），记录Issue37#issuecomment-6446477420；P3 #55、P4 #54、DevLab #52独立成果保留。
