@@ -29,17 +29,36 @@ impl TransferRuntime {
         shelf: i64,
         line: &[u8],
     ) -> Result<Option<TransferProgress>> {
+        if line.len() > 1024 {
+            self.faulted = true;
+            return Err("传输事件不可用，请核对任务状态。".into());
+        }
+        let event: TaskEvent = match serde_json::from_slice(line) {
+            Ok(event) => event,
+            Err(_) => {
+                self.faulted = true;
+                return Err("传输事件格式无效，请核对任务状态。".into());
+            }
+        };
+        self.accept_event(store, shelf, &event)
+    }
+
+    /// Typed, trusted in-process worker events; no path or credential is supplied by the peer.
+    pub fn accept_event(
+        &mut self,
+        store: &mut Store,
+        shelf: i64,
+        event: &TaskEvent,
+    ) -> Result<Option<TransferProgress>> {
         let result = (|| {
-            if self.closed || self.faulted || line.len() > 1024 {
+            if self.closed || self.faulted {
                 return Err("传输事件不可用，请核对任务状态。".into());
             }
-            let event: TaskEvent = serde_json::from_slice(line)
-                .map_err(|_| "传输事件格式无效，请核对任务状态。".to_string())?;
-            let Some(job_id) = self.adapter.apply(store, shelf, &event)? else {
+            let Some(job_id) = self.adapter.apply(store, shelf, event)? else {
                 return Ok(None);
             };
             self.tasks
-                .insert(event.task, (job_id, shelf, event.phase.terminal()));
+                .insert(event.task.clone(), (job_id, shelf, event.phase.terminal()));
             Ok(Some(TransferProgress {
                 job_id,
                 phase: event.phase,

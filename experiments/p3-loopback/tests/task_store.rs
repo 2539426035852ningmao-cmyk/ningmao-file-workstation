@@ -587,3 +587,47 @@ fn cancellation_of_live_synthetic_probe_drains_worker_and_preserves_files() {
     }));
     store.integrity_check().unwrap();
 }
+
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
+#[path = "../src/tasks.rs"]
+mod receiver_tasks;
+
+#[test]
+fn in_process_worker_events_reach_store_and_persistence_failure_is_not_success() {
+    use std::sync::{Arc, Mutex};
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("db.sqlite3");
+    let store = store::Store::open(&path).unwrap();
+    let shared = Arc::new(Mutex::new((
+        store,
+        transfer_runtime::TransferRuntime::default(),
+    )));
+    let target = shared.clone();
+    let sink: receiver_tasks::Journal = Arc::new(move |event| {
+        let mut guard = target.lock().map_err(|_| "runtime lock")?;
+        let (store, runtime) = &mut *guard;
+        runtime
+            .accept_event(store, 2, event)
+            .map(|_| ())
+            .map_err(Into::into)
+    });
+    let mut task = receiver_tasks::ReceiverTask::new(sink, 1, 1).unwrap();
+    task.start().unwrap();
+    task.advance(1).unwrap();
+    task.verifying().unwrap();
+    let db = rusqlite::Connection::open(&path).unwrap();
+    db.execute_batch("CREATE TRIGGER fail_terminal BEFORE UPDATE OF status ON jobs WHEN NEW.status='completed' BEGIN SELECT RAISE(FAIL, 'synthetic'); END;").unwrap();
+    assert!(task.finish(true).is_err());
+    let mut guard = shared.lock().unwrap();
+    let (store, runtime) = &mut *guard;
+    assert_eq!(
+        store.management_snapshot().unwrap().jobs[0].status,
+        "copying"
+    );
+    assert!(runtime.worker_exited(store, true, true).is_err());
+    assert_eq!(
+        store.management_snapshot().unwrap().jobs[0].status,
+        "interrupted"
+    );
+    store.integrity_check().unwrap();
+}

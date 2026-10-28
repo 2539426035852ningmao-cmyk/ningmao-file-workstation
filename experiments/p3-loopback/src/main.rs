@@ -1,5 +1,16 @@
 mod destination;
+#[cfg(test)]
+#[allow(dead_code)]
+#[path = "../../../apps/desktop/src-tauri/src/store.rs"]
+mod store;
 mod tasks;
+#[cfg(test)]
+#[allow(dead_code)]
+#[path = "../../../apps/desktop/src-tauri/src/transfer_runtime.rs"]
+mod transfer_runtime;
+#[cfg(test)]
+#[path = "../../../apps/desktop/src-tauri/src/transfer_tasks.rs"]
+mod transfer_tasks;
 use destination::Destination;
 use rustls::{
     ClientConfig, ClientConnection, RootCertStore, ServerConfig, ServerConnection, StreamOwned,
@@ -540,6 +551,9 @@ fn finish_rejected_socket(socket: &mut TcpStream) -> usize {
 }
 
 fn receive(root: &Path) -> Result<()> {
+    receive_with_sink(root, None)
+}
+fn receive_with_sink(root: &Path, sink: Option<tasks::Journal>) -> Result<()> {
     let _root_guard = Destination::open(root)?;
     let destination = Arc::new(Destination::open(&root.join("received"))?);
     let k = load(root)?;
@@ -560,12 +574,15 @@ fn receive(root: &Path) -> Result<()> {
         root.join("ready.json"),
         serde_json::to_vec(&json!({"port":listener.local_addr()?.port()}))?,
     )?;
-    let journal = Arc::new(Mutex::new(
-        fs::OpenOptions::new()
-            .create_new(true)
-            .write(true)
-            .open(root.join("task-events.jsonl"))?,
-    ));
+    let journal = match sink {
+        Some(sink) => sink,
+        None => tasks::file_journal(
+            fs::OpenOptions::new()
+                .create_new(true)
+                .write(true)
+                .open(root.join("task-events.jsonl"))?,
+        ),
+    };
     let session = Arc::new(Mutex::new(None::<Session>));
     let mut workers: Vec<std::thread::JoinHandle<()>> = Vec::new();
     while !root.join("stop").exists() {
@@ -1399,5 +1416,77 @@ mod tests {
     #[test]
     fn duplicate_query_keys_are_rejected() {
         assert!(super::params("/upload?token=one&token=two").is_none());
+    }
+}
+
+#[cfg(test)]
+mod direct_event_tests {
+    use super::*;
+    #[test]
+    fn actual_loopback_receiver_persists_direct_events_before_reporting_success() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("synthetic-only");
+        fs::create_dir(&root).unwrap();
+        fs::create_dir(root.join("received")).unwrap();
+        fs::write(root.join("SYNTHETIC-ONLY.txt"), MARKER).unwrap();
+        fs::write(root.join("decision.txt"), "accept").unwrap();
+        fs::write(root.join("received/item.txt"), b"existing synthetic target").unwrap();
+        let (server_cert, server_key) = keypair().unwrap();
+        let (client_cert, client_key) = keypair().unwrap();
+        fs::write(
+            root.join("keys.json"),
+            serde_json::to_vec(&Keys {
+                server_cert,
+                server_key,
+                client_cert,
+                client_key,
+            })
+            .unwrap(),
+        )
+        .unwrap();
+        let state = Arc::new(Mutex::new((
+            store::Store::open(&temp.path().join("state.db")).unwrap(),
+            transfer_runtime::TransferRuntime::default(),
+        )));
+        let target = state.clone();
+        let sink: tasks::Journal = Arc::new(move |event| {
+            let mut guard = target.lock().map_err(|_| "runtime lock")?;
+            let (store, runtime) = &mut *guard;
+            runtime
+                .accept_event(store, 2, event)
+                .map(|_| ())
+                .map_err(Into::into)
+        });
+        let receiver_root = root.clone();
+        let receiver = std::thread::spawn(move || receive_with_sink(&receiver_root, Some(sink)));
+        let started = Instant::now();
+        while !root.join("ready.json").exists() {
+            assert!(started.elapsed() < Duration::from_secs(10));
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        let bytes = b"private synthetic content".repeat(16384);
+        let (code, plan) = prepare(
+            &root,
+            json!({"f":{"fileName":"item.txt","size":bytes.len(),"sha256":digest(&bytes)}}),
+        )
+        .unwrap();
+        assert_eq!(code, 200);
+        assert_eq!(upload(&root, &plan, "f", &bytes, None).unwrap(), 200);
+        fs::write(root.join("stop"), "stop").unwrap();
+        receiver.join().unwrap().unwrap();
+        assert_eq!(
+            fs::read(root.join("received/item.txt")).unwrap(),
+            b"existing synthetic target"
+        );
+        assert_eq!(fs::read(root.join("received/item (1).txt")).unwrap(), bytes);
+        let mut guard = state.lock().unwrap();
+        let (store, runtime) = &mut *guard;
+        assert_eq!(
+            store.management_snapshot().unwrap().jobs[0].status,
+            "completed"
+        );
+        runtime.worker_exited(store, true, true).unwrap();
+        store.integrity_check().unwrap();
+        assert!(!root.join("task-events.jsonl").exists());
     }
 }

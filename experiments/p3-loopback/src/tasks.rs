@@ -7,7 +7,20 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub type Journal = Arc<Mutex<File>>;
+/// The callback must accept each event before reporting success.
+pub type Journal = Arc<dyn Fn(&TaskEvent) -> Result<()> + Send + Sync>;
+
+pub fn file_journal(file: File) -> Journal {
+    let file = Mutex::new(file);
+    Arc::new(move |event| {
+        let mut line = serde_json::to_vec(event)?;
+        line.push(b'\n');
+        file.lock()
+            .map_err(|_| "task journal lock")?
+            .write_all(&line)?;
+        Ok(())
+    })
+}
 pub struct ReceiverTask {
     event: TaskEvent,
     journal: Journal,
@@ -44,14 +57,11 @@ impl ReceiverTask {
         if self.event.phase.terminal() {
             return Ok(());
         }
-        self.event.phase = phase;
-        self.event.sequence += 1;
-        let mut line = serde_json::to_vec(&self.event)?;
-        line.push(b'\n');
-        self.journal
-            .lock()
-            .map_err(|_| "task journal lock")?
-            .write_all(&line)?;
+        let mut next = self.event.clone();
+        next.phase = phase;
+        next.sequence += 1;
+        (self.journal)(&next)?;
+        self.event = next;
         self.last_bytes = self.event.bytes;
         self.last_emit = Instant::now();
         Ok(())
@@ -121,7 +131,7 @@ mod tests {
     fn active_cancel_waits_for_cleanup_and_late_cancel_preserves_success() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("events.jsonl");
-        let journal = Arc::new(Mutex::new(File::create(&path).unwrap()));
+        let journal = file_journal(File::create(&path).unwrap());
         let mut task = ReceiverTask::new(journal.clone(), 2, 100).unwrap();
         task.start().unwrap();
         task.advance(30).unwrap();
@@ -144,5 +154,30 @@ mod tests {
             .map(|l| serde_json::from_str(l).unwrap())
             .collect();
         assert!(events.iter().any(|e| e.phase == Phase::Verifying));
+    }
+}
+
+#[cfg(test)]
+mod sink_tests {
+    use super::*;
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    #[test]
+    fn failed_terminal_sink_does_not_advance_terminal_state() {
+        let fail = Arc::new(AtomicBool::new(false));
+        let flag = fail.clone();
+        let sink: Journal = Arc::new(move |event| {
+            if event.phase == Phase::Completed && flag.swap(false, Ordering::SeqCst) {
+                return Err("synthetic store failure".into());
+            }
+            Ok(())
+        });
+        let mut task = ReceiverTask::new(sink, 1, 1).unwrap();
+        task.start().unwrap();
+        task.advance(1).unwrap();
+        task.verifying().unwrap();
+        fail.store(true, Ordering::SeqCst);
+        assert!(task.finish(true).is_err());
+        assert_eq!(task.event.phase, Phase::Verifying);
     }
 }
