@@ -105,6 +105,7 @@ select { padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; ba
 .inspector > header { display:flex; align-items:center; justify-content:space-between; padding:12px; }
 .inspector h2 { margin:0; font-size:14px; }
 .file-details { min-height:0; flex:1; overflow:auto; padding:12px 4px; }
+.duplicate-results { overflow-wrap:anywhere; }
 .detail-preview { display:flex; align-items:center; justify-content:center; min-height:160px; margin-bottom:16px; }
 .file-details h3 { font-size:14px; overflow-wrap:anywhere; font-weight:600; margin:0 0 12px; }
 .file-details dl { display:grid; grid-template-columns:64px minmax(0,1fr); gap:8px; font-size:12px; margin-block:16px; }

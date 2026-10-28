@@ -946,6 +946,52 @@ async fn thumbnail(
     .map_err(error)?
 }
 #[tauri::command]
+async fn analyze_duplicates(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    ids: Vec<i64>,
+) -> Result<serde_json::Value> {
+    let scope = shelf_windows::scope(&window)?;
+    #[cfg(windows)]
+    {
+        tauri::async_runtime::spawn_blocking(move || {
+            let state = app.state::<Runtime>();
+            let plan = state
+                .store
+                .lock()
+                .map_err(error)?
+                .prepare_duplicate_scan(scope, &ids)?;
+            let pending = plan.analyze_checked(|id, path| {
+                let store = state.store.lock().map_err(error)?;
+                store
+                    .validate_item_scope(scope, &[id])
+                    .map_err(|_| "选中引用已变化，请重新选择。")?;
+                if store
+                    .item_path(id)
+                    .map_err(|_| "选中引用已变化，请重新选择。")?
+                    != path
+                {
+                    return Err("选中引用已变化，请重新选择。".into());
+                }
+                Ok(())
+            })?;
+            let report = state
+                .store
+                .lock()
+                .map_err(error)?
+                .finish_duplicate_scan(scope, pending)?;
+            serde_json::to_value(report).map_err(error)
+        })
+        .await
+        .map_err(error)?
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (app, scope, ids);
+        Err("当前版本仅支持在 Windows 上分析重复文件。".into())
+    }
+}
+#[tauri::command]
 async fn open_item(app: tauri::AppHandle, window: tauri::WebviewWindow, id: i64) -> Result<bool> {
     let scope = shelf_windows::scope(&window)?;
     tauri::async_runtime::spawn_blocking(move || {
@@ -1667,6 +1713,7 @@ pub fn run() {
             set_tags,
             reorder,
             thumbnail,
+            analyze_duplicates,
             open_item,
             reveal_item,
             start_native_drag,

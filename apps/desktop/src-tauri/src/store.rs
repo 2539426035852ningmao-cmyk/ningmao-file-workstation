@@ -1,5 +1,9 @@
 use base64::Engine;
+#[cfg(windows)]
+mod duplicates;
 mod search;
+#[cfg(windows)]
+pub use duplicates::{DuplicatePlan, DuplicateReport, PendingDuplicateScan};
 use rusqlite::{Connection, OptionalExtension, params};
 pub use search::{SearchCatalog, SearchHit, SearchReference, SearchResponse};
 use serde::Serialize;

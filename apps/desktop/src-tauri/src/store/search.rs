@@ -113,7 +113,7 @@ fn probe_rows(rows: Vec<Row>, canceled: &AtomicBool) -> Result<Vec<ProbedRow>> {
     }
     Ok(result)
 }
-fn local_metadata_allowed(path: &Path) -> bool {
+pub(super) fn local_metadata_allowed(path: &Path) -> bool {
     let text = path.to_string_lossy();
     if text.starts_with(r"\\") && !text.starts_with(r"\\?\") {
         return false;

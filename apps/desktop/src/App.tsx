@@ -18,7 +18,7 @@ import { ShelfMenu } from "./components/ShelfMenu";
 import { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem, ContextMenuSeparator } from "./components/ui/context-menu";
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "./components/ui/sheet";
 import { FileThumb } from "./components/spaceui/FileThumb";
-import type { Backend, CatalogShelf, DesktopView, Item, Progress, Snapshot } from "./backend";
+import type { Backend, CatalogShelf, DesktopView, DuplicateReport, Item, Progress, Snapshot } from "./backend";
 import { defaultView,observeTheme,readTheme,readViewMemory,writeTheme,writeShelfView,type ShelfView } from "./preferences";
 import { isSortMode,sortItems,sortOptions } from "./sorting";
 import {OrbFace} from "./orb/OrbFace";
@@ -145,6 +145,12 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   const [systemRecycleIds,setSystemRecycleIds]=useState<number[]|null>(null);
   const [undo,setUndo]=useState<{entity:string;id:number;ids?:number[]}|null>(null);
   const [repairFeedback,setRepairFeedback]=useState<{error:boolean;message:string}|null>(null);
+  const [duplicateBusy,setDuplicateBusy]=useState(false);
+  const [duplicateResult,setDuplicateResult]=useState<{report:DuplicateReport;names:Record<number,string>}|null>(null);
+  const duplicateResultRef=useRef(duplicateResult);duplicateResultRef.current=duplicateResult;
+  const duplicateLive=useRef(true),duplicateKey=useRef(""),duplicateData=useRef(data.items);
+  duplicateData.current=data.items;
+  useEffect(()=>{duplicateLive.current=true;return()=>{duplicateLive.current=false;};},[]);
   const windowDrag=useWindowDrag(()=>backend.desktopMove(),!busy && !hover && !dragging);
   const activeShelf=useRef(shelfId); activeShelf.current=shelfId;
   const importRef=useRef<(paths:string[])=>void>(()=>{});
@@ -157,6 +163,9 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   const tags=[...new Set([...items.flatMap(i=>i.tags),filters.tag].filter(Boolean))].sort((a,b)=>a.localeCompare(b,"zh-CN"));
   const selectedIds=useMemo(()=>new Set(selection.ids),[selection.ids]);
   const chosen=useMemo(()=>visible.filter(i=>selectedIds.has(i.id)),[visible,selectedIds]);
+  const selectionKey=`${shelfId}:${chosen.map(i=>i.id).join(",")}`;
+  duplicateKey.current=selectionKey;
+  useEffect(()=>{if(duplicateResultRef.current){setDuplicateResult(null);setMessage("文件或选择已变化，请重新比较。");}},[selectionKey,data.items]);
   const current=chosen.find(i=>i.id===selected) || chosen[0],dragItem=data.items.find(i=>i.id===dragging);
   function select(id:number,keys:SelectionKeys={}){
     setSelection(previous=>{const visibleIds=visible.map(i=>i.id),visibleSet=new Set(visibleIds),ids=previous.ids.filter(id=>visibleSet.has(id)),add=keys.ctrlKey || keys.metaKey;
@@ -172,6 +181,14 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   function desktopChanged(value:DesktopView) { setCatalog(value.catalog??[]);setDetachedIds((value.layout.detached??[]).map(s=>s.shelf_id));setTopmost(detachedShelfId===undefined?(value.layout.main_topmost??false):(value.layout.detached?.find(s=>s.shelf_id===detachedShelfId)?.topmost??false));if(detachedShelfId===undefined && value.layout.active_shelf!==activeShelf.current)activateShelf(value.layout.active_shelf);if(value.warning)setError(value.warning); }
   async function switchShelf(id:number) { if(detachedShelfId!==undefined)return;await perform(async()=>{await backend.desktopSelect(id);activateShelf(id);}); }
   async function perform(action:()=>Promise<unknown>) { setError(""); try { await action(); } catch(e) { setError(String(e)); } }
+  async function analyzeSelected(){
+    if(!backend.analyzeDuplicates || duplicateBusy || chosen.length<2 || chosen.length>32)return;
+    const key=selectionKey,items=data.items,ids=chosen.map(i=>i.id),names=Object.fromEntries(chosen.map(i=>[i.id,i.name]));
+    setDuplicateBusy(true);setError("");
+    try {const report=await backend.analyzeDuplicates(ids);if(duplicateLive.current){if(duplicateKey.current===key && duplicateData.current===items)setDuplicateResult({report,names});else setMessage("文件或选择已变化，请重新比较。");}}
+    catch(e){if(duplicateLive.current){if(duplicateKey.current===key && duplicateData.current===items)setError(String(e));else setMessage("文件或选择已变化，请重新比较。");}}
+    finally {if(duplicateLive.current)setDuplicateBusy(false);}
+  }
   async function open(id:number) {
     setSelected(id);
     setError("");
@@ -304,6 +321,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
         <DropdownMenu.Item onSelect={()=>setRecycleOpen(true)}><Trash2 size={16}/>柠猫回收站</DropdownMenu.Item>
         <DropdownMenu.Item disabled={!native} onSelect={()=>void perform(()=>backend.managerOpen())}>管理中心</DropdownMenu.Item>
         <DropdownMenu.Item disabled={!native || !chosen.length || busy} onSelect={()=>{setCopyIds(chosen.map(i=>i.id));setCopyTarget(catalog.find(s=>s.id!==shelfId && s.kind!=="bound")?.id || 0);setFormError("");setCopyTo(true);}}>复制选中引用到其他架</DropdownMenu.Item><DropdownMenu.Separator/>
+        {chosen.length>=2 && <DropdownMenu.Item disabled={!backend.analyzeDuplicates || duplicateBusy || chosen.length>32 || chosen.some(i=>i.status!=="normal" || i.kind==="folder")} onSelect={()=>void analyzeSelected()}>{duplicateBusy?"正在比较文件…":chosen.length>32?"比较内容（最多 32 项）":chosen.some(i=>i.status!=="normal" || i.kind==="folder")?"比较内容（请选择正常文件）":"比较选中文件内容"}</DropdownMenu.Item>}
         <DropdownMenu.Item disabled={!backend.planSystemRecycle || !chosen.length || chosen.some(i=>i.status!=="normal") || busy || !!running} onSelect={()=>setSystemRecycleIds(chosen.map(i=>i.id))}>将选中真实文件移入 Windows 回收站…</DropdownMenu.Item><DropdownMenu.Separator/>
         <DropdownMenu.Label className="menu-label">显示与排序</DropdownMenu.Label>
         <DropdownMenu.RadioGroup value={list?"list":"grid"} onValueChange={v=>setView({list:v==="list"})}><DropdownMenu.RadioItem value="grid"><Grid2X2 size={16}/>网格视图<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem><DropdownMenu.RadioItem value="list"><List size={16}/>详细列表<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem></DropdownMenu.RadioGroup>
@@ -324,6 +342,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
     {bound && !shelf.available && <p className="offline-note" role="status">目录离线，记录已保留 · 恢复目录后刷新</p>}
     {preferenceWarning && <div className="error-bar" role="alert"><span>{preferenceWarning}</span><Button variant="ghost" size="icon" aria-label="关闭设置提示" onClick={()=>{setViewWarning("");setThemeWarning("");}}><X size={15}/></Button></div>}
     {error && <div className="error-bar" role="alert"><span>{error}</span><Button variant="ghost" size="icon" aria-label="关闭错误提示" onClick={()=>setError("")}><X size={15}/></Button></div>}
+    {duplicateBusy && <p className="offline-note" role="status">正在比较选中文件内容…</p>}
     <div className="explorer-and-details"><main className="explorer-pane">
       {loading?<div className="empty-state"><p>正在恢复本地文件架…</p></div>:<DndContext sensors={sensors} collisionDetection={collision} onDragStart={e=>setDragging(Number(e.active.id))} onDragCancel={()=>setDragging(null)} onDragEnd={event=>{
         setDragging(null); if(filtered || query || sort!=="manual" || !event.over || event.over.id===event.active.id) return;
@@ -337,6 +356,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
     </main>{inline && current && <aside className="inspector"><header><h2>文件详情</h2><Button variant="ghost" size="icon" aria-label="关闭详情" onClick={()=>setDetails(false)}><X size={15}/></Button></header>{detail}</aside>}</div>
     {running && <button className="compact-progress" aria-label="查看复制任务" onClick={()=>setTasks(true)}><span>{progress?`复制中 · ${progress.file_index}/${progress.file_count}`:"复制中"}</span><progress aria-label="当前文件复制进度" value={progress?.bytes || 0} max={Math.max(1,progress?.total || 1)}/><span>查看</span></button>}
     <footer className={`file-status ${feedback && !running && !error && !preferenceWarning?"status-toast":"sr-only"}`} role="status">{message}</footer>
+    <Sheet open={!!duplicateResult} onOpenChange={value=>{if(!value)setDuplicateResult(null);}}><SheetContent className="details-sheet" showCloseButton={false}><SheetClose asChild><Button className="sheet-dismiss" variant="ghost" size="icon" aria-label="关闭重复分析"><X size={16}/></Button></SheetClose><SheetHeader><SheetTitle>重复文件分析</SheetTitle><SheetDescription>仅比较所选文件，原文件和引用均不改变。</SheetDescription></SheetHeader>{duplicateResult && <div className="file-details duplicate-results">{duplicateResult.report.same_entity.length>0 && <section><h3>同一文件的多个引用</h3>{duplicateResult.report.same_entity.map((group,index)=><p key={index}>{group.map(id=>duplicateResult.names[id]).join("、")}</p>)}</section>}{duplicateResult.report.duplicate_contents.length>0 && <section><h3>不同文件，内容相同</h3>{duplicateResult.report.duplicate_contents.map((group,index)=><p key={index}>{group.map(entity=>entity.map(id=>duplicateResult.names[id]).join(" / ")).join("、")}</p>)}</section>}{!duplicateResult.report.same_entity.length && !duplicateResult.report.duplicate_contents.length && <p>所选文件没有发现相同内容或同一文件的多个引用。</p>}</div>}</SheetContent></Sheet>
     <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}><SheetContent className="details-sheet" showCloseButton={false}><SheetClose asChild><Button className="sheet-dismiss" variant="ghost" size="icon" aria-label="关闭筛选"><X size={16}/></Button></SheetClose><SheetHeader><SheetTitle>筛选文件</SheetTitle><SheetDescription>仅筛选当前架已有记录，不扫描磁盘</SheetDescription></SheetHeader><div className="filter-form">
       <label>文件类型<select value={filters.kind} onChange={e=>setFilters(previous=>({...previous,kind:e.target.value}))}><option value="">全部类型</option>{kinds.map(kind=><option key={kind} value={kind}>{kind==="folder"?"文件夹":kind==="file"?"无扩展名或未知":kind==="link"?"链接":kind.toUpperCase()}</option>)}</select></label>
       <label>标签<select value={filters.tag} onChange={e=>setFilters(previous=>({...previous,tag:e.target.value}))}><option value="">全部标签</option>{tags.map(tag=><option key={tag} value={tag}>{tag}</option>)}</select></label>

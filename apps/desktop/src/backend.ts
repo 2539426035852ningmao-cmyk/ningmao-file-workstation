@@ -15,6 +15,7 @@ export type ManagedReference=Pick<Item,"id"|"shelf_id"|"path"|"name"|"tags">;
 export type SearchReference={item_id:number;shelf_id:number;shelf_name:string};
 export type SearchHit={name:string;kind:string;status:string;match_kind:string;references:SearchReference[]};
 export type SearchResponse={hits:SearchHit[];truncated:boolean};
+export type DuplicateReport={same_entity:number[][];duplicate_contents:number[][][]};
 export type ManagementSnapshot={shelves:Pick<Shelf,"id"|"name"|"kind">[];items:ManagedReference[];jobs:Job[]};
 export type CatalogShelf=Pick<Shelf,"id"|"name"|"kind">;
 export type DesktopView = {layout:{enabled:boolean;expanded:boolean;active_shelf:number;collapsed:number[];page:number;preferences:DesktopPreferences;main_topmost?:boolean;detached?:{shelf_id:number;visible:boolean;topmost:boolean}[]};entries:{id:number;name:string;kind:string}[];total:number;warning:string|null;copying:boolean;edge_hidden:boolean;catalog?:CatalogShelf[];presentation?:EntryPresentation;geometry?:{width:number;height:number;slots:EntrySlot[]};native_dragging?:boolean;always_scrollbars?:boolean;close_lower?:boolean;drag_target?:number|null};
@@ -31,6 +32,7 @@ export type RecycleActivity={id:number;shelf_id:number;name:string;status:string
 export type WakeShortcutConfig={version:number;enabled:boolean;accelerator:string};
 export type WakeShortcutState={config:WakeShortcutConfig;active:boolean;paused:boolean;warning:string|null};
 export interface Backend {
+  analyzeDuplicates?:(ids:number[])=>Promise<DuplicateReport>;
   searchMetadata?:(query:string,kind:string,source:string,status:string)=>Promise<SearchResponse>;
   focusSearchResult?:(shelf:number,item:number)=>Promise<void>;
   recoverWindows?:()=>Promise<number>;
@@ -87,6 +89,7 @@ export interface Backend {
   subscribe(events: Events): Promise<() => void>;
 }
 export const nativeBackend: Backend = {
+  analyzeDuplicates:ids=>invoke("analyze_duplicates",{ids}),
   searchMetadata:(query,kind,source,status)=>invoke("search_metadata",{query,kind,source,status}),
   focusSearchResult:(shelfId,itemId)=>invoke("focus_search_result",{shelfId,itemId}),
   recoverWindows:()=>invoke("recover_desktop_windows"),
