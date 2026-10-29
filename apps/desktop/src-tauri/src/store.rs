@@ -1,5 +1,11 @@
 use base64::Engine;
+#[cfg(windows)]
+mod duplicates;
+mod search;
+#[cfg(windows)]
+pub use duplicates::{DuplicatePlan, DuplicateReport, PendingDuplicateScan};
 use rusqlite::{Connection, OptionalExtension, params};
+pub use search::{SearchCatalog, SearchHit, SearchReference, SearchResponse};
 use serde::Serialize;
 use std::{
     fs::{self, File, OpenOptions},
@@ -74,6 +80,7 @@ pub struct ManagedReference {
     pub shelf_id: i64,
     pub path: String,
     pub name: String,
+    pub kind: String,
     pub tags: Vec<String>,
 }
 #[derive(Serialize)]
@@ -762,11 +769,17 @@ impl Store {
             .map_err(err)?
             .into_iter()
             .map(|(id, shelf_id, path, name, raw)| {
+                let kind = Path::new(&path)
+                    .extension()
+                    .and_then(|value| value.to_str())
+                    .unwrap_or("file")
+                    .to_lowercase();
                 Ok(ManagedReference {
                     id,
                     shelf_id,
                     path,
                     name,
+                    kind,
                     tags: serde_json::from_str(&raw).map_err(err)?,
                 })
             })
