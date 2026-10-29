@@ -1418,6 +1418,133 @@ mod direct_event_tests {
             .unwrap();
         assert_eq!(sender_job.status, "completed");
         assert!(sender_job.message.contains("发送完成"));
+        let second = temp.path().join("second.txt");
+        fs::write(&second, b"second synthetic file").unwrap();
+        let mut first_handle = fs::File::open(&source).unwrap();
+        let mut second_handle = fs::File::open(&second).unwrap();
+        let mut batch = [
+            crate::transfer_sender::SendFile {
+                source: &mut first_handle,
+                name: "batch-one.txt",
+            },
+            crate::transfer_sender::SendFile {
+                source: &mut second_handle,
+                name: "batch-two.txt",
+            },
+        ];
+        let cancel = AtomicBool::new(false);
+        let mut progress = Vec::new();
+        let result = crate::transfer_sender::send_open_files(
+            &sender_store,
+            2,
+            &api,
+            &mut batch,
+            &cancel,
+            |event| progress.push(event.clone()),
+        )
+        .unwrap();
+        assert_eq!(result.status, "completed");
+        assert_eq!(progress.first().unwrap().phase, "preparing");
+        assert_eq!(progress.last().unwrap().phase, "completed");
+        assert!(
+            progress
+                .windows(2)
+                .all(|pair| pair[0].bytes <= pair[1].bytes)
+        );
+        assert_eq!(
+            result
+                .files
+                .iter()
+                .filter(|file| file.status == "completed")
+                .count(),
+            2
+        );
+        assert!(
+            progress
+                .iter()
+                .any(|event| event.file_index == 1 && event.bytes == bytes.len() as u64)
+        );
+        assert_eq!(
+            fs::read(root.join("received/batch-one.txt")).unwrap(),
+            bytes
+        );
+        assert_eq!(
+            fs::read(root.join("received/batch-two.txt")).unwrap(),
+            b"second synthetic file"
+        );
+
+        let large = temp.path().join("large.bin");
+        fs::write(&large, vec![37; 8 * 1024 * 1024]).unwrap();
+        let mut first_handle = fs::File::open(&second).unwrap();
+        let mut large_handle = fs::File::open(&large).unwrap();
+        let mut batch = [
+            crate::transfer_sender::SendFile {
+                source: &mut first_handle,
+                name: "before-cancel.txt",
+            },
+            crate::transfer_sender::SendFile {
+                source: &mut large_handle,
+                name: "cancelled.bin",
+            },
+        ];
+        let cancel = AtomicBool::new(false);
+        let mut cancel_progress = Vec::new();
+        let result = crate::transfer_sender::send_open_files(
+            &sender_store,
+            2,
+            &api,
+            &mut batch,
+            &cancel,
+            |event| {
+                cancel_progress.push(event.clone());
+                if event.file_index == 1 && event.file_bytes >= 1024 * 1024 {
+                    cancel.store(true, Ordering::SeqCst);
+                }
+            },
+        )
+        .unwrap();
+        assert_eq!(result.status, "cancelled");
+        assert_eq!(cancel_progress.last().unwrap().phase, "cancelled");
+        assert!(
+            cancel_progress
+                .windows(2)
+                .all(|pair| pair[0].bytes <= pair[1].bytes)
+        );
+        assert_eq!(result.files[0].status, "completed");
+        assert_eq!(result.files[1].status, "cancelled");
+        assert!(result.files[1].bytes < 8 * 1024 * 1024);
+        assert_eq!(
+            fs::read(root.join("received/before-cancel.txt")).unwrap(),
+            b"second synthetic file"
+        );
+        assert!(!root.join("received/cancelled.bin").exists());
+        assert_eq!(fs::metadata(&large).unwrap().len(), 8 * 1024 * 1024);
+        assert_eq!(
+            sender_store
+                .lock()
+                .unwrap()
+                .management_snapshot()
+                .unwrap()
+                .jobs
+                .into_iter()
+                .find(|job| job.id == result.job_id)
+                .unwrap()
+                .status,
+            "cancelled"
+        );
+        let reopened = store::Store::open(&temp.path().join("sender.db")).unwrap();
+        assert_eq!(
+            reopened
+                .management_snapshot()
+                .unwrap()
+                .jobs
+                .into_iter()
+                .find(|job| job.id == result.job_id)
+                .unwrap()
+                .status,
+            "cancelled"
+        );
+        reopened.integrity_check().unwrap();
         fs::write(root.join("decision.txt"), "reject").unwrap();
         let rejected_source = temp.path().join("rejected.txt");
         fs::write(&rejected_source, b"rejected synthetic source").unwrap();
@@ -1456,9 +1583,21 @@ mod direct_event_tests {
         assert_eq!(fs::read(root.join("received/item (1).txt")).unwrap(), bytes);
         let mut guard = state.lock().unwrap();
         let (store, runtime) = &mut *guard;
-        assert_eq!(
-            store.management_snapshot().unwrap().jobs[0].status,
-            "completed"
+        assert!(
+            store
+                .management_snapshot()
+                .unwrap()
+                .jobs
+                .iter()
+                .any(|job| job.status == "completed")
+        );
+        assert!(
+            store
+                .management_snapshot()
+                .unwrap()
+                .jobs
+                .iter()
+                .any(|job| job.status == "cancelled")
         );
         runtime.worker_exited(store, true, true).unwrap();
         store.integrity_check().unwrap();

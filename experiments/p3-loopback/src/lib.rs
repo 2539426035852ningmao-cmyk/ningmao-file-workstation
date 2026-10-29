@@ -7,7 +7,7 @@ mod probe;
 #[cfg(feature = "probe-cli")]
 pub use probe::main;
 #[cfg(test)]
-#[allow(dead_code)]
+#[allow(dead_code, unused_imports)]
 #[path = "../../../apps/desktop/src-tauri/src/store.rs"]
 mod store;
 #[cfg(test)]
