@@ -1,0 +1,239 @@
+{
+  "base": "b1a7509b676994571990cf28c691cc662d5adbf4",
+  "scope": "DLV-2 browser-only first slice",
+  "sampleCountPerScenario": 1,
+  "runnerSha256": "653974d588b5ac5c193980ed6c74ae9cb7a16c7581bca0bb62be8da3594ef94b",
+  "runs": [
+    {
+      "scenario": "selection",
+      "scope": "BROWSER_SYNTHETIC",
+      "native": "NOT_TESTED",
+      "realFileHashProtection": "NOT_EXERCISED",
+      "head": "b1a7509b676994571990cf28c691cc662d5adbf4",
+      "dirty": true,
+      "node": "v24.18.0",
+      "playwright": "1.64.1",
+      "started": "2026-10-26T12:58:43.754Z",
+      "finished": "2026-10-26T12:58:59.166Z",
+      "inputsBefore": "8d5fc12427be74ab8e41639dcc6a2680db3004ccb9926545f621f1c5cd8c0a56",
+      "inputsAfter": "8d5fc12427be74ab8e41639dcc6a2680db3004ccb9926545f621f1c5cd8c0a56",
+      "steps": [
+        {
+          "name": "typecheck",
+          "seconds": 2.7090261,
+          "exitCode": 0
+        },
+        {
+          "name": "test-build",
+          "seconds": 1.5071989999999995,
+          "exitCode": 0
+        },
+        {
+          "name": "scenario",
+          "seconds": 10.975859100000001,
+          "exitCode": 0
+        }
+      ],
+      "status": "PASS",
+      "stats": {
+        "startTime": "2026-10-26T12:58:48.719Z",
+        "duration": 10323.381000000001,
+        "expected": 6,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      }
+    },
+    {
+      "scenario": "orb",
+      "scope": "BROWSER_SYNTHETIC",
+      "native": "NOT_TESTED",
+      "realFileHashProtection": "NOT_EXERCISED",
+      "head": "b1a7509b676994571990cf28c691cc662d5adbf4",
+      "dirty": true,
+      "node": "v24.18.0",
+      "playwright": "1.64.1",
+      "started": "2026-10-26T12:56:37.307Z",
+      "finished": "2026-10-26T12:57:02.048Z",
+      "inputsBefore": "8d5fc12427be74ab8e41639dcc6a2680db3004ccb9926545f621f1c5cd8c0a56",
+      "inputsAfter": "8d5fc12427be74ab8e41639dcc6a2680db3004ccb9926545f621f1c5cd8c0a56",
+      "steps": [
+        {
+          "name": "typecheck",
+          "seconds": 2.5995074,
+          "exitCode": 0
+        },
+        {
+          "name": "test-build",
+          "seconds": 1.5287959,
+          "exitCode": 0
+        },
+        {
+          "name": "scenario",
+          "seconds": 20.3839838,
+          "exitCode": 0
+        }
+      ],
+      "status": "PASS",
+      "stats": {
+        "startTime": "2026-10-26T12:56:42.208Z",
+        "duration": 19714.841999999997,
+        "expected": 18,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      }
+    },
+    {
+      "scenario": "management",
+      "scope": "BROWSER_SYNTHETIC",
+      "native": "NOT_TESTED",
+      "realFileHashProtection": "NOT_EXERCISED",
+      "head": "b1a7509b676994571990cf28c691cc662d5adbf4",
+      "dirty": true,
+      "node": "v24.18.0",
+      "playwright": "1.64.1",
+      "started": "2026-10-26T12:57:02.360Z",
+      "finished": "2026-10-26T12:57:19.280Z",
+      "inputsBefore": "8d5fc12427be74ab8e41639dcc6a2680db3004ccb9926545f621f1c5cd8c0a56",
+      "inputsAfter": "8d5fc12427be74ab8e41639dcc6a2680db3004ccb9926545f621f1c5cd8c0a56",
+      "steps": [
+        {
+          "name": "typecheck",
+          "seconds": 2.6076825,
+          "exitCode": 0
+        },
+        {
+          "name": "test-build",
+          "seconds": 1.47369,
+          "exitCode": 0
+        },
+        {
+          "name": "scenario",
+          "seconds": 12.615995199999999,
+          "exitCode": 0
+        }
+      ],
+      "status": "PASS",
+      "stats": {
+        "startTime": "2026-10-26T12:57:07.190Z",
+        "duration": 11958.789999999999,
+        "expected": 14,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      }
+    }
+  ],
+  "failedAttemptPreserved": "Initial orb manifest incorrectly counted ten top-level tests; actual Playwright --list and direction/count parameterized source prove 18. Runner correctly returned FAIL despite exit0/all18 passing; manifest corrected, no assertion removed. Raw original result retained locally.",
+  "limits": [
+    "No Windows native candidate process or real file operations",
+    "No source-file or actual-file hash guarantee beyond the stated source/Harness input digest",
+    "No speedup claim: this centralizes existing evidence; MSI and dependencies not rebuilt/installed"
+  ],
+  "followup20261027": {
+    "scope": "Second DLV-2 slice, no application/runtime or dependency changes",
+    "runnerSha256": "f5000a63ea4a4c0f2b9ea1659c5c1325d4ea8ba3f478055f3573674c8649e2d8",
+    "runs": {
+      "native-fixture": {
+        "scenario": "native-fixture",
+        "scope": "RUST_STORE_SYNTHETIC",
+        "native": "NOT_TESTED",
+        "realFileHashProtection": "SYNTHETIC_SOURCE_AND_TWO_NUMBERED_COPIES_VERIFIED",
+        "head": "b9cef90c6b616b424b0b453e7160be66b7c44a85",
+        "dirty": true,
+        "node": "v24.18.0",
+        "playwright": null,
+        "platform": "win32",
+        "started": "2026-10-27T01:54:01.416Z",
+        "inputsBefore": "ba8871a7a69cb9650abfc1901cd51f5edcbd951176afbf4be0bf7515ea9cd423",
+        "steps": [
+          {
+            "name": "installed-rust",
+            "seconds": 0.1105208,
+            "exitCode": 0
+          },
+          {
+            "name": "rust-version",
+            "seconds": 0.1540018,
+            "exitCode": 0
+          },
+          {
+            "name": "compiler-version",
+            "seconds": 0.2744334,
+            "exitCode": 0
+          },
+          {
+            "name": "store-copy-fixture",
+            "seconds": 7.4380527,
+            "exitCode": 0
+          }
+        ],
+        "status": "PASS",
+        "fixtureHashes": {
+          "source/English.txt": "7dff2815f6a82caa6060a4ddb8bcb959059bc3fb8cb07e6d84f9f1bd40a41c0f",
+          "source/中文 空格.txt": "eb60893d3046e1fdea772fbdaf8e035568194dec5ae672ce6d98a7b4c20ae437",
+          "source/合成图片.png": "88ec8c8999f8a5391510e673a48fd9ee47d6092809ebe4f04441c880aefcba13",
+          "bound-target/中文 空格.txt": "eb60893d3046e1fdea772fbdaf8e035568194dec5ae672ce6d98a7b4c20ae437",
+          "bound-target/中文 空格 (1).txt": "eb60893d3046e1fdea772fbdaf8e035568194dec5ae672ce6d98a7b4c20ae437"
+        },
+        "rust": "cargo 1.99.1 (5f94df478 2026-08-27)",
+        "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+        "rustToolchain": "stable-x86_64-pc-windows-msvc",
+        "inputsAfter": "ba8871a7a69cb9650abfc1901cd51f5edcbd951176afbf4be0bf7515ea9cd423",
+        "finished": "2026-10-27T01:54:09.667Z"
+      },
+      "selection": {
+        "scenario": "selection",
+        "scope": "BROWSER_SYNTHETIC",
+        "native": "NOT_TESTED",
+        "realFileHashProtection": "NOT_EXERCISED",
+        "head": "b9cef90c6b616b424b0b453e7160be66b7c44a85",
+        "dirty": true,
+        "node": "v24.18.0",
+        "playwright": "1.64.1",
+        "platform": "win32",
+        "started": "2026-10-27T01:54:57.816Z",
+        "inputsBefore": "ba8871a7a69cb9650abfc1901cd51f5edcbd951176afbf4be0bf7515ea9cd423",
+        "steps": [
+          {
+            "name": "typecheck",
+            "seconds": 3.5017732,
+            "exitCode": 0
+          },
+          {
+            "name": "test-build",
+            "seconds": 2.243254,
+            "exitCode": 0
+          },
+          {
+            "name": "scenario",
+            "seconds": 14.3102043,
+            "exitCode": 0
+          }
+        ],
+        "status": "PASS",
+        "stats": {
+          "startTime": "2026-10-27T01:55:04.518Z",
+          "duration": 13462.195,
+          "expected": 6,
+          "skipped": 0,
+          "unexpected": 0,
+          "flaky": 0
+        },
+        "inputsAfter": "ba8871a7a69cb9650abfc1901cd51f5edcbd951176afbf4be0bf7515ea9cd423",
+        "finished": "2026-10-27T01:55:18.123Z"
+      }
+    },
+    "firstAttempt": "Named toolchain1.99.1 was absent; logged FAIL. Existing stable alias reports Cargo/rustc1.99.1. Select an already-installed alias, verify both versions, run offline; no install or retry without diagnosis.",
+    "controllerGuards": {
+      "passed": 3,
+      "skipped": 0
+    },
+    "limits": [
+      "Only isolated Store Copy/numbering/integrity; no native GUI or recycle/cancel proof",
+      "Actual r21 GUI evidence is separately stored in P2 native-session followupSessions",
+      "Raw logs, DB and complete paths are never published"
+    ]
+  }
+}
