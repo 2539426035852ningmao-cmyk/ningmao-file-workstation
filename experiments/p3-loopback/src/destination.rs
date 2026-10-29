@@ -1,5 +1,5 @@
 //! Local directory identity is retained from acceptance through staging and publication.
-use crate::{Result, validate_name};
+use super::{Result, validate_name};
 use std::{
     fs::File,
     io,

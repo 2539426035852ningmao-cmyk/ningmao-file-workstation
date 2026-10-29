@@ -18,6 +18,8 @@ custom-protocol = ["tauri/custom-protocol"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+ningmao-transfer-contract = { path = "../../../crates/transfer-contract" }
+ningmao-transfer-client = { path = "../../../crates/transfer-client" }
 tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-dialog = "=2.8.3"
 tauri-plugin-window-state = "=2.5.0"
@@ -29,6 +31,7 @@ image = { version = "=0.25.10", default-features = false, features = ["png", "jp
 base64 = "0.22.1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+sha2 = "=0.10.9"
 
 [profile.release]
 codegen-units = 1
@@ -44,4 +47,3 @@ windows = { version = "=0.62.2", features = ["Win32_Foundation", "Win32_Graphics
 windows-core = "=0.62.2"
 
 [dev-dependencies]
-sha2 = "=0.10.9"

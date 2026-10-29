@@ -218,6 +218,26 @@ pub fn view(app: &tauri::AppHandle) -> Result<View> {
 fn report(app: &tauri::AppHandle, message: String) {
     let _ = app.emit("desktop-error", message);
 }
+fn import_receipt(result: &crate::ImportResult) -> Option<String> {
+    // A copy worker may already have emitted its terminal result before the
+    // import response returns. Its existing copying state provides progress.
+    (result.job_id.is_none() && result.added > 0 && result.errors.is_empty())
+        .then(|| format!("已接收 {} 项；来源保留。", result.added))
+}
+fn import_error(result: &crate::ImportResult) -> Option<String> {
+    if result.errors.is_empty() {
+        return None;
+    }
+    let errors = result.errors.join("；");
+    if result.added > 0 {
+        Some(format!(
+            "部分接收：已接收 {} 项；其余项目未能添加：{errors}",
+            result.added
+        ))
+    } else {
+        Some(format!("未能接收文件：{errors}"))
+    }
+}
 pub(crate) fn publish(app: &tauri::AppHandle) -> Result<()> {
     let data = view(app)?;
     app.emit("desktop-updated", data).map_err(error)
@@ -875,15 +895,12 @@ pub fn window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
                                 if let Err(e) = present(&task, id, crate::entry::Kind::Capsule) {
                                     report(&task, e);
                                 }
-                                if !result.errors.is_empty() {
-                                    report(&task, result.errors.join("；"));
+                                if let Some(message) = import_error(&result) {
+                                    report(&task, message);
                                 }
-                                let message = if result.job_id.is_some() {
-                                    "复制任务已开始；来源保留。".into()
-                                } else {
-                                    format!("已接收 {} 项；来源保留。", result.added)
-                                };
-                                let _ = task.emit("desktop-imported", message);
+                                if let Some(message) = import_receipt(&result) {
+                                    let _ = task.emit("desktop-imported", message);
+                                }
                             }
                             Err(e) => {
                                 let _ = present(&task, id, crate::entry::Kind::QuickPeek);
@@ -906,6 +923,65 @@ pub fn window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn dock_receipt_never_reports_success_for_empty_or_failed_reference_import() {
+        for errors in [vec![], vec!["无法读取合成文件".to_string()]] {
+            let empty = crate::ImportResult {
+                added: 0,
+                job_id: None,
+                errors,
+            };
+            assert_eq!(import_receipt(&empty), None);
+        }
+        let partial = crate::ImportResult {
+            added: 1,
+            job_id: None,
+            errors: vec!["无法读取合成文件".into()],
+        };
+        assert_eq!(import_receipt(&partial), None);
+        assert_eq!(
+            import_error(&partial).as_deref(),
+            Some("部分接收：已接收 1 项；其余项目未能添加：无法读取合成文件")
+        );
+        let failed = crate::ImportResult {
+            added: 0,
+            job_id: None,
+            errors: vec!["无法读取合成文件".into()],
+        };
+        assert_eq!(
+            import_error(&failed).as_deref(),
+            Some("未能接收文件：无法读取合成文件")
+        );
+    }
+    #[test]
+    fn dock_import_ack_never_replaces_a_fast_copy_terminal_result() {
+        let copy = crate::ImportResult {
+            added: 0,
+            job_id: Some(42),
+            errors: vec![],
+        };
+        for terminal in ["复制完成", "复制有错误", "已取消", "任务结果未能保存"]
+        {
+            let mut notices = vec![terminal.to_owned()];
+            if let Some(late) = import_receipt(&copy) {
+                notices.push(late);
+            }
+            assert_eq!(
+                notices,
+                [terminal],
+                "a late start must not hide the terminal result"
+            );
+        }
+        let reference = crate::ImportResult {
+            added: 2,
+            job_id: None,
+            errors: vec![],
+        };
+        assert_eq!(
+            import_receipt(&reference).as_deref(),
+            Some("已接收 2 项；来源保留。")
+        );
+    }
     #[test]
     fn native_file_window_drag_blocks_lifecycle_until_drop_or_cancel() {
         let enter = tauri::DragDropEvent::Enter {
