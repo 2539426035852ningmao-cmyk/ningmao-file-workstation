@@ -1,0 +1,15 @@
+[package]
+name = "ningmao-transfer-client"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+publish = false
+
+[features]
+default = []
+probe-hooks = []
+
+[dependencies]
+httparse = "=1.10.1"
+rustls = { version = "=0.23.43", default-features = false, features = ["ring", "std", "tls12"] }
+serde_json = "1"

@@ -979,6 +979,25 @@ impl Store {
             .map_err(err)?;
         Ok(())
     }
+    pub fn finish_transfer_job(
+        &mut self,
+        id: i64,
+        shelf: i64,
+        status: &str,
+        message: &str,
+    ) -> Result<()> {
+        let changed = self
+            .db
+            .execute(
+                "UPDATE jobs SET status=?1,message=?2 WHERE id=?3 AND shelf_id=?4 AND status IN ('queued','copying')",
+                params![status, message, id, shelf],
+            )
+            .map_err(err)?;
+        if changed != 1 {
+            return Err("传输任务记录已不存在或结束，请核对接收目录。".into());
+        }
+        Ok(())
+    }
     pub fn clean_exit(&mut self) -> Result<()> {
         let tx = self.db.transaction().map_err(err)?;
         tx.execute(

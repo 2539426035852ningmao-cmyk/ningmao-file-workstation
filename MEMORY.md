@@ -1,3 +1,40 @@
+# 最新检查点：P3 桌面 localhost 发送入口（2026-10-29）
+
+P3 现有客户端从实验目录移动到原创共享 crate `crates/transfer-client`，实验与桌面 Rust 只保留一份实现。桌面新增 `transfer_sender::send_open_file`：仅接受调用方已授权并打开的普通文件句柄、显式文件架和内存 mTLS 客户端；连接仍硬限制 `127.0.0.1`，不新增 Tauri IPC/UI/监听。真实合成 mTLS 定向测试同时验证发送/接收 Store：成功均落 `completed`、旧同名目标保留并编号、来源不变；拒收发送任务落 `failed` 且不写接收文件。未实现多文件、发送取消、正式接收器启动、设备发现/信任或 LAN，不冒称产品互传。
+
+# 最新检查点：P3 可链接回环客户端与 P2 更新（2026-10-28）
+
+P3 原有协议重用为 loopback 客户端库（仅 127.0.0.1、内存 mTLS 凭据、已打开输入流、大小限制），默认 probe 行为保留；真实合成 TLS→接收→Store 测试及双进程 64MiB/取消通过，13+13 测试（含重复模块）及默认/无默认功能 Clippy 通过。接收端库/桌面启动、IPC/UI、实际配对和 LAN 尚未实现，不冒称用户传输。普通合入 P2 #40 最新 916e6ca 零接收反馈修复；P2 Dock/托盘真实验收仍未完成。未安装/发布/阶段合并。精确 CI/HEAD 以 #55 为准。
+
+# 最新检查点：P3 实时任务桥接与 P2 基线（2026-10-28）
+
+P3 功能提交 d48140d：隔离真实回环 Worker 事件实时接入已有 Store；失踪/终态 job 和落库失败不返回成功，Worker 无完整终态标记 interrupted。实验 11+8 PASS、Clippy PASS、桌面无默认特性检查 PASS；实际启动/取消路由、Tauri IPC/UI、LAN/互通仍未实现，不能冒称发送完成。本分支普通合入 #40 3ea8419，保留 r23/r24；合并后重新验证，以精确 HEAD 和 CI 为准。未安装/发布/合并 main，不触碰私人数据。
+
+# 最新候选检查点：P3 任务 Store 适配（2026-10-27）
+
+`feat/p3-task-integration` 从 #53 06758d7 分出，代码 b1b7311da2cb9ad9727afd055056f9fdb1245a1d。真实 mTLS 双进程回环事件已通过桌面实际 Store 持久化：11单元+4 Store（含11任务真实流）/fmt/all-target Clippy PASS，schema2/来源/旧目标/引用ID标签保留，进度/取消等待/四种终态/重开一致。不是桌面 GUI 网络联调；无新 IPC/默认监听，管理文案/单复制 Runtime 未改，尚无崩溃一致性、持久化任务关联/自动重放/逐文件结果/加入架。详见 docs/research/P3-task-store-integration.md 和 JSON；CI待本PR精确HEAD，#53旧PASS不继承。C盘仅约150MB，构建/合成材料用D盘。无LAN/防火墙/模型/费用/安装/发布/合并，r22和私人数据未触碰。P2仍PARTIAL，P4 peer #54不在此分支，不重复实现。
+
+## 最新：2026-10-27 Linux取消终态兼容修复，须核对最新CI
+
+上一轮因用户中断暂停，恢复后已核对无实验进程。P3目录保护已在Windows本机10单测、Clippy、64MiB回环通过；此前Linux文件/目录9单测通过但完整回环失败。结构化诊断定位mid-stream-upload-terminal读取409时ConnectionReset errno104，Windows后续独立CI通过（此前部分Windows为matrix联动取消）。本轮添加写半关闭+500ms/4MiB有界丢弃密文、发送端终态后关闭，新增排队正文TCP测试；不写入丢弃字节、不改变取消/发布锁。新CI必须完成后才报告双平台恢复。安全诊断只含阶段/数值/IO种类，无原始日志和凭据。
+
+精确源码/二进制哈希以experiments/p3-loopback/evidence.json及PR53最新HEAD为准，下方dae1/da8f/ea45等均为先前构建，不冒充当前。目录安全、流式与原生总关卡仍分别标注；不改P2/P4业务/DB、main或稳定r22，不做LAN/防火墙/模型/费用/安装/发布/合并，不操作鼠标。流程恢复后继续收束PR53和Issue37，不另开重复PR。
+
+## 2026-10-27 最新继续 · P3接收目录保护（优先于旧“尚未实现目录防御”）
+
+在原Draft #53 / feat/p3-loopback-transfer / f6b4c57上继续，仅实验模块，未改P2/P4业务/DB。原junction越界实际红态；新增Destination/Staged捕获目录身份与暂存生命周期：逐级拒绝目录链接，Windows固定祖先/叶目录，拒绝UNC/设备/远程映射卷；cap-std4.0.3只用于句柄相对create-new，NtSetInformationFile普通FileRenameInformation按源文件+RootDirectory句柄禁止覆盖，FileDispositionInfo按文件句柄清理。Linux openat NOFOLLOW和拥有生命周期的/proc FD相对落盘，原路径替换则拒绝发布，无/proc不回退。未用BypassAccessCheck/提权/账户策略修改。
+
+Windows本机9单测、fmt/全目标Clippy、64MiB真实双进程完整回归通过。保留旧过严共享锁导致正常发布失败、Win32相对rename错误87的过程，不把失败抹掉。最终源码及EXE/许可/边界见experiments/p3-loopback/README.md与evidence.json；最终EXE dae1ef64ce34df63b4e3b1e8ece84036144407eee89520ac2ae8640c3de16368。目录guard前一构建测量ea45f973…及f6旧测量只作历史，不冒充最终HEAD峰值。
+
+锁定新增cap-std家族11包，全部许可元数据/授权文本有记录；windows-sys/rustix原已在锁中，本轮显式引用。仍为R3隔离实验、Draft不自动合并；本机无桌面控制，程序均结束，无LAN/广播/防火墙/模型/费用/私人素材/安装发布。实际ACL拒绝、Win10、FAT/ReFS、低空间/异常退出清理、饱和/并行、任务接入/设备配对/官方互通未完成。下一步做任务中心接入准备，不能把目录子集验收冒称LAN产品已交付。
+
+## 2026-10-27 本轮继续 · P3流式/传输中取消已运行（优先于旧16MiB说明）
+
+当前feat/p3-loopback-transfer / Draft #53，以原0657a1f继续，不新增PR、不改P2/P4主程序或DB。仅127.0.0.1:0；64KiB正文分块、临时文件+增量SHA256+防覆盖发布；有界4连接、会话锁外IO，另一TLS连接可取消，确认与最终发布同锁排序。标准Expect:100-continue先授权再发正文，拒绝时NeverRead断言证明不读取源正文。4单测、fmt/Clippy、本机64MiB真实两进程完整/部分写入后取消/断线清理/新会话恢复通过。最终原始实验stream-07-memory：取消确认10ms，完整清理另等409/临时文件消失；三个受控进程峰值6,885,376/9,121,792/9,220,096字节，非通用上限。EXE67b0e77bac39189fe23193bc276a7b0754aff2eadfde3cffb14c34db757d937b。2/5失败及4性能采样UNKNOWN均保留，不掩盖；Windows目录项大小滞后改为句柄元数据已补回归。证据在experiments/p3-loopback/README.md与evidence.json。
+
+512MiB仅接纳限，实测64MiB；并行/饱和/慢磁盘、接收目录重解析防御、真实授权配对、断点续传、任务UI/官方LocalSend互通仍未完成，不得宣称正式LAN交付。正常结束后实验进程退出，未广播/配置网络/防火墙/模型/费用/安装/发布/合并，r22和私人素材未触碰。
+
+上轮P4 peer分支feat/p4-local-search / Draft #54 / f8d3ab8998bfe324791ff4a8ec51d15badbc4a6b已106浏览器+Rust全量+Windows构建和包检查CI全绿（40490602524/40490602518），有原生中文聚合/绑定架定位/CtrlF子集；FTS/增量索引/完整边界仍未完成。DevLab #52 / 6b0dca4双平台通过。本分支不含P4代码，不要误判丢失或重新实现；普通后续先核对远端PR证据。
 # 最新检查点：P2 Dock 零成功反馈（2026-10-28）
 
 #40 修复引用投放零项误报成功：空投放/全部失败不发成功回执；部分成功明确提示数量及失败，不以成功前缀显示。旧代码零项错误实际复现；dock 定向2 PASS、orb_entry3 PASS、Clippy/前端构建通过。不改变文件/数据库/布局或复制终态；真实 OLE 能否发生空路径未证实，最新候选实际 Dock/托盘仍待原生验收，P2 总体 PARTIAL。精确 HEAD/CI 见 #40；不自动合并、安装或发布。
@@ -21,6 +58,8 @@ P3 #55 HEAD35c1afa / 代码b1b7311：五项CI全SUCCESS（40517705535双OS11+4/�
 # 项目交接记忆
 
 ## 当前有效检查点（2026-10-27，优先于下方历史“当前任务”措辞）
+
+用户最新加速交接明确允许P2继续收束时在隔离分支推进P3 loopback和P4-A，覆盖此前绝对串行措辞；无真实LAN/防火墙、模型/费用、私人数据或R3合并扩大授权。P3从8ae8a59分出feat/p3-loopback-transfer，仅experiments/p3-loopback和独立CI，不改P2。当前已真实双子进程mTLS收发：单文件+两文件批量/哈希/重名保护/拒收/恶意路径/错误令牌及重放/不可信两端证书/上传前取消/断线不发布均通过，2单测、fmt/Clippy通过；Windows接收socket继承非阻塞的首次失败已修正且保留事实。Core cfd6991公开启动API会绑定wildcard，不在仅loopback许可下运行，故选独立最小协议适配（未复制其源码）；真实LAN/流式背压/进行中网络取消及官方客户端互通未完成，<=16MiB明确实验限制。版本/98依赖许可证metadata/协议62bd340/机器证据在实验README与evidence.json。构建和新测试材料在D盘专用目录，不读私人素材；无安装/发布/合并。下一闭环P4-A复用现有Store，只读schema2、轻量DTO、CtrlK名称/标签搜索与定位。
 
 用户已明确批准仅合成English.txt（42字节）进入Windows回收站。本轮r22原生实体回收/跨架失效/软件记录恢复/Windows实体还原/重启防重放PASS（只此子集）：旧300s票据到期正确拒绝且无操作，正常重新预览同一文件；单文件二次确认后仅发起引用1进软回收，架4引用88失效且精选标签保留，journal1 committed。软件恢复还原ID1/标签但实体仍不在；Windows单项属性匹配42字节/删除时刻，点击还原回到原路径且SHA256一致。两架刷新/重启均正常，原顺序/标签保留。5小保护文件、256源别名/64MiB载荷、81独立副本hash不变；87引用/schema2完整，数据六表等于前基线，正常退出重启七表不变、无重复回收。PID15424/30128均正常退出，测试窗口为零，回收站/属性标签已关闭，原Explorer测试文件夹保留。详见r22-system-recycle-native.json；之前“待批准/仍运行”段落是旧检查点，已由本段收束。不改业务代码/权限/包，不合并/发布；P2仍PARTIAL，原生批量/回收取消/更多异常、Dock/托盘/DPI多屏仍独立门槛。b06a4bd Desktop40451577252/Preview40451577263已全绿。
 
@@ -179,3 +218,6 @@ r15集中验收继续：第一次English引用后1条/0任务，第二次用户�
 - 最新工具授权（2026-10-27）：用户明确允许按需自主安装并使用其他软件、插件、技能及GitHub项目。不为安装而安装，先复用已装工具并核许可；不等同于安装本项目MSI/发布/高风险合并、收费、账号授权或绕过安全策略。当前修复未引入或安装新工具。
 
 - 2026-10-29 最新总指令：首版范围收敛 P0/P1/P2，85% 不降低安全门槛，暂停 P3/P4 新工作。已下载并核验 #40 Actions40717962697完整包，源 b5806a5 与916e6ca同tree；EXE4e9c1544…402416，启动/原生选择器/取消/菜单完整退出，DB integrity ok schema2。新包不继承旧原生PASS；见 docs/stages/MVP-first-trial-20261029.md。保留旧候选，不安装/发布/合并。
+- 2026-10-29：官方 LocalSend V2 无正文 cancel 被实验 read_header 的强制长度头拒绝，回归先红后绿；无长度/传输编码的请求按零正文处理，仅一行修复。14 lib tests PASS；固定 cfd6991 官方客户端真实本机文件流与接收端 cancelled 终态通过。未知长度 chunked 仍不支持；错误 session 的官方 cancel Ok 仍不可视为成功。无 LAN/产品接入/安装/合并。
+
+- 2026-10-29：5c749a8 五项 CI 全通过，Windows 第一次 large-disconnect 拒绝访问根因未证实、重跑成功，不添加推测防护。官方客户端对照程序归档 experiments/p3-official-client，固定上游提交、独立锁文件、参数化路径与取消终态断言；本机真实文件流/旧目标/来源/取消再验通过。仅 localhost，未产品接入或 LAN。
