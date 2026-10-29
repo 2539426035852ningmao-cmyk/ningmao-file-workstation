@@ -1,3 +1,4 @@
+pub mod chat;
 pub mod desktop;
 mod desktop_runtime;
 #[cfg(windows)]
@@ -52,6 +53,7 @@ struct RecycleOutcome {
     message: String,
 }
 struct Runtime {
+    chat: chat::ChatControl,
     store: Mutex<Store>,
     active: Mutex<Option<(i64, Arc<AtomicBool>)>>,
     thumbnail: Mutex<()>,
@@ -1426,6 +1428,144 @@ async fn manager_open(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Re
     desktop_runtime::manager_open(&app)
 }
 #[tauri::command]
+async fn chat_config(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+) -> Result<store::ChatConfig> {
+    metadata_window(&window)?;
+    database(app, |s| s.chat_config()).await
+}
+#[tauri::command]
+async fn chat_configure(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    base_url: String,
+    model: String,
+    enabled: bool,
+    api_key: Option<String>,
+) -> Result<store::ChatConfig> {
+    metadata_window(&window)?;
+    app.state::<Runtime>().chat.idle()?;
+    if enabled || !base_url.is_empty() {
+        chat::endpoint(&base_url)?;
+    }
+    let encrypted_key = api_key
+        .map(|key| {
+            if key.len() > 8192 || key.chars().any(char::is_control) {
+                return Err("API Key 无效".to_string());
+            }
+            if key.is_empty() {
+                Ok(Vec::new())
+            } else {
+                chat::protect(key.as_bytes())
+            }
+        })
+        .transpose()?;
+    database(app, move |s| {
+        s.chat_configure(&base_url, &model, enabled, encrypted_key.as_deref())
+    })
+    .await
+}
+#[tauri::command]
+async fn chat_sessions(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+) -> Result<Vec<store::ChatSession>> {
+    metadata_window(&window)?;
+    database(app, |s| s.chat_sessions()).await
+}
+#[tauri::command]
+async fn chat_messages(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    session_id: i64,
+) -> Result<Vec<store::ChatMessage>> {
+    metadata_window(&window)?;
+    database(app, move |s| s.chat_messages(session_id)).await
+}
+#[tauri::command]
+async fn chat_new(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<i64> {
+    metadata_window(&window)?;
+    database(app, |s| s.chat_new()).await
+}
+#[tauri::command]
+async fn chat_delete(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    session_id: i64,
+) -> Result<()> {
+    metadata_window(&window)?;
+    app.state::<Runtime>().chat.idle()?;
+    database(app, move |s| s.chat_delete(session_id)).await
+}
+#[tauri::command]
+fn chat_stop(app: tauri::AppHandle, window: tauri::WebviewWindow, session_id: i64) -> Result<()> {
+    metadata_window(&window)?;
+    app.state::<Runtime>().chat.stop(session_id)
+}
+#[tauri::command]
+async fn chat_send(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    session_id: i64,
+    text: String,
+) -> Result<()> {
+    metadata_window(&window)?;
+    let active = app.state::<Runtime>().chat.start(session_id)?;
+    let (config, key, request) = database(app.clone(), move |s| {
+        let config = s.chat_config()?;
+        if !config.enabled {
+            return Err("请先配置并启用模型服务".into());
+        }
+        let key = s
+            .chat_key_ciphertext()?
+            .map(|key| {
+                chat::unprotect(&key).and_then(|bytes| {
+                    String::from_utf8(bytes).map_err(|_| "无法读取已保存密钥，请重新配置".into())
+                })
+            })
+            .transpose()?;
+        Ok((config, key, s.chat_begin(session_id, &text)?))
+    })
+    .await?;
+    let notify = || {
+        let _ = app.emit_to(
+            window.label(),
+            "chat-updated",
+            serde_json::json!({"session_id":session_id}),
+        );
+    };
+    notify();
+    let mut output = String::new();
+    let result = chat::stream_reply(
+        &config,
+        key.as_deref(),
+        &request.messages,
+        &active.cancel,
+        &mut output,
+        |content| {
+            app.state::<Runtime>()
+                .store
+                .lock()
+                .map_err(error)?
+                .chat_finish(request.assistant_id, content, "streaming")?;
+            notify();
+            Ok(())
+        },
+    )
+    .await;
+    let status = match &result {
+        Ok(status) => *status,
+        Err(_) => "failed",
+    };
+    database(app.clone(), move |s| {
+        s.chat_finish(request.assistant_id, &output, status)
+    })
+    .await?;
+    notify();
+    result.map(|_| ())
+}
+#[tauri::command]
 async fn management_snapshot(
     app: tauri::AppHandle,
     window: tauri::WebviewWindow,
@@ -1664,6 +1804,7 @@ pub fn run() {
                 std::io::Error::other(format!("相同数据目录已有实例或无法锁定：{e}"))
             })?;
             app.manage(Runtime {
+                chat: Default::default(),
                 store: Mutex::new(
                     Store::open(&root.join("workstation.sqlite3"))
                         .map_err(std::io::Error::other)?,
@@ -1794,6 +1935,14 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            chat_config,
+            chat_configure,
+            chat_sessions,
+            chat_messages,
+            chat_new,
+            chat_delete,
+            chat_send,
+            chat_stop,
             recover_desktop_windows,
             wake_shortcut_state,
             wake_shortcut_configure,
