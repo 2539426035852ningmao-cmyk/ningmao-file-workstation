@@ -1,9 +1,9 @@
-use crate::{
-    LoopbackClient,
-    client::{read_response, request_on},
-};
+use crate::LoopbackClient;
 #[cfg(test)]
 use crate::{store, transfer_runtime};
+use ningmao_transfer_client::{
+    probe_read_response as read_response, probe_request_on as request_on,
+};
 #[path = "destination.rs"]
 mod destination;
 #[path = "tasks.rs"]
@@ -95,7 +95,7 @@ fn client(root: &Path) -> Result<StreamOwned<ClientConnection, TcpStream>> {
         .as_u64()
         .ok_or("port")?
         .try_into()?;
-    LoopbackClient::new(k.server_cert, k.client_cert, k.client_key, port)?.connect()
+    LoopbackClient::new(k.server_cert, k.client_cert, k.client_key, port)?.probe_connect()
 }
 
 fn request(root: &Path, path: &str, bytes: &[u8]) -> Result<(u16, Value)> {
@@ -1399,26 +1399,54 @@ mod direct_event_tests {
             .unwrap() as u16;
         let api =
             LoopbackClient::new(keys.server_cert, keys.client_cert, keys.client_key, port).unwrap();
-        let (code, plan) = api
-            .prepare(
-                json!({"f":{"fileName":"item.txt","size":bytes.len(),"sha256":digest(&bytes)}}),
-            )
-            .unwrap();
-        assert_eq!(code, 200);
-        let session = plan["sessionId"].as_str().unwrap();
-        let token = plan["files"]["f"].as_str().unwrap();
-        assert_eq!(
-            api.upload(
-                session,
-                "f",
-                token,
-                bytes.len() as u64,
-                &mut io::Cursor::new(&bytes)
-            )
+        let source = temp.path().join("source.txt");
+        fs::write(&source, &bytes).unwrap();
+        let sender_store = Mutex::new(store::Store::open(&temp.path().join("sender.db")).unwrap());
+        let mut opened = fs::File::open(&source).unwrap();
+        let sender_job =
+            crate::transfer_sender::send_open_file(&sender_store, 2, &api, &mut opened, "item.txt")
+                .unwrap();
+        assert_eq!(fs::read(&source).unwrap(), bytes);
+        let sender_job = sender_store
+            .lock()
             .unwrap()
-            .0,
-            200
+            .management_snapshot()
+            .unwrap()
+            .jobs
+            .into_iter()
+            .find(|job| job.id == sender_job)
+            .unwrap();
+        assert_eq!(sender_job.status, "completed");
+        assert!(sender_job.message.contains("发送完成"));
+        fs::write(root.join("decision.txt"), "reject").unwrap();
+        let rejected_source = temp.path().join("rejected.txt");
+        fs::write(&rejected_source, b"rejected synthetic source").unwrap();
+        let mut rejected = fs::File::open(&rejected_source).unwrap();
+        assert!(
+            crate::transfer_sender::send_open_file(
+                &sender_store,
+                2,
+                &api,
+                &mut rejected,
+                "rejected.txt",
+            )
+            .is_err()
         );
+        assert_eq!(
+            fs::read(&rejected_source).unwrap(),
+            b"rejected synthetic source"
+        );
+        let failed = sender_store
+            .lock()
+            .unwrap()
+            .management_snapshot()
+            .unwrap()
+            .jobs
+            .into_iter()
+            .find(|job| job.status == "failed")
+            .unwrap();
+        assert!(failed.message.contains("来源文件保留"));
+        assert!(!root.join("received/rejected.txt").exists());
         fs::write(root.join("stop"), "stop").unwrap();
         receiver.join().unwrap().unwrap();
         assert_eq!(

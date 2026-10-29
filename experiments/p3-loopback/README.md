@@ -1,4 +1,6 @@
 > 2026-10-27 任务适配候选增量：真实事件 → 桌面同一 Store 的验证见 [记录](../../docs/research/P3-task-store-integration.md)。当前新增部分失败批次与空文件，共 11 个任务；下方 #53 证据保留对应原源码，不代表新分支 CI 或桌面 GUI 已通过。
+>
+> 2026-10-29 增量：localhost 客户端已移动到共享的 `crates/transfer-client`，实验与桌面 Rust 入口共用这一份实现；接收器、临时密钥与文件型探针控制仍只留在本实验中。真实 mTLS 测试已覆盖桌面发送端及接收端 Store 成功终态与拒收失败终态，仍不代表 LAN/UI 通过。
 
 # P3-1 · 隔离加密 loopback 探针
 

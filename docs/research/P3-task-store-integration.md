@@ -1,5 +1,15 @@
 # P3 真实传输事件接入现有任务 Store（候选）
 
+## 2026-10-29 · 桌面 localhost 发送入口
+
+现有 `LoopbackClient` 已从实验目录移动到原创小 crate `crates/transfer-client`；实验探针与桌面 Rust 层共用同一实现，没有复制第二份协议客户端。正式桌面不依赖 `experiments/`，也不会带入探针的接收监听、临时证书生成、合成目录标记或文件型控制通道。
+
+桌面新增 `transfer_sender::send_open_file`：调用方必须先选择文件架、完成授权并打开普通文件句柄，再传入显式 localhost mTLS 客户端。函数不接收 WebView 路径、不启动监听，只允许现有客户端连接 `127.0.0.1`；发送任务直接写入原 `Store.jobs`，使用既有 `queued/copying/completed/failed` 终态。对端拒收、网络中断或任务落库失败都不会返回成功，来源文件保持不变。
+
+真实 mTLS 定向测试使用同一接收器和 `TransferRuntime`：发送端 Store 与接收端 Store 均达到准确终态；接收端旧同名目标保留并生成编号副本，来源哈希不变；拒收时发送端为 `failed` 且接收目录无新文件。此结果仍是 `127.0.0.1` 合成材料，不是 LAN、GUI、官方双端或 Windows 防火墙验收。
+
+当前未增加 Tauri 命令或前端按钮，也未实现发送取消路由、多文件批次、设备发现/信任、接收目录授权与正式产品接收器启动。下一步必须先复用本入口完成显式 Rust 调用生命周期，再经专项许可进入真实 LAN。
+
 代码检查点 `b1b7311da2cb9ad9727afd055056f9fdb1245a1d`，基于 #53 的 `06758d7`。独立分支 `feat/p3-task-integration`，不改 main、不覆盖 r22、不放行 P2。
 
 ## 完成的实际闭环

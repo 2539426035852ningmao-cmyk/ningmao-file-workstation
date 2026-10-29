@@ -544,6 +544,7 @@ dependencies = [
  "cap-std",
  "httparse",
  "image",
+ "ningmao-transfer-client",
  "ningmao-transfer-contract",
  "rcgen",
  "rusqlite",
@@ -555,6 +556,15 @@ dependencies = [
  "tempfile",
  "uuid",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "ningmao-transfer-client"
+version = "0.1.0"
+dependencies = [
+ "httparse",
+ "rustls",
+ "serde_json",
 ]
 
 [[package]]

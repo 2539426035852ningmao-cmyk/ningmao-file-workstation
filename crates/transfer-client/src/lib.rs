@@ -1,4 +1,4 @@
-use crate::Result;
+//! Bounded mTLS client for the localhost-only P3 runtime seam.
 use rustls::{
     ClientConfig, ClientConnection, RootCertStore, StreamOwned,
     pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer, ServerName},
@@ -10,22 +10,28 @@ use std::{
     sync::Arc,
     time::Duration,
 };
+
+pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 const MAX_CONTROL: usize = 64 * 1024;
 const MAX_FILE: u64 = 512 * 1024 * 1024;
 const CHUNK: usize = 64 * 1024;
-fn key(b: &[u8]) -> PrivateKeyDer<'static> {
-    PrivatePkcs8KeyDer::from(b.to_vec()).into()
+
+fn key(bytes: &[u8]) -> PrivateKeyDer<'static> {
+    PrivatePkcs8KeyDer::from(bytes.to_vec()).into()
 }
-fn roots(b: &[u8]) -> Result<RootCertStore> {
-    let mut r = RootCertStore::empty();
-    r.add(CertificateDer::from(b.to_vec()))?;
-    Ok(r)
+
+fn roots(bytes: &[u8]) -> Result<RootCertStore> {
+    let mut roots = RootCertStore::empty();
+    roots.add(CertificateDer::from(bytes.to_vec()))?;
+    Ok(roots)
 }
+
 /// In-memory pinned mTLS client. It can only connect to IPv4 localhost.
 pub struct LoopbackClient {
     config: Arc<ClientConfig>,
     port: u16,
 }
+
 impl LoopbackClient {
     pub fn new(
         server_cert: Vec<u8>,
@@ -36,15 +42,16 @@ impl LoopbackClient {
         if port == 0 {
             return Err("invalid loopback port".into());
         }
-        let c = ClientConfig::builder()
+        let config = ClientConfig::builder()
             .with_root_certificates(roots(&server_cert)?)
             .with_client_auth_cert(vec![CertificateDer::from(client_cert)], key(&client_key))?;
         Ok(Self {
-            config: Arc::new(c),
+            config: Arc::new(config),
             port,
         })
     }
-    pub(crate) fn connect(&self) -> Result<StreamOwned<ClientConnection, TcpStream>> {
+
+    fn connect(&self) -> Result<StreamOwned<ClientConnection, TcpStream>> {
         let socket = TcpStream::connect_timeout(
             &([127, 0, 0, 1], self.port).into(),
             Duration::from_secs(3),
@@ -56,6 +63,7 @@ impl LoopbackClient {
             socket,
         ))
     }
+
     /// Peer confirmation is performed by the receiving endpoint; this method cannot bypass it.
     pub fn prepare(&self, files: Value) -> Result<(u16, Value)> {
         let body = serde_json::to_vec(
@@ -71,6 +79,7 @@ impl LoopbackClient {
             &mut io::Cursor::new(body),
         )
     }
+
     pub fn upload(
         &self,
         session: &str,
@@ -86,6 +95,7 @@ impl LoopbackClient {
             format!("/api/localsend/v2/upload?sessionId={session}&fileId={file_id}&token={token}");
         request_on(self.connect()?, &path, length, source)
     }
+
     pub fn cancel(&self, session: &str) -> Result<(u16, Value)> {
         if !valid_parameter(session) {
             return Err("invalid transfer parameters".into());
@@ -93,15 +103,23 @@ impl LoopbackClient {
         let path = format!("/api/localsend/v2/cancel?sessionId={session}");
         request_on(self.connect()?, &path, 0, &mut io::empty())
     }
+
+    #[cfg(feature = "probe-hooks")]
+    #[doc(hidden)]
+    pub fn probe_connect(&self) -> Result<StreamOwned<ClientConnection, TcpStream>> {
+        self.connect()
+    }
 }
+
 fn valid_parameter(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 64
         && value
             .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
 }
-pub(crate) fn request_on(
+
+fn request_on(
     mut stream: StreamOwned<ClientConnection, TcpStream>,
     path: &str,
     length: u64,
@@ -128,37 +146,38 @@ pub(crate) fn request_on(
     let mut left = length;
     while left > 0 {
         let want = left.min(CHUNK as u64) as usize;
-        let n = reader.read(&mut buffer[..want])?;
-        if n == 0 {
+        let read = reader.read(&mut buffer[..want])?;
+        if read == 0 {
             return Err("source ended early".into());
         }
-        stream.write_all(&buffer[..n])?;
-        left -= n as u64;
+        stream.write_all(&buffer[..read])?;
+        left -= read as u64;
     }
     stream.flush()?;
     read_response(&mut stream)
 }
-pub(crate) fn read_response(reader: &mut impl Read) -> Result<(u16, Value)> {
+
+fn read_response(reader: &mut impl Read) -> Result<(u16, Value)> {
     let mut header = Vec::new();
     while !header.ends_with(b"\r\n\r\n") {
         if header.len() >= 8192 {
             return Err("response header too large".into());
         }
-        let mut b = [0];
-        reader.read_exact(&mut b)?;
-        header.push(b[0]);
+        let mut byte = [0];
+        reader.read_exact(&mut byte)?;
+        header.push(byte[0]);
     }
     let mut headers = [httparse::EMPTY_HEADER; 32];
     let mut response = httparse::Response::new(&mut headers);
     response.parse(&header)?;
     let status = response.code.ok_or("response status")?;
     let mut length = None;
-    for h in response.headers.iter() {
-        if h.name.eq_ignore_ascii_case("Content-Length") {
+    for header in response.headers.iter() {
+        if header.name.eq_ignore_ascii_case("Content-Length") {
             if length.is_some() {
                 return Err("duplicate response length".into());
             }
-            length = Some(std::str::from_utf8(h.value)?.parse::<usize>()?);
+            length = Some(std::str::from_utf8(header.value)?.parse::<usize>()?);
         }
     }
     let length = length.ok_or("response length")?;
@@ -175,4 +194,21 @@ pub(crate) fn read_response(reader: &mut impl Read) -> Result<(u16, Value)> {
             serde_json::from_slice(&bytes)?
         },
     ))
+}
+
+#[cfg(feature = "probe-hooks")]
+#[doc(hidden)]
+pub fn probe_request_on(
+    stream: StreamOwned<ClientConnection, TcpStream>,
+    path: &str,
+    length: u64,
+    reader: &mut impl Read,
+) -> Result<(u16, Value)> {
+    request_on(stream, path, length, reader)
+}
+
+#[cfg(feature = "probe-hooks")]
+#[doc(hidden)]
+pub fn probe_read_response(reader: &mut impl Read) -> Result<(u16, Value)> {
+    read_response(reader)
 }
