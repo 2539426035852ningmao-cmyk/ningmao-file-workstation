@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import App from "../src/App";
 import DesktopEntry from "../src/DesktopEntry";
 import Manager from "../src/Manager";
-import type { Backend, DesktopView, Events, Item, Progress, Snapshot, TrashEntry } from "../src/backend";
+import type { Backend, DesktopView, Events, Item, Progress, Snapshot, TrashEntry, SearchHit } from "../src/backend";
 import "../src/style.css";
 const item=(id:number,name:string,shelf_id=1):Item=>({id,name,shelf_id,path:"SYNTHETIC/"+name,kind:"txt",bytes:200,modified:1,status:"normal",tags:[]});
 const initial:Snapshot={shelves:[{id:1,name:"灵感收集",kind:"persistent",root:null,available:true},{id:2,name:"本次中转",kind:"session",root:null,available:true}],items:[item(1,"Alpha.txt"),item(2,"中文 文件.txt"),item(3,"Gamma.txt")],jobs:[]};
@@ -18,7 +18,26 @@ function syncState(){state=JSON.parse(localStorage.getItem("test-state") || JSON
 const recycle:{entry:TrashEntry;item?:Item;shelf?:Snapshot["shelves"][number];children?:Item[]}[]=[];
 function trashItem(id:number){const item=state.items.find(i=>i.id===id)!;const shelf=state.shelves.find(s=>s.id===item.shelf_id)!;recycle.push({entry:{id,entity:"item",name:item.name,shelf_id:shelf.id,shelf_name:shelf.name,shelf_kind:shelf.kind,path:item.path,removed_at:Date.now()/1000,children:0},item});state.items=state.items.filter(i=>i.id!==id);save();}
 let maximized=false;
+let duplicateTicket=0,duplicateCanceled=false;
 const backend:Backend={
+ async beginDuplicateScan(){duplicateCanceled=false;const ticket=++duplicateTicket;if(new URLSearchParams(location.search).has("duplicates-begin-delay"))await new Promise(resolve=>setTimeout(resolve,400));return ticket;},
+ async cancelDuplicateScan(ticket){calls.push("duplicates-cancel:"+ticket);if(ticket===duplicateTicket)duplicateCanceled=true;},
+ async analyzeDuplicates(ids,ticket){calls.push("duplicates:"+ids.join(","));if(fail){const message=fail;fail="";throw new Error(message);}const query=new URLSearchParams(location.search);if(query.has("duplicates-delay"))await new Promise(resolve=>setTimeout(resolve,650));if(duplicateCanceled&&ticket===duplicateTicket)throw new Error("比较已取消。");if(query.has("duplicates-empty"))return {same_entity:[],duplicate_contents:[]};return {same_entity:[ids.slice(0,2)],duplicate_contents:[[ids.slice(0,2),ids.slice(2,3)]]};},
+ async searchMetadata(query,kind,source,status){
+   calls.push("search:"+query);syncState();
+   if(fail){const message=fail;fail="";throw new Error(message);}
+   const terms=query.trim().toLowerCase().split(/\s+/),groups=new Map<string,SearchHit>();
+   const allowed=state.items.filter(i=>(!ownShelf||i.shelf_id===ownShelf)&&(source==="all"||state.shelves.find(s=>s.id===i.shelf_id)?.kind===source));
+   const groupsByKind:Record<string,string[]>={image:["png","jpg","jpeg","webp","gif","bmp","tif","tiff","avif","heic","svg"],video:["mp4","mov","mkv","avi","webm","m4v","mpg","mpeg"],audio:["mp3","wav","flac","m4a","aac","ogg","opus"],document:["pdf","doc","docx","xls","xlsx","ppt","pptx","txt","md","rtf","odt","ods","odp","csv"]};
+   for(const item of allowed){
+     if((kind!=="all"&&!(groupsByKind[kind]?.includes(item.kind)??item.kind===kind))||(status!=="all"&&item.status!==status)||!terms.every(t=>item.name.toLowerCase().includes(t)||item.tags.join(" ").toLowerCase().includes(t)))continue;
+     if(groups.has(item.path))continue;
+     groups.set(item.path,{name:item.name,kind:item.kind,status:item.status,match_kind:terms.every(t=>item.name.toLowerCase().includes(t))?"name":"tag",references:allowed.filter(i=>i.path===item.path).map(i=>({item_id:i.id,shelf_id:i.shelf_id,shelf_name:state.shelves.find(s=>s.id===i.shelf_id)!.name}))});
+   }
+   if(query==="slow"&&new URLSearchParams(location.search).has("search-delay"))await new Promise(resolve=>setTimeout(resolve,650));
+   calls.push("search-done:"+query);return {hits:[...groups.values()].sort((a,b)=>a.name.localeCompare(b.name)).slice(0,50),truncated:groups.size>50};
+ },
+ async focusSearchResult(shelf_id,item_id){syncState();if(!state.items.some(i=>i.id===item_id&&i.shelf_id===shelf_id)||ownShelf&&shelf_id!==ownShelf)throw new Error("结果已变化");calls.push(`search-focus:${shelf_id}:${item_id}`);desktop.layout.active_shelf=shelf_id;events.focus?.({shelf_id,item_id});publishDesktop();},
  async recoverWindows(){calls.push("recover-windows");return 0;},
  async wakeShortcutState(){return {config:{...wakeConfig},active:wakeAvailable&&wakeConfig.enabled&&!wakePaused,paused:wakePaused,warning:null};},
  async wakeShortcutConfigure(config){calls.push("wake-configure:"+config.accelerator);if(fail){const message=fail;fail="";if(new URLSearchParams(location.search).has("wake-inactive-after-failure"))wakeAvailable=false;throw new Error(message);}wakeConfig={...config};localStorage.setItem("test-wake-shortcut",JSON.stringify(config));return backend.wakeShortcutState!();},
