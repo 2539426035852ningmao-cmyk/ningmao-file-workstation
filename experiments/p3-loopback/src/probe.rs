@@ -208,7 +208,7 @@ fn read_header(reader: &mut impl Read) -> Result<(String, u64, bool)> {
             length = Some(std::str::from_utf8(h.value)?.parse::<u64>()?);
         }
     }
-    let len = length.ok_or("length required")?;
+    let len = length.unwrap_or(0);
     if len > MAX_FILE {
         return Err("payload limit".into());
     }
@@ -1248,6 +1248,14 @@ mod tests {
         drop(writer);
         assert_eq!(super::staging_size(root.path()).unwrap(), 0);
     }
+    #[test]
+    fn bodyless_cancel_header_is_accepted() {
+        let mut request =
+            &b"POST /api/localsend/v2/cancel?sessionId=test HTTP/1.1\r\nHost: localhost\r\n\r\n"[..];
+        let (_, length, _) = super::read_header(&mut request).unwrap();
+        assert_eq!(length, 0);
+    }
+
     #[test]
     fn upload_body_is_bounded_and_cancellation_stops_staging() {
         use std::{
