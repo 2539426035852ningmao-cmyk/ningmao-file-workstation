@@ -18,8 +18,11 @@ function syncState(){state=JSON.parse(localStorage.getItem("test-state") || JSON
 const recycle:{entry:TrashEntry;item?:Item;shelf?:Snapshot["shelves"][number];children?:Item[]}[]=[];
 function trashItem(id:number){const item=state.items.find(i=>i.id===id)!;const shelf=state.shelves.find(s=>s.id===item.shelf_id)!;recycle.push({entry:{id,entity:"item",name:item.name,shelf_id:shelf.id,shelf_name:shelf.name,shelf_kind:shelf.kind,path:item.path,removed_at:Date.now()/1000,children:0},item});state.items=state.items.filter(i=>i.id!==id);save();}
 let maximized=false;
+let duplicateTicket=0,duplicateCanceled=false;
 const backend:Backend={
- async analyzeDuplicates(ids){calls.push("duplicates:"+ids.join(","));if(fail){const message=fail;fail="";throw new Error(message);}const query=new URLSearchParams(location.search);if(query.has("duplicates-delay"))await new Promise(resolve=>setTimeout(resolve,650));if(query.has("duplicates-empty"))return {same_entity:[],duplicate_contents:[]};return {same_entity:[ids.slice(0,2)],duplicate_contents:[[ids.slice(0,2),ids.slice(2,3)]]};},
+ async beginDuplicateScan(){duplicateCanceled=false;const ticket=++duplicateTicket;if(new URLSearchParams(location.search).has("duplicates-begin-delay"))await new Promise(resolve=>setTimeout(resolve,400));return ticket;},
+ async cancelDuplicateScan(ticket){calls.push("duplicates-cancel:"+ticket);if(ticket===duplicateTicket)duplicateCanceled=true;},
+ async analyzeDuplicates(ids,ticket){calls.push("duplicates:"+ids.join(","));if(fail){const message=fail;fail="";throw new Error(message);}const query=new URLSearchParams(location.search);if(query.has("duplicates-delay"))await new Promise(resolve=>setTimeout(resolve,650));if(duplicateCanceled&&ticket===duplicateTicket)throw new Error("比较已取消。");if(query.has("duplicates-empty"))return {same_entity:[],duplicate_contents:[]};return {same_entity:[ids.slice(0,2)],duplicate_contents:[[ids.slice(0,2),ids.slice(2,3)]]};},
  async searchMetadata(query,kind,source,status){
    calls.push("search:"+query);syncState();
    if(fail){const message=fail;fail="";throw new Error(message);}

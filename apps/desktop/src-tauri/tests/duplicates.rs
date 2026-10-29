@@ -144,3 +144,33 @@ fn revocation_during_analysis_stops_before_returning_results() {
     assert_eq!(fs::read(&a).unwrap(), b"synthetic");
     assert_eq!(fs::read(&b).unwrap(), b"synthetic");
 }
+
+#[test]
+fn cancel_during_scan_releases_file_and_directory_handles() {
+    let dir = tempfile::tempdir().unwrap();
+    let folder = dir.path().join("selected");
+    fs::create_dir(&folder).unwrap();
+    let a = folder.join("a.txt");
+    let b = folder.join("b.txt");
+    fs::write(&a, b"synthetic").unwrap();
+    fs::write(&b, b"synthetic").unwrap();
+    let mut store = Store::open(&dir.path().join("db.sqlite3")).unwrap();
+    let a_id = store.add_reference(1, &a).unwrap();
+    let b_id = store.add_reference(1, &b).unwrap();
+    let plan = store.prepare_duplicate_scan(None, &[a_id, b_id]).unwrap();
+    let mut calls = 0;
+    let result = plan.analyze_checked(|_, _| {
+        calls += 1;
+        if calls == 3 {
+            Err("比较已取消。".into())
+        } else {
+            Ok(())
+        }
+    });
+    assert!(result.is_err());
+    assert!(calls >= 3);
+    assert!(fs::OpenOptions::new().write(true).open(&a).is_ok());
+    let moved = dir.path().join("moved");
+    fs::rename(&folder, &moved).unwrap();
+    assert_eq!(fs::read(moved.join("a.txt")).unwrap(), b"synthetic");
+}

@@ -1,5 +1,7 @@
 pub mod desktop;
 mod desktop_runtime;
+#[cfg(windows)]
+mod duplicate_control;
 pub mod entry;
 mod search_control;
 mod shelf_windows;
@@ -50,7 +52,7 @@ struct Runtime {
     active: Mutex<Option<(i64, Arc<AtomicBool>)>>,
     thumbnail: Mutex<()>,
     #[cfg(windows)]
-    duplicate_scan_active: AtomicBool,
+    duplicate_scan: duplicate_control::ScanControl,
     data_root: PathBuf,
     recycle_test_root: Option<PathBuf>,
     recycle_plans: Mutex<std::collections::HashMap<String, PlannedRecycle>>,
@@ -948,23 +950,77 @@ async fn thumbnail(
     .map_err(error)?
 }
 #[tauri::command]
+fn begin_duplicate_scan(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<u64> {
+    shelf_windows::scope(&window)?;
+    #[cfg(windows)]
+    {
+        let state = app.state::<Runtime>();
+        let generation = state.duplicate_scan.generation(window.label())?;
+        let visible = matches!(window.is_visible(), Ok(true));
+        state
+            .duplicate_scan
+            .begin(window.label(), generation, visible)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = app;
+        Err("当前版本仅支持在 Windows 上分析重复文件。".into())
+    }
+}
+#[tauri::command]
+fn cancel_duplicate_scan(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    ticket: u64,
+) -> Result<()> {
+    shelf_windows::scope(&window)?;
+    #[cfg(windows)]
+    {
+        app.state::<Runtime>()
+            .duplicate_scan
+            .cancel(window.label(), Some(ticket))?;
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (app, ticket);
+    }
+    Ok(())
+}
+#[tauri::command]
 async fn analyze_duplicates(
     app: tauri::AppHandle,
     window: tauri::WebviewWindow,
     ids: Vec<i64>,
+    ticket: u64,
 ) -> Result<serde_json::Value> {
-    let scope = shelf_windows::scope(&window)?;
+    let scope = match shelf_windows::scope(&window) {
+        Ok(scope) => scope,
+        Err(message) => {
+            #[cfg(windows)]
+            let _ = app
+                .state::<Runtime>()
+                .duplicate_scan
+                .cancel(window.label(), Some(ticket));
+            return Err(message);
+        }
+    };
     #[cfg(windows)]
     {
+        let guard = app
+            .state::<Runtime>()
+            .duplicate_scan
+            .claim(window.label(), ticket)?;
         tauri::async_runtime::spawn_blocking(move || {
             let state = app.state::<Runtime>();
-            let _permit = store::ScanPermit::acquire(&state.duplicate_scan_active)?;
             let plan = state
                 .store
                 .lock()
                 .map_err(error)?
                 .prepare_duplicate_scan(scope, &ids)?;
             let pending = plan.analyze_checked(|id, path| {
+                if guard.canceled.load(Ordering::Acquire) {
+                    return Err("比较已取消。".into());
+                }
                 let store = state.store.lock().map_err(error)?;
                 store
                     .validate_item_scope(scope, &[id])
@@ -978,6 +1034,9 @@ async fn analyze_duplicates(
                 }
                 Ok(())
             })?;
+            if guard.canceled.load(Ordering::Acquire) {
+                return Err("比较已取消。".into());
+            }
             let report = state
                 .store
                 .lock()
@@ -990,7 +1049,7 @@ async fn analyze_duplicates(
     }
     #[cfg(not(windows))]
     {
-        let _ = (app, scope, ids);
+        let _ = (app, scope, ids, ticket);
         Err("当前版本仅支持在 Windows 上分析重复文件。".into())
     }
 }
@@ -1205,7 +1264,21 @@ fn desktop_collapse(
     if scope.is_some_and(|id| id != shelf_id) {
         return Err("不能收起其他独立架。".into());
     }
-    desktop_runtime::collapse(&app, shelf_id)
+    #[cfg(windows)]
+    let closing = app
+        .state::<Runtime>()
+        .duplicate_scan
+        .close_start(window.label())
+        .ok();
+    let result = desktop_runtime::collapse(&app, shelf_id);
+    #[cfg(windows)]
+    if let Some(generation) = closing {
+        let _ = app
+            .state::<Runtime>()
+            .duplicate_scan
+            .close_finish(window.label(), generation);
+    }
+    result
 }
 #[tauri::command]
 fn desktop_present(
@@ -1594,7 +1667,7 @@ pub fn run() {
                 active: Mutex::new(None),
                 thumbnail: Mutex::new(()),
                 #[cfg(windows)]
-                duplicate_scan_active: AtomicBool::new(false),
+                duplicate_scan: Default::default(),
                 data_root: root.clone(),
                 recycle_test_root: std::env::var_os("NINGMAO_RECYCLE_TEST_ROOT")
                     .and_then(|p| std::fs::canonicalize(p).ok()),
@@ -1656,7 +1729,20 @@ pub fn run() {
                     }
                     // Frozen decision 19: X hides to tray. Only explicit collapse creates an orb.
                     shelf_windows::hidden(window);
+                    #[cfg(windows)]
+                    let closing = window
+                        .app_handle()
+                        .try_state::<Runtime>()
+                        .and_then(|state| state.duplicate_scan.close_start(window.label()).ok());
                     let _ = window.hide();
+                    #[cfg(windows)]
+                    if let Some(generation) = closing
+                        && let Some(state) = window.app_handle().try_state::<Runtime>()
+                    {
+                        let _ = state
+                            .duplicate_scan
+                            .close_finish(window.label(), generation);
+                    }
                     if let Some(state) = window.app_handle().try_state::<desktop_runtime::Desktop>()
                     {
                         let _ = state.save();
@@ -1693,6 +1779,15 @@ pub fn run() {
                 drags.incoming.remove(window.label());
                 drags.outgoing.remove(window.label());
             }
+            #[cfg(windows)]
+            if matches!(event, tauri::WindowEvent::Destroyed)
+                && let Some(state) = window.app_handle().try_state::<Runtime>()
+                && let Ok(generation) = state.duplicate_scan.close_start(window.label())
+            {
+                let _ = state
+                    .duplicate_scan
+                    .close_finish(window.label(), generation);
+            }
         })
         .invoke_handler(tauri::generate_handler![
             recover_desktop_windows,
@@ -1718,6 +1813,8 @@ pub fn run() {
             set_tags,
             reorder,
             thumbnail,
+            begin_duplicate_scan,
+            cancel_duplicate_scan,
             analyze_duplicates,
             open_item,
             reveal_item,

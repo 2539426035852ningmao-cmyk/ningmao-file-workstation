@@ -145,11 +145,12 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   const [systemRecycleIds,setSystemRecycleIds]=useState<number[]|null>(null);
   const [undo,setUndo]=useState<{entity:string;id:number;ids?:number[]}|null>(null);
   const [repairFeedback,setRepairFeedback]=useState<{error:boolean;message:string}|null>(null);
-  const [duplicateBusy,setDuplicateBusy]=useState(false);
+  const [duplicateBusy,setDuplicateBusy]=useState(false),[duplicateCanceling,setDuplicateCanceling]=useState(false);
   const [duplicateResult,setDuplicateResult]=useState<{report:DuplicateReport;names:Record<number,string>}|null>(null);
   const duplicateResultRef=useRef(duplicateResult);duplicateResultRef.current=duplicateResult;
   const duplicateLive=useRef(true),duplicateKey=useRef(""),duplicateData=useRef("");
-  useEffect(()=>{duplicateLive.current=true;return()=>{duplicateLive.current=false;};},[]);
+  const duplicateRun=useRef<{key:string;items:string;ticket:number|null;reason:"user"|"changed"|"closed"|null}|null>(null);
+  useEffect(()=>{duplicateLive.current=true;return()=>{duplicateLive.current=false;const run=duplicateRun.current;if(run){run.reason="closed";if(run.ticket!==null)void backend.cancelDuplicateScan?.(run.ticket).catch(()=>{});}};},[backend]);
   const windowDrag=useWindowDrag(()=>backend.desktopMove(),!busy && !hover && !dragging);
   const activeShelf=useRef(shelfId); activeShelf.current=shelfId;
   const importRef=useRef<(paths:string[])=>void>(()=>{});
@@ -166,7 +167,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   const duplicateFingerprint=JSON.stringify(chosen.map(i=>[i.id,i.shelf_id,i.path,i.name,i.kind,i.bytes,i.modified,i.status]));
   duplicateKey.current=selectionKey;
   duplicateData.current=duplicateFingerprint;
-  useEffect(()=>{if(duplicateResultRef.current){setDuplicateResult(null);setMessage("文件或选择已变化，请重新比较。");}},[selectionKey,duplicateFingerprint]);
+  useEffect(()=>{if(duplicateResultRef.current){setDuplicateResult(null);setMessage("文件或选择已变化，请重新比较。");}const run=duplicateRun.current;if(run && (run.key!==selectionKey || run.items!==duplicateFingerprint))void cancelDuplicate("changed");},[selectionKey,duplicateFingerprint]);
   const current=chosen.find(i=>i.id===selected) || chosen[0],dragItem=data.items.find(i=>i.id===dragging);
   function select(id:number,keys:SelectionKeys={}){
     setSelection(previous=>{const visibleIds=visible.map(i=>i.id),visibleSet=new Set(visibleIds),ids=previous.ids.filter(id=>visibleSet.has(id)),add=keys.ctrlKey || keys.metaKey;
@@ -182,13 +183,19 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   function desktopChanged(value:DesktopView) { setCatalog(value.catalog??[]);setDetachedIds((value.layout.detached??[]).map(s=>s.shelf_id));setTopmost(detachedShelfId===undefined?(value.layout.main_topmost??false):(value.layout.detached?.find(s=>s.shelf_id===detachedShelfId)?.topmost??false));if(detachedShelfId===undefined && value.layout.active_shelf!==activeShelf.current)activateShelf(value.layout.active_shelf);if(value.warning)setError(value.warning); }
   async function switchShelf(id:number) { if(detachedShelfId!==undefined)return;await perform(async()=>{await backend.desktopSelect(id);activateShelf(id);}); }
   async function perform(action:()=>Promise<unknown>) { setError(""); try { await action(); } catch(e) { setError(String(e)); } }
+  async function cancelDuplicate(reason:"user"|"changed"){
+    const run=duplicateRun.current;if(!run || run.reason)return;
+    run.reason=reason;if(duplicateLive.current)setDuplicateCanceling(true);
+    if(run.ticket!==null){try{await backend.cancelDuplicateScan?.(run.ticket);}catch{run.reason=null;if(duplicateLive.current){setDuplicateCanceling(false);setError("取消未完成，请稍后重试。");}}}
+  }
   async function analyzeSelected(){
-    if(!backend.analyzeDuplicates || duplicateBusy || chosen.length<2 || chosen.length>32)return;
+    if(!backend.analyzeDuplicates || !backend.beginDuplicateScan || !backend.cancelDuplicateScan || duplicateBusy || chosen.length<2 || chosen.length>32)return;
     const key=selectionKey,items=duplicateFingerprint,ids=chosen.map(i=>i.id),names=Object.fromEntries(chosen.map(i=>[i.id,i.name]));
+    const run:{key:string;items:string;ticket:number|null;reason:"user"|"changed"|"closed"|null}={key,items,ticket:null,reason:null};duplicateRun.current=run;
     setDuplicateBusy(true);setError("");
-    try {const report=await backend.analyzeDuplicates(ids);if(duplicateLive.current){if(duplicateKey.current===key && duplicateData.current===items)setDuplicateResult({report,names});else setMessage("文件或选择已变化，请重新比较。");}}
-    catch(e){if(duplicateLive.current){if(duplicateKey.current===key && duplicateData.current===items)setError(String(e));else setMessage("文件或选择已变化，请重新比较。");}}
-    finally {if(duplicateLive.current)setDuplicateBusy(false);}
+    try {run.ticket=await backend.beginDuplicateScan();if(run.reason){await backend.cancelDuplicateScan(run.ticket);return;}const report=await backend.analyzeDuplicates(ids,run.ticket);if(duplicateLive.current && !run.reason && duplicateKey.current===key && duplicateData.current===items)setDuplicateResult({report,names});}
+    catch(e){if(duplicateLive.current && !run.reason){if(String(e).includes("比较已取消"))setMessage("比较已取消，原文件保持不变。");else if(duplicateKey.current===key && duplicateData.current===items)setError(String(e));else setMessage("文件或选择已变化，请重新比较。");}}
+    finally {if(run.ticket!==null)await backend.cancelDuplicateScan(run.ticket).catch(()=>{});if(duplicateRun.current===run)duplicateRun.current=null;if(duplicateLive.current){if(run.reason==="user")setMessage("比较已取消，原文件保持不变。");else if(run.reason==="changed")setMessage("文件或选择已变化，请重新比较。");setDuplicateBusy(false);setDuplicateCanceling(false);}}
   }
   async function open(id:number) {
     setSelected(id);
@@ -343,7 +350,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
     {bound && !shelf.available && <p className="offline-note" role="status">目录离线，记录已保留 · 恢复目录后刷新</p>}
     {preferenceWarning && <div className="error-bar" role="alert"><span>{preferenceWarning}</span><Button variant="ghost" size="icon" aria-label="关闭设置提示" onClick={()=>{setViewWarning("");setThemeWarning("");}}><X size={15}/></Button></div>}
     {error && <div className="error-bar" role="alert"><span>{error}</span><Button variant="ghost" size="icon" aria-label="关闭错误提示" onClick={()=>setError("")}><X size={15}/></Button></div>}
-    {duplicateBusy && <p className="offline-note" role="status">正在比较选中文件内容…</p>}
+    {duplicateBusy && <div className="offline-note"><span role="status">{duplicateCanceling?"正在取消比较…":"正在比较选中文件内容…"}</span> <Button variant="outline" size="sm" disabled={duplicateCanceling} onClick={()=>void cancelDuplicate("user")}>取消比较</Button></div>}
     <div className="explorer-and-details"><main className="explorer-pane">
       {loading?<div className="empty-state"><p>正在恢复本地文件架…</p></div>:<DndContext sensors={sensors} collisionDetection={collision} onDragStart={e=>setDragging(Number(e.active.id))} onDragCancel={()=>setDragging(null)} onDragEnd={event=>{
         setDragging(null); if(filtered || query || sort!=="manual" || !event.over || event.over.id===event.active.id) return;

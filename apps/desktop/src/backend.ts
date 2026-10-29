@@ -32,7 +32,9 @@ export type RecycleActivity={id:number;shelf_id:number;name:string;status:string
 export type WakeShortcutConfig={version:number;enabled:boolean;accelerator:string};
 export type WakeShortcutState={config:WakeShortcutConfig;active:boolean;paused:boolean;warning:string|null};
 export interface Backend {
-  analyzeDuplicates?:(ids:number[])=>Promise<DuplicateReport>;
+  beginDuplicateScan?:()=>Promise<number>;
+  cancelDuplicateScan?:(ticket:number)=>Promise<void>;
+  analyzeDuplicates?:(ids:number[],ticket:number)=>Promise<DuplicateReport>;
   searchMetadata?:(query:string,kind:string,source:string,status:string)=>Promise<SearchResponse>;
   focusSearchResult?:(shelf:number,item:number)=>Promise<void>;
   recoverWindows?:()=>Promise<number>;
@@ -89,7 +91,9 @@ export interface Backend {
   subscribe(events: Events): Promise<() => void>;
 }
 export const nativeBackend: Backend = {
-  analyzeDuplicates:ids=>invoke("analyze_duplicates",{ids}),
+  beginDuplicateScan:()=>invoke("begin_duplicate_scan"),
+  cancelDuplicateScan:ticket=>invoke("cancel_duplicate_scan",{ticket}),
+  analyzeDuplicates:(ids,ticket)=>invoke("analyze_duplicates",{ids,ticket}),
   searchMetadata:(query,kind,source,status)=>invoke("search_metadata",{query,kind,source,status}),
   focusSearchResult:(shelfId,itemId)=>invoke("focus_search_result",{shelfId,itemId}),
   recoverWindows:()=>invoke("recover_desktop_windows"),

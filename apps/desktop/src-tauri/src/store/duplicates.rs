@@ -8,7 +8,6 @@ use std::{
     io::{Read, Seek, SeekFrom},
     os::windows::{fs::OpenOptionsExt, io::AsRawHandle},
     path::{Path, PathBuf},
-    sync::atomic::{AtomicBool, Ordering},
     time::SystemTime,
 };
 use windows::Win32::{
@@ -18,20 +17,6 @@ use windows::Win32::{
 
 const MAX_ITEMS: usize = 32;
 const MAX_BYTES: u64 = 256 * 1024 * 1024;
-
-pub(crate) struct ScanPermit<'a>(&'a AtomicBool);
-impl<'a> ScanPermit<'a> {
-    pub(crate) fn acquire(slot: &'a AtomicBool) -> Result<Self> {
-        slot.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
-            .map_err(|_| "已有重复分析正在进行，请稍后重试。".to_string())?;
-        Ok(Self(slot))
-    }
-}
-impl Drop for ScanPermit<'_> {
-    fn drop(&mut self) {
-        self.0.store(false, Ordering::Release);
-    }
-}
 
 #[derive(Serialize)]
 pub struct DuplicateReport {
@@ -328,46 +313,6 @@ impl DuplicatePlan {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[test]
-    fn single_analysis_permit_releases_on_drop() {
-        let slot = AtomicBool::new(false);
-        let first = ScanPermit::acquire(&slot).unwrap();
-        assert!(ScanPermit::acquire(&slot).is_err());
-        drop(first);
-        assert!(ScanPermit::acquire(&slot).is_ok());
-    }
-    #[test]
-    fn concurrent_windows_have_one_worker_and_error_releases_permit() {
-        use std::sync::Barrier;
-        let slot = AtomicBool::new(false);
-        let barrier = Barrier::new(8);
-        std::thread::scope(|scope| {
-            let handles: Vec<_> = (0..8)
-                .map(|_| {
-                    scope.spawn(|| {
-                        barrier.wait();
-                        let permit = ScanPermit::acquire(&slot);
-                        barrier.wait();
-                        permit.is_ok()
-                    })
-                })
-                .collect();
-            assert_eq!(
-                handles
-                    .into_iter()
-                    .map(|h| h.join().unwrap())
-                    .filter(|v| *v)
-                    .count(),
-                1
-            );
-        });
-        fn fail(slot: &AtomicBool) -> Result<()> {
-            let _permit = ScanPermit::acquire(slot)?;
-            Err("synthetic failure".into())
-        }
-        assert!(fail(&slot).is_err());
-        assert!(ScanPermit::acquire(&slot).is_ok());
-    }
     #[test]
     fn byte_confirmation_rejects_same_length_different_content() {
         let dir = tempfile::tempdir().unwrap();

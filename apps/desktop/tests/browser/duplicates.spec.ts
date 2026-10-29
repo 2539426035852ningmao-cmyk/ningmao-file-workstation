@@ -73,3 +73,22 @@ test("分析期间所选引用状态变化会拒绝旧结果",async({page})=>{
   await expect(page.getByText("文件或选择已变化，请重新比较。")).toBeVisible();
   await expect(page.getByRole("dialog",{name:"重复文件分析"})).toHaveCount(0);
 });
+
+test("取消比较后等待后台结束，不展示过期结果",async({page})=>{
+  await selectTwo(page,"?duplicates-delay"); await launch(page);
+  await expect(page.getByText("正在比较选中文件内容…")).toBeVisible();
+  await page.getByRole("button",{name:"取消比较"}).click();
+  await expect(page.getByText("比较已取消，原文件保持不变。")).toBeVisible();
+  expect(await page.evaluate(()=>window.testHarness.calls())).toContain("duplicates-cancel:1");
+  await expect(page.getByRole("dialog",{name:"重复文件分析"})).toHaveCount(0);
+});
+
+test("后台尚未启动时取消，不读取文件",async({page})=>{
+  await selectTwo(page,"?duplicates-begin-delay"); await launch(page);
+  await expect(page.getByText("正在比较选中文件内容…")).toBeVisible();
+  await page.getByRole("button",{name:"取消比较"}).click();
+  await expect(page.getByText("比较已取消，原文件保持不变。")).toBeVisible();
+  const calls=await page.evaluate(()=>window.testHarness.calls());
+  expect(calls).toContain("duplicates-cancel:1");
+  expect(calls).not.toContain("duplicates:1,2");
+});
