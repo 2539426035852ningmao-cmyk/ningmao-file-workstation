@@ -1,6 +1,8 @@
 use base64::Engine;
 #[cfg(windows)]
+#[path = "store/duplicates.rs"]
 mod duplicates;
+#[path = "store/search.rs"]
 mod search;
 #[cfg(windows)]
 pub use duplicates::{DuplicatePlan, DuplicateReport, PendingDuplicateScan};

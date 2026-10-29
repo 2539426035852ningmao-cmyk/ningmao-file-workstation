@@ -1,6 +1,7 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import {nativeChat,type ChatBackend} from "./chatBackend";
 export type Shelf = { id: number; name: string; kind: "persistent" | "session" | "bound"; root: string | null; available: boolean };
 export type Item = { id: number; shelf_id: number; path: string; name: string; kind: string; bytes: number; modified: number; status: string; tags: string[] };
 export type Job = { id: number; shelf_id: number; status: string; message: string; staging: string | null };
@@ -32,6 +33,7 @@ export type RecycleActivity={id:number;shelf_id:number;name:string;status:string
 export type WakeShortcutConfig={version:number;enabled:boolean;accelerator:string};
 export type WakeShortcutState={config:WakeShortcutConfig;active:boolean;paused:boolean;warning:string|null};
 export interface Backend {
+  chat?:ChatBackend;
   beginDuplicateScan?:()=>Promise<number>;
   cancelDuplicateScan?:(ticket:number)=>Promise<void>;
   analyzeDuplicates?:(ids:number[],ticket:number)=>Promise<DuplicateReport>;
@@ -91,6 +93,7 @@ export interface Backend {
   subscribe(events: Events): Promise<() => void>;
 }
 export const nativeBackend: Backend = {
+  chat:nativeChat,
   beginDuplicateScan:()=>invoke("begin_duplicate_scan"),
   cancelDuplicateScan:ticket=>invoke("cancel_duplicate_scan",{ticket}),
   analyzeDuplicates:(ids,ticket)=>invoke("analyze_duplicates",{ids,ticket}),

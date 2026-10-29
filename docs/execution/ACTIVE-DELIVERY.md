@@ -8,3 +8,11 @@
 - 已有试用候选见 `docs/stages/MVP-first-trial-20261029.md`；其真实文件闭环仍未全验。
 - 下一步：测试便携包结构和启动，再完成 M1 原生闭环；继续 P3 桌面入口与 LAN。跨网、手机互传、AI 聊天依次实施。
 - 回滚：保留 P2 `4034d785`、P3/P4 独立分支及原有候选和数据；不将试验数据覆盖用户数据库。
+
+## 当前实施切片（2026-10-30）
+
+- 用户已反馈上一轮便携候选验收通过；保留原生记录，不据此补写未执行的双机或模型测试。
+- 集成 CI `40935178842` 在 rustfmt 阶段失败，根因为通过路径引用 Store 时两个子模块解析错误；改为源头显式路径，并补齐实验 Windows 开发依赖，传输失败不是此项 CI 的原因。
+- AI 界面复用仓库既有 Sheet/Button/Input。已评估 assistant-ui `@assistant-ui/react` 0.15.32（MIT，https://github.com/assistant-ui/assistant-ui），本切片不引入其 core/cloud/store 等运行层；未复制其代码。Markdown 使用 `react-markdown` 10.1.0（MIT，https://github.com/remarkjs/react-markdown），锁文件固定版本与完整性，默认跳过 HTML/图片，代码可复制；依赖许可由现有收集脚本核验。
+- 前端按需加载聊天模块，生产构建新增分块约 124KB / gzip 38KB。浏览器3项聊天测试和管理中心15项通过，属于受控 Harness，不代表真实模型或 Windows GUI 通过。
+- 下一条：合入已实测的批量发送与聊天 Rust 后端，运行统一回归、打包，并核对 IPC 与界面实际连通。

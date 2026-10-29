@@ -20,6 +20,16 @@ function trashItem(id:number){const item=state.items.find(i=>i.id===id)!;const s
 let maximized=false;
 let duplicateTicket=0,duplicateCanceled=false;
 const backend:Backend={
+  chat:{
+    async config(){return JSON.parse(localStorage.getItem("test-chat-config")||'{"base_url":"","model":"","enabled":false,"has_key":false}');},
+    async configure(config){localStorage.setItem("test-chat-config",JSON.stringify({...config,api_key:undefined,has_key:false}));},
+    async sessions(){return JSON.parse(localStorage.getItem("test-chat-sessions")||"[]");},
+    async messages(id){return JSON.parse(localStorage.getItem(`test-chat-${id}`)||"[]");},
+    async create(){const rows=await this.sessions();const id=Date.now();localStorage.setItem("test-chat-sessions",JSON.stringify([...rows,{id,title:"合成接口对话"}]));return id;},
+    async remove(id){const rows=await this.sessions();localStorage.setItem("test-chat-sessions",JSON.stringify(rows.filter(row=>row.id!==id)));localStorage.removeItem(`test-chat-${id}`);},
+    async send(id,text){const rows=await this.messages(id);rows.push({id:rows.length+1,role:"user",content:text,status:"completed"},{id:rows.length+2,role:"assistant",content:`受控接口：${text}`,status:"completed"});localStorage.setItem(`test-chat-${id}`,JSON.stringify(rows));},
+    async stop(){},async subscribe(){return()=>{};},
+  },
  async beginDuplicateScan(){duplicateCanceled=false;const ticket=++duplicateTicket;if(new URLSearchParams(location.search).has("duplicates-begin-delay"))await new Promise(resolve=>setTimeout(resolve,400));return ticket;},
  async cancelDuplicateScan(ticket){calls.push("duplicates-cancel:"+ticket);if(ticket===duplicateTicket)duplicateCanceled=true;},
  async analyzeDuplicates(ids,ticket){calls.push("duplicates:"+ids.join(","));if(fail){const message=fail;fail="";throw new Error(message);}const query=new URLSearchParams(location.search);if(query.has("duplicates-delay"))await new Promise(resolve=>setTimeout(resolve,650));if(duplicateCanceled&&ticket===duplicateTicket)throw new Error("比较已取消。");if(query.has("duplicates-empty"))return {same_entity:[],duplicate_contents:[]};return {same_entity:[ids.slice(0,2)],duplicate_contents:[[ids.slice(0,2),ids.slice(2,3)]]};},

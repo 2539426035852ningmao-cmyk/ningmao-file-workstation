@@ -1,7 +1,7 @@
 name: P3 isolated loopback
 on:
   pull_request:
-    paths: ['experiments/p3-loopback/**', 'crates/transfer-contract/**', 'apps/desktop/src-tauri/src/transfer_tasks.rs', 'apps/desktop/src-tauri/src/store.rs', '.github/workflows/p3-loopback.yml']
+    paths: ['experiments/p3-loopback/**', 'crates/transfer-contract/**', 'crates/transfer-client/**', 'apps/desktop/src-tauri/src/transfer*.rs', 'apps/desktop/src-tauri/src/store.rs', 'apps/desktop/src-tauri/src/store/**', '.github/workflows/p3-loopback.yml']
   workflow_dispatch:
 permissions:
   contents: read

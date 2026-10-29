@@ -3,7 +3,7 @@ import {GlobalSearch} from "./components/GlobalSearch";
 import {SystemRecycle} from "./components/SystemRecycle";
 import {RecycleDrawer} from "./components/RecycleDrawer";
 import {ScrollActivity} from "./components/ScrollActivity";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { DndContext, DragOverlay, KeyboardSensor, PointerSensor, closestCenter, pointerWithin, useSensor, useSensors, type CollisionDetection } from "@dnd-kit/core";
 import { SortableContext, rectSortingStrategy, sortableKeyboardCoordinates, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -25,6 +25,7 @@ import {OrbFace} from "./orb/OrbFace";
 import { defaultFilters,filterItems,type ShelfFilters } from "./filters";
 
 const collision: CollisionDetection = args => { const hits=pointerWithin(args); return hits.length ? hits : closestCenter(args); };
+const ChatPanel=lazy(()=>import("./components/ChatPanel").then(module=>({default:module.ChatPanel})));
 const blank: Snapshot={shelves:[],items:[],jobs:[]};
 const activeStatus=(s:string) => ["queued","copying"].includes(s);
 const sizes=(n:number) => n>=1024*1024 ? `${(n/1024/1024).toFixed(1)} MB` : n>=1024 ? `${(n/1024).toFixed(1)} KB` : `${n} B`;
@@ -121,6 +122,8 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   const selected=selection.focus;
   function setSelected(id:number|null){setSelection({ids:id===null?[]:[id],anchor:id,focus:id});}
   const [searchOpen,setSearchOpen]=useState(false);
+  const [chatOpen,setChatOpen]=useState(false);
+  const [chatLoaded,setChatLoaded]=useState(false);
   const [revealItem,setRevealItem]=useState<number|null>(null);
   const searchInput=useRef<HTMLInputElement>(null),searchButton=useRef<HTMLButtonElement>(null);
   const restoreSearchFocus=useRef(false);
@@ -304,6 +307,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
     <Button variant="outline" onClick={()=>void tag(current)}><Star size={14}/>切换精选标签</Button><p className="muted">图片预览按需加载 PNG / JPEG / WebP；其他类型保留图标。</p></div>;
   return <div className={`workstation ${hover?"drop-active":""}`}><ScrollActivity/>
     <GlobalSearch backend={backend} revision={data} scoped={detachedShelfId!==undefined}/>
+    {backend.chat&&chatLoaded&&<Suspense fallback={null}><ChatPanel backend={backend.chat} open={chatOpen} onOpenChange={setChatOpen}/></Suspense>}
     <SystemRecycle backend={backend} ids={systemRecycleIds} onClose={()=>setSystemRecycleIds(null)} onChanged={refresh}/>
     <RecycleDrawer backend={backend} open={recycleOpen} onOpenChange={setRecycleOpen} shelfId={shelfId} onChanged={refresh}/>
     {undo&&<div className="undo-record" role="status">已移入柠猫回收站 <Button variant="ghost" onClick={()=>void perform(async()=>{for(const id of undo.ids??[undo.id])await backend.restoreTrash?.(undo.entity,id);setUndo(null);await refresh();})}>撤销</Button></div>}
@@ -328,6 +332,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
         {detachedShelfId===undefined && <DropdownMenu.Item disabled={!native} onSelect={()=>void perform(()=>backend.desktopDisable())}>关闭悬浮入口</DropdownMenu.Item>}
         <DropdownMenu.Item onSelect={()=>setRecycleOpen(true)}><Trash2 size={16}/>柠猫回收站</DropdownMenu.Item>
         <DropdownMenu.Item disabled={!native} onSelect={()=>void perform(()=>backend.managerOpen())}>管理中心</DropdownMenu.Item>
+        {backend.chat&&<DropdownMenu.Item onSelect={()=>{setChatLoaded(true);setChatOpen(true);}}>AI 对话</DropdownMenu.Item>}
         <DropdownMenu.Item disabled={!native || !chosen.length || busy} onSelect={()=>{setCopyIds(chosen.map(i=>i.id));setCopyTarget(catalog.find(s=>s.id!==shelfId && s.kind!=="bound")?.id || 0);setFormError("");setCopyTo(true);}}>复制选中引用到其他架</DropdownMenu.Item><DropdownMenu.Separator/>
         {chosen.length>=2 && <DropdownMenu.Item disabled={!backend.analyzeDuplicates || duplicateBusy || chosen.length>32 || chosen.some(i=>i.status!=="normal" || i.kind==="folder")} onSelect={()=>void analyzeSelected()}>{duplicateBusy?"正在比较文件…":chosen.length>32?"比较内容（最多 32 项）":chosen.some(i=>i.status!=="normal" || i.kind==="folder")?"比较内容（请选择正常文件）":"比较选中文件内容"}</DropdownMenu.Item>}
         <DropdownMenu.Item disabled={!backend.planSystemRecycle || !chosen.length || chosen.some(i=>i.status!=="normal") || busy || !!running} onSelect={()=>setSystemRecycleIds(chosen.map(i=>i.id))}>将选中真实文件移入 Windows 回收站…</DropdownMenu.Item><DropdownMenu.Separator/>
