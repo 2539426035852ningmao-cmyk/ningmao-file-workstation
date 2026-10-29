@@ -1,5 +1,14 @@
 import {expect,test} from "@playwright/test";
 
+test("原生聊天适配器使用后端命令及参数名称",async({page})=>{
+  await page.goto("/tests/harness.html");
+  expect(await page.evaluate(()=>window.verifyChatIPC())).toEqual([
+    {command:"chat_configure",args:{baseUrl:"http://localhost:11434/v1",model:"synthetic",enabled:true,apiKey:null}},
+    {command:"chat_send",args:{sessionId:42,text:"合成消息"}},
+    {command:"chat_stop",args:{sessionId:42}},
+  ]);
+});
+
 test("AI入口可脱机配置，聊天上下文和历史由后端保存",async({page})=>{
   await page.goto("/tests/harness.html");
   await page.getByRole("button",{name:"更多操作",exact:true}).click();

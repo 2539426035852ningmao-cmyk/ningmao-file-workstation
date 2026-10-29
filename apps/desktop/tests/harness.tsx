@@ -3,10 +3,14 @@ import { createRoot } from "react-dom/client";
 import App from "../src/App";
 import DesktopEntry from "../src/DesktopEntry";
 import Manager from "../src/Manager";
+import {mockIPC,clearMocks} from "@tauri-apps/api/mocks";
+import {nativeChat} from "../src/chatBackend";
 import type { Backend, DesktopView, Events, Item, Progress, Snapshot, TrashEntry, SearchHit } from "../src/backend";
 import "../src/style.css";
 const item=(id:number,name:string,shelf_id=1):Item=>({id,name,shelf_id,path:"SYNTHETIC/"+name,kind:"txt",bytes:200,modified:1,status:"normal",tags:[]});
 const initial:Snapshot={shelves:[{id:1,name:"灵感收集",kind:"persistent",root:null,available:true},{id:2,name:"本次中转",kind:"session",root:null,available:true}],items:[item(1,"Alpha.txt"),item(2,"中文 文件.txt"),item(3,"Gamma.txt")],jobs:[]};
+declare global{interface Window{verifyChatIPC:()=>Promise<{command:string;args:unknown}[]>}}
+window.verifyChatIPC=async()=>{const calls:{command:string;args:unknown}[]=[];mockIPC((command,args)=>{calls.push({command,args});return null;});try{await nativeChat.configure({base_url:"http://localhost:11434/v1",model:"synthetic",enabled:true,api_key:null});await nativeChat.send(42,"合成消息");await nativeChat.stop(42);return calls;}finally{clearMocks();}};
 let wakeConfig=JSON.parse(localStorage.getItem("test-wake-shortcut")||'{"version":1,"enabled":true,"accelerator":"Ctrl+Alt+Space"}'),wakePaused=false,wakeAvailable=true;
 let state:Snapshot=JSON.parse(localStorage.getItem("test-state") || JSON.stringify(initial));
 const ownShelf=Number(new URLSearchParams(location.search).get("shelf")) || undefined;
