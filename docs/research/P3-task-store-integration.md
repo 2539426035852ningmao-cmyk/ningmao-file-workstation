@@ -1,5 +1,15 @@
 # P3 真实传输事件接入现有任务 Store（候选）
 
+## 2026-10-30 · 批量发送、进度和取消接口
+
+`transfer_sender::send_open_files` 接收 1–16 个调用方已打开的普通文件句柄、明确文件架、现有 localhost mTLS 客户端、取消标记和进度回调。仍使用既有 Store 任务；开始时回调提供 job_id，随后提供准备、等待、发送和终态，逐文件与总字节进度按 1 MiB / 100 ms 降频。返回逐项 completed/rejected/failed/cancelled/unconfirmed/not_sent 状态；只有接收端 HTTP 200 才把文件计入已确认完成。发送源只读，文件 SHA256 由现有受控接收器核对。
+
+在分块边界可取消，取消先停止本地发送，再请求已有协议的取消接口。已确认文件保留；发送完正文却没有确认响应时标为 interrupted，避免误报取消或成功。发送端 cancelled 仅代表本地停止且对端接受取消请求，不能替代接收端清理终态。连接及等待响应沿用 3 / 5 秒超时，阻塞系统调用返回前不能立即取消。
+
+Windows 合成 localhost mTLS 直接测试覆盖双文件发送、旧目标保护、真实进度、第二个 8 MiB 文件传输中取消、第一份保留、第二份不发布、来源不变、任务重开终态与 SQLite integrity。16 库测试及 15 Store 测试通过，实验 all-target Clippy 通过。P3/P4 集成时 Store 子模块路径不兼容实验引入方式已在源头修复；实验补入桌面已有的 windows 0.62.2 开发依赖，不修改桌面依赖。
+
+仍没有 LAN、正式接收器、设备发现、Tauri 发送命令或真实 GUI；逐文件结构结果目前只返回调用方，Store 持久化仍为既有任务摘要，不承诺续传。原 `send_open_file` 保留兼容入口。本切片不构成 LAN 或产品互传验收。
+
 ## 2026-10-29 · 桌面 localhost 发送入口
 
 现有 `LoopbackClient` 已从实验目录移动到原创小 crate `crates/transfer-client`；实验探针与桌面 Rust 层共用同一实现，没有复制第二份协议客户端。正式桌面不依赖 `experiments/`，也不会带入探针的接收监听、临时证书生成、合成目录标记或文件型控制通道。

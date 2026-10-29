@@ -88,12 +88,25 @@ impl LoopbackClient {
         length: u64,
         source: &mut impl Read,
     ) -> Result<(u16, Value)> {
+        self.upload_with_progress(session, file_id, token, length, source, |_| Ok(()))
+    }
+
+    /// Reports bytes written; a callback error stops the stream before its next chunk.
+    pub fn upload_with_progress(
+        &self,
+        session: &str,
+        file_id: &str,
+        token: &str,
+        length: u64,
+        source: &mut impl Read,
+        progress: impl FnMut(u64) -> Result<()>,
+    ) -> Result<(u16, Value)> {
         if length > MAX_FILE || ![session, file_id, token].into_iter().all(valid_parameter) {
             return Err("invalid transfer parameters".into());
         }
         let path =
             format!("/api/localsend/v2/upload?sessionId={session}&fileId={file_id}&token={token}");
-        request_on(self.connect()?, &path, length, source)
+        request_with_progress(self.connect()?, &path, length, source, progress)
     }
 
     pub fn cancel(&self, session: &str) -> Result<(u16, Value)> {
@@ -120,10 +133,20 @@ fn valid_parameter(value: &str) -> bool {
 }
 
 fn request_on(
+    stream: StreamOwned<ClientConnection, TcpStream>,
+    path: &str,
+    length: u64,
+    reader: &mut impl Read,
+) -> Result<(u16, Value)> {
+    request_with_progress(stream, path, length, reader, |_| Ok(()))
+}
+
+fn request_with_progress(
     mut stream: StreamOwned<ClientConnection, TcpStream>,
     path: &str,
     length: u64,
     reader: &mut impl Read,
+    mut progress: impl FnMut(u64) -> Result<()>,
 ) -> Result<(u16, Value)> {
     let expect = path.starts_with("/api/localsend/v2/upload?");
     let interim = if expect {
@@ -145,6 +168,7 @@ fn request_on(
     let mut buffer = [0; CHUNK];
     let mut left = length;
     while left > 0 {
+        progress(length - left)?;
         let want = left.min(CHUNK as u64) as usize;
         let read = reader.read(&mut buffer[..want])?;
         if read == 0 {
@@ -154,6 +178,7 @@ fn request_on(
         left -= read as u64;
     }
     stream.flush()?;
+    progress(length)?;
     read_response(&mut stream)
 }
 

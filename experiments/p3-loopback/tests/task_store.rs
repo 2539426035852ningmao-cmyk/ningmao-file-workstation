@@ -1,4 +1,4 @@
-#[allow(dead_code)]
+#[allow(dead_code, unused_imports)]
 #[path = "../../../apps/desktop/src-tauri/src/store.rs"]
 mod store;
 #[path = "../../../apps/desktop/src-tauri/src/transfer_tasks.rs"]
