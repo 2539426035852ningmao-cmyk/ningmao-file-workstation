@@ -218,13 +218,6 @@ impl DuplicatePlan {
             check(*id, path)?;
             files.push(open_selected(path, &mut directories)?);
         }
-        let total = files
-            .iter()
-            .try_fold(0u64, |sum, f| sum.checked_add(f.length))
-            .ok_or("文件总大小超出限制。")?;
-        if total > MAX_BYTES {
-            return Err("本次选择超过 256 MiB，请减少选择后重试。".into());
-        }
         let mut entities: Vec<(Identity, Vec<i64>, usize)> = Vec::new();
         for (index, ((id, _), opened)) in self.0.iter().zip(&files).enumerate() {
             if let Some(entity) = entities
@@ -235,6 +228,13 @@ impl DuplicatePlan {
             } else {
                 entities.push((opened.identity, vec![*id], index));
             }
+        }
+        let total = entities
+            .iter()
+            .try_fold(0u64, |sum, entity| sum.checked_add(files[entity.2].length))
+            .ok_or("文件总大小超出限制。")?;
+        if total > MAX_BYTES {
+            return Err("本次选择超过 256 MiB，请减少选择后重试。".into());
         }
         let same_entity = entities
             .iter()

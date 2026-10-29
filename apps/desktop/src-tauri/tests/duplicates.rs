@@ -174,3 +174,41 @@ fn cancel_during_scan_releases_file_and_directory_handles() {
     fs::rename(&folder, &moved).unwrap();
     assert_eq!(fs::read(moved.join("a.txt")).unwrap(), b"synthetic");
 }
+
+#[test]
+fn hard_link_references_are_counted_once_for_size_limit() {
+    let dir = tempfile::tempdir().unwrap();
+    let original = dir.path().join("large-synthetic.bin");
+    let alias = dir.path().join("same-entity.bin");
+    let file = fs::File::create(&original).unwrap();
+    file.set_len(129 * 1024 * 1024).unwrap();
+    drop(file);
+    fs::hard_link(&original, &alias).unwrap();
+    let mut store = Store::open(&dir.path().join("db.sqlite3")).unwrap();
+    let a = store.add_reference(1, &original).unwrap();
+    let b = store.add_reference(1, &alias).unwrap();
+    let plan = store.prepare_duplicate_scan(None, &[a, b]).unwrap();
+    let pending = plan.analyze_checked(|_, _| Ok(())).unwrap();
+    let report = store.finish_duplicate_scan(None, pending).unwrap();
+    assert_eq!(report.same_entity, vec![vec![a, b]]);
+    assert!(report.duplicate_contents.is_empty());
+    assert_eq!(fs::metadata(&original).unwrap().len(), 129 * 1024 * 1024);
+}
+
+#[test]
+fn distinct_large_files_still_obey_total_size_limit() {
+    let dir = tempfile::tempdir().unwrap();
+    let first = dir.path().join("first.bin");
+    let second = dir.path().join("second.bin");
+    for path in [&first, &second] {
+        let file = fs::File::create(path).unwrap();
+        file.set_len(129 * 1024 * 1024).unwrap();
+    }
+    let mut store = Store::open(&dir.path().join("db.sqlite3")).unwrap();
+    let a = store.add_reference(1, &first).unwrap();
+    let b = store.add_reference(1, &second).unwrap();
+    let plan = store.prepare_duplicate_scan(None, &[a, b]).unwrap();
+    assert!(plan.analyze_checked(|_, _| Ok(())).is_err());
+    assert_eq!(fs::metadata(first).unwrap().len(), 129 * 1024 * 1024);
+    assert_eq!(fs::metadata(second).unwrap().len(), 129 * 1024 * 1024);
+}
