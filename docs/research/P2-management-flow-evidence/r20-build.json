@@ -1,0 +1,27 @@
+{
+  "candidate": "r20",
+  "date": "2026-10-26",
+  "sourceCommit": "16edf9a02795bcfdfd1fe7e7a4eaf944c107cc3f",
+  "baseCommit": "4774ff307dfa90bdf3cd26bc301992d27a36b160",
+  "branch": "feat/p2-management-flow",
+  "exeSha256": "520a3dd95ee2ad01ecd8e6ccdbf85c8dfaaba0b52a6d4cea124dbe219e4f1b7b",
+  "msiSha256": "3576e7dff6e0e9b7fcd97e47351023b3ad8a4c1bda295b84fd48c3e94e7bf181",
+  "browserTests": 96,
+  "managementSubset": 14,
+  "repositoryCheck": "PASS: 60 required files",
+  "package": "PASS: 9-file whitelist/SHA256, PE/version and read-only MSI inspection",
+  "fixturePreparation": "PASS: fresh synthetic Store only",
+  "licenses": {
+    "records": 268,
+    "existingWarnings": 1,
+    "dependenciesChanged": false
+  },
+  "rustProductChanged": false,
+  "rustLocalTests": "Not repeated full suite for frontend-only changes; Windows app compiled, fixture preparation explicitly passed; CI pending",
+  "nativeLaunch": false,
+  "installed": false,
+  "nativeAcceptance": "NOT TESTED: manager live copy/cancel and full file/window regression",
+  "r19PreservedExeSha256": "0401c99174d13ad17e571d517705e47ba3a53326900d67a498fd732f9fbc9182",
+  "rollback": "Revert this branch or run preserved isolated candidate; never overwrite/downgrade database",
+  "ci": "Pending PR creation"
+}

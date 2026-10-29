@@ -142,6 +142,110 @@ pub fn restore(window: &tauri::WebviewWindow, geometry: Option<&WindowGeometry>)
         .set_position(tauri::PhysicalPosition::new(p.0, p.1))
         .map_err(error)
 }
+pub(crate) fn recover_if_offscreen(window: &tauri::WebviewWindow) -> Result<bool> {
+    if crate::window_surface::moving(window.label()) {
+        return Err("窗口正在移动，请稍后重试。".into());
+    }
+    if window.is_minimized().map_err(error)? || window.is_maximized().map_err(error)? {
+        return Ok(false);
+    }
+    let p = window.outer_position().map_err(error)?;
+    let size = window.outer_size().map_err(error)?;
+    let scale = window.scale_factor().map_err(error)?;
+    let monitors = window.available_monitors().map_err(error)?;
+    let areas = monitors
+        .iter()
+        .map(|m| {
+            let a = m.work_area();
+            Rect {
+                x: a.position.x,
+                y: a.position.y,
+                width: a.size.width,
+                height: a.size.height,
+            }
+        })
+        .collect::<Vec<_>>();
+    if crate::desktop::has_visible_title((p.x, p.y), (size.width, size.height), scale, &areas) {
+        return Ok(false);
+    }
+    let primary = window
+        .primary_monitor()
+        .map_err(error)?
+        .or_else(|| monitors.first().cloned())
+        .ok_or("没有可用显示器")?;
+    let a = primary.work_area();
+    let next = clamp_position(
+        (p.x, p.y),
+        (size.width, size.height),
+        Rect {
+            x: a.position.x,
+            y: a.position.y,
+            width: a.size.width,
+            height: a.size.height,
+        },
+    );
+    window
+        .set_position(tauri::PhysicalPosition::new(next.0, next.1))
+        .map_err(error)?;
+    capture(&window.as_ref().window());
+    Ok(true)
+}
+pub(crate) fn recover_visible(app: &tauri::AppHandle) -> Result<usize> {
+    desktop_runtime::require_idle(app)?;
+    let state = app.state::<Desktop>();
+    let transition = Transition::begin(&state)?;
+    let mut recovered = 0;
+    for window in app.webview_windows().values() {
+        if (window.label() == "main" || detached_id(window.label()).is_some())
+            && window.is_visible().map_err(error)?
+            && recover_if_offscreen(window)?
+        {
+            recovered += 1;
+        }
+    }
+    if let Some(window) = app.get_webview_window("desktop-entry")
+        && window.is_visible().map_err(error)?
+    {
+        let p = window.outer_position().map_err(error)?;
+        let scale = window.scale_factor().map_err(error)?;
+        let layout = state.layout.lock().map_err(error)?.clone();
+        let entry = state.entry.lock().map_err(error)?.clone();
+        let (x, y, w, h) = crate::window_surface::visible_bounds(&entry, &layout);
+        let areas = window
+            .available_monitors()
+            .map_err(error)?
+            .iter()
+            .map(|m| {
+                let a = m.work_area();
+                Rect {
+                    x: a.position.x,
+                    y: a.position.y,
+                    width: a.size.width,
+                    height: a.size.height,
+                }
+            })
+            .collect::<Vec<_>>();
+        if !crate::desktop::has_visible_title(
+            (
+                p.x.saturating_add((x * scale).round() as i32),
+                p.y.saturating_add((y * scale).round() as i32),
+            ),
+            ((w * scale).ceil() as u32, (h * scale).ceil() as u32),
+            scale,
+            &areas,
+        ) {
+            desktop_runtime::entry_geometry(app)?;
+            let after = window.outer_position().map_err(error)?;
+            if after.x != p.x || after.y != p.y {
+                recovered += 1;
+            }
+        }
+    }
+    drop(transition);
+    state.save()?;
+    desktop_runtime::publish(app)?;
+    Ok(recovered)
+}
 pub fn capture(window: &tauri::Window) {
     if window.label() != "main" && detached_id(window.label()).is_none() {
         return;
@@ -213,6 +317,7 @@ pub fn show_main(app: &tauri::AppHandle) -> Result<()> {
     }
     let main = app.get_webview_window("main").ok_or("主窗口不存在")?;
     main.unminimize().map_err(error)?;
+    recover_if_offscreen(&main)?;
     main.show().map_err(error)?;
     main.set_focus().map_err(error)?;
     app.state::<Desktop>()

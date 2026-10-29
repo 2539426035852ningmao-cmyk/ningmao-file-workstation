@@ -91,3 +91,5 @@
 > 此处只更新计划文档：不表示 P2、P3、P4 已通过原生验收或执行过真实网络行为。
 
 P0/P1历史材料保留在[集成记录](stages/P0-P1-integration.md)与[集中验收](stages/P0-P1-windows-acceptance.md)；当前P2状态以#40精确候选证据为准，不要求用户重新规划或补交私人素材。
+
+候选分支的本轮原生增量与未测边界见[P2收束](stages/P2-closeout-20261026.md)；P2仍PARTIAL，DevLab先独立DLV-0/1，不改变正式P2→P3→P4顺序。

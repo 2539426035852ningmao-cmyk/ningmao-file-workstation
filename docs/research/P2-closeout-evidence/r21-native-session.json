@@ -1,0 +1,299 @@
+{
+  "candidate": "r21",
+  "sourceCommit": "76210933f97d9a00b5ed8a3f4f8cd3ee24d73748",
+  "exeSha256": "c119311a50ff03cefe686a370602d994ba7a080c7de4ecdbb6b52f432178f76a",
+  "date": "2026-10-26",
+  "authorization": "User explicitly lifted prior window-launch and mouse-keyboard bans; ordinary project native testing authorized; separate high-risk gates unchanged",
+  "os": "Windows11 Home Chinese 10.0.22631",
+  "dpi": "NOT_TESTED",
+  "nativeLaunched": true,
+  "installed": false,
+  "steps": [
+    {
+      "id": "launch-manager-settings",
+      "status": "PASS",
+      "evidence": "Exact isolated executable started; main showed three synthetic references; separate native manager opened and displayed Ctrl+Alt+Space active."
+    },
+    {
+      "id": "default-wake",
+      "status": "PASS",
+      "evidence": "Closed main with hide-to-tray control. list_windows then contained only manager. Ctrl+Alt+Space sent to manager brought main window back."
+    },
+    {
+      "id": "pause-no-wake",
+      "status": "PASS",
+      "evidence": "Manager changed to shortcut paused; main hidden again. Ctrl+Alt+Space left only manager visible."
+    },
+    {
+      "id": "resume-wake",
+      "status": "PASS",
+      "evidence": "Resume completed and displayed current Ctrl+Alt+Space; same chord restored hidden main."
+    },
+    {
+      "id": "space-preview",
+      "status": "PASS",
+      "evidence": "User confirmed actual Space preview and Esc close on this exact r21; automated key injection did not establish this earlier."
+    },
+    {
+      "id": "default-open",
+      "status": "PASS",
+      "evidence": "Double-clicked synthetic Chinese text; system Notepad opened expected synthetic content. Closed only this test tab; file hash unchanged."
+    },
+    {
+      "id": "native-picker-copy",
+      "status": "PASS",
+      "evidence": "Two separate native picker imports copied English.txt and then Chinese text into the bound shelf. Each created exactly one completed job; source preserved."
+    },
+    {
+      "id": "conflict-numbering",
+      "status": "PASS",
+      "evidence": "Chinese import created 中文 空格 (2).txt. Original and (1) protected copies unchanged; new copy SHA256 equals source."
+    },
+    {
+      "id": "manager-terminal-sync",
+      "status": "PASS",
+      "evidence": "Separate manager task list automatically showed both completed real copy jobs without Refresh. Fast copies do not establish pending/progress/cancel UI coverage."
+    },
+    {
+      "id": "metadata-combined-search",
+      "status": "PASS",
+      "evidence": "Applied internal QA-native tag to synthetic English reference; English QA-native query returned only that reference. No real file edits."
+    },
+    {
+      "id": "configure-and-persist-key",
+      "status": "PASS",
+      "evidence": "Saved Ctrl+Alt+G via manager. Old Ctrl+Alt+Space did not reveal hidden main; new key did. Independent JSON stored G; restart manager displayed G active."
+    },
+    {
+      "id": "normal-exit-and-restart",
+      "status": "PASS",
+      "evidence": "Normal menu exit ended first process; relaunch restored bound shelf 4 entries and two completed jobs; persistent shelf 3 entries and QA-native tag preserved. Session shelf correctly cleared only its single reference."
+    },
+    {
+      "id": "ctrl-group-native-dragout",
+      "status": "PASS",
+      "evidence": "User confirmed Ctrl selection of two files and group drag to initially empty synthetic target. App reported Dropped/Copy. Target exactly two files, both SHA256 equal bound copies and original sources; all sources retained."
+    },
+    {
+      "id": "windows-registration-probe",
+      "status": "PASS",
+      "evidence": "Explicit ignored Rust native test observed ERROR_HOTKEY_ALREADY_REGISTERED while r21 owned G; after second normal exit it registered G successfully and explicitly released its own registration. No input injection or key logging."
+    }
+  ],
+  "automationInterruptions": [
+    "Coordinate geometry unavailable on text-only observation; screenshot-backed recovery used.",
+    "Later capture twice reported minimized window and one screenshot id became unavailable; input paused pending coordination. No root cause assigned.",
+    "Fresh activation/selection used when occluded captures or stale screenshot/geometry were observed; no private background screenshots uploaded."
+  ],
+  "shortcutRemaining": [
+    "candidate UI error/rollback under actual competing owner",
+    "explicit disabled-setting native cycle"
+  ],
+  "protectedSyntheticFilesUnchanged": true,
+  "database": {
+    "integrity": "ok",
+    "schema": 2,
+    "shelves": 3,
+    "items": 7,
+    "jobs": 2,
+    "recycleJournal": 0,
+    "sessionShelfItems": 0,
+    "testTagPersisted": true
+  },
+  "fileOperations": "Native picker Copy, same-name protection, group native Copy dragout, default open and user Space preview passed. Native incoming Dock drop/recycle/task-progress-cancel remain unproven for r21.",
+  "overall": "PARTIAL",
+  "stageMergeApproved": false,
+  "coordinationResolution": "User explicitly explained earlier minimization was accidental manual input; resumed testing. No product defect inferred.",
+  "programRunning": false,
+  "probe": {
+    "test": "native_hotkey_probe::candidate_hotkey_registration_matches_windows",
+    "occupiedPassed": 1,
+    "freePassed": 1,
+    "normalSuite": "ignored: opt-in OS registration needs explicit synthetic fixture and expected state",
+    "clippy": "PASS: selected test target -D warnings",
+    "productionChanges": false,
+    "newDependencies": false,
+    "nativeTimingSeconds": 0.0,
+    "firstProbeCompileSeconds": 17.68,
+    "warmProbeCompileSeconds": 3.35,
+    "measurementsPerCase": 1
+  },
+  "followupSessions": [
+    {
+      "clientDate": "2026-10-27",
+      "timezone": "Asia/Hong_Kong",
+      "validationSource": "72465393b69ba809c9aa5df519b7a014ed423321",
+      "binaryChanged": false,
+      "method": "Actual existing r21 Windows executable, own synthetic data, Computer Use API. No harness/browser result is presented as native.",
+      "steps": [
+        {
+          "id": "native-marquee-select",
+          "status": "PASS",
+          "evidence": "Dragged from file-area whitespace; all four bound items visibly selected, 4-item counter. Escape cleared selection; Ctrl+A selected four again."
+        },
+        {
+          "id": "pointer-handle-sort",
+          "status": "PARTIAL",
+          "evidence": "Automation started drag but native announcement ended item5 over item5, no reorder. Not established as product failure or sort PASS; do not repeat manual basics without better automation."
+        },
+        {
+          "id": "topmost-manager-occlusion",
+          "status": "PASS",
+          "evidence": "Enabled topmost via menu; persisted main_topmost=true and full shelf stayed above activated own manager. Disabled via menu; main_topmost=false and manager then covered shelf. CtrlAltG brought non-topmost shelf forward again without explicit main activation."
+        },
+        {
+          "id": "minimize-recovery-respect",
+          "status": "PASS",
+          "evidence": "Minimized main, manager recovery action reported all windows in visible area and did not restore it. Explicit CtrlAltG then restored main. This is not a physical monitor-disconnect test."
+        },
+        {
+          "id": "close-hide-disable-enable",
+          "status": "PASS",
+          "evidence": "Main X hid shelf with process alive and no orb enabled. Manager disabled and saved G: JSON enabled=false, UI shortcut disabled, G did not reveal main. Re-enabled and saved G: UI current CtrlAltG, same chord restored hidden main."
+        },
+        {
+          "id": "r21-shape-and-keyboard-loop",
+          "status": "PASS",
+          "evidence": "Collapsed full shelf to real orb; click→capsule→peek loaded four stored records and three recent synthetic cards. Escape→capsule→orb. With orb focused via Tab, CtrlEnter opened full shelf directly. CtrlEnter without focus was a no-op, not counted as failure."
+        },
+        {
+          "id": "close-entry-preserves-shelf",
+          "status": "PASS",
+          "evidence": "Closed floating entry through own menu; enabled=false, expanded=true and full shelf with four bound items remained visible."
+        },
+        {
+          "id": "normal-exit-release",
+          "status": "PASS",
+          "evidence": "Explicit full-exit menu closed own main/manager/entry; PID absent and own window list empty. Existing opt-in Win32 hotkey free probe then passed1/1; probe released its own registration, compile18.27s/test<0.01s."
+        }
+      ],
+      "after": {
+        "protectedFileCount": 9,
+        "allProtectedHashesUnchanged": true,
+        "logicalDumpUnchanged": true,
+        "integrity": "ok",
+        "schema": 2,
+        "items": 7,
+        "shelves": 3,
+        "jobs": [
+          [
+            "completed",
+            2
+          ]
+        ],
+        "referenceRows": [
+          [
+            1,
+            3
+          ],
+          [
+            3,
+            4
+          ]
+        ],
+        "wakeConfigRestored": true
+      },
+      "programRunning": false,
+      "rawDesktopScreenshotsPublished": false,
+      "rollback": "No app/SQLite migration; existing r21 and local consistent before/after backups retained. G enabled and main_topmost=false restored; test entry position may be retained.",
+      "notTested": [
+        "Actual incoming native Dock drop",
+        "Tray icon/menu itself",
+        "Real task queue/progress/cancel UI",
+        "Soft/system recycle and zero-shelf full UI",
+        "Physical DPI/monitor hotplug/Win10",
+        "External hotkey owner error UI",
+        "Pointer sort completion and Shift multiselect full native matrix"
+      ]
+    },
+    {
+      "clientDate": "2026-10-27",
+      "id": "native-copy-failure-and-retry",
+      "validationSource": "df0f000565cc0d20bcdfbdcd3663c79d313b5cbd",
+      "binaryChanged": false,
+      "steps": [
+        {
+          "id": "source-lock-picker-block",
+          "status": "PARTIAL",
+          "evidence": "Windows chooser rejected the exclusively held synthetic source before returning it to the application; no job was created. Not app failure handling PASS."
+        },
+        {
+          "id": "verified-target-directory-sharing",
+          "status": "PASS",
+          "evidence": "Temporary handle to only synthetic bound-target; a competing equivalent directory read was rejected with OS32 before app submission. No ACL or directory contents changed. Initial unsigned-argument helper setup failed before submission and is not treated as product evidence."
+        },
+        {
+          "id": "native-failed-copy-data-safety",
+          "status": "PASS",
+          "evidence": "Native picker submitted one synthetic file while target guard was held; job3 failed with OS32 and0/1, no target published, items stayed7."
+        },
+        {
+          "id": "native-terminal-message-consistency",
+          "status": "FAIL",
+          "evidence": "After job3 had finished, manager automatically showed failed0/1 and sharing error; main still showed copying-started. Stable later snapshot retained stale message. New r22 required; do not silently rewrite this r21 result."
+        },
+        {
+          "id": "native-retry-unlocked",
+          "status": "PASS",
+          "evidence": "Released own directory handle, submitted same file again. Job4 completed, exactly one new target/reference, source/copy content equal, ten protected files unchanged and no staging leak. Main completed feedback appeared on this slower successful attempt."
+        },
+        {
+          "id": "normal-exit",
+          "status": "PASS",
+          "evidence": "Normal full-exit menu; candidate PID26352 absent, original r21 EXE SHA unchanged; local before/after consistent backups retained."
+        }
+      ],
+      "failedCheck": {
+        "jobs": [
+          {
+            "id": 1,
+            "status": "completed",
+            "sharingViolation32": false,
+            "completedZero": false
+          },
+          {
+            "id": 2,
+            "status": "completed",
+            "sharingViolation32": false,
+            "completedZero": false
+          },
+          {
+            "id": 3,
+            "status": "failed",
+            "sharingViolation32": true,
+            "completedZero": true
+          }
+        ],
+        "items": 7,
+        "targetExists": false
+      },
+      "retryCheck": {
+        "protectedUnchanged": 10,
+        "newCopyMatches": true,
+        "jobs": [
+          [
+            1,
+            "completed"
+          ],
+          [
+            2,
+            "completed"
+          ],
+          [
+            3,
+            "failed"
+          ],
+          [
+            4,
+            "completed"
+          ]
+        ],
+        "items": 8,
+        "partialFiles": 0,
+        "integrity": "ok"
+      },
+      "sourceAndPrivateData": "Only generated synthetic fixtures; no private files, raw DB or raw desktop screenshots published",
+      "newCandidateAcceptance": "NOT_TESTED pending separate r22 build and native retest"
+    }
+  ]
+}

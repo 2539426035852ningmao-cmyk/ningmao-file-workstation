@@ -1,0 +1,15 @@
+{
+  "headCommit": "ac8a5adbb57749a22394627f75165bf7e6b16842",
+  "sourceCommit": "76210933f97d9a00b5ed8a3f4f8cd3ee24d73748",
+  "desktopRun": {
+    "id": 40289722440,
+    "conclusion": "SUCCESS",
+    "browserPassed": 99,
+    "windowsSafetyBuild": "SUCCESS"
+  },
+  "previewRun": {
+    "id": 40289722569,
+    "conclusion": "SUCCESS"
+  },
+  "nativeBoundary": "CI is not Windows UI acceptance"
+}

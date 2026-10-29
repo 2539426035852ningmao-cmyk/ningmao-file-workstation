@@ -3,6 +3,7 @@ mod desktop_runtime;
 pub mod entry;
 mod shelf_windows;
 pub mod store;
+mod wake_shortcut;
 pub mod window_surface;
 pub mod windows_recycle;
 use serde::Serialize;
@@ -248,6 +249,32 @@ async fn run_import(
         errors: vec![],
     })
 }
+#[derive(Clone, Serialize)]
+struct CopyFinished {
+    job_id: i64,
+    status: String,
+    message: String,
+}
+fn finish_copy_job(store: &Mutex<Store>, id: i64, status: &str, message: &str) -> CopyFinished {
+    match store
+        .lock()
+        .map_err(error)
+        .and_then(|mut store| store.finish_job(id, status, message))
+    {
+        Ok(()) => CopyFinished {
+            job_id: id,
+            status: status.into(),
+            message: message.into(),
+        },
+        Err(reason) => CopyFinished {
+            job_id: id,
+            status: "interrupted".into(),
+            message: format!(
+                "任务结果未能保存；已生成的副本与来源保留。请重新启动后核对任务和绑定目录。原因：{reason}"
+            ),
+        },
+    }
+}
 fn copy_job(
     app: tauri::AppHandle,
     id: i64,
@@ -337,17 +364,15 @@ fn copy_job(
         },
         failures.join("；")
     );
-    if let Ok(mut store) = state.store.lock() {
-        let _ = store.finish_job(id, status, &message);
-    }
+    let finished = finish_copy_job(&state.store, id, status, &message);
     if let Ok(mut active) = state.active.lock() {
         *active = None;
     }
     desktop_runtime::notify(&app);
-    let _ = app.emit(
-        "copy-finished",
-        serde_json::json!({"job_id":id,"status":status,"message":message}),
-    );
+    if finished.status == "interrupted" {
+        let _ = app.emit("desktop-error", finished.message.clone());
+    }
+    let _ = app.emit("copy-finished", finished);
 }
 #[tauri::command]
 fn cancel_copy(app: tauri::AppHandle, window: tauri::WebviewWindow, job_id: i64) -> Result<()> {
@@ -1344,6 +1369,54 @@ fn desktop_hover(app: tauri::AppHandle, window: tauri::WebviewWindow, inside: bo
     }
     desktop_runtime::hover(&app, inside)
 }
+#[tauri::command]
+async fn wake_shortcut_state(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+) -> Result<wake_shortcut::View> {
+    if window.label() != "manager" {
+        return Err("请在管理中心查看快捷键设置。".into());
+    }
+    wake_shortcut::state(&app)
+}
+#[tauri::command]
+async fn wake_shortcut_configure(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    config: wake_shortcut::Config,
+) -> Result<wake_shortcut::View> {
+    if window.label() != "manager" {
+        return Err("请在管理中心配置快捷键。".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || wake_shortcut::configure(&app, config, None))
+        .await
+        .map_err(error)?
+}
+#[tauri::command]
+async fn wake_shortcut_pause(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    paused: bool,
+) -> Result<wake_shortcut::View> {
+    if window.label() != "manager" {
+        return Err("请在管理中心暂停或恢复快捷键。".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        wake_shortcut::configure(&app, wake_shortcut::Config::default(), Some(paused))
+    })
+    .await
+    .map_err(error)?
+}
+#[tauri::command]
+async fn recover_desktop_windows(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+) -> Result<usize> {
+    if window.label() != "manager" {
+        return Err("请在管理中心找回窗口。".into());
+    }
+    shelf_windows::recover_visible(&app)
+}
 pub fn run() {
     let mut window_state = tauri_plugin_window_state::Builder::default()
         .with_state_flags(tauri_plugin_window_state::StateFlags::SIZE);
@@ -1385,6 +1458,7 @@ pub fn run() {
                 _process_lock: lock,
             });
             desktop_runtime::setup(app.handle(), &root).map_err(std::io::Error::other)?;
+            wake_shortcut::setup(app.handle(), &root);
             let show = tauri::menu::MenuItem::with_id(
                 app,
                 "show",
@@ -1474,6 +1548,10 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            recover_desktop_windows,
+            wake_shortcut_state,
+            wake_shortcut_configure,
+            wake_shortcut_pause,
             snapshot,
             choose_files,
             choose_folder,
@@ -1523,4 +1601,79 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("柠猫文件工作站启动失败；数据未自动清理");
+}
+
+#[cfg(test)]
+mod copy_completion_tests {
+    use super::*;
+    #[test]
+    fn failed_terminal_write_never_reports_success_and_preserves_copies_for_recovery() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("source.txt");
+        let target = dir.path().join("bound");
+        std::fs::create_dir(&target).unwrap();
+        std::fs::write(&source, b"synthetic source preserved").unwrap();
+        std::fs::write(target.join("source.txt"), b"older target preserved").unwrap();
+        let path = dir.path().join("db.sqlite3");
+        let mut store = Store::open(&path).unwrap();
+        let shelf = store.bind_directory(&target).unwrap();
+        let job = store.begin_job(shelf, "synthetic job").unwrap();
+        let published = store
+            .copy_one(shelf, &source, &AtomicBool::new(false), |_, _| {})
+            .unwrap();
+        store
+            .stage_job(job, &target.join("unpublished-staging-marker"))
+            .unwrap();
+        let blocker = rusqlite::Connection::open(&path).unwrap();
+        blocker.execute_batch("CREATE TRIGGER synthetic_terminal_failure BEFORE UPDATE OF status ON jobs BEGIN SELECT RAISE(FAIL,'synthetic database write failure'); END;").unwrap();
+        let store = Mutex::new(store);
+        let result = finish_copy_job(&store, job, "completed", "复制完成；已完成1/1项");
+        assert_eq!(result.status, "interrupted");
+        assert!(!result.message.contains("复制完成"));
+        assert!(result.message.contains("未能保存"));
+        assert_eq!(
+            store.lock().unwrap().snapshot().unwrap().jobs[0].status,
+            "copying"
+        );
+        assert_eq!(
+            std::fs::read(&source).unwrap(),
+            b"synthetic source preserved"
+        );
+        assert_eq!(
+            std::fs::read(&published).unwrap(),
+            b"synthetic source preserved"
+        );
+        assert_eq!(
+            std::fs::read(target.join("source.txt")).unwrap(),
+            b"older target preserved"
+        );
+        blocker
+            .execute_batch("DROP TRIGGER synthetic_terminal_failure;")
+            .unwrap();
+        drop(blocker);
+        drop(store);
+        let mut recovered = Store::open(&path).unwrap();
+        assert_eq!(recovered.snapshot().unwrap().jobs[0].status, "interrupted");
+        recovered.integrity_check().unwrap();
+        assert_eq!(
+            std::fs::read(&published).unwrap(),
+            b"synthetic source preserved"
+        );
+    }
+    #[test]
+    fn persisted_terminal_payload_keeps_existing_contract() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = Store::open(&dir.path().join("db.sqlite3")).unwrap();
+        let id = store.begin_job(1, "queued").unwrap();
+        let store = Mutex::new(store);
+        let result = finish_copy_job(&store, id, "completed", "复制完成");
+        let json = serde_json::to_value(result).unwrap();
+        assert_eq!(json["job_id"], id);
+        assert_eq!(json["status"], "completed");
+        assert_eq!(json["message"], "复制完成");
+        assert_eq!(
+            store.lock().unwrap().snapshot().unwrap().jobs[0].status,
+            "completed"
+        );
+    }
 }

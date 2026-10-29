@@ -49,4 +49,6 @@
 
 这些链接保留已完成工作的证据；其中历史“尚未实现”不得覆盖当前P2/r21状态。
 
-本分支历史P2基座记录：[拆分与合并](stages/P2-detached-shelves.md)、[管理与贴边](stages/P2-management-edge.md)、[首个桌面闭环](stages/P2-desktop-loop.md)。这些旧候选证据不代表最新r21或整体验收。
+当前候选：[P2集中收束](stages/P2-closeout-20261026.md) · [原生矩阵](research/P2-closeout-evidence/native-matrix.json) · [r21实机记录](research/P2-closeout-evidence/r21-native-session.json) · [r20管理流程](stages/P2-management-flow.md)。
+
+P2基座历史：[拆分与合并](stages/P2-detached-shelves.md)、[管理与贴边](stages/P2-management-edge.md)、[首个桌面闭环](stages/P2-desktop-loop.md)。精确旧候选不继承为r21 PASS。

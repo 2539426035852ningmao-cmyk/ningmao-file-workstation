@@ -1,0 +1,98 @@
+{
+  "date": "2026-10-27",
+  "stage": "P2",
+  "overall": "PASS_SCOPED",
+  "candidate": {
+    "name": "r22",
+    "functionalSource": "4f2f8cbebeb4b677420e8c46b9f59dbacc8d01b2",
+    "buildCommit": "8875147dd3a9e818a98afe204573d141d9e71b0f",
+    "exeSha256": "48993a4adeb1b9af0cf8e241c003094b3a3d3bdf1d665595b7bdd9ed5ea2fd30",
+    "runtimeChanged": false,
+    "rebuiltOrInstalled": false
+  },
+  "authorization": "User explicitly approved only the agent-generated42-byte English.txt for Windows Recycle Bin and recovery. No other item recycled, no purge/permanent deletion, no private file.",
+  "fixture": {
+    "host": "Windows11 Home Chinese 10.0.22631",
+    "root": "Existing isolated synthetic marker and opt-in recycle-test root from the cancellation session; current fresh backup verified before action.",
+    "sourceName": "English.txt",
+    "sourceBytes": 42,
+    "sourceSha256": "7dff2815f6a82caa6060a4ddb8bcb959059bc3fb8cb07e6d84f9f1bd40a41c0f",
+    "references": [
+      {
+        "id": 1,
+        "shelf": 1,
+        "tags": [
+          "精选"
+        ]
+      },
+      {
+        "id": 88,
+        "shelf": 4,
+        "tags": [
+          "精选"
+        ]
+      }
+    ]
+  },
+  "checks": [
+    {
+      "id": "expired-plan-rejected",
+      "status": "PASS",
+      "observed": "Old preview expired during approval wait; actual UI rejected it before native confirmation. Source present, recycle_journal empty. Existing code TTL300s; normal close/re-preview of exactly the approved item used. No bypass or relaxation."
+    },
+    {
+      "id": "preview-and-native-confirmation",
+      "status": "PASS",
+      "observed": "Fresh native preview listed only English.txt and one other same-path reference. Actual native final confirmation specified1 file; approved once."
+    },
+    {
+      "id": "windows-recycle",
+      "status": "PASS",
+      "observed": "Windows-confirmed result. Source absent at original path; only initiating reference1 trashed. Reference88 remained active; both original tags retained. Exactly one committed journal row for item1, schema2 integrity ok."
+    },
+    {
+      "id": "other-shelf-invalid-reference",
+      "status": "PASS",
+      "observed": "Actual shelf4 showed English reference-invalid and selected-tag star. Record88 preserved."
+    },
+    {
+      "id": "software-record-restore",
+      "status": "PASS",
+      "observed": "Software recycle drawer listed initiating reference under shelf1. Native Restore returned original ID1 and tags; both refs active while source still absent. Does not recreate or restore entity from Windows Recycle Bin."
+    },
+    {
+      "id": "windows-entity-restore",
+      "status": "PASS",
+      "observed": "Windows Recycle Bin single-item properties:42 bytes and deletion time matched own journal exactly. Its Restore button returned the file to exact original path. SHA256 matched pre-recycle; no file recreated by script, no restore-all or clearing bin. Other recycle items untouched."
+    },
+    {
+      "id": "native-normal-return",
+      "status": "PASS",
+      "observed": "After explicit native refresh, shelf4 normal TXT/tag; shelf1 original English/Chinese/PNG order and tag restored. Software drawer empty after record restore."
+    },
+    {
+      "id": "final-file-safety",
+      "status": "PASS",
+      "observed": "Five original protected small-file hashes unchanged including restored entity;256 hardlinked source aliases and payload unchanged;81 completed copies have distinct identities from source/each other and correct hashes; no staging. Six data tables equal pre-recycle baseline; only journal contains one committed record.87 active references, schema2 integrity ok."
+    },
+    {
+      "id": "exit-restart-no-replay",
+      "status": "PASS",
+      "observed": "PID15424 normal full exit. Restart PID30128: all seven tables exactly equal post-exit backup; both shelves normal TXT/tag; restored entity present, no automatic recycle replay. Final menu full exit, both PIDs ended, fresh own-window inventory empty. Properties/bin tab closed; previous Explorer test folder retained."
+    }
+  ],
+  "evidenceMethod": "Computer Use on actual r22 and Windows Explorer; read-only SQLite/consistent backups and scoped SHA256. No browser mock or direct PowerShell UI Automation. No raw DB, local paths or unredacted desktop images published.",
+  "ciBaseline": {
+    "head": "b06a4bd9c8a2273ca4a7349a220e06232bec537e",
+    "desktop": "40451577252 SUCCESS",
+    "preview": "40451577263 SUCCESS",
+    "runtimeOrTestsChangedThisSession": false
+  },
+  "scopeLimits": [
+    "One approved regular local English file, one initiating reference and one other persistent reference, synthetic test root only.",
+    "Native recycle cancellation, multi-file/Chinese/long-path recycle, system permission failures, shell crash recovery and whole-shelf UI removal not covered by this success.",
+    "Original candidate restriction to opt-in synthetic recycle root unchanged; this is not enabling private-file deletion or a release.",
+    "P2 overall PARTIAL; Dock incoming drag/drop, tray/hotkeys/geometry edge cases, actual DPI/multi-monitor/Win10 and R3 merge gates remain separate."
+  ],
+  "rollback": "Physical approved file fully restored through Windows UI; original metadata retained. Consistent before/after SQLite backups local only; old candidates preserved. New commit is evidence-only; no database migration/production code/permissions/dependency/global configuration/network/model/fee change."
+}

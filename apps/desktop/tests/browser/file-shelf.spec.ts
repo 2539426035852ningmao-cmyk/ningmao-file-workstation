@@ -1,5 +1,16 @@
 import { test,expect } from "@playwright/test";
 import path from "node:path";
+for(const status of ["failed","completed","cancelled"])test(`快速复制${status}终态早于启动响应时不被覆盖`,async({page})=>{
+  await page.goto(`/tests/harness.html?finish-before-import-return=${status}`);
+  await expect(page.getByRole("button",{name:"选择 Alpha.txt",exact:true})).toBeVisible();
+  await page.getByRole("button",{name:"切换文件架",exact:true}).click();
+  await page.getByRole("menuitem",{name:"绑定文件夹",exact:true}).click();
+  const add=page.getByRole("button",{name:"添加并复制",exact:true});await add.click();await expect(add).toBeEnabled();
+  const expected=status==="failed"?"复制有错误；已完成 0/1 项，来源保留。合成目录被占用。":status==="cancelled"?"已取消；已完成 0/1 项，来源保留。":"复制完成；已完成 1/1 项，来源保留。";
+  await expect(page.locator(".file-status")).toHaveText(expected);
+  await expect(page.getByRole("progressbar",{name:"当前文件复制进度"})).toHaveCount(0);
+  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem("test-state")!).jobs[0].status)).toBe(status);
+});
 const screenshots=process.env.M105_SCREENSHOTS;
 async function more(page:import("@playwright/test").Page,name:string){await page.getByRole("button",{name:"更多操作",exact:true}).click();await page.getByRole("menuitem",{name,exact:true}).click();}
 test("单击选中、空格预览、双击请求系统默认程序",async({page})=>{
