@@ -31,6 +31,9 @@ test("AI入口可脱机配置，聊天上下文和历史由后端保存",async({
   await page.getByRole("button",{name:"更多操作",exact:true}).click();
   await page.getByRole("menuitem",{name:"AI 对话",exact:true}).click();
   await expect(page.getByRole("log")).toContainText("记住合成编号42");
+  await page.getByRole("button",{name:"模型设置",exact:true}).click();
+  await page.getByRole("button",{name:"测试已保存配置",exact:true}).click();
+  await expect(page.getByRole("dialog",{name:"AI 对话",exact:true}).getByRole("status")).toContainText("模型已返回有效回复");
 });
 
 for(const theme of ["light","dark"])test(`AI抽屉 340×320 ${theme} 设置和发送可达`,async({page},info)=>{

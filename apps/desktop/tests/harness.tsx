@@ -25,6 +25,7 @@ let maximized=false;
 let duplicateTicket=0,duplicateCanceled=false;
 const backend:Backend={
   chat:{
+    async test(){},
     async config(){return JSON.parse(localStorage.getItem("test-chat-config")||'{"base_url":"","model":"","enabled":false,"has_key":false}');},
     async configure(config){localStorage.setItem("test-chat-config",JSON.stringify({...config,api_key:undefined,has_key:false}));},
     async sessions(){return JSON.parse(localStorage.getItem("test-chat-sessions")||"[]");},

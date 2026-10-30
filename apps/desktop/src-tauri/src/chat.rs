@@ -194,6 +194,22 @@ pub async fn stream_reply(
     Ok("completed")
 }
 
+pub async fn test_connection(
+    config: &ChatConfig,
+    key: Option<&str>,
+    cancel: &Notify,
+) -> Result<()> {
+    let messages = [PromptMessage {
+        role: "user".into(),
+        content: "Reply with OK.".into(),
+    }];
+    let mut output = String::new();
+    match stream_reply(config, key, &messages, cancel, &mut output, |_| Ok(())).await? {
+        "completed" => Ok(()),
+        _ => Err("模型测试已停止".into()),
+    }
+}
+
 #[cfg(windows)]
 fn crypt(bytes: &[u8], encrypt: bool) -> Result<Vec<u8>> {
     use windows::Win32::{

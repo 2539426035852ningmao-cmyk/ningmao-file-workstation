@@ -6,6 +6,7 @@ export type ChatSession={id:number;title:string};
 export type ChatMessage={id:number;role:string;content:string;status:string};
 export interface ChatBackend{
   config():Promise<ChatConfig>;
+  test():Promise<void>;
   configure(config:Omit<ChatConfig,"has_key">&{api_key:string|null}):Promise<void>;
   sessions():Promise<ChatSession[]>;
   messages(id:number):Promise<ChatMessage[]>;
@@ -17,6 +18,7 @@ export interface ChatBackend{
 }
 export const nativeChat:ChatBackend={
   config:()=>invoke("chat_config"),
+  test:()=>invoke("chat_test"),
   configure:config=>invoke("chat_configure",{baseUrl:config.base_url,model:config.model,enabled:config.enabled,apiKey:config.api_key}),
   sessions:()=>invoke("chat_sessions"),messages:sessionId=>invoke("chat_messages",{sessionId}),
   create:()=>invoke("chat_new"),remove:sessionId=>invoke("chat_delete",{sessionId}),

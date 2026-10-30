@@ -1475,6 +1475,28 @@ async fn chat_sessions(
     database(app, |s| s.chat_sessions()).await
 }
 #[tauri::command]
+async fn chat_test(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<()> {
+    metadata_window(&window)?;
+    let active = app.state::<Runtime>().chat.start(0)?;
+    let (config, key) = database(app.clone(), |s| {
+        let config = s.chat_config()?;
+        if !config.enabled {
+            return Err("请先保存并启用模型配置".into());
+        }
+        let key = s
+            .chat_key_ciphertext()?
+            .map(|value| {
+                chat::unprotect(&value).and_then(|value| {
+                    String::from_utf8(value).map_err(|_| "无法读取已保存密钥".into())
+                })
+            })
+            .transpose()?;
+        Ok((config, key))
+    })
+    .await?;
+    chat::test_connection(&config, key.as_deref(), &active.cancel).await
+}
+#[tauri::command]
 async fn chat_messages(
     app: tauri::AppHandle,
     window: tauri::WebviewWindow,
@@ -1936,6 +1958,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             chat_config,
+            chat_test,
             chat_configure,
             chat_sessions,
             chat_messages,

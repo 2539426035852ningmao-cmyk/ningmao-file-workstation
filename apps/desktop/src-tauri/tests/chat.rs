@@ -1,5 +1,46 @@
 use ningmao_desktop_lib::{chat, store::Store};
 
+#[tokio::test]
+async fn connection_test_uses_short_prompt_and_requires_a_real_reply() {
+    use std::{
+        io::{Read, Write},
+        net::TcpListener,
+    };
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    let worker = std::thread::spawn(move || {
+        let (mut socket, _) = listener.accept().unwrap();
+        socket
+            .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+            .unwrap();
+        let mut request = vec![0; 8192];
+        let mut length = 0;
+        while !request[..length]
+            .windows(b"Reply with OK.".len())
+            .any(|value| value == b"Reply with OK.")
+        {
+            length += socket.read(&mut request[length..]).unwrap();
+        }
+        let body = "data: {\"choices\":[{\"delta\":{\"content\":\"OK\"}}]}\n\ndata: [DONE]\n\n";
+        write!(
+            socket,
+            "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+            body.len()
+        )
+        .unwrap();
+    });
+    let config = ningmao_desktop_lib::store::ChatConfig {
+        base_url: format!("http://{address}/v1"),
+        model: "synthetic".into(),
+        enabled: true,
+        has_key: false,
+    };
+    chat::test_connection(&config, None, &tokio::sync::Notify::new())
+        .await
+        .unwrap();
+    worker.join().unwrap();
+}
+
 #[test]
 fn chat_history_survives_restart_and_config_never_returns_a_key() {
     let root = tempfile::tempdir().unwrap();
