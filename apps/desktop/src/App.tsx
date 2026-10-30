@@ -1,8 +1,9 @@
 import {WindowControls} from "./components/WindowControls";
+import {GlobalSearch} from "./components/GlobalSearch";
 import {SystemRecycle} from "./components/SystemRecycle";
 import {RecycleDrawer} from "./components/RecycleDrawer";
 import {ScrollActivity} from "./components/ScrollActivity";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { DndContext, DragOverlay, KeyboardSensor, PointerSensor, closestCenter, pointerWithin, useSensor, useSensors, type CollisionDetection } from "@dnd-kit/core";
 import { SortableContext, rectSortingStrategy, sortableKeyboardCoordinates, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -17,13 +18,14 @@ import { ShelfMenu } from "./components/ShelfMenu";
 import { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem, ContextMenuSeparator } from "./components/ui/context-menu";
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "./components/ui/sheet";
 import { FileThumb } from "./components/spaceui/FileThumb";
-import type { Backend, CatalogShelf, DesktopView, Item, Progress, Snapshot } from "./backend";
+import type { Backend, CatalogShelf, DesktopView, DuplicateReport, Item, Progress, Snapshot } from "./backend";
 import { defaultView,observeTheme,readTheme,readViewMemory,writeTheme,writeShelfView,type ShelfView } from "./preferences";
 import { isSortMode,sortItems,sortOptions } from "./sorting";
 import {OrbFace} from "./orb/OrbFace";
 import { defaultFilters,filterItems,type ShelfFilters } from "./filters";
 
 const collision: CollisionDetection = args => { const hits=pointerWithin(args); return hits.length ? hits : closestCenter(args); };
+const ChatPanel=lazy(()=>import("./components/ChatPanel").then(module=>({default:module.ChatPanel})));
 const blank: Snapshot={shelves:[],items:[],jobs:[]};
 const activeStatus=(s:string) => ["queued","copying"].includes(s);
 const sizes=(n:number) => n>=1024*1024 ? `${(n/1024/1024).toFixed(1)} MB` : n>=1024 ? `${(n/1024).toFixed(1)} KB` : `${n} B`;
@@ -72,7 +74,7 @@ function Asset({item,backend,selected,list,size,disabled,select,inspect,open,dra
     <ContextMenuItem onSelect={remove}>移入柠猫回收站（保留原文件）</ContextMenuItem>
   </ContextMenuContent></ContextMenu>;
 }
-function VirtualFiles(props:{items:Item[];backend:Backend;selected:number[];list:boolean;size:number;disabled:boolean;select:(id:number,keys:SelectionKeys)=>void;marquee:(ids:number[])=>void;inspect:(id:number)=>void;open:(id:number)=>void;drag:(id:number)=>void;tag:(item:Item)=>void;remove:(id:number)=>void;bound:boolean}) {
+function VirtualFiles(props:{items:Item[];backend:Backend;selected:number[];list:boolean;size:number;disabled:boolean;select:(id:number,keys:SelectionKeys)=>void;marquee:(ids:number[])=>void;inspect:(id:number)=>void;open:(id:number)=>void;drag:(id:number)=>void;tag:(item:Item)=>void;remove:(id:number)=>void;bound:boolean;revealItem:number|null;revealed:()=>void}) {
   const scroll=useRef<HTMLDivElement>(null),space=useRef<HTMLDivElement>(null),frame=useRef(0);
   const [width,setWidth]=useState(600);
   const [box,setBox]=useState<{left:number;top:number;width:number;height:number}|null>(null);
@@ -82,6 +84,7 @@ function VirtualFiles(props:{items:Item[];backend:Backend;selected:number[];list
   const rowHeight=props.list?44:props.size+80;
   const virtual=useVirtualizer({count:Math.ceil(props.items.length/columns),getScrollElement:()=>scroll.current,estimateSize:()=>rowHeight,overscan:2,useFlushSync:false});
   useEffect(()=>virtual.measure(),[virtual,props.list,props.size,columns]);
+  useEffect(()=>{if(props.revealItem===null)return;const index=props.items.findIndex(i=>i.id===props.revealItem);if(index<0)return;virtual.scrollToIndex(Math.floor(index/columns),{align:"center"});props.revealed();},[props.revealItem,props.items,columns,virtual]);
   function updateBox(){
     const start=gesture.current;if(!start || !space.current)return;
     const rect=space.current.getBoundingClientRect(),x=Math.max(0,Math.min(rect.width,start.clientX-rect.left)),y=Math.max(0,Math.min(virtual.getTotalSize(),start.clientY-rect.top));
@@ -119,6 +122,9 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   const selected=selection.focus;
   function setSelected(id:number|null){setSelection({ids:id===null?[]:[id],anchor:id,focus:id});}
   const [searchOpen,setSearchOpen]=useState(false);
+  const [chatOpen,setChatOpen]=useState(false);
+  const [chatLoaded,setChatLoaded]=useState(false);
+  const [revealItem,setRevealItem]=useState<number|null>(null);
   const searchInput=useRef<HTMLInputElement>(null),searchButton=useRef<HTMLButtonElement>(null);
   const restoreSearchFocus=useRef(false);
   const [feedback,setFeedback]=useState(false);
@@ -142,6 +148,12 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   const [systemRecycleIds,setSystemRecycleIds]=useState<number[]|null>(null);
   const [undo,setUndo]=useState<{entity:string;id:number;ids?:number[]}|null>(null);
   const [repairFeedback,setRepairFeedback]=useState<{error:boolean;message:string}|null>(null);
+  const [duplicateBusy,setDuplicateBusy]=useState(false),[duplicateCanceling,setDuplicateCanceling]=useState(false);
+  const [duplicateResult,setDuplicateResult]=useState<{report:DuplicateReport;names:Record<number,string>}|null>(null);
+  const duplicateResultRef=useRef(duplicateResult);duplicateResultRef.current=duplicateResult;
+  const duplicateLive=useRef(true),duplicateKey=useRef(""),duplicateData=useRef("");
+  const duplicateRun=useRef<{key:string;items:string;ticket:number|null;reason:"user"|"changed"|"closed"|null}|null>(null);
+  useEffect(()=>{duplicateLive.current=true;return()=>{duplicateLive.current=false;const run=duplicateRun.current;if(run){run.reason="closed";if(run.ticket!==null)void backend.cancelDuplicateScan?.(run.ticket).catch(()=>{});}};},[backend]);
   const windowDrag=useWindowDrag(()=>backend.desktopMove(),!busy && !hover && !dragging);
   const activeShelf=useRef(shelfId); activeShelf.current=shelfId;
   const importRef=useRef<(paths:string[])=>void>(()=>{});
@@ -154,6 +166,11 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   const tags=[...new Set([...items.flatMap(i=>i.tags),filters.tag].filter(Boolean))].sort((a,b)=>a.localeCompare(b,"zh-CN"));
   const selectedIds=useMemo(()=>new Set(selection.ids),[selection.ids]);
   const chosen=useMemo(()=>visible.filter(i=>selectedIds.has(i.id)),[visible,selectedIds]);
+  const selectionKey=`${shelfId}:${chosen.map(i=>i.id).join(",")}`;
+  const duplicateFingerprint=JSON.stringify(chosen.map(i=>[i.id,i.shelf_id,i.path,i.name,i.kind,i.bytes,i.modified,i.status]));
+  duplicateKey.current=selectionKey;
+  duplicateData.current=duplicateFingerprint;
+  useEffect(()=>{if(duplicateResultRef.current){setDuplicateResult(null);setMessage("文件或选择已变化，请重新比较。");}const run=duplicateRun.current;if(run && (run.key!==selectionKey || run.items!==duplicateFingerprint))void cancelDuplicate("changed");},[selectionKey,duplicateFingerprint]);
   const current=chosen.find(i=>i.id===selected) || chosen[0],dragItem=data.items.find(i=>i.id===dragging);
   function select(id:number,keys:SelectionKeys={}){
     setSelection(previous=>{const visibleIds=visible.map(i=>i.id),visibleSet=new Set(visibleIds),ids=previous.ids.filter(id=>visibleSet.has(id)),add=keys.ctrlKey || keys.metaKey;
@@ -169,6 +186,20 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   function desktopChanged(value:DesktopView) { setCatalog(value.catalog??[]);setDetachedIds((value.layout.detached??[]).map(s=>s.shelf_id));setTopmost(detachedShelfId===undefined?(value.layout.main_topmost??false):(value.layout.detached?.find(s=>s.shelf_id===detachedShelfId)?.topmost??false));if(detachedShelfId===undefined && value.layout.active_shelf!==activeShelf.current)activateShelf(value.layout.active_shelf);if(value.warning)setError(value.warning); }
   async function switchShelf(id:number) { if(detachedShelfId!==undefined)return;await perform(async()=>{await backend.desktopSelect(id);activateShelf(id);}); }
   async function perform(action:()=>Promise<unknown>) { setError(""); try { await action(); } catch(e) { setError(String(e)); } }
+  async function cancelDuplicate(reason:"user"|"changed"){
+    const run=duplicateRun.current;if(!run || run.reason)return;
+    run.reason=reason;if(duplicateLive.current)setDuplicateCanceling(true);
+    if(run.ticket!==null){try{await backend.cancelDuplicateScan?.(run.ticket);}catch{run.reason=null;if(duplicateLive.current){setDuplicateCanceling(false);setError("取消未完成，请稍后重试。");}}}
+  }
+  async function analyzeSelected(){
+    if(!backend.analyzeDuplicates || !backend.beginDuplicateScan || !backend.cancelDuplicateScan || duplicateBusy || chosen.length<2 || chosen.length>32)return;
+    const key=selectionKey,items=duplicateFingerprint,ids=chosen.map(i=>i.id),names=Object.fromEntries(chosen.map(i=>[i.id,i.name]));
+    const run:{key:string;items:string;ticket:number|null;reason:"user"|"changed"|"closed"|null}={key,items,ticket:null,reason:null};duplicateRun.current=run;
+    setDuplicateBusy(true);setError("");
+    try {run.ticket=await backend.beginDuplicateScan();if(run.reason){await backend.cancelDuplicateScan(run.ticket);return;}const report=await backend.analyzeDuplicates(ids,run.ticket);if(duplicateLive.current && !run.reason && duplicateKey.current===key && duplicateData.current===items)setDuplicateResult({report,names});}
+    catch(e){if(duplicateLive.current && !run.reason){if(String(e).includes("比较已取消"))setMessage("比较已取消，原文件保持不变。");else if(duplicateKey.current===key && duplicateData.current===items)setError(String(e));else setMessage("文件或选择已变化，请重新比较。");}}
+    finally {if(run.ticket!==null)await backend.cancelDuplicateScan(run.ticket).catch(()=>{});if(duplicateRun.current===run)duplicateRun.current=null;if(duplicateLive.current){if(run.reason==="user")setMessage("比较已取消，原文件保持不变。");else if(run.reason==="changed")setMessage("文件或选择已变化，请重新比较。");setDuplicateBusy(false);setDuplicateCanceling(false);}}
+  }
   async function open(id:number) {
     setSelected(id);
     setError("");
@@ -196,6 +227,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
       finished:message=>{copyFinished.current++;setMessage(message);setProgress(null);void refresh().catch(e=>setError(String(e)));},
       drag:message=>setMessage(`系统拖出结果：${message}；已请求复制。`),
       activate:activateShelf,changed:()=>{void refresh().catch(e=>setError(String(e)));},error:setError,
+      focus:location=>{activateShelf(location.shelf_id);void backend.snapshot().then(value=>{if(!live||activeShelf.current!==location.shelf_id)return;setData(value);if(value.items.some(i=>i.id===location.item_id&&i.shelf_id===location.shelf_id)){setSelected(location.item_id);setRevealItem(location.item_id);}else setError("搜索结果已变化，请重新搜索。");}).catch(()=>{if(live)setError("暂时无法定位搜索结果。");});},
       metadata:()=>{void backend.managementSnapshot().then(value=>{const tags=new Map(value.items.map(i=>[i.id,i.tags]));setData(old=>({...old,items:old.items.map(i=>tags.has(i.id)?{...i,tags:tags.get(i.id)!}:i)}));}).catch(e=>setError(String(e)));},
       desktop:desktopChanged,
     }).then(fn=>{if(live) cleanup=fn;else fn();}).catch(e=>setError(String(e)));
@@ -274,6 +306,8 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
     </section>}
     <Button variant="outline" onClick={()=>void tag(current)}><Star size={14}/>切换精选标签</Button><p className="muted">图片预览按需加载 PNG / JPEG / WebP；其他类型保留图标。</p></div>;
   return <div className={`workstation ${hover?"drop-active":""}`}><ScrollActivity/>
+    <GlobalSearch backend={backend} revision={data} scoped={detachedShelfId!==undefined}/>
+    {backend.chat&&chatLoaded&&<Suspense fallback={null}><ChatPanel backend={backend.chat} open={chatOpen} onOpenChange={setChatOpen}/></Suspense>}
     <SystemRecycle backend={backend} ids={systemRecycleIds} onClose={()=>setSystemRecycleIds(null)} onChanged={refresh}/>
     <RecycleDrawer backend={backend} open={recycleOpen} onOpenChange={setRecycleOpen} shelfId={shelfId} onChanged={refresh}/>
     {undo&&<div className="undo-record" role="status">已移入柠猫回收站 <Button variant="ghost" onClick={()=>void perform(async()=>{for(const id of undo.ids??[undo.id])await backend.restoreTrash?.(undo.entity,id);setUndo(null);await refresh();})}>撤销</Button></div>}
@@ -298,7 +332,9 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
         {detachedShelfId===undefined && <DropdownMenu.Item disabled={!native} onSelect={()=>void perform(()=>backend.desktopDisable())}>关闭悬浮入口</DropdownMenu.Item>}
         <DropdownMenu.Item onSelect={()=>setRecycleOpen(true)}><Trash2 size={16}/>柠猫回收站</DropdownMenu.Item>
         <DropdownMenu.Item disabled={!native} onSelect={()=>void perform(()=>backend.managerOpen())}>管理中心</DropdownMenu.Item>
+        {backend.chat&&<DropdownMenu.Item onSelect={()=>{setChatLoaded(true);setChatOpen(true);}}>AI 对话</DropdownMenu.Item>}
         <DropdownMenu.Item disabled={!native || !chosen.length || busy} onSelect={()=>{setCopyIds(chosen.map(i=>i.id));setCopyTarget(catalog.find(s=>s.id!==shelfId && s.kind!=="bound")?.id || 0);setFormError("");setCopyTo(true);}}>复制选中引用到其他架</DropdownMenu.Item><DropdownMenu.Separator/>
+        {chosen.length>=2 && <DropdownMenu.Item disabled={!backend.analyzeDuplicates || duplicateBusy || chosen.length>32 || chosen.some(i=>i.status!=="normal" || i.kind==="folder")} onSelect={()=>void analyzeSelected()}>{duplicateBusy?"正在比较文件…":chosen.length>32?"比较内容（最多 32 项）":chosen.some(i=>i.status!=="normal" || i.kind==="folder")?"比较内容（请选择正常文件）":"比较选中文件内容"}</DropdownMenu.Item>}
         <DropdownMenu.Item disabled={!backend.planSystemRecycle || !chosen.length || chosen.some(i=>i.status!=="normal") || busy || !!running} onSelect={()=>setSystemRecycleIds(chosen.map(i=>i.id))}>将选中真实文件移入 Windows 回收站…</DropdownMenu.Item><DropdownMenu.Separator/>
         <DropdownMenu.Label className="menu-label">显示与排序</DropdownMenu.Label>
         <DropdownMenu.RadioGroup value={list?"list":"grid"} onValueChange={v=>setView({list:v==="list"})}><DropdownMenu.RadioItem value="grid"><Grid2X2 size={16}/>网格视图<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem><DropdownMenu.RadioItem value="list"><List size={16}/>详细列表<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem></DropdownMenu.RadioGroup>
@@ -319,6 +355,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
     {bound && !shelf.available && <p className="offline-note" role="status">目录离线，记录已保留 · 恢复目录后刷新</p>}
     {preferenceWarning && <div className="error-bar" role="alert"><span>{preferenceWarning}</span><Button variant="ghost" size="icon" aria-label="关闭设置提示" onClick={()=>{setViewWarning("");setThemeWarning("");}}><X size={15}/></Button></div>}
     {error && <div className="error-bar" role="alert"><span>{error}</span><Button variant="ghost" size="icon" aria-label="关闭错误提示" onClick={()=>setError("")}><X size={15}/></Button></div>}
+    {duplicateBusy && <div className="offline-note"><span role="status">{duplicateCanceling?"正在取消比较…":"正在比较选中文件内容…"}</span> <Button variant="outline" size="sm" disabled={duplicateCanceling} onClick={()=>void cancelDuplicate("user")}>取消比较</Button></div>}
     <div className="explorer-and-details"><main className="explorer-pane">
       {loading?<div className="empty-state"><p>正在恢复本地文件架…</p></div>:<DndContext sensors={sensors} collisionDetection={collision} onDragStart={e=>setDragging(Number(e.active.id))} onDragCancel={()=>setDragging(null)} onDragEnd={event=>{
         setDragging(null); if(filtered || query || sort!=="manual" || !event.over || event.over.id===event.active.id) return;
@@ -326,12 +363,13 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
         if(from<0 || to<0) return;
         void perform(async()=>{await backend.reorder(shelfId,arrayMove(ids,from,to));await refresh();setMessage("手动顺序已保存，磁盘文件保持不变。");});
       }}>
-        {visible.length?<VirtualFiles items={visible} backend={backend} selected={chosen.map(i=>i.id)} list={list} size={size} disabled={sort!=="manual" || !!query || filtered} bound={!!bound} select={select} marquee={marquee} inspect={id=>{setSelected(id);setDetails(true);}} open={id=>void open(id)} drag={drag} tag={item=>void tag(item)} remove={id=>void remove(id)}/>:<div className="empty-state"><Folder size={32}/><h2>{!shelf?"主窗口暂无文件架":query || filtered?"没有匹配的文件":bound?"拖入文件，安全复制":"拖入文件，添加引用"}</h2><p>{!shelf?"可从左上菜单新建文件架，或将独立文件架合并回来":filtered?"更改筛选或搜索名称":query?"试试其他名称":bound?"重名自动编号，保留原文件":"保留原文件，或点击右上角添加"}</p>{!shelf&&<div className="empty-actions"><Button onClick={()=>{setNewName("");setFormError("");setCreating(true);}}>新建文件架</Button><Button variant="outline" onClick={()=>setRecycleOpen(true)}>从回收站恢复</Button></div>}{(query || filtered) && <Button variant="outline" onClick={()=>{setQuery("");setFilters(defaultFilters);}}>{filtered?query?"清除筛选和搜索":"清除筛选":"清除搜索"}</Button>}</div>}
+        {visible.length?<VirtualFiles revealItem={revealItem} revealed={()=>setRevealItem(null)} items={visible} backend={backend} selected={chosen.map(i=>i.id)} list={list} size={size} disabled={sort!=="manual" || !!query || filtered} bound={!!bound} select={select} marquee={marquee} inspect={id=>{setSelected(id);setDetails(true);}} open={id=>void open(id)} drag={drag} tag={item=>void tag(item)} remove={id=>void remove(id)}/>:<div className="empty-state"><Folder size={32}/><h2>{!shelf?"主窗口暂无文件架":query || filtered?"没有匹配的文件":bound?"拖入文件，安全复制":"拖入文件，添加引用"}</h2><p>{!shelf?"可从左上菜单新建文件架，或将独立文件架合并回来":filtered?"更改筛选或搜索名称":query?"试试其他名称":bound?"重名自动编号，保留原文件":"保留原文件，或点击右上角添加"}</p>{!shelf&&<div className="empty-actions"><Button onClick={()=>{setNewName("");setFormError("");setCreating(true);}}>新建文件架</Button><Button variant="outline" onClick={()=>setRecycleOpen(true)}>从回收站恢复</Button></div>}{(query || filtered) && <Button variant="outline" onClick={()=>{setQuery("");setFilters(defaultFilters);}}>{filtered?query?"清除筛选和搜索":"清除筛选":"清除搜索"}</Button>}</div>}
         <DragOverlay>{dragItem && <div className="drag-preview" data-testid="drag-preview"><Thumb item={dragItem} backend={backend} size={45}/><span>{dragItem.name}</span><small>调整引用顺序</small></div>}</DragOverlay>
       </DndContext>}
     </main>{inline && current && <aside className="inspector"><header><h2>文件详情</h2><Button variant="ghost" size="icon" aria-label="关闭详情" onClick={()=>setDetails(false)}><X size={15}/></Button></header>{detail}</aside>}</div>
     {running && <button className="compact-progress" aria-label="查看复制任务" onClick={()=>setTasks(true)}><span>{progress?`复制中 · ${progress.file_index}/${progress.file_count}`:"复制中"}</span><progress aria-label="当前文件复制进度" value={progress?.bytes || 0} max={Math.max(1,progress?.total || 1)}/><span>查看</span></button>}
     <footer className={`file-status ${feedback && !running && !error && !preferenceWarning?"status-toast":"sr-only"}`} role="status">{message}</footer>
+    <Sheet open={!!duplicateResult} onOpenChange={value=>{if(!value)setDuplicateResult(null);}}><SheetContent className="details-sheet" showCloseButton={false}><SheetClose asChild><Button className="sheet-dismiss" variant="ghost" size="icon" aria-label="关闭重复分析"><X size={16}/></Button></SheetClose><SheetHeader><SheetTitle>重复文件分析</SheetTitle><SheetDescription>仅比较所选文件，原文件和引用均不改变。</SheetDescription></SheetHeader>{duplicateResult && <div className="file-details duplicate-results">{duplicateResult.report.same_entity.length>0 && <section><h3>同一文件的多个引用</h3>{duplicateResult.report.same_entity.map((group,index)=><p key={index}>{group.map(id=>duplicateResult.names[id]).join("、")}</p>)}</section>}{duplicateResult.report.duplicate_contents.length>0 && <section><h3>不同文件，内容相同</h3>{duplicateResult.report.duplicate_contents.map((group,index)=><p key={index}>{group.map(entity=>entity.map(id=>duplicateResult.names[id]).join(" / ")).join("、")}</p>)}</section>}{!duplicateResult.report.same_entity.length && !duplicateResult.report.duplicate_contents.length && <p>所选文件没有发现相同内容或同一文件的多个引用。</p>}</div>}</SheetContent></Sheet>
     <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}><SheetContent className="details-sheet" showCloseButton={false}><SheetClose asChild><Button className="sheet-dismiss" variant="ghost" size="icon" aria-label="关闭筛选"><X size={16}/></Button></SheetClose><SheetHeader><SheetTitle>筛选文件</SheetTitle><SheetDescription>仅筛选当前架已有记录，不扫描磁盘</SheetDescription></SheetHeader><div className="filter-form">
       <label>文件类型<select value={filters.kind} onChange={e=>setFilters(previous=>({...previous,kind:e.target.value}))}><option value="">全部类型</option>{kinds.map(kind=><option key={kind} value={kind}>{kind==="folder"?"文件夹":kind==="file"?"无扩展名或未知":kind==="link"?"链接":kind.toUpperCase()}</option>)}</select></label>
       <label>标签<select value={filters.tag} onChange={e=>setFilters(previous=>({...previous,tag:e.target.value}))}><option value="">全部标签</option>{tags.map(tag=><option key={tag} value={tag}>{tag}</option>)}</select></label>

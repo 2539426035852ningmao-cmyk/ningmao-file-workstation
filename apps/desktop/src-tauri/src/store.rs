@@ -1,5 +1,17 @@
 use base64::Engine;
+#[path = "store/chat.rs"]
+mod chat;
+#[allow(unused_imports)]
+pub use chat::{ChatConfig, ChatMessage, ChatRequest, ChatSession, PromptMessage};
+#[cfg(windows)]
+#[path = "store/duplicates.rs"]
+mod duplicates;
+#[path = "store/search.rs"]
+mod search;
+#[cfg(windows)]
+pub use duplicates::{DuplicatePlan, DuplicateReport, PendingDuplicateScan};
 use rusqlite::{Connection, OptionalExtension, params};
+pub use search::{SearchCatalog, SearchHit, SearchReference, SearchResponse};
 use serde::Serialize;
 use std::{
     fs::{self, File, OpenOptions},
@@ -74,6 +86,7 @@ pub struct ManagedReference {
     pub shelf_id: i64,
     pub path: String,
     pub name: String,
+    pub kind: String,
     pub tags: Vec<String>,
 }
 #[derive(Serialize)]
@@ -163,6 +176,10 @@ impl Store {
             UPDATE recycle_journal SET status='committed' WHERE status='os-success';
             UPDATE recycle_journal SET status='uncertain',message='上次进程在系统回收期间中断；请人工核对 Windows 回收站，不会自动再次删除。' WHERE status='pending';
             PRAGMA user_version=2; COMMIT;").map_err(err)?;
+        db.execute_batch("CREATE TABLE IF NOT EXISTS chat_config(id INTEGER PRIMARY KEY CHECK(id=1),base_url TEXT NOT NULL,model TEXT NOT NULL,enabled INTEGER NOT NULL,key BLOB);
+            CREATE TABLE IF NOT EXISTS chat_sessions(id INTEGER PRIMARY KEY AUTOINCREMENT,title TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS chat_messages(id INTEGER PRIMARY KEY AUTOINCREMENT,session_id INTEGER NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,role TEXT NOT NULL,content TEXT NOT NULL,status TEXT NOT NULL);
+            UPDATE chat_messages SET status='stopped' WHERE status='streaming';").map_err(err)?;
         Ok(Self { db })
     }
     pub fn trash_entries(&self, filter: Option<i64>) -> Result<Vec<TrashEntry>> {
@@ -762,11 +779,17 @@ impl Store {
             .map_err(err)?
             .into_iter()
             .map(|(id, shelf_id, path, name, raw)| {
+                let kind = Path::new(&path)
+                    .extension()
+                    .and_then(|value| value.to_str())
+                    .unwrap_or("file")
+                    .to_lowercase();
                 Ok(ManagedReference {
                     id,
                     shelf_id,
                     path,
                     name,
+                    kind,
                     tags: serde_json::from_str(&raw).map_err(err)?,
                 })
             })
@@ -977,6 +1000,25 @@ impl Store {
                 params![status, message, id],
             )
             .map_err(err)?;
+        Ok(())
+    }
+    pub fn finish_transfer_job(
+        &mut self,
+        id: i64,
+        shelf: i64,
+        status: &str,
+        message: &str,
+    ) -> Result<()> {
+        let changed = self
+            .db
+            .execute(
+                "UPDATE jobs SET status=?1,message=?2 WHERE id=?3 AND shelf_id=?4 AND status IN ('queued','copying')",
+                params![status, message, id, shelf],
+            )
+            .map_err(err)?;
+        if changed != 1 {
+            return Err("传输任务记录已不存在或结束，请核对接收目录。".into());
+        }
         Ok(())
     }
     pub fn clean_exit(&mut self) -> Result<()> {

@@ -11,7 +11,7 @@ fn real_windows_recycle_returns_same_entity_and_preserves_payload() {
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     let workspace = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
-        .nth(5)
+        .nth(3)
         .unwrap()
         .join("work/ui-b06-recycle-fixtures");
     std::fs::create_dir_all(&workspace).unwrap();
@@ -39,7 +39,7 @@ fn replacement_and_protected_files_are_rejected_without_deleting_anything() {
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     let workspace = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
-        .nth(5)
+        .nth(3)
         .unwrap()
         .join("work/ui-b06-recycle-fixtures");
     std::fs::create_dir_all(&workspace).unwrap();
@@ -67,7 +67,7 @@ fn actual_recycle_moves_only_initiating_reference_and_keeps_other_tags() {
     use ningmao_desktop_lib::store::Store;
     let workspace = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
-        .nth(5)
+        .nth(3)
         .unwrap()
         .join("work/ui-b06-recycle-fixtures");
     std::fs::create_dir_all(&workspace).unwrap();

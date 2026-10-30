@@ -1,8 +1,16 @@
+pub mod chat;
 pub mod desktop;
 mod desktop_runtime;
+#[cfg(windows)]
+mod duplicate_control;
 pub mod entry;
+mod search_control;
 mod shelf_windows;
 pub mod store;
+use ningmao_transfer_client as loopback_transport;
+pub mod transfer_runtime;
+pub mod transfer_sender;
+pub mod transfer_tasks;
 mod wake_shortcut;
 pub mod window_surface;
 pub mod windows_recycle;
@@ -45,13 +53,18 @@ struct RecycleOutcome {
     message: String,
 }
 struct Runtime {
+    chat: chat::ChatControl,
     store: Mutex<Store>,
     active: Mutex<Option<(i64, Arc<AtomicBool>)>>,
     thumbnail: Mutex<()>,
+    #[cfg(windows)]
+    duplicate_scan: duplicate_control::ScanControl,
     data_root: PathBuf,
     recycle_test_root: Option<PathBuf>,
     recycle_plans: Mutex<std::collections::HashMap<String, PlannedRecycle>>,
     recycling: Mutex<Option<(String, Arc<AtomicBool>)>>,
+    search_focus: Mutex<std::collections::HashMap<String, SearchLocation>>,
+    search_control: search_control::SearchControl,
     _process_lock: File,
 }
 fn error(e: impl std::fmt::Display) -> String {
@@ -943,6 +956,110 @@ async fn thumbnail(
     .map_err(error)?
 }
 #[tauri::command]
+fn begin_duplicate_scan(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<u64> {
+    shelf_windows::scope(&window)?;
+    #[cfg(windows)]
+    {
+        let state = app.state::<Runtime>();
+        let generation = state.duplicate_scan.generation(window.label())?;
+        let visible = matches!(window.is_visible(), Ok(true));
+        state
+            .duplicate_scan
+            .begin(window.label(), generation, visible)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = app;
+        Err("当前版本仅支持在 Windows 上分析重复文件。".into())
+    }
+}
+#[tauri::command]
+fn cancel_duplicate_scan(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    ticket: u64,
+) -> Result<()> {
+    shelf_windows::scope(&window)?;
+    #[cfg(windows)]
+    {
+        app.state::<Runtime>()
+            .duplicate_scan
+            .cancel(window.label(), Some(ticket))?;
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (app, ticket);
+    }
+    Ok(())
+}
+#[tauri::command]
+async fn analyze_duplicates(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    ids: Vec<i64>,
+    ticket: u64,
+) -> Result<serde_json::Value> {
+    let scope = match shelf_windows::scope(&window) {
+        Ok(scope) => scope,
+        Err(message) => {
+            #[cfg(windows)]
+            let _ = app
+                .state::<Runtime>()
+                .duplicate_scan
+                .cancel(window.label(), Some(ticket));
+            return Err(message);
+        }
+    };
+    #[cfg(windows)]
+    {
+        let guard = app
+            .state::<Runtime>()
+            .duplicate_scan
+            .claim(window.label(), ticket)?;
+        tauri::async_runtime::spawn_blocking(move || {
+            let state = app.state::<Runtime>();
+            let plan = state
+                .store
+                .lock()
+                .map_err(error)?
+                .prepare_duplicate_scan(scope, &ids)?;
+            let pending = plan.analyze_checked(|id, path| {
+                if guard.canceled.load(Ordering::Acquire) {
+                    return Err("比较已取消。".into());
+                }
+                let store = state.store.lock().map_err(error)?;
+                store
+                    .validate_item_scope(scope, &[id])
+                    .map_err(|_| "选中引用已变化，请重新选择。")?;
+                if store
+                    .item_path(id)
+                    .map_err(|_| "选中引用已变化，请重新选择。")?
+                    != path
+                {
+                    return Err("选中引用已变化，请重新选择。".into());
+                }
+                Ok(())
+            })?;
+            if guard.canceled.load(Ordering::Acquire) {
+                return Err("比较已取消。".into());
+            }
+            let report = state
+                .store
+                .lock()
+                .map_err(error)?
+                .finish_duplicate_scan(scope, pending)?;
+            serde_json::to_value(report).map_err(error)
+        })
+        .await
+        .map_err(error)?
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (app, scope, ids, ticket);
+        Err("当前版本仅支持在 Windows 上分析重复文件。".into())
+    }
+}
+#[tauri::command]
 async fn open_item(app: tauri::AppHandle, window: tauri::WebviewWindow, id: i64) -> Result<bool> {
     let scope = shelf_windows::scope(&window)?;
     tauri::async_runtime::spawn_blocking(move || {
@@ -1153,7 +1270,21 @@ fn desktop_collapse(
     if scope.is_some_and(|id| id != shelf_id) {
         return Err("不能收起其他独立架。".into());
     }
-    desktop_runtime::collapse(&app, shelf_id)
+    #[cfg(windows)]
+    let closing = app
+        .state::<Runtime>()
+        .duplicate_scan
+        .close_start(window.label())
+        .ok();
+    let result = desktop_runtime::collapse(&app, shelf_id);
+    #[cfg(windows)]
+    if let Some(generation) = closing {
+        let _ = app
+            .state::<Runtime>()
+            .duplicate_scan
+            .close_finish(window.label(), generation);
+    }
+    result
 }
 #[tauri::command]
 fn desktop_present(
@@ -1297,6 +1428,166 @@ async fn manager_open(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Re
     desktop_runtime::manager_open(&app)
 }
 #[tauri::command]
+async fn chat_config(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+) -> Result<store::ChatConfig> {
+    metadata_window(&window)?;
+    database(app, |s| s.chat_config()).await
+}
+#[tauri::command]
+async fn chat_configure(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    base_url: String,
+    model: String,
+    enabled: bool,
+    api_key: Option<String>,
+) -> Result<store::ChatConfig> {
+    metadata_window(&window)?;
+    app.state::<Runtime>().chat.idle()?;
+    if enabled || !base_url.is_empty() {
+        chat::endpoint(&base_url)?;
+    }
+    let encrypted_key = api_key
+        .map(|key| {
+            if key.len() > 8192 || key.chars().any(char::is_control) {
+                return Err("API Key 无效".to_string());
+            }
+            if key.is_empty() {
+                Ok(Vec::new())
+            } else {
+                chat::protect(key.as_bytes())
+            }
+        })
+        .transpose()?;
+    database(app, move |s| {
+        s.chat_configure(&base_url, &model, enabled, encrypted_key.as_deref())
+    })
+    .await
+}
+#[tauri::command]
+async fn chat_sessions(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+) -> Result<Vec<store::ChatSession>> {
+    metadata_window(&window)?;
+    database(app, |s| s.chat_sessions()).await
+}
+#[tauri::command]
+async fn chat_test(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<()> {
+    metadata_window(&window)?;
+    let active = app.state::<Runtime>().chat.start(0)?;
+    let (config, key) = database(app.clone(), |s| {
+        let config = s.chat_config()?;
+        if !config.enabled {
+            return Err("请先保存并启用模型配置".into());
+        }
+        let key = s
+            .chat_key_ciphertext()?
+            .map(|value| {
+                chat::unprotect(&value).and_then(|value| {
+                    String::from_utf8(value).map_err(|_| "无法读取已保存密钥".into())
+                })
+            })
+            .transpose()?;
+        Ok((config, key))
+    })
+    .await?;
+    chat::test_connection(&config, key.as_deref(), &active.cancel).await
+}
+#[tauri::command]
+async fn chat_messages(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    session_id: i64,
+) -> Result<Vec<store::ChatMessage>> {
+    metadata_window(&window)?;
+    database(app, move |s| s.chat_messages(session_id)).await
+}
+#[tauri::command]
+async fn chat_new(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<i64> {
+    metadata_window(&window)?;
+    database(app, |s| s.chat_new()).await
+}
+#[tauri::command]
+async fn chat_delete(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    session_id: i64,
+) -> Result<()> {
+    metadata_window(&window)?;
+    app.state::<Runtime>().chat.idle()?;
+    database(app, move |s| s.chat_delete(session_id)).await
+}
+#[tauri::command]
+fn chat_stop(app: tauri::AppHandle, window: tauri::WebviewWindow, session_id: i64) -> Result<()> {
+    metadata_window(&window)?;
+    app.state::<Runtime>().chat.stop(session_id)
+}
+#[tauri::command]
+async fn chat_send(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    session_id: i64,
+    text: String,
+) -> Result<()> {
+    metadata_window(&window)?;
+    let active = app.state::<Runtime>().chat.start(session_id)?;
+    let (config, key, request) = database(app.clone(), move |s| {
+        let config = s.chat_config()?;
+        if !config.enabled {
+            return Err("请先配置并启用模型服务".into());
+        }
+        let key = s
+            .chat_key_ciphertext()?
+            .map(|key| {
+                chat::unprotect(&key).and_then(|bytes| {
+                    String::from_utf8(bytes).map_err(|_| "无法读取已保存密钥，请重新配置".into())
+                })
+            })
+            .transpose()?;
+        Ok((config, key, s.chat_begin(session_id, &text)?))
+    })
+    .await?;
+    let notify = || {
+        let _ = app.emit_to(
+            window.label(),
+            "chat-updated",
+            serde_json::json!({"session_id":session_id}),
+        );
+    };
+    notify();
+    let mut output = String::new();
+    let result = chat::stream_reply(
+        &config,
+        key.as_deref(),
+        &request.messages,
+        &active.cancel,
+        &mut output,
+        |content| {
+            app.state::<Runtime>()
+                .store
+                .lock()
+                .map_err(error)?
+                .chat_finish(request.assistant_id, content, "streaming")?;
+            notify();
+            Ok(())
+        },
+    )
+    .await;
+    let status = match &result {
+        Ok(status) => *status,
+        Err(_) => "failed",
+    };
+    database(app.clone(), move |s| {
+        s.chat_finish(request.assistant_id, &output, status)
+    })
+    .await?;
+    notify();
+    result.map(|_| ())
+}
+#[tauri::command]
 async fn management_snapshot(
     app: tauri::AppHandle,
     window: tauri::WebviewWindow,
@@ -1312,6 +1603,97 @@ async fn management_snapshot(
         Ok(data)
     })
     .await
+}
+#[tauri::command]
+async fn search_metadata(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    query: String,
+    kind: String,
+    source: Option<String>,
+    status: Option<String>,
+) -> Result<store::SearchResponse> {
+    let scope = metadata_scope(&window)?;
+    let guard = app
+        .state::<Runtime>()
+        .search_control
+        .start(window.label())?;
+    let catalog = database(app.clone(), move |s| s.search_catalog(scope)).await?;
+    let canceled = guard.canceled.clone();
+    let mut response = tauri::async_runtime::spawn_blocking(move || {
+        catalog.search_filtered_cancelable(
+            &query,
+            &kind,
+            source.as_deref().unwrap_or("all"),
+            status.as_deref().unwrap_or("all"),
+            &canceled,
+        )
+    })
+    .await
+    .map_err(error)??;
+    if guard.canceled.load(Ordering::Relaxed) {
+        return Err("搜索已被更新的查询取代。".into());
+    }
+    database(app, move |s| {
+        s.revalidate_search(scope, &mut response)?;
+        Ok(response)
+    })
+    .await
+}
+#[derive(Clone, Serialize)]
+struct SearchLocation {
+    shelf_id: i64,
+    item_id: i64,
+}
+#[tauri::command]
+async fn focus_search_result(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    shelf_id: i64,
+    item_id: i64,
+) -> Result<()> {
+    let scope = metadata_scope(&window)?;
+    database(app.clone(), move |s| {
+        s.validate_search_location(scope, shelf_id, item_id)
+    })
+    .await?;
+    let label = shelf_windows::label_for(&app, shelf_id)?;
+    // A newly created detached WebView may not have installed its listener yet.
+    // Keep one pending target per window; only that window can consume it.
+    app.state::<Runtime>()
+        .search_focus
+        .lock()
+        .map_err(error)?
+        .insert(label.clone(), SearchLocation { shelf_id, item_id });
+    if let Err(e) = desktop_runtime::open(&app, shelf_id, true) {
+        app.state::<Runtime>()
+            .search_focus
+            .lock()
+            .map_err(error)?
+            .remove(&label);
+        return Err(e);
+    }
+    app.emit_to(label.as_str(), "search-focus", ())
+        .map_err(error)
+}
+#[tauri::command]
+async fn take_search_focus(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+) -> Result<Option<SearchLocation>> {
+    let scope = shelf_windows::scope(&window)?;
+    let target = app
+        .state::<Runtime>()
+        .search_focus
+        .lock()
+        .map_err(error)?
+        .remove(window.label());
+    if let Some(ref location) = target {
+        let shelf = location.shelf_id;
+        let item = location.item_id;
+        database(app, move |s| s.validate_search_location(scope, shelf, item)).await?;
+    }
+    Ok(target)
 }
 #[tauri::command]
 async fn tag_references(
@@ -1444,17 +1826,22 @@ pub fn run() {
                 std::io::Error::other(format!("相同数据目录已有实例或无法锁定：{e}"))
             })?;
             app.manage(Runtime {
+                chat: Default::default(),
                 store: Mutex::new(
                     Store::open(&root.join("workstation.sqlite3"))
                         .map_err(std::io::Error::other)?,
                 ),
                 active: Mutex::new(None),
                 thumbnail: Mutex::new(()),
+                #[cfg(windows)]
+                duplicate_scan: Default::default(),
                 data_root: root.clone(),
                 recycle_test_root: std::env::var_os("NINGMAO_RECYCLE_TEST_ROOT")
                     .and_then(|p| std::fs::canonicalize(p).ok()),
                 recycle_plans: Mutex::new(Default::default()),
                 recycling: Mutex::new(None),
+                search_focus: Mutex::new(Default::default()),
+                search_control: Default::default(),
                 _process_lock: lock,
             });
             desktop_runtime::setup(app.handle(), &root).map_err(std::io::Error::other)?;
@@ -1509,7 +1896,20 @@ pub fn run() {
                     }
                     // Frozen decision 19: X hides to tray. Only explicit collapse creates an orb.
                     shelf_windows::hidden(window);
+                    #[cfg(windows)]
+                    let closing = window
+                        .app_handle()
+                        .try_state::<Runtime>()
+                        .and_then(|state| state.duplicate_scan.close_start(window.label()).ok());
                     let _ = window.hide();
+                    #[cfg(windows)]
+                    if let Some(generation) = closing
+                        && let Some(state) = window.app_handle().try_state::<Runtime>()
+                    {
+                        let _ = state
+                            .duplicate_scan
+                            .close_finish(window.label(), generation);
+                    }
                     if let Some(state) = window.app_handle().try_state::<desktop_runtime::Desktop>()
                     {
                         let _ = state.save();
@@ -1546,8 +1946,26 @@ pub fn run() {
                 drags.incoming.remove(window.label());
                 drags.outgoing.remove(window.label());
             }
+            #[cfg(windows)]
+            if matches!(event, tauri::WindowEvent::Destroyed)
+                && let Some(state) = window.app_handle().try_state::<Runtime>()
+                && let Ok(generation) = state.duplicate_scan.close_start(window.label())
+            {
+                let _ = state
+                    .duplicate_scan
+                    .close_finish(window.label(), generation);
+            }
         })
         .invoke_handler(tauri::generate_handler![
+            chat_config,
+            chat_test,
+            chat_configure,
+            chat_sessions,
+            chat_messages,
+            chat_new,
+            chat_delete,
+            chat_send,
+            chat_stop,
             recover_desktop_windows,
             wake_shortcut_state,
             wake_shortcut_configure,
@@ -1571,6 +1989,9 @@ pub fn run() {
             set_tags,
             reorder,
             thumbnail,
+            begin_duplicate_scan,
+            cancel_duplicate_scan,
+            analyze_duplicates,
             open_item,
             reveal_item,
             start_native_drag,
@@ -1593,6 +2014,9 @@ pub fn run() {
             desktop_disable,
             manager_open,
             management_snapshot,
+            search_metadata,
+            focus_search_result,
+            take_search_focus,
             tag_references,
             desktop_configure,
             desktop_hover,

@@ -1,6 +1,7 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import {nativeChat,type ChatBackend} from "./chatBackend";
 export type Shelf = { id: number; name: string; kind: "persistent" | "session" | "bound"; root: string | null; available: boolean };
 export type Item = { id: number; shelf_id: number; path: string; name: string; kind: string; bytes: number; modified: number; status: string; tags: string[] };
 export type Job = { id: number; shelf_id: number; status: string; message: string; staging: string | null };
@@ -11,7 +12,11 @@ export type DesktopPreferences={edge:"free"|"left"|"right"|"top"|"bottom";auto_h
 export type EntryPresentation={kind:"orb"|"capsule"|"quick-peek";shelf_id:number|null};
 export type EntrySlot={id:number;x:number;y:number;width:number;height:number};
 export type PeekData={shelf:CatalogShelf;total:number;items:{id:number;name:string;kind:string;status:string;thumbnail:string|null}[]};
-export type ManagedReference=Pick<Item,"id"|"shelf_id"|"path"|"name"|"tags">;
+export type ManagedReference=Pick<Item,"id"|"shelf_id"|"path"|"name"|"kind"|"tags">;
+export type SearchReference={item_id:number;shelf_id:number;shelf_name:string};
+export type SearchHit={name:string;kind:string;status:string;match_kind:string;references:SearchReference[]};
+export type SearchResponse={hits:SearchHit[];truncated:boolean};
+export type DuplicateReport={same_entity:number[][];duplicate_contents:number[][][]};
 export type ManagementSnapshot={shelves:Pick<Shelf,"id"|"name"|"kind">[];items:ManagedReference[];jobs:Job[]};
 export type CatalogShelf=Pick<Shelf,"id"|"name"|"kind">;
 export type DesktopView = {layout:{enabled:boolean;expanded:boolean;active_shelf:number;collapsed:number[];page:number;preferences:DesktopPreferences;main_topmost?:boolean;detached?:{shelf_id:number;visible:boolean;topmost:boolean}[]};entries:{id:number;name:string;kind:string}[];total:number;warning:string|null;copying:boolean;edge_hidden:boolean;catalog?:CatalogShelf[];presentation?:EntryPresentation;geometry?:{width:number;height:number;slots:EntrySlot[]};native_dragging?:boolean;always_scrollbars?:boolean;close_lower?:boolean;drag_target?:number|null};
@@ -20,7 +25,7 @@ export function detachedShelfFromLabel(label:string):number|undefined {
   const id=Number(label.slice(6));return Number.isSafeInteger(id)?id:undefined;
 }
 export type NearPointer={shelf_id:number|null;x:number;y:number};
-export type Events = {near?:(value:NearPointer)=>void; drop: (paths: string[]) => void; hover: (active: boolean) => void; progress: (p: Progress) => void; finished: (message: string) => void; drag: (message: string) => void; activate?:(id:number)=>void; changed?:()=>void; metadata?:()=>void; desktop?:(view:DesktopView)=>void; error?:(message:string)=>void };
+export type Events = {focus?:(location:{shelf_id:number;item_id:number})=>void;near?:(value:NearPointer)=>void; drop: (paths: string[]) => void; hover: (active: boolean) => void; progress: (p: Progress) => void; finished: (message: string) => void; drag: (message: string) => void; activate?:(id:number)=>void; changed?:()=>void; metadata?:()=>void; desktop?:(view:DesktopView)=>void; error?:(message:string)=>void };
 export type TrashEntry={id:number;entity:"item"|"shelf";name:string;shelf_id:number;shelf_name:string;shelf_kind:string;path:string|null;removed_at:number;children:number};
 export type SystemRecyclePreview={ticket:string;items:{id:number;name:string;path:string;other_references:number;shelf_kind:string}[]};
 export type SystemRecycleOutcome={id:number;status:string;message:string};
@@ -28,6 +33,12 @@ export type RecycleActivity={id:number;shelf_id:number;name:string;status:string
 export type WakeShortcutConfig={version:number;enabled:boolean;accelerator:string};
 export type WakeShortcutState={config:WakeShortcutConfig;active:boolean;paused:boolean;warning:string|null};
 export interface Backend {
+  chat?:ChatBackend;
+  beginDuplicateScan?:()=>Promise<number>;
+  cancelDuplicateScan?:(ticket:number)=>Promise<void>;
+  analyzeDuplicates?:(ids:number[],ticket:number)=>Promise<DuplicateReport>;
+  searchMetadata?:(query:string,kind:string,source:string,status:string)=>Promise<SearchResponse>;
+  focusSearchResult?:(shelf:number,item:number)=>Promise<void>;
   recoverWindows?:()=>Promise<number>;
   wakeShortcutState?:()=>Promise<WakeShortcutState>;
   wakeShortcutConfigure?:(config:WakeShortcutConfig)=>Promise<WakeShortcutState>;
@@ -82,6 +93,12 @@ export interface Backend {
   subscribe(events: Events): Promise<() => void>;
 }
 export const nativeBackend: Backend = {
+  chat:nativeChat,
+  beginDuplicateScan:()=>invoke("begin_duplicate_scan"),
+  cancelDuplicateScan:ticket=>invoke("cancel_duplicate_scan",{ticket}),
+  analyzeDuplicates:(ids,ticket)=>invoke("analyze_duplicates",{ids,ticket}),
+  searchMetadata:(query,kind,source,status)=>invoke("search_metadata",{query,kind,source,status}),
+  focusSearchResult:(shelfId,itemId)=>invoke("focus_search_result",{shelfId,itemId}),
   recoverWindows:()=>invoke("recover_desktop_windows"),
   wakeShortcutState:()=>invoke("wake_shortcut_state"),wakeShortcutConfigure:config=>invoke("wake_shortcut_configure",{config}),wakeShortcutPause:paused=>invoke("wake_shortcut_pause",{paused}),
   windowAction:action=>invoke("file_window_action",{action}),windowState:()=>invoke("file_window_state"),
@@ -112,6 +129,11 @@ export const nativeBackend: Backend = {
     if (!isTauri()) return () => {};
     const cleanups: (() => void)[] = [];
     try {
+      if(events.focus){
+        const focus=()=>{void invoke<{shelf_id:number;item_id:number}|null>("take_search_focus").then(value=>{if(value)events.focus?.(value);}).catch(()=>events.error?.("搜索结果已变化，请重新搜索。"));};
+        cleanups.push(await getCurrentWebviewWindow().listen("search-focus",focus));
+        focus();
+      }
       if(getCurrentWebviewWindow().label==="main" || detachedShelfFromLabel(getCurrentWebviewWindow().label)!==undefined)cleanups.push(await getCurrentWebviewWindow().onDragDropEvent(event => {
         const payload=event.payload;
         events.hover(payload.type === "enter" || payload.type === "over");
