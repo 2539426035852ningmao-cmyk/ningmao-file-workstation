@@ -4,9 +4,10 @@ use rustls::{
     pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer, ServerName},
 };
 use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
 use std::{
     io::{self, Read, Write},
-    net::TcpStream,
+    net::{SocketAddrV4, TcpStream},
     sync::Arc,
     time::Duration,
 };
@@ -29,7 +30,7 @@ fn roots(bytes: &[u8]) -> Result<RootCertStore> {
 /// In-memory pinned mTLS client. It can only connect to IPv4 localhost.
 pub struct LoopbackClient {
     config: Arc<ClientConfig>,
-    port: u16,
+    address: SocketAddrV4,
 }
 
 impl LoopbackClient {
@@ -47,15 +48,34 @@ impl LoopbackClient {
             .with_client_auth_cert(vec![CertificateDer::from(client_cert)], key(&client_key))?;
         Ok(Self {
             config: Arc::new(config),
-            port,
+            address: SocketAddrV4::new([127, 0, 0, 1].into(), port),
+        })
+    }
+
+    pub fn pinned(address: SocketAddrV4, fingerprint: &str) -> Result<Self> {
+        if address.port() == 0
+            || (!address.ip().is_loopback() && !address.ip().is_private())
+            || fingerprint.len() != 64
+            || !fingerprint.bytes().all(|byte| byte.is_ascii_hexdigit())
+        {
+            return Err("invalid private IPv4 target or certificate fingerprint".into());
+        }
+        let verifier = Arc::new(PinnedCertificate {
+            fingerprint: fingerprint.to_ascii_lowercase(),
+            provider: rustls::crypto::ring::default_provider(),
+        });
+        let config = ClientConfig::builder()
+            .dangerous()
+            .with_custom_certificate_verifier(verifier)
+            .with_no_client_auth();
+        Ok(Self {
+            config: Arc::new(config),
+            address,
         })
     }
 
     fn connect(&self) -> Result<StreamOwned<ClientConnection, TcpStream>> {
-        let socket = TcpStream::connect_timeout(
-            &([127, 0, 0, 1], self.port).into(),
-            Duration::from_secs(3),
-        )?;
+        let socket = TcpStream::connect_timeout(&self.address.into(), Duration::from_secs(3))?;
         socket.set_read_timeout(Some(Duration::from_secs(5)))?;
         socket.set_write_timeout(Some(Duration::from_secs(5)))?;
         Ok(StreamOwned::new(
@@ -72,8 +92,12 @@ impl LoopbackClient {
         if body.len() > MAX_CONTROL {
             return Err("control request too large".into());
         }
+        let stream = self.connect()?;
+        stream
+            .sock
+            .set_read_timeout(Some(Duration::from_secs(90)))?;
         request_on(
-            self.connect()?,
+            stream,
             "/api/localsend/v2/prepare-upload",
             body.len() as u64,
             &mut io::Cursor::new(body),
@@ -121,6 +145,60 @@ impl LoopbackClient {
     #[doc(hidden)]
     pub fn probe_connect(&self) -> Result<StreamOwned<ClientConnection, TcpStream>> {
         self.connect()
+    }
+}
+
+#[derive(Debug)]
+struct PinnedCertificate {
+    fingerprint: String,
+    provider: rustls::crypto::CryptoProvider,
+}
+impl rustls::client::danger::ServerCertVerifier for PinnedCertificate {
+    fn verify_server_cert(
+        &self,
+        end: &CertificateDer<'_>,
+        _: &[CertificateDer<'_>],
+        _: &ServerName<'_>,
+        _: &[u8],
+        _: rustls::pki_types::UnixTime,
+    ) -> std::result::Result<rustls::client::danger::ServerCertVerified, rustls::Error> {
+        if format!("{:x}", Sha256::digest(end.as_ref())) != self.fingerprint {
+            return Err(rustls::Error::General(
+                "certificate fingerprint mismatch".into(),
+            ));
+        }
+        Ok(rustls::client::danger::ServerCertVerified::assertion())
+    }
+    fn verify_tls12_signature(
+        &self,
+        message: &[u8],
+        cert: &CertificateDer<'_>,
+        signature: &rustls::DigitallySignedStruct,
+    ) -> std::result::Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+        rustls::crypto::verify_tls12_signature(
+            message,
+            cert,
+            signature,
+            &self.provider.signature_verification_algorithms,
+        )
+    }
+    fn verify_tls13_signature(
+        &self,
+        message: &[u8],
+        cert: &CertificateDer<'_>,
+        signature: &rustls::DigitallySignedStruct,
+    ) -> std::result::Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+        rustls::crypto::verify_tls13_signature(
+            message,
+            cert,
+            signature,
+            &self.provider.signature_verification_algorithms,
+        )
+    }
+    fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
+        self.provider
+            .signature_verification_algorithms
+            .supported_schemes()
     }
 }
 

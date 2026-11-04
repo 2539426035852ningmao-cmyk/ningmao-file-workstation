@@ -546,6 +546,7 @@ dependencies = [
  "image",
  "ningmao-transfer-client",
  "ningmao-transfer-contract",
+ "ningmao-transfer-receiver",
  "rcgen",
  "rusqlite",
  "rustix",
@@ -566,6 +567,7 @@ dependencies = [
  "httparse",
  "rustls",
  "serde_json",
+ "sha2",
 ]
 
 [[package]]
@@ -573,6 +575,22 @@ name = "ningmao-transfer-contract"
 version = "0.1.0"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "ningmao-transfer-receiver"
+version = "0.1.0"
+dependencies = [
+ "cap-std",
+ "httparse",
+ "ningmao-transfer-contract",
+ "rustix",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sha2",
+ "uuid",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

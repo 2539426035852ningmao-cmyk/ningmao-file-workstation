@@ -8,6 +8,7 @@ mod search_control;
 mod shelf_windows;
 pub mod store;
 use ningmao_transfer_client as loopback_transport;
+mod transfer_desktop;
 pub mod transfer_runtime;
 pub mod transfer_sender;
 pub mod transfer_tasks;
@@ -53,6 +54,7 @@ struct RecycleOutcome {
     message: String,
 }
 struct Runtime {
+    transfers: transfer_desktop::TransferControl,
     chat: chat::ChatControl,
     store: Mutex<Store>,
     active: Mutex<Option<(i64, Arc<AtomicBool>)>>,
@@ -396,6 +398,9 @@ fn cancel_copy(app: tauri::AppHandle, window: tauri::WebviewWindow, job_id: i64)
         .lock()
         .map_err(error)?
         .validate_job_scope(scope, job_id)?;
+    if transfer_desktop::cancel_job(&app, scope, job_id)? {
+        return Ok(());
+    }
     let active = state.active.lock().map_err(error)?;
     if let Some((id, cancel)) = active.as_ref()
         && *id == job_id
@@ -1190,6 +1195,7 @@ fn quit(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<()> {
 fn clean_quit(app: tauri::AppHandle) -> Result<()> {
     lifecycle_idle(&app)?;
     desktop_runtime::require_idle(&app)?;
+    transfer_desktop::prepare_exit(&app)?;
     let state = app.state::<Runtime>();
     if state.active.lock().map_err(error)?.is_some() {
         return Err("复制尚未结束，请先等待完成或取消。".into());
@@ -1804,6 +1810,7 @@ pub fn run() {
                 std::io::Error::other(format!("相同数据目录已有实例或无法锁定：{e}"))
             })?;
             app.manage(Runtime {
+                transfers: Default::default(),
                 chat: Default::default(),
                 store: Mutex::new(
                     Store::open(&root.join("workstation.sqlite3"))
@@ -1935,6 +1942,12 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            transfer_desktop::transfer_view,
+            transfer_desktop::transfer_receive,
+            transfer_desktop::transfer_stop_receive,
+            transfer_desktop::transfer_decide,
+            transfer_desktop::transfer_send,
+            transfer_desktop::transfer_cancel_send,
             chat_config,
             chat_configure,
             chat_sessions,

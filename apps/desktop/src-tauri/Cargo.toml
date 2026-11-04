@@ -20,6 +20,8 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 ningmao-transfer-contract = { path = "../../../crates/transfer-contract" }
 ningmao-transfer-client = { path = "../../../crates/transfer-client" }
+ningmao-transfer-receiver = { path = "../../../crates/transfer-receiver" }
+rcgen = { version = "=0.14.8", default-features = false, features = ["crypto", "ring"] }
 tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-dialog = "=2.8.3"
 tauri-plugin-window-state = "=2.5.0"

@@ -865,11 +865,9 @@ impl Store {
                 && let Ok(entries) = fs::read_dir(root)
             {
                 for entry in entries.flatten() {
-                    if entry
-                        .file_name()
-                        .to_string_lossy()
-                        .starts_with(".ningmao-copy-")
-                    {
+                    let name = entry.file_name();
+                    let name = name.to_string_lossy();
+                    if name.starts_with(".ningmao-copy-") || name.starts_with(".ningmao-receive-") {
                         continue;
                     }
                     if let Ok(path) = canonical_user_path(&entry.path()) {
