@@ -207,10 +207,19 @@ fn real_worker_events_reach_existing_store_without_schema_or_file_changes() {
         exit = worker.0.try_wait().unwrap();
         std::thread::sleep(Duration::from_millis(5));
     }
-    assert!(
-        exit.unwrap().success(),
-        "probe failed; local worker diagnostics retained until assertion"
-    );
+    if !exit.unwrap().success() {
+        // Only publish the bounded synthetic phase, never the worker log or key material.
+        let phase: String = fs::read_to_string(root.join("probe-phase.txt"))
+            .unwrap_or_default()
+            .chars()
+            .filter(|c| c.is_ascii_alphanumeric() || *c == '-')
+            .take(64)
+            .collect();
+        panic!(
+            "controlled probe failed; phase={phase}; exit={:?}",
+            exit.unwrap().code()
+        );
+    }
     assert!(pending.is_empty());
     runtime
         .worker_exited(&mut store, exit.unwrap().success(), true)
