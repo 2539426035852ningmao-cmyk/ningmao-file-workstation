@@ -1,4 +1,8 @@
-# 最新检查点：P3 桌面 localhost 发送入口（2026-10-29）
+# 当前执行入口（2026-11-04）
+
+持续开发以 `docs/execution/ACTIVE-DELIVERY.md` 为唯一当前状态。集成分支 `feat/first-delivery-integration` / #57；P3已提交回环验证的手动地址/证书指纹收发闭环和桌面互传界面，Rust loopback 15项、浏览器完整123项通过，Windows后端检查及Clippy通过。新的CI和P3 Windows候选待检查。首个真实LAN、LocalSend官方应用互通、跨网、手机及真实模型仍未验。上一版7433f29候选及哈希继续保留；下方为历史记录，不将旧暂停P3/P4要求当成当前指令。
+
+# 历史检查点：P3 桌面 localhost 发送入口（2026-10-29）
 
 P3 现有客户端从实验目录移动到原创共享 crate `crates/transfer-client`，实验与桌面 Rust 只保留一份实现。桌面新增 `transfer_sender::send_open_file`：仅接受调用方已授权并打开的普通文件句柄、显式文件架和内存 mTLS 客户端；连接仍硬限制 `127.0.0.1`，不新增 Tauri IPC/UI/监听。真实合成 mTLS 定向测试同时验证发送/接收 Store：成功均落 `completed`、旧同名目标保留并编号、来源不变；拒收发送任务落 `failed` 且不写接收文件。未实现多文件、发送取消、正式接收器启动、设备发现/信任或 LAN，不冒称产品互传。
 
