@@ -1,4 +1,8 @@
-# 当前执行入口（2026-11-04）
+# 当前执行入口（2026-11-04，r4）
+
+首版集成分支 `feat/first-delivery-integration` / Draft #57 的最新功能提交为 `17345a2ce0ce0e509fe15e77551233cbf75ac509`。AI 对话在关闭时先停止生成或模型测试，受控浏览器专项 5/5 与本机构建通过。隔离便携包 `D:/Ningmao-Preview-P3-P4-20261104-r4.zip` SHA256 `6c32ff5417a39202893c52e0436ae8dd2218fbe11e588f3b57d8b9be9ca76d51`；未安装/启动，真实 Windows GUI、LAN、LocalSend 互通及真实模型仍未验。唯一详细现状见 `docs/execution/ACTIVE-DELIVERY.md` 顶部。
+
+## 历史检查点（r3 及更早）
 
 持续开发以 `docs/execution/ACTIVE-DELIVERY.md` 为唯一当前状态。集成分支 `feat/first-delivery-integration` / #57；P3手动地址/指纹收发闭环已实现，Windows/Linux Loopback 15+13测试、浏览器123项、完整桌面Rust测试、Clippy与fmt通过。取消时先通知接收端再断开流；关键双进程取消测试连续10次通过。r3包源 `8b4ee5538d6612bc8028ae538502331c1a1b4a1f`，便携包 `D:/Ningmao-Preview-P3-P4-20261104-r3.zip` SHA `2c8a344db1205b8dc40103023e7b76fc9bb7a37c386dd3fc21145171d5a91b51`。后续 UI 增量添加接收地址与证书指纹独立复制，生产构建及互传浏览器3项通过，未进入r3包。三组GitHub Actions在 `8b4ee55` 和文档提交 `edf4c32` 均成功。真实LAN/官方LocalSend互通/跨网/手机/模型仍未验；旧候选保留。下方为历史记录。
 
