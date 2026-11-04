@@ -1,5 +1,7 @@
 # 当前执行入口（2026-11-04，r4）
 
+2026-11-05 当前UI候选：`feat/capability-panels-polish` / Draft #60，独立基于 #57；互传标准Tabs键盘切换、连接字段分区/指纹换行、空状态引导；AI 配置模型直达/返回对话/设置操作分组。10项相关浏览器回归和生产构建通过，340×320深浅主题合成截图在 docs/research/capability-panels-evidence；Windows CI/新包/原生仍待验，旧r4保留。浏览器免安装真实协议证明在另一分支 PR #59（Windows Chromium6项PASS，含兼容补丁），未接当前程序，不能添加空分享按钮或混淆两支证据。下一步先核对#60检查和Windows候选，再接文件分享适配器。
+
 2026-11-05：用户已专项批准临时私有 LAN 接收测试（仅合成目录，不改防火墙/公网，测后关闭）。r4 原生绑定合成目录、指定私有 IPv4 开启、同机私有网卡 TLS 1.3 严格指纹匹配、停止后监听为零和正常退出已通过；未传文件、未完成双机验证。完整当前状态在 ACTIVE-DELIVERY 顶部，后续沿用此授权范围。9366839 测试诊断改动三组 CI 成功。
 
 首版集成分支 `feat/first-delivery-integration` / Draft #57 的最新功能提交为 `17345a2ce0ce0e509fe15e77551233cbf75ac509`。AI 对话在关闭时先停止生成或模型测试，受控浏览器专项 5/5 与本机构建通过。隔离便携包 `D:/Ningmao-Preview-P3-P4-20261104-r4.zip` SHA256 `6c32ff5417a39202893c52e0436ae8dd2218fbe11e588f3b57d8b9be9ca76d51`；未安装/启动，真实 Windows GUI、LAN、LocalSend 互通及真实模型仍未验。唯一详细现状见 `docs/execution/ACTIVE-DELIVERY.md` 顶部。
