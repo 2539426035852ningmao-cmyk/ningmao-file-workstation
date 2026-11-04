@@ -1,5 +1,29 @@
 import {expect,test} from "@playwright/test";
 
+for(const theme of ["light","dark"])test(`互传分区与键盘切换适配340×320 ${theme}`,async({page},info)=>{
+  await page.setViewportSize({width:340,height:320});
+  await page.goto("/tests/harness.html");
+  await page.evaluate(theme=>document.documentElement.classList.toggle("dark",theme==="dark"),theme);
+  await page.getByRole("button",{name:"更多操作",exact:true}).click();
+  await page.getByRole("menuitem",{name:"文件互传",exact:true}).click();
+  const panel=page.getByRole("dialog",{name:"文件互传",exact:true});
+  const receive=panel.getByRole("tab",{name:"接收文件",exact:true});
+  await receive.focus();await page.keyboard.press("ArrowLeft");
+  await expect(panel.getByRole("tab",{name:"发送文件",exact:true})).toHaveAttribute("aria-selected","true");
+  await expect(panel.getByRole("tabpanel")).toContainText("先在文件架选择文件");
+  await panel.getByLabel("证书指纹",{exact:true}).fill("a".repeat(64));
+  await expect(panel.getByLabel("证书指纹",{exact:true})).toHaveValue("a".repeat(64));
+  const send=panel.getByRole("button",{name:"发送文件",exact:true});
+  await send.scrollIntoViewIfNeeded();await expect(send).toBeInViewport();await expect(send).toBeDisabled();
+  expect(await panel.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+  expect(await panel.getByRole("tabpanel").evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+  await page.screenshot({path:info.outputPath(`transfer-${theme}.png`)});
+  await panel.getByRole("tab",{name:"发送文件",exact:true}).focus();await page.keyboard.press("ArrowRight");
+  await expect(receive).toHaveAttribute("aria-selected","true");
+  await expect(panel.getByRole("button",{name:"开启接收",exact:true})).toBeDisabled();
+  expect(await page.evaluate(()=>window.transferHarness.calls())).toEqual([]);
+});
+
 test("原生互传适配器按后端命令传递ID与地址",async({page})=>{
   await page.goto("/tests/harness.html");
   expect(await page.evaluate(()=>window.verifyTransferIPC())).toEqual([
