@@ -2,6 +2,7 @@ import {useEffect,useRef,useState} from "react";
 import {X} from "lucide-react";
 import {Button} from "./ui/button";
 import {Input} from "./ui/input";
+import {Tabs,TabsList,TabsTrigger,TabsContent} from "./ui/tabs";
 import {Sheet,SheetContent,SheetDescription,SheetHeader,SheetTitle} from "./ui/sheet";
 import type {Shelf} from "../backend";
 import type {TransferBackend,TransferProgress,TransferResult,TransferView} from "../transferBackend";
@@ -27,16 +28,20 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
   async function send(){if(sending||view.sending)return;setSending(true);setCancelling(false);setProgress(null);setResult(null);setError("");try{const outcome=await backend.send(selection.shelf_id,selection.files.map(file=>file.id),address.trim(),fingerprint.trim());if(live.current)setResult(outcome);}catch(e){if(live.current)setError(String(e));}finally{if(live.current){setSending(false);setCancelling(false);void backend.view().then(setView).catch(e=>setError(String(e)));}}}
   const activeSend=sending||view.sending;
   return <Sheet open={open} onOpenChange={onOpenChange}><SheetContent className="transfer-panel" showCloseButton={false}>
-    <SheetHeader><SheetTitle>文件互传</SheetTitle><SheetDescription>来源保留，同名文件自动编号</SheetDescription></SheetHeader>
+    <SheetHeader><SheetTitle>文件互传</SheetTitle><SheetDescription>局域网 · 来源保留，同名自动编号</SheetDescription></SheetHeader>
     <Button className="transfer-close" variant="ghost" size="icon" aria-label="关闭文件互传" onClick={()=>onOpenChange(false)}><X size={16}/></Button>
-    <div className="transfer-tabs" role="tablist" aria-label="互传方向"><Button variant={mode==="send"?"secondary":"ghost"} role="tab" aria-selected={mode==="send"} onClick={()=>setMode("send")}>发送文件</Button><Button variant={mode==="receive"?"secondary":"ghost"} role="tab" aria-selected={mode==="receive"} onClick={()=>setMode("receive")}>接收文件</Button></div>
-    <div className="transfer-content">{mode==="send"?<>
+    <Tabs className="transfer-workspace" value={mode} onValueChange={value=>setMode(value as "send"|"receive")}>
+    <TabsList className="transfer-tabs" aria-label="互传方向"><TabsTrigger value="send">发送文件</TabsTrigger><TabsTrigger value="receive">接收文件</TabsTrigger></TabsList>
+    <TabsContent value={mode} className="transfer-content">{mode==="send"?<>
       <p className="transfer-note">已选 {selection.files.length} 项{selection.files.length>16?"，一次最多发送16项":""}</p>
+      {!selection.files.length&&<p className="capability-hint">先在文件架选择文件，再使用“发送到设备”。</p>}
       {!!selection.files.length&&<ul className="transfer-files" aria-label="待发送文件">{selection.files.map(file=><li key={file.id} title={file.name}>{file.name}</li>)}</ul>}
       <form className="transfer-form" onSubmit={e=>{e.preventDefault();void send();}}>
+        <fieldset className="connection-fields"><legend>连接信息</legend>
         <label>接收方地址<Input aria-label="接收方地址" placeholder="192.168.1.20:53317" value={address} disabled={activeSend} onChange={e=>setAddress(e.target.value)} maxLength={80}/></label>
-        <label>证书指纹<Input aria-label="证书指纹" placeholder="接收方显示的64位SHA256指纹" value={fingerprint} disabled={activeSend} onChange={e=>setFingerprint(e.target.value)} maxLength={64}/></label>
+        <label>证书指纹<textarea aria-label="证书指纹" placeholder="接收方显示的64位 SHA256 指纹" value={fingerprint} disabled={activeSend} onChange={e=>setFingerprint(e.target.value)} maxLength={64} rows={2}/></label>
         <p className="muted">请向接收方核对地址和指纹</p>
+        </fieldset>
         {activeSend?<Button type="button" variant="outline" disabled={cancelling} onClick={()=>{setCancelling(true);void backend.cancelSend().catch(e=>{setError(String(e));setCancelling(false);});}}>{cancelling?"正在取消…":"取消发送"}</Button>:<Button type="submit" disabled={!selection.files.length||selection.files.length>16||!address.trim()||!fingerprint.trim()||working}>发送文件</Button>}
       </form>
       <div className="transfer-status" role="status">{activeSend?<>{cancelling?"正在取消，等待安全结束":phases[progress?.phase??""]??"正在连接…"}{progress&&<><progress aria-label="发送进度" value={progress.bytes} max={progress.total||1}/><span>{sizes(progress.bytes)} / {sizes(progress.total)} · {progress.file_index+1}/{progress.file_count}项</span></>}</>:result?<><strong>{statuses[result.status]??result.status}</strong><p>{result.message}</p><ul>{result.files.map(file=><li key={file.index}>{selection.files[file.index]?.name??`文件 ${file.index+1}`} · {statuses[file.status]??file.status}</li>)}</ul></>:null}</div>
@@ -49,6 +54,6 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
         <Button type="submit" disabled={working||!target||!bindAddress.trim()}>{working?"正在开启…":"开启接收"}</Button>
       </form>}
       {view.pending&&<section className="transfer-request" aria-label="待确认接收"><h3>接收请求 · {view.pending.alias}</h3><ul className="transfer-files">{view.pending.files.map((file,index)=><li key={index}><span title={file.name}>{file.name}</span><small>{sizes(file.size)}</small></li>)}</ul><p>{view.pending.files.length}项 · {sizes(view.pending.total)}</p><div><Button variant="outline" disabled={working} onClick={()=>void action(()=>backend.decide(view.pending!.id,false))}>拒绝接收</Button><Button disabled={working} onClick={()=>void action(()=>backend.decide(view.pending!.id,true))}>接受文件</Button></div></section>}
-    </>}{error&&<p className="transfer-error" role="alert">{error}</p>}</div>
+    </>}{error&&<p className="transfer-error" role="alert">{error}</p>}</TabsContent></Tabs>
   </SheetContent></Sheet>;
 }

@@ -1,4 +1,14 @@
-# 当前交付状态 · 2026-11-04（r4，优先于下方历史记录）
+# 当前交付状态 · 2026-11-05（r5，优先于下方历史记录）
+
+## r5 Windows 候选与原生检查
+
+PR #60 / `feat/capability-panels-polish`，包源码 `50b7563a3959f255909c62b533eb6838f4bd6156`（UI功能454f90b，50b仅记忆文档）。复用本机Rust1.99.1与缓存完成 `build-preview-package.ps1`、MSI只读检查、`build-portable-preview.ps1`，不是依靠排队中的CI宣称构建成功。r5 便携 ZIP：`D:/Ningmao-Preview-P3-P4-20261105-r5.zip`，SHA256 `4d15aa434f78df05c12e53c6369119e62e83fee476d90267f609402025518a26`；EXE `4f0fe87131b674d451478f01c41b0f2f270aaf7a17f8c2d9fad59d8b9dbd3ab5`；MSI `83634504f61e4d0e40b048cbf3b3f84869da60b9ee662d7f84e1923c50b08ede`。x64 debug未签名，408条许可清单仍有1条既有版本映射警告，未安装MSI或发布。
+
+独立data/webview真实启动r5，Windows原生420×520深色窗口检查：互传发送/接收分区、指纹两行输入、方向键切换页签、无目标禁用接收；AI未配置直达模型设置、返回对话、关闭面板；菜单完整退出均PASS。退出后进程/监听均为零，未启用网络接收器/模型请求或使用私人文件。包清单中 installedOrLaunched=false 是构建时快照；此段记录后续实际启动，不修改已固定ZIP。340×320双主题仍仅浏览器证据；新包真实拖放/多屏/DPI/已配置模型仍未验。
+
+试用：新目录解压后双击 Start-Ningmao.cmd，需要已有WebView2；数据保存在同目录data/webview。完整退出再备份，不覆盖r4数据。旧r4与回滚基线保留。记录时云端Desktop `41878442152`、Preview `41878441878` 仍queued，未确认排队根因，不能写CI通过。下一步继续核对CI，并推进 #59 已验证浏览器协议的文件分享适配器与任务中心衔接。
+
+2026-11-05 窗口协调候选：`feat/capability-panels-polish` 从集成基线独立派生。互传复用已有 Radix Tabs 支持方向键，选中文件/连接信息/任务反馈分区，64位指纹改为可换行文本框，零选择有下一步提示；AI 未配置可直接“配置模型”，设置区按连接/操作分组并提供返回对话。沿用主题和尺寸，不改 Rust、SQLite、文件/网络安全与模型请求逻辑。生产构建与聊天/互传专项10项浏览器测试通过；340×320双主题截图见 `docs/research/capability-panels-evidence/`。Windows新包/原生视觉待对应CI与样机验证，不把浏览器截图当原生PASS。浏览器互传真实协议证明另在 PR #59（6项PASS），尚未接入当前UI，不添加空分享按钮。
 
 ## 2026-11-05 · 私有网卡接收器实测
 
