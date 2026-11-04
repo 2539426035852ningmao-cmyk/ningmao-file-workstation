@@ -1,4 +1,5 @@
 import {WakeShortcutSettings} from "./components/WakeShortcutSettings";
+import {GlobalSearch} from "./components/GlobalSearch";
 import {ScrollActivity} from "./components/ScrollActivity";
 import {useEffect,useMemo,useRef,useState} from "react";
 import {Archive,Check,File,Folder,Layers,Search,Settings,Tags,ListTodo,RefreshCw,X} from "lucide-react";
@@ -6,6 +7,7 @@ import {Button} from "./components/ui/button";
 import {Input} from "./components/ui/input";
 import type {Backend,DesktopPreferences,DesktopView,ManagementSnapshot,Progress} from "./backend";
 import {observeTheme,readTheme,writeTheme} from "./preferences";
+import {localTagSuggestions} from "./localTagSuggestions";
 
 const empty:ManagementSnapshot={shelves:[],items:[],jobs:[]};
 const sections=[["overview","总览",Layers],["assets","素材",File],["tags","标签",Tags],["jobs","任务",ListTodo],["settings","设置",Settings]] as const;
@@ -19,6 +21,7 @@ export default function Manager({backend}:{backend:Backend}) {
   const [data,setData]=useState(empty),[desktop,setDesktop]=useState<DesktopView|null>(null);
   const [section,setSection]=useState("overview"),[query,setQuery]=useState(""),[shelf,setShelf]=useState(0),[tagFilter,setTagFilter]=useState("");
   const [selected,setSelected]=useState<number[]>([]),[page,setPage]=useState(0),[tag,setTag]=useState(""),[detail,setDetail]=useState<number|null>(null);
+  const [suggestionsOpen,setSuggestionsOpen]=useState(false);
   const [error,setError]=useState(""),[message,setMessage]=useState(""),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
   const [preferences,setPreferences]=useState(defaultPreferences),[dirty,setDirty]=useState(false),[theme,setTheme]=useState(readTheme);
   const [jobShelf,setJobShelf]=useState(0),[jobStatus,setJobStatus]=useState("all"),[cancelRequested,setCancelRequested]=useState<number|null>(null);
@@ -45,6 +48,7 @@ export default function Manager({backend}:{backend:Backend}) {
   const visible=useMemo(()=>data.items.filter(i=>(!shelf || i.shelf_id===shelf) && (!tagFilter || i.tags.includes(tagFilter)) && query.trim().toLocaleLowerCase().split(/\s+/).every(term=>[i.name,...i.tags].join(" ").toLocaleLowerCase().includes(term))),[data.items,shelf,tagFilter,query]);
   const pages=Math.max(1,Math.ceil(visible.length/perPage)),currentPage=Math.min(page,pages-1),rows=visible.slice(currentPage*perPage,(currentPage+1)*perPage);
   const chosen=visible.filter(i=>selected.includes(i.id)),current=data.items.find(i=>i.id===detail);
+  const suggestions=suggestionsOpen?localTagSuggestions(chosen):[];
   const tags=[...new Set(data.items.flatMap(i=>i.tags))].sort((a,b)=>a.localeCompare(b,"zh-CN"));
   const shelfName=(id:number)=>data.shelves.find(s=>s.id===id)?.name || "文件架";
   async function act(action:()=>Promise<void>) {if(busy)return;setBusy(true);setError("");try{await action();}catch(e){setError(String(e));}finally{if(live.current)setBusy(false);}}
@@ -67,7 +71,8 @@ export default function Manager({backend}:{backend:Backend}) {
       {section==="assets" && <section className="manager-assets">
         <div className="manager-filters"><label className="manager-search"><Search size={16}/><Input aria-label="搜索已收集素材" placeholder="搜索已收集素材" value={query} onChange={e=>setQuery(e.target.value)}/></label><select aria-label="素材文件架" value={shelf} onChange={e=>setShelf(Number(e.target.value))}><option value={0}>全部文件架</option>{data.shelves.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select><select aria-label="素材标签" value={tagFilter} onChange={e=>setTagFilter(e.target.value)}><option value="">全部标签</option>{tags.map(t=><option key={t}>{t}</option>)}</select></div>
         <p className="manager-note">仅检索已收集名称和标签，不扫描磁盘；文件可用状态请在文件架中刷新。</p>
-        <form className="manager-tag-actions" onSubmit={e=>{e.preventDefault();if(!chosen.length || chosen.length>256 || !tag.trim())return;void act(async()=>{const count=await backend.tagReferences(chosen.map(i=>i.id),tag.trim(),false);await refresh();setMessage(`已更新 ${count} 项；原文件和其他标签保持不变。`);});}}><span>已选 {chosen.length} 项</span><Input aria-label="标签名称" placeholder="标签名称" value={tag} maxLength={64} onChange={e=>setTag(e.target.value)}/><Button type="submit" size="sm" disabled={busy || !chosen.length || chosen.length>256 || !tag.trim()}>添加标签</Button><Button type="button" variant="outline" size="sm" disabled={busy || !chosen.length || chosen.length>256 || !tag.trim()} onClick={()=>void act(async()=>{const count=await backend.tagReferences(chosen.map(i=>i.id),tag.trim(),true);await refresh();setMessage(`已更新 ${count} 项；仅移除指定标签。`);})}>移除标签</Button></form>
+        <form className="manager-tag-actions" onSubmit={e=>{e.preventDefault();if(!chosen.length || chosen.length>256 || !tag.trim())return;void act(async()=>{const count=await backend.tagReferences(chosen.map(i=>i.id),tag.trim(),false);await refresh();setMessage(`已更新 ${count} 项；原文件和其他标签保持不变。`);});}}><span>已选 {chosen.length} 项</span><Input aria-label="标签名称" placeholder="标签名称" value={tag} maxLength={64} onChange={e=>setTag(e.target.value)}/><Button type="submit" size="sm" disabled={busy || !chosen.length || chosen.length>256 || !tag.trim()}>添加标签</Button><Button type="button" variant="outline" size="sm" disabled={busy || !chosen.length || chosen.length>256 || !tag.trim()} onClick={()=>void act(async()=>{const count=await backend.tagReferences(chosen.map(i=>i.id),tag.trim(),true);await refresh();setMessage(`已更新 ${count} 项；仅移除指定标签。`);})}>移除标签</Button><Button type="button" variant="outline" size="sm" disabled={busy || !chosen.length || chosen.length>256} onClick={()=>setSuggestionsOpen(true)}>生成本地规则建议</Button></form>
+        {suggestionsOpen && <section className="manager-tag-suggestions" role="region" aria-label="本地规则建议"><div><h3>本地规则建议</h3><Button variant="ghost" size="icon" aria-label="关闭本地规则建议" onClick={()=>setSuggestionsOpen(false)}><X size={15}/></Button></div><p>仅根据已登记的文件名和类型生成，不读取文件内容，不使用模型或网络。</p>{suggestions.length?suggestions.map(suggestion=><article key={suggestion.tag}><span><strong>{suggestion.tag}</strong><small>{suggestion.reason} · {suggestion.ids.length} 项</small></span><Button size="sm" disabled={busy || chosen.length>256} aria-label={`添加标签 ${suggestion.tag}`} onClick={()=>void act(async()=>{const count=await backend.tagReferences(suggestion.ids,suggestion.tag,false);await refresh();setMessage(`已添加标签“${suggestion.tag}”到 ${count} 项；原文件未更改。`);})}>添加</Button></article>):<p>所选素材暂无新的规则建议。</p>}</section>}
         {chosen.length>256 && <p role="alert">一次最多修改256项，不会只处理部分选中项。</p>}
         <div className="manager-table-scroll"><table><thead><tr><th><input type="checkbox" aria-label="选择本页文件" checked={!!rows.length && rows.every(i=>selected.includes(i.id))} onChange={e=>setSelected(value=>e.target.checked?[...new Set([...value,...rows.map(i=>i.id)])]:value.filter(id=>!rows.some(i=>i.id===id)))}/></th><th>名称</th><th>文件架</th><th>标签</th><th><span className="sr-only">操作</span></th></tr></thead><tbody>{rows.map(item=><tr key={item.id} data-selected={selected.includes(item.id)}><td><input type="checkbox" aria-label={`选择 ${item.name}`} checked={selected.includes(item.id)} onChange={e=>setSelected(value=>e.target.checked?[...value,item.id]:value.filter(id=>id!==item.id))}/></td><td><button className="manager-file-name" title={item.name} onClick={()=>setDetail(item.id)}>{item.name}</button></td><td title={shelfName(item.shelf_id)}>{shelfName(item.shelf_id)}</td><td title={item.tags.join("、")}>{item.tags.join("、") || "—"}</td><td><Button variant="ghost" size="sm" aria-label={`打开 ${item.name} 所在文件架`} disabled={busy} onClick={()=>void act(()=>backend.desktopOpen(item.shelf_id))}>打开文件架</Button></td></tr>)}</tbody></table>{!rows.length && <p className="manager-empty">没有匹配的已收集素材</p>}</div>
         <div className="manager-pagination"><span>{visible.length} 项 · 第 {currentPage+1}/{pages} 页</span><Button variant="ghost" size="sm" disabled={!currentPage} onClick={()=>setPage(currentPage-1)}>上一页</Button><Button variant="ghost" size="sm" disabled={currentPage+1>=pages} onClick={()=>setPage(currentPage+1)}>下一页</Button></div>
@@ -83,5 +88,6 @@ export default function Manager({backend}:{backend:Backend}) {
       </section>}
     </>}
     <footer className="manager-status" role="status">{message || "记录保存在本机，原文件保留。"}</footer></main>
+    <GlobalSearch backend={backend} revision={data}/>
   </div>;
 }

@@ -16,6 +16,17 @@ test("批量标签忽略筛选隐藏项，失败保留输入并可重试",async(
   await page.getByRole("button",{name:"添加标签",exact:true}).click();await expect(page.getByRole("status")).toContainText("已更新 1 项");
   const items=await page.evaluate(()=>JSON.parse(localStorage.getItem("test-state")!).items);expect(items.filter((i:{tags:string[]})=>i.tags.length)).toHaveLength(1);
 });
+test("本地规则建议解释依据，确认后只写内部标签",async({page})=>{
+  await page.goto("/tests/harness.html");
+  await page.evaluate(async()=>{await window.testHarness.tags(1,[]);const state=JSON.parse(localStorage.getItem("test-state")!);state.items[0]={...state.items[0],name:"产品截图.png",path:"SYNTHETIC/产品截图.png",kind:"png"};localStorage.setItem("test-state",JSON.stringify(state));});
+  await page.goto("/tests/harness.html?manager");await page.getByRole("button",{name:"素材",exact:true}).click();
+  await page.getByRole("checkbox",{name:"选择 产品截图.png",exact:true}).check();await page.getByRole("button",{name:"生成本地规则建议",exact:true}).click();
+  const suggestions=page.getByRole("region",{name:"本地规则建议",exact:true});
+  await expect(suggestions).toContainText("不使用模型或网络");await expect(suggestions).toContainText("文件类型为 PNG");await expect(suggestions).toContainText("文件名含“截图”");
+  await suggestions.getByRole("button",{name:"添加标签 截图",exact:true}).click();await expect(page.getByRole("status")).toContainText("已添加标签“截图”");
+  const item=await page.evaluate(()=>JSON.parse(localStorage.getItem("test-state")!).items.find((value:{id:number})=>value.id===1));
+  expect(item).toMatchObject({path:"SYNTHETIC/产品截图.png",name:"产品截图.png",tags:["截图"]});
+});
 test("管理中心的复制任务可以安全取消并刷新记录",async({page})=>{
   await page.goto("/tests/harness.html");await page.evaluate(async()=>{await window.testHarness.tags(1,[]);const state=JSON.parse(localStorage.getItem("test-state")!);state.jobs=[{id:1,shelf_id:1,status:"copying",message:"合成复制任务",staging:null}];localStorage.setItem("test-state",JSON.stringify(state));});
   await page.goto("/tests/harness.html?manager");await page.getByRole("button",{name:"任务",exact:true}).click();await page.getByRole("button",{name:"取消复制",exact:true}).click();await expect(page.getByText("已取消",{exact:true})).toBeVisible();await expect(page.getByRole("button",{name:"取消复制",exact:true})).toHaveCount(0);

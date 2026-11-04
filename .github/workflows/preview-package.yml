@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'apps/desktop/**'
+      - 'crates/transfer-contract/**'
       - 'licenses/**'
       - 'scripts/*'
       - 'docs/preview-package.md'
@@ -45,10 +46,15 @@ jobs:
       - name: Build preview MSI and inspect without installation
         shell: pwsh
         run: ./scripts/build-preview-package.ps1
+      - name: Prepare portable preview
+        shell: pwsh
+        run: ./scripts/build-portable-preview.ps1 -PackageDirectory apps/desktop/preview-package -OutputDirectory apps/desktop/portable-preview
       - name: Upload temporary preview artifacts
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: ningmao-preview-windows-x64
-          path: apps/desktop/preview-package/
+          path: |
+            apps/desktop/preview-package/
+            apps/desktop/portable-preview/
           if-no-files-found: error
           retention-days: 7

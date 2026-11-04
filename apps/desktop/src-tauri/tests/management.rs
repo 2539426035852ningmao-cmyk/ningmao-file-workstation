@@ -32,6 +32,7 @@ fn management_is_metadata_only_and_batch_tags_are_atomic() {
     fs::remove_file(&path).unwrap();
     let data = store.management_snapshot().unwrap();
     assert_eq!(data.items.len(), 2);
+    assert!(data.items.iter().all(|i| i.kind == "txt"));
     assert!(
         data.items
             .iter()
