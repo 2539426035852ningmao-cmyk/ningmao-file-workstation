@@ -1,6 +1,6 @@
 # 当前执行入口（2026-11-04）
 
-持续开发以 `docs/execution/ACTIVE-DELIVERY.md` 为唯一当前状态。集成分支 `feat/first-delivery-integration` / #57；P3手动地址/证书指纹收发闭环已实现，回环测试15+13、浏览器123项、Windows完整Rust测试通过，Windows后端检查/Clippy通过。当前源码 `26808b28386a0c864661fa0d570e5b0098803d4a`；新便携候选 `D:/Ningmao-Preview-P3-P4-20261104-r2.zip` SHA `6cd9a5cdb89a59fd0138ff752b398de18d3c9a28fe79a07175b3e4d8615aa4ef`，Desktop与Preview GitHub Actions成功；Loopback Ubuntu成功，Windows首次因large-disconnect阶段PermissionDenied失败，本机相同探针重跑通过，CI失败job已重跑仍在跑，根因未证实。真实LAN、官方LocalSend互通、跨网、手机及真实模型仍未验。旧候选都保留；下方为历史记录，不将旧暂停P3/P4要求当成当前指令。
+持续开发以 `docs/execution/ACTIVE-DELIVERY.md` 为唯一当前状态。集成分支 `feat/first-delivery-integration` / #57；P3手动地址/指纹收发闭环已实现，Windows/Linux Loopback 15+13测试、浏览器123项、完整桌面Rust测试、Clippy与fmt通过。取消时先通知接收端再断开流；关键双进程取消测试连续10次通过。源码 `8b4ee5538d6612bc8028ae538502331c1a1b4a1f`；便携候选 `D:/Ningmao-Preview-P3-P4-20261104-r3.zip` SHA `2c8a344db1205b8dc40103023e7b76fc9bb7a37c386dd3fc21145171d5a91b51`；EXE SHA `14f5b2bc18cb0309928183f92c0ac74b4473a346674420699f2128301340134c`；MSI SHA `a5d54e6f01a261ccb9be37d6e7cac7d8cdb998fd88197ce20c1b482c4b52b267`。三组GitHub Actions均成功：P3 run41829936134、Desktop41829936175、Preview41829936157。真实LAN/官方LocalSend互通/跨网/手机/模型仍未验；旧候选保留。下方为历史记录。
 
 # 历史检查点：P3 桌面 localhost 发送入口（2026-10-29）
 
