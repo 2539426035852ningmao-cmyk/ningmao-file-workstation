@@ -1,5 +1,7 @@
 # P3–P4 开源项目复用与风险研究（2026-10-26）
 
+> 2026-11-04 增量核对：[LocalSend](https://github.com/localsend/localsend) `main` 提交 `92e133aa43869e94d394fd04fa70c50a0f796a64`，仓库许可证标记 Apache-2.0；[协议 v2.2](https://github.com/localsend/protocol/blob/main/README.md) 将 HTTPS 证书 SHA256 指纹及可配置地址列为连接信息。柠猫接收页据此补充地址、指纹独立复制入口；仅学习交互信息呈现，未复制上游代码或素材，未宣称官方客户端互通。
+
 > 状态：**研究完成 / 候选待验证（非技术选型最终批准、非功能交付）**。
 > 本文先于 P3/P4 实现存档，供 Codex 开发直接引用；不修改现有程序、不开放端口、不安装模型。
 > 现有基线：P0/P1 PR #30 → P2 PR #32 → D-ORB PR #35 → UI-B01–B07 PR #36，均未作为正式稳定版发布；以实施时实时 GitHub 状态为准。

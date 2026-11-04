@@ -11,6 +11,7 @@ test("原生互传适配器按后端命令传递ID与地址",async({page})=>{
 });
 
 test("文件互传默认关闭，显式开启并确认接收才提交",async({page})=>{
+  await page.context().grantPermissions(["clipboard-read","clipboard-write"]);
   await page.addInitScript(()=>{
     const state=JSON.parse(localStorage.getItem("test-state")||"null")??{shelves:[{id:1,name:"灵感收集",kind:"persistent",root:null,available:true},{id:2,name:"本次中转",kind:"session",root:null,available:true}],items:[{id:1,name:"Alpha.txt",shelf_id:1,path:"SYNTHETIC/Alpha.txt",kind:"txt",bytes:200,modified:1,status:"normal",tags:[]},{id:2,name:"中文 文件.txt",shelf_id:1,path:"SYNTHETIC/中文 文件.txt",kind:"txt",bytes:200,modified:1,status:"normal",tags:[]},{id:3,name:"Gamma.txt",shelf_id:1,path:"SYNTHETIC/Gamma.txt",kind:"txt",bytes:200,modified:1,status:"normal",tags:[]}],jobs:[]};
     state.shelves.push({id:3,name:"合成接收目录",kind:"bound",root:"SYNTHETIC/receive",available:true});localStorage.setItem("test-state",JSON.stringify(state));
@@ -25,6 +26,10 @@ test("文件互传默认关闭，显式开启并确认接收才提交",async({pa
   await panel.getByLabel("本机监听地址").fill("127.0.0.1:0");
   await panel.getByRole("button",{name:"开启接收",exact:true}).click();
   await expect(panel.getByLabel("本机地址")).toHaveValue("127.0.0.1:53317");
+  await panel.getByRole("button",{name:"复制地址"}).click();
+  expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe("127.0.0.1:53317");
+  await panel.getByRole("button",{name:"复制指纹"}).click();
+  expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe("a".repeat(64));
   await panel.getByRole("button",{name:"关闭文件互传",exact:true}).click();
   await page.evaluate(()=>window.transferHarness.pending());
   await expect(panel).toBeVisible();await expect(panel).toContainText("合成发送端");

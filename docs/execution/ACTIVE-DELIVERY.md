@@ -1,9 +1,10 @@
 # 当前交付状态 · 2026-11-04
 
 - 阶段：P2 已验收；P3 地址/指纹配对的收发垂直切片已实现，Windows/Linux 回环 CI 与本机回归通过；等待首次真实 Windows LAN 验收；P4 本地检索、规则建议和可选模型对话已接入。
-- 分支/PR：`feat/first-delivery-integration` / #57（Draft）。当前分支 HEAD `c557e71`（仅交接文档更新）；应用代码提交 `8b4ee5538d6612bc8028ae538502331c1a1b4a1f`，r3 Windows 包的 `build-manifest.json` 锁定该应用源码提交。
+- 分支/PR：`feat/first-delivery-integration` / #57（Draft）。当前分支提交以 GitHub PR 为准；r3 Windows 包的 `build-manifest.json` 锁定应用源码 `8b4ee5538d6612bc8028ae538502331c1a1b4a1f`。
 - P3 范围：明确 IPv4 地址 + SHA256 证书指纹；只监听用户主动选择的私有/回环 IPv4；批次发送 1–16 个已登记普通文件；接收端逐批人工确认；接收目标仅为选定的绑定目录；TLS 指纹校验、内容哈希核验、安全暂存与不覆盖编号；来源始终保留；进度、取消和终态写入现有任务中心；取消时先通知接收端再断开上传流，确保接收任务记录取消终态。
 - P3 未完成：官方 LocalSend 客户端互通、设备发现、跨网、手机和两台柠猫的 Windows 原生验证。当前协议路径与格式参考 LocalSend，但尚未证明官方客户端兼容。真实非回环监听/防火墙操作未执行。
+- 接收页新增独立的“复制地址”“复制指纹”操作，便于手动配对；沿用已有浏览器剪贴板能力，不新增依赖、不自动发送或保存连接信息。此 UI 增量尚未进入 r3 包。
 - 回滚：P2 `4034d785cfc15f3885427f57a90cf63c07467cb9`、旧候选与旧数据全部保留。此次仍是独立候选，不安装、不合并 main。
 
 ## P4 当前能力
@@ -16,6 +17,7 @@
 
 - `npm run build:test`：通过。测试构建提示 harness 主 chunk 超过 500 KB；生产按需加载聊天与互传组件。
 - `npm run test:ui`：123 项通过（Playwright 浏览器合成 Harness，不是 Windows 原生验收），其中互传专项 3 项通过。
+- 新增复制操作后，生产前端构建和互传专项 3 项通过；浏览器真实剪贴板读回分别核对地址与完整 64 位指纹。新 UI 尚未进行 Windows 原生观感验收。
 - Rust：Loopback 15 项 + Store/任务 13 项通过；涵盖回环 TLS 错指纹拒绝、人工拒收不写入、4 MiB 收发、暂存项不进入绑定文件架、批量/取消/同名保护/来源保留及任务持久化。
 - Windows 桌面 Rust 完整 `cargo test --no-default-features`、`cargo check`、Clippy 严格模式和格式检查通过；取消终态双进程测试连续通过 10 次。
 - `8b4ee55` GitHub Actions 全通过：P3 Loopback run `41829936134`（Windows + Ubuntu）；Desktop run `41829936175`（Windows 安全测试/构建 + 浏览器）；Preview run `41829936157`（MSI 只读检查、便携包构建/上传）。旧 `26808b2` 出现的 Windows 取消终态偶发失败已由本轮取消顺序修复处理。

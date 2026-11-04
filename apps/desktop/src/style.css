@@ -8,6 +8,7 @@
 .transfer-note{color:var(--muted-foreground);margin:4px 0 8px}
 .transfer-form,.transfer-listening{display:flex;flex-direction:column;gap:12px}
 .transfer-form label,.transfer-listening label{display:flex;flex-direction:column;gap:6px}
+.transfer-copy-field{display:flex;align-items:end;gap:8px}.transfer-copy-field label{min-width:0;flex:1}.transfer-copy-field button{flex:none}
 .transfer-form select,.transfer-listening textarea{border:1px solid var(--border);border-radius:8px;padding:8px;background:var(--background);color:var(--foreground);font:inherit}
 .transfer-listening textarea{resize:none;font-size:12px;overflow-wrap:anywhere}
 .transfer-files{max-height:140px;overflow:auto;padding:0;list-style:none;margin:0 0 12px}
