@@ -4,6 +4,7 @@
 - 本轮修复：AI 面板关闭时先向现有 Rust 会话发送停止信号，测试连接也可停止；停止命令失败则保持面板打开并提示。会话创建尚未返回时关闭，不再继续发起模型请求；生成期间不能改模型配置。仅修改 `ChatPanel.tsx` 与受控浏览器 Harness/测试，没有改文件、网络、SQLite 或密钥后端。
 - 复现依据：原关闭按钮只隐藏面板，正在进行的 `send()`/`test()` 未调用 `chat_stop`。修复后受控延迟请求测试确认关闭调用同一会话的 `stop`。这证明停止路径被触发，不等于真实服务计费或 Windows 原生体验已验收。
 - 验证：`npm run build:test` PASS；聊天专项 Playwright 5/5 PASS；`npm run build` PASS；r4 包脚本与 MSI 只读检查 PASS。功能提交 `17345a2` 的 P3 回环 CI `41837330689`、Desktop CI `41837330703`、Preview CI `41837330758` 均已通过；不继承旧提交的通过结论。
+- CI 追踪：仅改交接文档的提交 `5f5b3a9` 所触发 P3 run `41838577661` 首次 Windows job 失败（`real_worker_events_reach_existing_store_without_schema_or_file_changes` 的受控 probe 非零退出，诊断未输出到 CI）；Ubuntu job 通过。只重跑失败 job 一次后 Windows 通过，run 最终成功；该次 Desktop `41838577683` 与 Preview `41838577701` 也成功。未证明首次失败根因，后续若复现先收集脱敏子进程诊断，不把重跑通过当成代码修复。
 - r4 隔离便携包：`D:/Ningmao-Preview-P3-P4-20261104-r4.zip`，SHA256 `6c32ff5417a39202893c52e0436ae8dd2218fbe11e588f3b57d8b9be9ca76d51`；EXE `D:/Ningmao-Package-P3-P4-20261104-r4/Ningmao-Preview-0.1.0-x64.exe` SHA256 `d50b3ddc73225cd22938e59de68ed848fe4472c80b4071d7b7cfa0e61dc012c2`；MSI 同目录 `Ningmao-Preview-0.1.0-x64.msi` SHA256 `22572f10e9f74583b3b05cc8d27b097d166af610c784f4752669c6f552ec1467`。`build-manifest.json` 锁定上述源码，x64 debug、未签名、未安装/启动。ZIP 为开发机本地文件，不是公开下载链接。
 - 试用：把 r4 ZIP 解压到新的可写目录，双击 `Start-Ningmao.cmd`；需要已有 WebView2。数据只在该目录 `data` 和 `webview`。备份时先从菜单完整退出，再复制这两个目录；不要用新包覆盖旧版数据。MSI 仅只读检查，不建议当前安装。
 
