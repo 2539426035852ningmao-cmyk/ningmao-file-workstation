@@ -3,7 +3,7 @@
 - 分支：`feat/first-delivery-integration`，Draft PR #57。功能源码提交：`17345a2ce0ce0e509fe15e77551233cbf75ac509`。P2 回滚基线：`4034d785cfc15f3885427f57a90cf63c07467cb9`；r3 与更早候选均保留，不覆盖用户数据，不合并 main。
 - 本轮修复：AI 面板关闭时先向现有 Rust 会话发送停止信号，测试连接也可停止；停止命令失败则保持面板打开并提示。会话创建尚未返回时关闭，不再继续发起模型请求；生成期间不能改模型配置。仅修改 `ChatPanel.tsx` 与受控浏览器 Harness/测试，没有改文件、网络、SQLite 或密钥后端。
 - 复现依据：原关闭按钮只隐藏面板，正在进行的 `send()`/`test()` 未调用 `chat_stop`。修复后受控延迟请求测试确认关闭调用同一会话的 `stop`。这证明停止路径被触发，不等于真实服务计费或 Windows 原生体验已验收。
-- 验证：`npm run build:test` PASS；聊天专项 Playwright 5/5 PASS；`npm run build` PASS；r4 包脚本与 MSI 只读检查 PASS。功能提交 `17345a2` 的 P3 回环 CI `41837330689` 与 Desktop CI `41837330703` 已通过；Preview CI `41837330758` 在记录时仍运行中，不继承旧提交的通过结论。
+- 验证：`npm run build:test` PASS；聊天专项 Playwright 5/5 PASS；`npm run build` PASS；r4 包脚本与 MSI 只读检查 PASS。功能提交 `17345a2` 的 P3 回环 CI `41837330689`、Desktop CI `41837330703`、Preview CI `41837330758` 均已通过；不继承旧提交的通过结论。
 - r4 隔离便携包：`D:/Ningmao-Preview-P3-P4-20261104-r4.zip`，SHA256 `6c32ff5417a39202893c52e0436ae8dd2218fbe11e588f3b57d8b9be9ca76d51`；EXE `D:/Ningmao-Package-P3-P4-20261104-r4/Ningmao-Preview-0.1.0-x64.exe` SHA256 `d50b3ddc73225cd22938e59de68ed848fe4472c80b4071d7b7cfa0e61dc012c2`；MSI 同目录 `Ningmao-Preview-0.1.0-x64.msi` SHA256 `22572f10e9f74583b3b05cc8d27b097d166af610c784f4752669c6f552ec1467`。`build-manifest.json` 锁定上述源码，x64 debug、未签名、未安装/启动。ZIP 为开发机本地文件，不是公开下载链接。
 - 试用：把 r4 ZIP 解压到新的可写目录，双击 `Start-Ningmao.cmd`；需要已有 WebView2。数据只在该目录 `data` 和 `webview`。备份时先从菜单完整退出，再复制这两个目录；不要用新包覆盖旧版数据。MSI 仅只读检查，不建议当前安装。
 
@@ -15,7 +15,7 @@
 | 网络互传 | PARTIAL | 明确 IPv4 + TLS 指纹、人工确认、批次任务与安全暂存已有；本轮新包包含地址/指纹复制入口。回环测试通过；真实 LAN、官方 LocalSend、跨网和手机均 NOT_TESTED。 |
 | AI 对话 | PARTIAL | 关闭时停止请求的受控测试 PASS；真实模型、收费状态、Windows GUI、重启后会话恢复均 NOT_TESTED。不会以模拟回复宣称模型成功。 |
 | 启动及恢复 | PARTIAL | 便携包提供独立数据目录和旧候选回滚；r4 未启动，异常退出/数据库损坏与托盘恢复未做本轮原生验收。 |
-| 构建交付 | PARTIAL | r4 本机构建、ZIP SHA 与 MSI 只读检查 PASS；GitHub Desktop CI 通过，Preview CI 等待完成；许可证清单有 1 条既有精确版本映射警告。 |
+| 构建交付 | PARTIAL | r4 本机构建、ZIP SHA 与 MSI 只读检查 PASS，修复提交三组 CI 均通过；Windows GUI 与安装仍未验，许可证清单有 1 条既有精确版本映射警告。 |
 
 失败兜底：AI 停止失败时不关闭面板并显示错误，可再次停止；网络发送只在接收确认与哈希校验后完成，拒收/中断记录失败或取消，来源不移动且同名目标不覆盖；本地文件操作与 AI/网络模块分离。待办优先级：S1 为 r4 Windows GUI 集中验收与两台 Windows 真正 LAN 验收（首次非回环监听需专项许可）；S2 为官方 LocalSend 互通及 AI 真实模型连续对话验收（需用户自行授权与费用确认）；跨网与手机仍为后续实施目标。下一次从精确 CI 结果与 r4 原生启动开始，不重建模块。
 
