@@ -27,6 +27,7 @@ required-features = ["probe-cli"]
 [dependencies]
 ningmao-transfer-contract = { path = "../../crates/transfer-contract" }
 ningmao-transfer-client = { path = "../../crates/transfer-client" }
+ningmao-transfer-receiver = { path = "../../crates/transfer-receiver" }
 httparse = "=1.10.1"
 rcgen = { version = "=0.14.8", default-features = false, features = ["crypto", "ring"], optional = true }
 rustls = { version = "=0.23.43", default-features = false, features = ["ring", "std", "tls12"] }
