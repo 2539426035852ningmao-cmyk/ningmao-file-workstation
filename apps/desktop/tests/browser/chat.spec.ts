@@ -36,6 +36,22 @@ test("AI入口可脱机配置，聊天上下文和历史由后端保存",async({
   await expect(page.getByRole("dialog",{name:"AI 对话",exact:true}).getByRole("status")).toContainText("模型已返回有效回复");
 });
 
+test("关闭正在生成的对话先停止请求",async({page})=>{
+  await page.addInitScript(()=>localStorage.setItem("test-chat-config",JSON.stringify({base_url:"http://localhost:11434/v1",model:"synthetic",enabled:true,has_key:false})));
+  await page.goto("/tests/harness.html?chat-delay");
+  await page.getByRole("button",{name:"更多操作",exact:true}).click();
+  await page.getByRole("menuitem",{name:"AI 对话",exact:true}).click();
+  const chat=page.getByRole("dialog",{name:"AI 对话",exact:true});
+  await chat.getByLabel("消息").fill("合成请求");
+  await chat.getByRole("button",{name:"发送",exact:true}).click();
+  await expect(chat.getByRole("button",{name:"停止生成"})).toBeVisible();
+  await chat.getByRole("button",{name:"关闭 AI 对话"}).click();
+  await expect(chat).not.toBeVisible();
+  const calls=await page.evaluate(()=>window.chatHarness.calls());
+  expect(calls[0]).toMatch(/^send:\d+$/);
+  expect(calls).toEqual([calls[0],calls[0].replace("send:","stop:")]);
+});
+
 for(const theme of ["light","dark"])test(`AI抽屉 340×320 ${theme} 设置和发送可达`,async({page},info)=>{
   await page.setViewportSize({width:340,height:320});
   await page.goto("/tests/harness.html");

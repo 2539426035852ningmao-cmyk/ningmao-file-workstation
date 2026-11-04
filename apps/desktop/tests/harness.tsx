@@ -15,6 +15,10 @@ window.verifyChatIPC=async()=>{const calls:{command:string;args:unknown}[]=[];mo
 let transferView:TransferView={receiving:false,address:null,fingerprint:null,shelf_id:null,pending:null,sending:false};
 let transferEvents:Parameters<TransferBackend["subscribe"]>[0]|undefined,transferFinish:((value:TransferResult)=>void)|undefined;
 const transferCalls:string[]=[];
+let chatPending:(()=>void)|undefined;
+const chatCalls:string[]=[];
+declare global{interface Window{chatHarness:{calls:()=>string[]}}}
+window.chatHarness={calls:()=>chatCalls};
 declare global{interface Window{verifyTransferIPC:()=>Promise<{command:string;args:unknown}[]>;transferHarness:{calls:()=>string[];pending:()=>void;progress:(value:TransferProgress)=>void;finish:(status:string)=>void}}}
 window.verifyTransferIPC=async()=>{const calls:{command:string;args:unknown}[]=[];mockIPC((command,args)=>{calls.push({command,args});return null;});try{await nativeTransfer.receive(3,"127.0.0.1:0");await nativeTransfer.decide("synthetic-batch",false);await nativeTransfer.send(1,[1,2],"127.0.0.1:53317","a".repeat(64));await nativeTransfer.cancelSend();return calls;}finally{clearMocks();}};
 window.transferHarness={calls:()=>transferCalls,pending:()=>{transferView.pending={id:"synthetic-batch",alias:"合成发送端",files:[{name:"中文 文件.txt",size:42}],total:42};transferEvents?.changed();},progress:value=>transferEvents?.progress(value),finish:status=>{transferView.sending=false;transferEvents?.changed();transferFinish?.({job_id:17,status,message:"受控接口终态",files:[{index:0,status:"completed",bytes:100},{index:1,status,bytes:64}]});transferFinish=undefined;}};
@@ -48,8 +52,8 @@ const backend:Backend={
     async messages(id){return JSON.parse(localStorage.getItem(`test-chat-${id}`)||"[]");},
     async create(){const rows=await this.sessions();const id=Date.now();localStorage.setItem("test-chat-sessions",JSON.stringify([...rows,{id,title:"合成接口对话"}]));return id;},
     async remove(id){const rows=await this.sessions();localStorage.setItem("test-chat-sessions",JSON.stringify(rows.filter(row=>row.id!==id)));localStorage.removeItem(`test-chat-${id}`);},
-    async send(id,text){const rows=await this.messages(id);rows.push({id:rows.length+1,role:"user",content:text,status:"completed"},{id:rows.length+2,role:"assistant",content:`受控接口：${text}`,status:"completed"});localStorage.setItem(`test-chat-${id}`,JSON.stringify(rows));},
-    async stop(){},async subscribe(){return()=>{};},
+    async send(id,text){if(new URLSearchParams(location.search).has("chat-delay")){chatCalls.push(`send:${id}`);await new Promise<void>(resolve=>{chatPending=resolve;});return;}const rows=await this.messages(id);rows.push({id:rows.length+1,role:"user",content:text,status:"completed"},{id:rows.length+2,role:"assistant",content:`受控接口：${text}`,status:"completed"});localStorage.setItem(`test-chat-${id}`,JSON.stringify(rows));},
+    async stop(id){chatCalls.push(`stop:${id}`);chatPending?.();chatPending=undefined;},async subscribe(){return()=>{};},
   },
  async beginDuplicateScan(){duplicateCanceled=false;const ticket=++duplicateTicket;if(new URLSearchParams(location.search).has("duplicates-begin-delay"))await new Promise(resolve=>setTimeout(resolve,400));return ticket;},
  async cancelDuplicateScan(ticket){calls.push("duplicates-cancel:"+ticket);if(ticket===duplicateTicket)duplicateCanceled=true;},
