@@ -1,7 +1,7 @@
 # 当前交付状态 · 2026-11-04
 
 - 阶段：P2 已验收；P3 地址/指纹配对的收发垂直切片已实现，Windows/Linux 回环 CI 与本机回归通过；等待首次真实 Windows LAN 验收；P4 本地检索、规则建议和可选模型对话已接入。
-- 分支/PR：`feat/first-delivery-integration` / #57（Draft）。当前 HEAD `8b4ee5538d6612bc8028ae538502331c1a1b4a1f`；r3 Windows 包的 `build-manifest.json` 锁定同一源码提交。
+- 分支/PR：`feat/first-delivery-integration` / #57（Draft）。当前分支 HEAD `c557e71`（仅交接文档更新）；应用代码提交 `8b4ee5538d6612bc8028ae538502331c1a1b4a1f`，r3 Windows 包的 `build-manifest.json` 锁定该应用源码提交。
 - P3 范围：明确 IPv4 地址 + SHA256 证书指纹；只监听用户主动选择的私有/回环 IPv4；批次发送 1–16 个已登记普通文件；接收端逐批人工确认；接收目标仅为选定的绑定目录；TLS 指纹校验、内容哈希核验、安全暂存与不覆盖编号；来源始终保留；进度、取消和终态写入现有任务中心；取消时先通知接收端再断开上传流，确保接收任务记录取消终态。
 - P3 未完成：官方 LocalSend 客户端互通、设备发现、跨网、手机和两台柠猫的 Windows 原生验证。当前协议路径与格式参考 LocalSend，但尚未证明官方客户端兼容。真实非回环监听/防火墙操作未执行。
 - 回滚：P2 `4034d785cfc15f3885427f57a90cf63c07467cb9`、旧候选与旧数据全部保留。此次仍是独立候选，不安装、不合并 main。
