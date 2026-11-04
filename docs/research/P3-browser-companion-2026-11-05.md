@@ -2,6 +2,8 @@
 
 关联：Issue #58、P3 #37、集成 PR #57。2026-11-05 用户明确新增方向；本文为实施合同与研究结论，功能尚未实现。保留原 43 项及 P4 44 项决定。
 
+后续实测增量：现已执行固定上游的 Windows 回环 CLI/Chromium 6项真实收发与取消测试并通过，兼容补丁和失败过程见 [隔离证明](../../experiments/p3-browser/README.md)。下文初始研究中的“未执行”描述仅为当时快照；柠猫桌面接入、公开互联网与手机仍未完成。
+
 ## 调查与复用选择
 
 先读本机与已有研究，再检索近期社交/社区反馈，随后核对上游仓库与官方规则。社区反馈仅说明浏览器免安装有实际需求、复杂 NAT 和手机后台会影响体验，不作为兼容/安全实测。检索样本：[近期 PairDrop 使用讨论](https://www.reddit.com/r/MacOSApps/comments/1w7vsbe/)、[selfhosted 讨论](https://www.reddit.com/r/selfhosted/comments/1g1ve42/)。采集时搜索索引日期可能滞后，不据此确定版本。
