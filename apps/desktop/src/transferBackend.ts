@@ -1,0 +1,32 @@
+import {invoke} from "@tauri-apps/api/core";
+import {listen} from "@tauri-apps/api/event";
+
+export type PendingTransfer={id:string;alias:string;files:{name:string;size:number}[];total:number};
+export type TransferView={receiving:boolean;address:string|null;fingerprint:string|null;shelf_id:number|null;pending:PendingTransfer|null;sending:boolean};
+export type TransferProgress={job_id:number;phase:string;file_index:number;file_count:number;file_bytes:number;file_total:number;bytes:number;total:number};
+export type TransferResult={job_id:number;status:string;message:string;files:{index:number;status:string;bytes:number}[]};
+export interface TransferBackend{
+  view():Promise<TransferView>;
+  receive(shelf:number,address:string):Promise<void>;
+  stopReceive():Promise<void>;
+  decide(id:string,accept:boolean):Promise<void>;
+  send(shelf:number,ids:number[],address:string,fingerprint:string):Promise<TransferResult>;
+  cancelSend():Promise<void>;
+  subscribe(events:{changed:()=>void;progress:(value:TransferProgress)=>void}):Promise<()=>void>;
+}
+export const nativeTransfer:TransferBackend={
+  view:()=>invoke("transfer_view"),
+  receive:(shelfId,bindAddress)=>invoke("transfer_receive",{shelfId,bindAddress}),
+  stopReceive:()=>invoke("transfer_stop_receive"),
+  decide:(id,accept)=>invoke("transfer_decide",{id,accept}),
+  send:(shelfId,ids,address,fingerprint)=>invoke("transfer_send",{shelfId,ids,address,fingerprint}),
+  cancelSend:()=>invoke("transfer_cancel_send"),
+  async subscribe(events){
+    const cleanups:(()=>void)[]=[];
+    try{
+      cleanups.push(await listen("transfer-changed",events.changed));
+      cleanups.push(await listen<TransferProgress>("transfer-progress",event=>events.progress(event.payload)));
+      return()=>cleanups.forEach(fn=>fn());
+    }catch(error){cleanups.forEach(fn=>fn());throw error;}
+  },
+};

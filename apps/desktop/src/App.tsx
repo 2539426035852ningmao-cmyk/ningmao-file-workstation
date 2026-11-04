@@ -1,5 +1,6 @@
 import {WindowControls} from "./components/WindowControls";
 import {GlobalSearch} from "./components/GlobalSearch";
+import type {TransferSelection} from "./components/TransferPanel";
 import {SystemRecycle} from "./components/SystemRecycle";
 import {RecycleDrawer} from "./components/RecycleDrawer";
 import {ScrollActivity} from "./components/ScrollActivity";
@@ -26,6 +27,7 @@ import { defaultFilters,filterItems,type ShelfFilters } from "./filters";
 
 const collision: CollisionDetection = args => { const hits=pointerWithin(args); return hits.length ? hits : closestCenter(args); };
 const ChatPanel=lazy(()=>import("./components/ChatPanel").then(module=>({default:module.ChatPanel})));
+const TransferPanel=lazy(()=>import("./components/TransferPanel").then(module=>({default:module.TransferPanel})));
 const blank: Snapshot={shelves:[],items:[],jobs:[]};
 const activeStatus=(s:string) => ["queued","copying"].includes(s);
 const sizes=(n:number) => n>=1024*1024 ? `${(n/1024/1024).toFixed(1)} MB` : n>=1024 ? `${(n/1024).toFixed(1)} KB` : `${n} B`;
@@ -124,6 +126,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   const [searchOpen,setSearchOpen]=useState(false);
   const [chatOpen,setChatOpen]=useState(false);
   const [chatLoaded,setChatLoaded]=useState(false);
+  const [transferLoaded,setTransferLoaded]=useState(false),[transfer,setTransfer]=useState<{open:boolean;mode:"send"|"receive";selection:TransferSelection}>({open:false,mode:"receive",selection:{shelf_id:0,files:[]}});
   const [revealItem,setRevealItem]=useState<number|null>(null);
   const searchInput=useRef<HTMLInputElement>(null),searchButton=useRef<HTMLButtonElement>(null);
   const restoreSearchFocus=useRef(false);
@@ -308,6 +311,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   return <div className={`workstation ${hover?"drop-active":""}`}><ScrollActivity/>
     <GlobalSearch backend={backend} revision={data} scoped={detachedShelfId!==undefined}/>
     {backend.chat&&chatLoaded&&<Suspense fallback={null}><ChatPanel backend={backend.chat} open={chatOpen} onOpenChange={setChatOpen}/></Suspense>}
+    {backend.transfer&&transferLoaded&&<Suspense fallback={null}><TransferPanel backend={backend.transfer} open={transfer.open} initialMode={transfer.mode} selection={transfer.selection} shelves={data.shelves} onOpenChange={open=>setTransfer(value=>({...value,open}))}/></Suspense>}
     <SystemRecycle backend={backend} ids={systemRecycleIds} onClose={()=>setSystemRecycleIds(null)} onChanged={refresh}/>
     <RecycleDrawer backend={backend} open={recycleOpen} onOpenChange={setRecycleOpen} shelfId={shelfId} onChanged={refresh}/>
     {undo&&<div className="undo-record" role="status">已移入柠猫回收站 <Button variant="ghost" onClick={()=>void perform(async()=>{for(const id of undo.ids??[undo.id])await backend.restoreTrash?.(undo.entity,id);setUndo(null);await refresh();})}>撤销</Button></div>}
@@ -332,6 +336,8 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
         {detachedShelfId===undefined && <DropdownMenu.Item disabled={!native} onSelect={()=>void perform(()=>backend.desktopDisable())}>关闭悬浮入口</DropdownMenu.Item>}
         <DropdownMenu.Item onSelect={()=>setRecycleOpen(true)}><Trash2 size={16}/>柠猫回收站</DropdownMenu.Item>
         <DropdownMenu.Item disabled={!native} onSelect={()=>void perform(()=>backend.managerOpen())}>管理中心</DropdownMenu.Item>
+        {backend.transfer&&<DropdownMenu.Item onSelect={()=>{setTransferLoaded(true);setTransfer({open:true,mode:"receive",selection:{shelf_id:shelfId,files:[]}});}}>文件互传</DropdownMenu.Item>}
+        {backend.transfer&&chosen.length>0&&<DropdownMenu.Item disabled={chosen.length>16||chosen.some(item=>item.status!=="normal"||item.kind==="folder")} onSelect={()=>{setTransferLoaded(true);setTransfer({open:true,mode:"send",selection:{shelf_id:shelfId,files:chosen.map(({id,name})=>({id,name}))}});}}>发送到设备</DropdownMenu.Item>}
         {backend.chat&&<DropdownMenu.Item onSelect={()=>{setChatLoaded(true);setChatOpen(true);}}>AI 对话</DropdownMenu.Item>}
         <DropdownMenu.Item disabled={!native || !chosen.length || busy} onSelect={()=>{setCopyIds(chosen.map(i=>i.id));setCopyTarget(catalog.find(s=>s.id!==shelfId && s.kind!=="bound")?.id || 0);setFormError("");setCopyTo(true);}}>复制选中引用到其他架</DropdownMenu.Item><DropdownMenu.Separator/>
         {chosen.length>=2 && <DropdownMenu.Item disabled={!backend.analyzeDuplicates || duplicateBusy || chosen.length>32 || chosen.some(i=>i.status!=="normal" || i.kind==="folder")} onSelect={()=>void analyzeSelected()}>{duplicateBusy?"正在比较文件…":chosen.length>32?"比较内容（最多 32 项）":chosen.some(i=>i.status!=="normal" || i.kind==="folder")?"比较内容（请选择正常文件）":"比较选中文件内容"}</DropdownMenu.Item>}

@@ -5,12 +5,19 @@ import DesktopEntry from "../src/DesktopEntry";
 import Manager from "../src/Manager";
 import {mockIPC,clearMocks} from "@tauri-apps/api/mocks";
 import {nativeChat} from "../src/chatBackend";
+import {nativeTransfer,type TransferBackend,type TransferProgress,type TransferResult,type TransferView} from "../src/transferBackend";
 import type { Backend, DesktopView, Events, Item, Progress, Snapshot, TrashEntry, SearchHit } from "../src/backend";
 import "../src/style.css";
 const item=(id:number,name:string,shelf_id=1):Item=>({id,name,shelf_id,path:"SYNTHETIC/"+name,kind:"txt",bytes:200,modified:1,status:"normal",tags:[]});
 const initial:Snapshot={shelves:[{id:1,name:"灵感收集",kind:"persistent",root:null,available:true},{id:2,name:"本次中转",kind:"session",root:null,available:true}],items:[item(1,"Alpha.txt"),item(2,"中文 文件.txt"),item(3,"Gamma.txt")],jobs:[]};
 declare global{interface Window{verifyChatIPC:()=>Promise<{command:string;args:unknown}[]>}}
 window.verifyChatIPC=async()=>{const calls:{command:string;args:unknown}[]=[];mockIPC((command,args)=>{calls.push({command,args});return null;});try{await nativeChat.configure({base_url:"http://localhost:11434/v1",model:"synthetic",enabled:true,api_key:null});await nativeChat.send(42,"合成消息");await nativeChat.stop(42);return calls;}finally{clearMocks();}};
+let transferView:TransferView={receiving:false,address:null,fingerprint:null,shelf_id:null,pending:null,sending:false};
+let transferEvents:Parameters<TransferBackend["subscribe"]>[0]|undefined,transferFinish:((value:TransferResult)=>void)|undefined;
+const transferCalls:string[]=[];
+declare global{interface Window{verifyTransferIPC:()=>Promise<{command:string;args:unknown}[]>;transferHarness:{calls:()=>string[];pending:()=>void;progress:(value:TransferProgress)=>void;finish:(status:string)=>void}}}
+window.verifyTransferIPC=async()=>{const calls:{command:string;args:unknown}[]=[];mockIPC((command,args)=>{calls.push({command,args});return null;});try{await nativeTransfer.receive(3,"127.0.0.1:0");await nativeTransfer.decide("synthetic-batch",false);await nativeTransfer.send(1,[1,2],"127.0.0.1:53317","a".repeat(64));await nativeTransfer.cancelSend();return calls;}finally{clearMocks();}};
+window.transferHarness={calls:()=>transferCalls,pending:()=>{transferView.pending={id:"synthetic-batch",alias:"合成发送端",files:[{name:"中文 文件.txt",size:42}],total:42};transferEvents?.changed();},progress:value=>transferEvents?.progress(value),finish:status=>{transferView.sending=false;transferEvents?.changed();transferFinish?.({job_id:17,status,message:"受控接口终态",files:[{index:0,status:"completed",bytes:100},{index:1,status,bytes:64}]});transferFinish=undefined;}};
 let wakeConfig=JSON.parse(localStorage.getItem("test-wake-shortcut")||'{"version":1,"enabled":true,"accelerator":"Ctrl+Alt+Space"}'),wakePaused=false,wakeAvailable=true;
 let state:Snapshot=JSON.parse(localStorage.getItem("test-state") || JSON.stringify(initial));
 const ownShelf=Number(new URLSearchParams(location.search).get("shelf")) || undefined;
@@ -24,6 +31,15 @@ function trashItem(id:number){const item=state.items.find(i=>i.id===id)!;const s
 let maximized=false;
 let duplicateTicket=0,duplicateCanceled=false;
 const backend:Backend={
+  transfer:{
+    async view(){return structuredClone(transferView);},
+    async receive(shelf,address){transferCalls.push(`receive:${shelf}:${address}`);transferView={...transferView,receiving:true,address:"127.0.0.1:53317",fingerprint:"a".repeat(64),shelf_id:shelf};transferEvents?.changed();},
+    async stopReceive(){transferCalls.push("stop-receive");transferView={...transferView,receiving:false,pending:null};transferEvents?.changed();},
+    async decide(id,accept){transferCalls.push(`decide:${id}:${accept}`);transferView.pending=null;transferEvents?.changed();},
+    async send(shelf,ids,address,fingerprint){transferCalls.push(`send:${shelf}:${ids.join(",")}:${address}:${fingerprint}`);transferView.sending=true;transferEvents?.changed();return new Promise(resolve=>{transferFinish=resolve;});},
+    async cancelSend(){transferCalls.push("cancel-send");},
+    async subscribe(events){transferEvents=events;return()=>{transferEvents=undefined;};},
+  },
   chat:{
     async config(){return JSON.parse(localStorage.getItem("test-chat-config")||'{"base_url":"","model":"","enabled":false,"has_key":false}');},
     async configure(config){localStorage.setItem("test-chat-config",JSON.stringify({...config,api_key:undefined,has_key:false}));},
