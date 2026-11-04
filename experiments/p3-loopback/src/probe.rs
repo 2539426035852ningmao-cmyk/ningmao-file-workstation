@@ -9,6 +9,7 @@ mod destination;
 #[path = "tasks.rs"]
 mod tasks;
 use destination::Destination;
+#[cfg(test)]
 use ningmao_transfer_receiver::{
     finish_rejected_socket, params, read_header, stage_body, validate_name,
 };
@@ -19,16 +20,18 @@ use rustls::{
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
+#[cfg(test)]
+use std::sync::{
+    Mutex,
+    atomic::{AtomicBool, Ordering},
+};
 use std::{
     fs,
     io::{self, Read, Write},
     net::TcpStream,
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
-    sync::{
-        Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
-    },
+    sync::Arc,
     time::{Duration, Instant},
 };
 

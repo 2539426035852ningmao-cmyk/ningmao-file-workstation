@@ -588,7 +588,6 @@ fn cancellation_of_live_synthetic_probe_drains_worker_and_preserves_files() {
     store.integrity_check().unwrap();
 }
 
-type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 #[path = "../src/tasks.rs"]
 mod receiver_tasks;
 
