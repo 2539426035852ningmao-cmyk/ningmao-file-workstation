@@ -1,6 +1,6 @@
 # 当前执行入口（2026-11-04）
 
-持续开发以 `docs/execution/ACTIVE-DELIVERY.md` 为唯一当前状态。集成分支 `feat/first-delivery-integration` / #57；P3已提交回环验证的手动地址/证书指纹收发闭环和桌面互传界面，Rust loopback 15项、浏览器完整123项通过，Windows后端检查及Clippy通过。新的CI和P3 Windows候选待检查。首个真实LAN、LocalSend官方应用互通、跨网、手机及真实模型仍未验。上一版7433f29候选及哈希继续保留；下方为历史记录，不将旧暂停P3/P4要求当成当前指令。
+持续开发以 `docs/execution/ACTIVE-DELIVERY.md` 为唯一当前状态。集成分支 `feat/first-delivery-integration` / #57；P3手动地址/证书指纹收发闭环已实现，回环测试15+13、浏览器123项、Windows完整Rust测试通过，Windows后端检查/Clippy通过。当前源码 `26808b28386a0c864661fa0d570e5b0098803d4a`；新便携候选 `D:/Ningmao-Preview-P3-P4-20261104-r2.zip` SHA `6cd9a5cdb89a59fd0138ff752b398de18d3c9a28fe79a07175b3e4d8615aa4ef`，Desktop与Preview GitHub Actions成功；Loopback Ubuntu成功，Windows首次因large-disconnect阶段PermissionDenied失败，本机相同探针重跑通过，CI失败job已重跑仍在跑，根因未证实。真实LAN、官方LocalSend互通、跨网、手机及真实模型仍未验。旧候选都保留；下方为历史记录，不将旧暂停P3/P4要求当成当前指令。
 
 # 历史检查点：P3 桌面 localhost 发送入口（2026-10-29）
 

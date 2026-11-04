@@ -127,6 +127,7 @@ pub fn send_open_files(
     });
     let mut confirmed_bytes = 0;
     let mut session = None;
+    let mut cancellation_ack = None;
     let transfer = (|| -> Result<()> {
         let mut manifest = serde_json::Map::new();
         for (index, source) in sources.iter_mut().enumerate() {
@@ -214,6 +215,10 @@ pub fn send_open_files(
                     }
                     // A fully written body must consume its response to learn whether it committed.
                     if bytes < file_total && cancelled.load(Ordering::SeqCst) {
+                        // Tell the receiver before dropping the upload stream so its task records
+                        // cancellation instead of racing to a failed terminal state on EOF.
+                        cancellation_ack =
+                            Some(client.cancel(&id).is_ok_and(|(status, _)| status == 200));
                         return Err("已取消发送。".into());
                     }
                     Ok(())
@@ -247,10 +252,12 @@ pub fn send_open_files(
         .any(|file| file.status == "unconfirmed" && file.bytes == sizes[file.index]);
     let cancelling = cancelled.load(Ordering::SeqCst) && completed != sources.len();
     let cancel_ack = if transfer.is_err() || cancelling {
-        session
-            .as_ref()
-            .map(|id| client.cancel(id).is_ok_and(|(status, _)| status == 200))
-            .unwrap_or(true)
+        cancellation_ack.unwrap_or_else(|| {
+            session
+                .as_ref()
+                .map(|id| client.cancel(id).is_ok_and(|(status, _)| status == 200))
+                .unwrap_or(true)
+        })
     } else {
         true
     };
