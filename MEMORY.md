@@ -1,5 +1,7 @@
 # 当前执行入口（2026-11-04，r4）
 
+2026-11-05 新工作分支feat/p3-browser-sender-adapter基于#59：结构化Go发送器→真实Chromium→无秘密JSON事件→现有RustStore实际落库与重开验证已通过，完成/取消均实测。源码/复跑/边界在experiments/p3-browser/sender/README.md；无主程序IPC/按钮或实时进程监督器，下一步做授权文件/固定子进程/链接生命周期与任务UI接入。r5 UI候选独立#60，其8a7068a的Desktop/Preview CI已成功；不要把当前实验分支误当r5或重新做6项上游研究。
+
 2026-11-05 浏览器隔离证明：PR #59 分支新增 experiments/p3-browser，固定 croc 4fc5ac0 在 Windows 完成 Chromium 6/6 真实 CLI↔Web/Web↔Web、错码及取消重试。修复并记录上游 Windows PE 后缀启动问题、CRLF词表解析问题（既有单测先2失败后3通过），保留 MIT 与最小补丁。下一步直接接现有任务中心/文件分享适配器，不重新研究协议；未实现柠猫接入/公开HTTPS/手机/同名保护/双Windows，不能扩大 PASS。
 
 2026-11-05 用户新增：研究第二台可控 Windows，以及链接/代码配对的浏览器免安装双向互传。Issue #58，合同 `docs/research/P3-browser-companion-2026-11-05.md`；croc 固定 4fc5ac0 官方已有 web↔CLI，优先隔离验证，FilePizza/PairDrop/copyparty 综合参考且不混入 GPL 代码。VM 本机资源和权限阻碍已记录，未创建；浏览器能力未实现。文档独立分支 `docs/p3-browser-companion-20261105`；正式功能继续基于 `feat/first-delivery-integration` / #57，不把文档分支误当新功能候选。

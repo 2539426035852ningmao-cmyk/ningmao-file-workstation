@@ -2,7 +2,8 @@ param(
     [Parameter(Mandatory)][string]$UpstreamDirectory,
     [Parameter(Mandatory)][string]$GoBinDirectory,
     [Parameter(Mandatory)][string]$GoPathDirectory,
-    [Parameter(Mandatory)][string]$BuildCacheDirectory
+    [Parameter(Mandatory)][string]$BuildCacheDirectory,
+    [switch]$PrepareOnly
 )
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -47,6 +48,7 @@ try {
         } finally { Pop-Location }
         Run go @('build','-o',(Join-Path $artifacts 'warm-cli.exe'),'.')
         Run go @('build','-o',(Join-Path $artifacts 'warm-web.exe'),'./cmd/croc-web')
+        if ($PrepareOnly) { return }
         Push-Location web
         try {
             Run npx @('playwright','test','e2e/transfers.spec.ts','--project=chromium','--grep',

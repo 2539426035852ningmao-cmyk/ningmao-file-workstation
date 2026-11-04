@@ -1,5 +1,7 @@
 # 当前交付状态 · 2026-11-04（r4，优先于下方历史记录）
 
+2026-11-05 浏览器发送适配器增量：独立 `feat/p3-browser-sender-adapter` 基于 #59。GoAPI结构化发送器经实际Chromium确认/下载/SHA256和显式取消2项通过，输出无秘密任务事件；Rust内部桥接用这两份真实journal写入既有任务表，重开终态completed/cancelled保留，异常退出不当成功，相关Clippy通过。文档与复跑见 experiments/p3-browser/sender/README.md。未增加IPC或用户按钮、没有主程序实时进程监督器、公开服务/反向接收仍未做。UI r5在另一分支#60，Desktop/Preview CI现在均成功，不能用本分支替代r5源码。
+
 2026-11-05 浏览器实验已实际推进：固定 croc 4fc5ac0，Windows 本机完成 Chromium 6/6 真实 CLI↔Web/Web↔Web、错码、取消/重试；现有词表单测 CRLF 修复前 2失败/1通过，修复后3通过。完整失败过程、Windows 最小兼容补丁、脚本和脱敏哈希见 [隔离证明](../../experiments/p3-browser/README.md)。仅本机回环合成数据，测试进程和监听已清理；没有公网服务、手机/双Windows、人工接收/同名保护或柠猫任务接入成果。下一步是文件分享适配器及现有任务中心接入，不重写已验证的密码学。PR #59 从纯设计增补扩展为该隔离证明，仍依赖集成 #57，未修改 r4 业务/SQLite。
 
 2026-11-05 新增方向（Issue #58）：用户授权研究第二 Windows 并要求浏览器免安装双向互传，已形成 [固定版本复用/流程/设计/验收合同](../research/P3-browser-companion-2026-11-05.md)。独立文档分支 `docs/p3-browser-companion-20261105` 从集成 `5c97a20` 派生，不改主程序；优先 croc 官方 web↔CLI 隔离实测，再接现有任务中心。VM 实际检查发现 Home 无 Sandbox、无现成虚拟机、可用内存约 1.33 GiB、系统功能查询需提升；未建成第二 Windows。下步无需重新设计：固定 croc 源码与许可，运行本地 bridge/relay 的双向浏览器合成文件试验；第二 Windows 等资源/合法镜像和管理员步骤满足后执行。浏览器/跨网功能当前 NOT_IMPLEMENTED，不把计划当成果。

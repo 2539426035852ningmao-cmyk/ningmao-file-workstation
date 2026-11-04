@@ -1,0 +1,30 @@
+# 浏览器分享发送器与任务落库证明
+
+2026-11-05，依赖 #59 的固定 croc `4fc5ac0` 与 Windows兼容补丁。此阶段是真实发送器+内部Store桥接，不是用户可点击的完整分享功能，未增加IPC、网络权限、数据库迁移或新UI按钮。r5仍在独立#60分支；#60 Desktop/Preview CI已成功。
+
+## 实现
+
+`main.go` 从stdin读取一次有界JSON请求（relay/password/code/paths），入口只接受127.0.0.1中继、1–16个普通文件、每个不超过512MiB；调用上游Go API发文件，不解析终端输出。不开放接收/SSH/Store。日志和stderr被丢弃，stdout仅输出版本、阶段、文件数、总大小；配对码、密码、路径不进入任务事件。
+
+`extension/status.go` 是给固定上游附加的6行状态读取方法，通过已有生命周期锁读取成功标志；发送API返回错误或缺少该标志都不发verified。显式取消stdin命令与60秒截止通过context终止。没有实时字节回调，所以阶段只能叫“等待接收或传输中”，不能伪造百分比。
+
+Rust `browser_share_tasks.rs` 将本机受控发送子进程事件映射到现有Store：queued→copying→completed/failed/cancelled。进程退出不能代替确认事件；终态不可重复覆盖，归属/文件数/大小不一致拒绝写入。该桥接在主工程可编译，当前只由隔离测试调用；后续进程监督器必须固定可执行文件与授权来源，不能把网页或对端JSON直接送入它。
+
+## 实测
+
+- Go实际文件入口单测通过，检查普通中文文件计数、拒绝目录和外部中继。
+- Chromium两项实际网络测试通过（11.4秒）：发送170000字节中文合成TXT，浏览器确认前只有queued/waiting；下载后源与目标SHA256一致，发送端协议确认后输出verified；另一项无接收方时显式取消，输出cancelled且退出非零。
+- 首轮浏览器测试1通过/1失败：未明确禁用目录选择器，等待download事件超时。按既有下载路径禁用目录选择器后重跑通过；不把保存对话超时当协议成功。
+- 实际两份事件journal分别被Rust桥接写入隔离SQLite，逐阶段状态正确；重开后completed/cancelled保留，消息不含配对码。专项“进程退出不能伪装成功或覆盖终态”通过；相关Clippy严格模式通过。
+- 主工程 `cargo check --no-default-features`、Rust格式检查、PowerShell解析与仓库基础检查（60必需/585跟踪文件）通过。实际journal专项已显式使用ignored参数运行，不将默认跳过当成通过。
+- 全部仅回环/合成文件，端口退出后无监听；无公共中继、私人文件、模型请求或费用。原始trace和stderr不上传。`evidence/*.jsonl`是实际子进程输出，字段不含路径或秘密。
+
+发送器本机构建EXE SHA256：`f17fa2779c16928e90732edd29a87f12450ca17ff78b40bdd7564d86c86792e9`。verified.jsonl SHA256 `d924462c132d2dcfd8211c0d5b7a930ac2a193d0051c67652afeae0840d4c867`；cancelled.jsonl `e2d84b2f9e639867e45e7888a7b034076ce2c6003ad55ebe26c30e64923c16c1`。Go二进制仅本地实验，不进入发行包；上游许可继承父目录记录，完整依赖发行清关仍未完成。
+
+## 复跑与下一关
+
+在父目录已说明的工具/固定源码环境中运行 `run-sender-proof.ps1`，四个目录参数与 `run-proof.ps1` 相同；脚本自动准备上游、复制发送器/状态扩展/浏览器测试、构建并执行实际链路。需要专用克隆，原始上游tracked修改仅保留原Windows补丁，新发送器和测试以untracked添加，不推送上游。
+
+Rust再执行 `cargo test --manifest-path experiments/p3-loopback/Cargo.toml --test browser_share` 验证常规规则。实际journal项显式ignored，不在缺少浏览器实验时冒充通过；设置 `NINGMAO_BROWSER_EVENTS` 指向专用克隆的sender-events.jsonl，`NINGMAO_BROWSER_CANCEL_EVENTS`指向sender-cancel-events.jsonl，再使用 `-- --ignored --exact real_browser_verified_events_persist_in_existing_store` 单独运行。
+
+下一关是主程序持有授权文件的进程监督器与临时分享入口：文件来源权限/执行文件固定/退出收尾、可撤销链接与现有任务中心显示。该关通过前不增加可用按钮，不让浏览器获得任意磁盘路径。不把本阶段任务落库证明扩大为实时UI接入、公开HTTPS、跨网、手机、反向接收或同名保护。回滚：不合入该内部模块/实验PR，r5和原数据不变。
