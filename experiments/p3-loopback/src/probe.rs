@@ -9,7 +9,9 @@ mod destination;
 #[path = "tasks.rs"]
 mod tasks;
 use destination::Destination;
-use ningmao_transfer_receiver::{params,stage_body,read_header,finish_rejected_socket,validate_name};
+use ningmao_transfer_receiver::{
+    finish_rejected_socket, params, read_header, stage_body, validate_name,
+};
 use rustls::{
     ClientConnection, RootCertStore, ServerConfig, StreamOwned,
     pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer},
@@ -112,11 +114,33 @@ fn receive_with_sink(root: &Path, sink: Option<tasks::Journal>) -> Result<()> {
                 key(&k.server_key),
             )?,
     );
-    let journal = match sink { Some(sink)=>sink,None=>tasks::file_journal(fs::OpenOptions::new().create_new(true).write(true).open(root.join("task-events.jsonl"))?) };
-    let decision_root=root.to_owned();
-    let receiver=ningmao_transfer_receiver::Receiver::start("127.0.0.1:0".parse()?,&root.join("received"),config,journal,Arc::new(move |_,_|fs::read_to_string(decision_root.join("decision.txt")).is_ok_and(|value|value.trim()=="accept")))?;
-    fs::write(root.join("ready.json"),serde_json::to_vec(&json!({"port":receiver.address.port()}))?)?;
-    while !root.join("stop").exists() { std::thread::sleep(Duration::from_millis(10)); }
+    let journal = match sink {
+        Some(sink) => sink,
+        None => tasks::file_journal(
+            fs::OpenOptions::new()
+                .create_new(true)
+                .write(true)
+                .open(root.join("task-events.jsonl"))?,
+        ),
+    };
+    let decision_root = root.to_owned();
+    let receiver = ningmao_transfer_receiver::Receiver::start(
+        "127.0.0.1:0".parse()?,
+        &root.join("received"),
+        config,
+        journal,
+        Arc::new(move |_, _| {
+            fs::read_to_string(decision_root.join("decision.txt"))
+                .is_ok_and(|value| value.trim() == "accept")
+        }),
+    )?;
+    fs::write(
+        root.join("ready.json"),
+        serde_json::to_vec(&json!({"port":receiver.address.port()}))?,
+    )?;
+    while !root.join("stop").exists() {
+        std::thread::sleep(Duration::from_millis(10));
+    }
     receiver.stop()
 }
 fn prepare(root: &Path, files: Value) -> Result<(u16, Value)> {
@@ -920,40 +944,100 @@ mod direct_event_tests {
     use super::*;
     #[test]
     fn pinned_receiver_confirms_and_bound_snapshot_excludes_live_staging() {
-        let temp=tempfile::tempdir().unwrap();
-        let received=temp.path().join("received");fs::create_dir(&received).unwrap();
-        let mut store=store::Store::open(&temp.path().join("receiver.db")).unwrap();
-        let shelf=store.bind_directory(&received).unwrap();
-        let state=Arc::new(Mutex::new((store,transfer_runtime::TransferRuntime::default())));
-        let saw_staging=Arc::new(AtomicBool::new(false));
-        let check_state=state.clone();let check_dir=received.clone();let check_staging=saw_staging.clone();
-        let journal:tasks::Journal=Arc::new(move |event| {
-            let mut guard=check_state.lock().unwrap();let (store,runtime)=&mut *guard;
-            runtime.accept_event(store,shelf,event)?;
-            if fs::read_dir(&check_dir)?.any(|entry|entry.is_ok_and(|entry|entry.file_name().to_string_lossy().starts_with(".ningmao-receive-"))) {
-                check_staging.store(true,Ordering::SeqCst);
-                assert!(store.snapshot_scoped(Some(shelf),&[])?.items.iter().all(|item|!item.name.starts_with(".ningmao-receive-")));
+        let temp = tempfile::tempdir().unwrap();
+        let received = temp.path().join("received");
+        fs::create_dir(&received).unwrap();
+        let mut store = store::Store::open(&temp.path().join("receiver.db")).unwrap();
+        let shelf = store.bind_directory(&received).unwrap();
+        let state = Arc::new(Mutex::new((
+            store,
+            transfer_runtime::TransferRuntime::default(),
+        )));
+        let saw_staging = Arc::new(AtomicBool::new(false));
+        let check_state = state.clone();
+        let check_dir = received.clone();
+        let check_staging = saw_staging.clone();
+        let journal: tasks::Journal = Arc::new(move |event| {
+            let mut guard = check_state.lock().unwrap();
+            let (store, runtime) = &mut *guard;
+            runtime.accept_event(store, shelf, event)?;
+            if fs::read_dir(&check_dir)?.any(|entry| {
+                entry.is_ok_and(|entry| {
+                    entry
+                        .file_name()
+                        .to_string_lossy()
+                        .starts_with(".ningmao-receive-")
+                })
+            }) {
+                check_staging.store(true, Ordering::SeqCst);
+                assert!(
+                    store
+                        .snapshot_scoped(Some(shelf), &[])?
+                        .items
+                        .iter()
+                        .all(|item| !item.name.starts_with(".ningmao-receive-"))
+                );
             }
             Ok(())
         });
-        let certificate=rcgen::generate_simple_self_signed(vec!["localhost".into()]).unwrap();
-        let fingerprint=format!("{:x}",Sha256::digest(certificate.cert.der()));
-        let config=rustls::ServerConfig::builder().with_no_client_auth().with_single_cert(vec![certificate.cert.der().clone()],key(&certificate.signing_key.serialize_der())).unwrap();
-        let accepted=Arc::new(AtomicBool::new(false));let decision=accepted.clone();
-        let receiver=ningmao_transfer_receiver::Receiver::start("127.0.0.1:0".parse().unwrap(),&received,Arc::new(config),journal,Arc::new(move |batch,_| {assert_eq!(batch.files.len(),1);decision.load(Ordering::SeqCst)})).unwrap();
-        let wrong=LoopbackClient::pinned(receiver.address,&"f".repeat(64)).unwrap();
+        let certificate = rcgen::generate_simple_self_signed(vec!["localhost".into()]).unwrap();
+        let fingerprint = format!("{:x}", Sha256::digest(certificate.cert.der()));
+        let config = rustls::ServerConfig::builder()
+            .with_no_client_auth()
+            .with_single_cert(
+                vec![certificate.cert.der().clone()],
+                key(&certificate.signing_key.serialize_der()),
+            )
+            .unwrap();
+        let accepted = Arc::new(AtomicBool::new(false));
+        let decision = accepted.clone();
+        let receiver = ningmao_transfer_receiver::Receiver::start(
+            "127.0.0.1:0".parse().unwrap(),
+            &received,
+            Arc::new(config),
+            journal,
+            Arc::new(move |batch, _| {
+                assert_eq!(batch.files.len(), 1);
+                decision.load(Ordering::SeqCst)
+            }),
+        )
+        .unwrap();
+        let wrong = LoopbackClient::pinned(receiver.address, &"f".repeat(64)).unwrap();
         assert!(wrong.prepare(json!({})).is_err());
-        let client=LoopbackClient::pinned(receiver.address,&fingerprint).unwrap();
-        let source=temp.path().join("source.bin");let bytes=vec![71;4*1024*1024];fs::write(&source,&bytes).unwrap();
-        let sender=Mutex::new(store::Store::open(&temp.path().join("sender.db")).unwrap());
-        assert!(crate::transfer_sender::send_open_file(&sender,2,&client,&mut fs::File::open(&source).unwrap(),"file.bin").is_err());
-        assert_eq!(fs::read_dir(&received).unwrap().count(),0);
-        accepted.store(true,Ordering::SeqCst);
-        crate::transfer_sender::send_open_file(&sender,2,&client,&mut fs::File::open(&source).unwrap(),"file.bin").unwrap();
+        let client = LoopbackClient::pinned(receiver.address, &fingerprint).unwrap();
+        let source = temp.path().join("source.bin");
+        let bytes = vec![71; 4 * 1024 * 1024];
+        fs::write(&source, &bytes).unwrap();
+        let sender = Mutex::new(store::Store::open(&temp.path().join("sender.db")).unwrap());
+        assert!(
+            crate::transfer_sender::send_open_file(
+                &sender,
+                2,
+                &client,
+                &mut fs::File::open(&source).unwrap(),
+                "file.bin"
+            )
+            .is_err()
+        );
+        assert_eq!(fs::read_dir(&received).unwrap().count(), 0);
+        accepted.store(true, Ordering::SeqCst);
+        crate::transfer_sender::send_open_file(
+            &sender,
+            2,
+            &client,
+            &mut fs::File::open(&source).unwrap(),
+            "file.bin",
+        )
+        .unwrap();
         receiver.stop().unwrap();
-        assert!(saw_staging.load(Ordering::SeqCst));assert_eq!(fs::read(&source).unwrap(),bytes);assert_eq!(fs::read(received.join("file.bin")).unwrap(),bytes);
-        let mut guard=state.lock().unwrap();let items=guard.0.snapshot_scoped(Some(shelf),&[]).unwrap().items;
-        assert_eq!(items.len(),1);assert_eq!(items[0].name,"file.bin");guard.0.integrity_check().unwrap();
+        assert!(saw_staging.load(Ordering::SeqCst));
+        assert_eq!(fs::read(&source).unwrap(), bytes);
+        assert_eq!(fs::read(received.join("file.bin")).unwrap(), bytes);
+        let mut guard = state.lock().unwrap();
+        let items = guard.0.snapshot_scoped(Some(shelf), &[]).unwrap().items;
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].name, "file.bin");
+        guard.0.integrity_check().unwrap();
     }
     #[test]
     fn actual_loopback_receiver_persists_direct_events_before_reporting_success() {
