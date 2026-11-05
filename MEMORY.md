@@ -1,5 +1,15 @@
 # 当前执行入口（2026-11-04，r4）
 
+2026-11-05 #61run_items授权素材入口已实现：Store按架ID校验素材ID并解析来源，打开只读句柄走监督器；example改用该真实路径，去重复文件准备。错架拒绝/会话释放/来源保留PASS，Rust7PASS+1明确ignored，Clippy/checkPASS，真实Chromium接收/取消2PASS19.2秒。尚无正式sidecar资源配置/IPC/GUI/链接；下一步固定组件分发与分享显示。回滚ca3fa6f，r5不覆盖。
+
+2026-11-05质量自查见ACTIVE-DELIVERY最新章节：四PR实际依赖已核对，87ff98d三CI成功；不把#60/#61同名文件当冗余。新增真实Store终态/错架/大小/重开回归6PASS+1明确ignored，Clippy通过。无已证实需业务修复问题，不强行删除/重构。#60与#61仅状态文档重叠，尚未整合验证；后续继续分享GUI与可信组件配置。旧r5/数据不变。
+
+2026-11-05 #61续：ShareControl生命周期已接主Runtime持有、cancel_copy权限校验后的分享取消、clean_quit空闲检查。真实example用同一控制器按Store任务ID取消，成功/取消Chromium2项PASS12.3s，准备失败释放/重复启动拒绝/退出阻止与收尾放行PASS，实际journal重开PASS，Clippy/check通过，测试无残留。06016d7三组CI成功。尚无启动分享的IPC/GUI/链接，下一步后端固定组件配置与按架ID打开授权来源，接分享显示；不把路径/hash环境测试入口给前端，不覆盖r5或自动合并。
+
+2026-11-05 #61扩展受控子进程监督器：Rust校验固定Go程序hash，消费已打开来源句柄并暂存副本，经stdin传配置和取消，复用任务事件、退出/线程收尾。真实监督器→Go→Chromium成功/取消2项PASS14.3s，源/下载SHA一致、真实任务重开PASS，错误hash拒绝PASS；相关Clippy/主工程checkPASS。继续同一#61，未注册Tauri IPC/按钮，下一步是Runtime任务取消/退出路由与分享信息显示。69c3811三组CI成功不能继承为新SHA。r5/#60仍独立，不重打UI包。
+
+2026-11-05 新工作分支feat/p3-browser-sender-adapter基于#59：结构化Go发送器→真实Chromium→无秘密JSON事件→现有RustStore实际落库与重开验证已通过，完成/取消均实测。源码/复跑/边界在experiments/p3-browser/sender/README.md；无主程序IPC/按钮或实时进程监督器，下一步做授权文件/固定子进程/链接生命周期与任务UI接入。r5 UI候选独立#60，其8a7068a的Desktop/Preview CI已成功；不要把当前实验分支误当r5或重新做6项上游研究。
+
 2026-11-05 浏览器隔离证明：PR #59 分支新增 experiments/p3-browser，固定 croc 4fc5ac0 在 Windows 完成 Chromium 6/6 真实 CLI↔Web/Web↔Web、错码及取消重试。修复并记录上游 Windows PE 后缀启动问题、CRLF词表解析问题（既有单测先2失败后3通过），保留 MIT 与最小补丁。下一步直接接现有任务中心/文件分享适配器，不重新研究协议；未实现柠猫接入/公开HTTPS/手机/同名保护/双Windows，不能扩大 PASS。
 
 2026-11-05 用户新增：研究第二台可控 Windows，以及链接/代码配对的浏览器免安装双向互传。Issue #58，合同 `docs/research/P3-browser-companion-2026-11-05.md`；croc 固定 4fc5ac0 官方已有 web↔CLI，优先隔离验证，FilePizza/PairDrop/copyparty 综合参考且不混入 GPL 代码。VM 本机资源和权限阻碍已记录，未创建；浏览器能力未实现。文档独立分支 `docs/p3-browser-companion-20261105`；正式功能继续基于 `feat/first-delivery-integration` / #57，不把文档分支误当新功能候选。
