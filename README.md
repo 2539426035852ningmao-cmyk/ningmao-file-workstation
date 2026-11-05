@@ -1,95 +1,44 @@
 # 柠猫文件工作站 · Ningmao File Workstation
 
-> **Windows 10/11 优先 · 免费开源 · 本地优先 · 轻量悬浮素材工作站**
-> **当前状态（2026-10-26 快照）：P2 r21 功能候选开发中，GitHub CI 通过，Windows 原生全矩阵仍为 PARTIAL；没有正式稳定 Release。**
-> 本仓库 `main` 目前以规范、研究及原型为主，最新桌面应用实现在尚未合并的堆叠 PR 中。不要把设计图、候选安装包或 CI 成功误读为正式软件发布。
+Windows 优先、免费开源、本地优先的轻量文件工作站。
 
-[查看当前真实进度](docs/project-status.md) · [了解产品](PRODUCT.md) · [Codex 开工入口](docs/codex-start-here.md) · [设计规范](design.md) · [全部文档](docs/README.md) · [贡献指南](CONTRIBUTING.md)
+**2026-11-05：已提供 r7 核心便携测试包；主程序仍在未合并的候选 PR，尚无正式稳定 Release。** 不把本地试用包、代码实现或 CI 成功等同于正式发布。
 
-## 一眼认识柠猫
+[当前交付与精确证据](docs/execution/ACTIVE-DELIVERY.md) · [功能与问题总览](docs/project-status.md) · [初版使用说明](docs/first-preview-quickstart.md) · [设计规范](design.md) · [文档导航](docs/README.md)
 
-**随手收集 → 安全整理 → 在其他软件中使用 → 以后可以跨设备互传与按需智能检索。**
+## 现在可以做什么
 
-- **临时文件架：** 添加文件默认只保留引用，不偷移原文件
-- **绑定目录文件架：** 导入文件默认安全复制，同名保留双方
-- **双眼悬浮入口：** 球 / 胶囊 / 轻预览 / 完整文件架，可贴边或 Dock 组合
-- **按需管理中心：** 标签、文件检索、批量操作和任务反馈集中处理，不挤占日常小文件架
-- **本地安全：** 文件来源、SQLite 数据、软回收及系统回收要可追踪、可恢复
-
-> 以上部分能力已在 P0/P1/P2 **候选分支**实现和测试；仍需逐版本 Windows 原生集成验收。P3 网络与 P4 AI/插件属于后续阶段，尚无正式交付。
-
-## 视觉与交互展示
-
-**产品分层（架构/功能关系示意，不是当前全部界面都已交付）：**
-
-```mermaid
-flowchart TB
-  U["用户在其他软件 / 资源管理器工作"]
-  L0["L0 · 双眼球 / 胶囊 / 贴边柄 / Dock\n快速唤出、目标选择、极简状态"]
-  L1["L1 · 日常小文件架\n文件引用、缩略图、预览、安全复制与拖放"]
-  L2["L2 · 按需管理中心\n多架、标签、搜索、任务；以后有设备 / 插件"]
-  L3["L3 · Rust + SQLite\n文件身份、权限、安全 Copy、回收与任务"]
-  U --> L0 --> L1
-  L1 <--> L2
-  L1 <--> L3
-  L2 <--> L3
-  classDef ui fill:#eaf3ff,stroke:#79a6d5,color:#233c58;
-  classDef core fill:#edf4ef,stroke:#88ab94,color:#23432d;
-  class L0,L1,L2 ui;
-  class L3 core;
-```
-
-**现有视觉研究截图（浏览器样机证据，不代表 r21 Windows 原生全验收）：**
-
-![r16 双眼入口与文件架研究展示（合成/样机证据，不是正式产品发行截图）](https://raw.githubusercontent.com/2539426035852ningmao-cmyk/ningmao-file-workstation/97f779ee900ed10231a2ab18a562812afffcbd87/docs/research/dual-eye-orb-evidence/overview.png)
-
-[查看 r16 样机与实测证据](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/tree/97f779ee900ed10231a2ab18a562812afffcbd87/docs/research/dual-eye-orb-evidence) · [双眼球设计合同](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/blob/feat/dual-eye-orb/docs/design/dual-eye-orb-v1.md)
-
-## 当前开发进度（截至 2026-10-26）
-
-| 阶段 | 代码/研究实际情况 | 可否视作已正式交付 |
+| 能力 | 候选已实现内容 | 证据边界 |
 |---|---|---|
-| M1-01～03 | 仓库治理、Windows 技术对比、双 UI 研究已合入 `main` | **研究完成**，不是正式主应用 |
-| **P0/P1** [#30](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/30) | 引用/安全 Copy、SQLite、预览、多选、排序与紧凑文件架候选 | **未合并主线，仍待整体验收** |
-| **P2** [#32](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/32) → [#35](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/35) → [#36](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/36) → [#40](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/40) | 双眼球、Dock、多架、管理中心、回收流程、r21 快捷键/找回 | **r21 部分原生通过，完整 P2 未放行** |
-| **P3** | LocalSend-first 协议候选与零新增柠猫服务器费的 LAN 设计合同 | **研究/规划**，未做正式双机互传 |
-| **P4** | SQLite/FTS5 本地搜索方案 + 44 项产品决策；AI/插件分段实施合同 | **规划/选型**，未正式上线 |
+| 文件工作站 | 引用收集、绑定目录安全复制、同名编号、来源保留、多选、排序、预览、默认打开 | 自动化及历史原生子集；r7未重做全部拖放场景 |
+| 桌面入口 | 原创双眼球、胶囊、轻预览、Dock、多架与管理中心 | 有分版本原生证据；多DPI/多屏未完成全矩阵 |
+| 局域网互传 | 显式地址/证书指纹、批次确认、校验、取消及任务记录，默认不监听 | 真实回环及本机私有网卡子集；双机/LocalSend未验 |
+| 本地检索与整理 | 当前架/跨架搜索、元数据筛选、重复比较、规则标签建议 | 本地候选能力；不默认扫描全盘或下载模型 |
+| AI 对话 | 兼容服务配置、多轮历史、流式回复、停止，Windows密钥保护 | 真实服务/额度未代验，需自行配置，可能收费 |
+| 浏览器分享 | 开发构建已完成原生GUI→实际浏览器下载/取消→任务持久化 | 仅本机；组件未随r7分发，入口默认隐藏 |
+| 插件/智能工作流 | 有冻结设计及部分基础接口/规则能力 | 不宣称已交付完整插件生态或通用自主Agent |
 
-**最新 r21 证据：** 99 项浏览器测试、69 项 Rust 测试（另有按现有规则忽略的受控入口），[Desktop CI](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/actions/runs/40295641668) 与 [Preview CI](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/actions/runs/40295641558) 均成功。Windows 11 实机仅确认默认快捷键唤出/暂停/恢复等部分动作，跨窗真实 Copy、回收、DPI/多屏等仍待集中验收。[精确矩阵见候选分支](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/blob/feat/p2-management-flow/docs/research/P2-closeout-evidence/native-matrix.json)。
+## 如何试用 r7
 
-## 测试预览版与正式稳定版
+用户开发机已生成独立便携ZIP，来源提交 `b960dcb2bb298557abb97029333ed91a698fd956`。**公开仓库当前没有永久软件下载链接**；本地包位置及SHA256见[交付记录](docs/execution/ACTIVE-DELIVERY.md)。解压到新可写目录后双击 `Start-Ningmao.cmd`，需Windows x64和已有WebView2。未签名测试版，不建议当前安装MSI。
 
-用户已于 2026-10-26 **确认分阶段发布策略 A（D-01）**：在核心文件安全及 **Windows 11 x64 原生验收通过之后**，可以考虑发布明确标注**未签名、仅供测试、非稳定发行**的 Preview；不能据此宣称 Win10 已验证或省略正式稳定版的跨平台/安装升级与数据安全门槛。目前**没有**已批准或已发布的正式 Preview/Release。
+数据只在便携目录 `data` / `webview`。完整退出后备份，旧r6/r5保留；不要互相覆盖数据库。原43项产品决定与P4独立44项仍保持冻结。
 
-[查看 D-01 发布政策与验收清单](docs/product/D01-windows-preview-release-policy-2026-10-26.md) · [GitHub 决策记录 #43](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/issues/43)
+## 代码在哪里
 
-## 发展路线：先做稳，再扩展
+当前集成：[Draft PR #62](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/62)，分支 `feat/p3-p4-consolidated-preview-20261105`。它整合 #60 的面板与 #61 的分享后端，依赖 #57/#59 及此前 P2 候选链。**所有功能PR仍未合并；从main拉取不能得到完整桌面应用。**
 
-```mermaid
-flowchart LR
-  A["P2 · r21 修复与 Windows 集成验收\n当前主攻"] --> B["P3 · 安全 LAN 互传\n需先批准真实监听/双机测试"]
-  B --> C["P4-A · 本地跨架搜索"]
-  C --> D["P4-B · 相似图 / 可选本地 AI"]
-  D --> E["P4-C · 安全官方插件"]
-  E --> F["P4-D · 工作流与安全恢复"]
-  classDef current fill:#d9e8ff,stroke:#527fb6,color:#183c66;
-  classDef future fill:#f1f3f5,stroke:#aeb8c2,color:#29323b;
-  class A current;
-  class B,C,D,E,F future;
-```
+最新核验的候选记录提交 `b3d0737918e42da005132371abb47ced3767d215` 的 [Desktop](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/actions/runs/42034138430)、[Preview](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/actions/runs/42034138440)、[P3回环](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/actions/runs/42034138237) CI均成功。该结果不继承给后续提交。
 
-以**真实文件安全、原生可用、可回滚、无默认付费服务**为门槛；网络端口、云端隐私上传、模型下载、R3 数据迁移和正式代码合并要另行符合批准流程。无联网的隔离合成试验可以提前做，不能宣称正式功能通过。
+r7本机128项界面测试、102项Rust通过/6项跳过；真实服务生命周期专项另行执行通过，便携程序启动与正常退出通过。完整Windows兼容、安装升级/卸载、双设备与真实模型仍待验。
 
-## 技术选型与协作
+## 接下来解决什么
 
-- **Windows 桌面候选：** Tauri 2 / Rust / React / TypeScript / SQLite
-- **视觉：** shadcn/ui、Radix、Lucide，按需复用 SpaceUI 文件组件；深浅主题、默认蓝色强调色
-- **协议：** Apache-2.0 主仓库，第三方许可证独立审核；官方发行版目标免费
-- **开发流程：** Codex → 功能分支 / PR → CI → Windows 实机证据 → 阶段审批 → 安全合并
-- **基线决策：** [原 43 项](docs/product-decisions.md) + [P4 独立 44 项](docs/product/P4-confirmed-decisions-01-44-2026-10-26.md)，两者不能互相覆盖
+1. 浏览器组件许可/资源分发及自动服务与原生GUI的组合复测，再推进双设备/HTTPS。
+2. 真实LAN双机、官方LocalSend互通、DPI/多屏及真实模型专项验收。
+3. 逐步精简长菜单和重复入口，保留已有能力与文件安全语义。
+4. 按依赖和审批完成候选收束，不绕过保护、不自动发布。
 
-[查看系统设计和阶段证据](docs/project-status.md) · [待讨论的关键决策](docs/open-decisions.md) · [P2→P3→P4 交付合同](docs/execution/P2-to-P3-P4-sequential-delivery-2026-10-26.md)
+[已知问题、优先级与解决方向](docs/project-status.md#已知问题与解决方向) · [开发接续](docs/codex-start-here.md) · [长期路线](docs/roadmap.md) · [贡献](CONTRIBUTING.md)
 
-### 开发者注意
-
-`main` 目前没有完整 `apps/desktop` 正式发行工程；请从 [Codex 入口](docs/codex-start-here.md)确认最新 PR 基线。**不要根据旧 PR #9/#11/#13 的历史文档复制一套主应用，也不要将用户私人文件、Token 或真实数据库放入公开仓库。**
+技术：Tauri 2 / Rust / React / TypeScript / SQLite，shadcn/ui / Radix / Lucide。主仓库Apache-2.0，第三方组件独立审核。删除、回收、真实文件变更和网络/费用授权边界不因版本推进而放宽。
