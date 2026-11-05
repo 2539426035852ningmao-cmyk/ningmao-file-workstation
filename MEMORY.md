@@ -1,4 +1,8 @@
-# 当前执行入口（2026-11-04，r4）
+# 当前执行入口（2026-11-05，r5）
+
+r5本地Windows包已构建并完成原生UI子集：互传分区/两行指纹/方向键切换、AI配置直达/返回/关闭、正常退出PASS，未启用接收或模型。源码50b7563；ZIP `D:/Ningmao-Preview-P3-P4-20261105-r5.zip` SHA256 `4d15aa434f78df05c12e53c6369119e62e83fee476d90267f609402025518a26`。独立数据，r4保留；#60 CI仍排队，不能冒称通过。精确哈希/范围见ACTIVE-DELIVERY顶部。Rust工具链已复用项目最初work/toolchains下现成1.99.1，构建缓存D盘Ningmao-Codex-P3-desktop-target；仅进程级配置，不再重新安装或全盘找工具。下一步从CI状态与浏览器分享适配器继续，不重复原生基础UI检查。
+
+2026-11-05 当前UI候选：`feat/capability-panels-polish` / Draft #60，独立基于 #57；互传标准Tabs键盘切换、连接字段分区/指纹换行、空状态引导；AI 配置模型直达/返回对话/设置操作分组。10项相关浏览器回归和生产构建通过，340×320深浅主题合成截图在 docs/research/capability-panels-evidence；Windows CI/新包/原生仍待验，旧r4保留。浏览器免安装真实协议证明在另一分支 PR #59（Windows Chromium6项PASS，含兼容补丁），未接当前程序，不能添加空分享按钮或混淆两支证据。下一步先核对#60检查和Windows候选，再接文件分享适配器。
 
 2026-11-05 #61run_items授权素材入口已实现：Store按架ID校验素材ID并解析来源，打开只读句柄走监督器；example改用该真实路径，去重复文件准备。错架拒绝/会话释放/来源保留PASS，Rust7PASS+1明确ignored，Clippy/checkPASS，真实Chromium接收/取消2PASS19.2秒。尚无正式sidecar资源配置/IPC/GUI/链接；下一步固定组件分发与分享显示。回滚ca3fa6f，r5不覆盖。
 
