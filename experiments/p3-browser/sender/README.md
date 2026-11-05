@@ -1,5 +1,17 @@
 # 浏览器分享发送器与任务落库证明
 
+## 受控子进程监督器增量
+
+Rust `browser_share_process.rs` 已接已有任务桥接：校验调用方固定的发送器SHA256，只接收主程序已打开的来源句柄，建立临时副本，再经stdin发送配对配置。控制器只转发已验证的结构化事件；显式取消经stdin送达，5秒仍未停止则结束自己拥有的子进程；异常退出落失败，进程/读取线程收尾后释放临时副本。没有shell命令拼接、运行时凭据参数、任意路径IPC或新增依赖。
+
+`examples/browser_share_supervisor.rs` 是隔离命令行测试入口，不是Tauri命令；测试传入固定构建得到的Go程序与预期哈希，生产监督器必须由可信Rust调用方选择。它真实调用主工程监督器，调用方的SQLite任务表与最终结果一致。
+
+Windows Chromium监督器两项实测PASS（最终14.3秒）：源句柄→副本→真实浏览器下载SHA256一致→协议确认→现有任务；无接收方时显式取消→cancelled。成功/取消事件再次用既有Store重开验证PASS；错误程序哈希拒绝且没有任务PASS；相关Clippy严格/主工程无默认特性check/格式PASS。初次编译有闭包结果类型推断错误，已补显式Result类型后通过；没有隐藏该失败。
+
+复跑：先用cargo构建`experiments/p3-loopback`的`browser_share_supervisor` example，再给 `run-sender-proof.ps1` 原有四参数增加 `-SupervisorBinary <example-executable>`。脚本会从固定源码构建Go发送器并把实际哈希交给测试入口。事件落在专用克隆supervisor-events.jsonl与supervisor-cancel-events.jsonl；安全副本为 evidence/supervised-*.jsonl。监督器测试退出后对应端口和进程均无残留。
+
+这一步仍未把功能接成主程序分享按钮：Runtime中的任务取消路由/正常退出统一收尾、分享信息展示与临时链接还需下一步接入。主程序不能把实验入口接受路径的方式作为前端权限接口。当前只有本机中继，未提供公网服务、手机或双机支持。r5候选不覆盖；本次继续更新原Draft #61。
+
 2026-11-05，依赖 #59 的固定 croc `4fc5ac0` 与 Windows兼容补丁。此阶段是真实发送器+内部Store桥接，不是用户可点击的完整分享功能，未增加IPC、网络权限、数据库迁移或新UI按钮。r5仍在独立#60分支；#60 Desktop/Preview CI已成功。
 
 ## 实现

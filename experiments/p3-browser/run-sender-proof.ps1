@@ -2,13 +2,14 @@ param(
     [Parameter(Mandatory)][string]$UpstreamDirectory,
     [Parameter(Mandatory)][string]$GoBinDirectory,
     [Parameter(Mandatory)][string]$GoPathDirectory,
-    [Parameter(Mandatory)][string]$BuildCacheDirectory
+    [Parameter(Mandatory)][string]$BuildCacheDirectory,
+    [string]$SupervisorBinary
 )
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
-& "$PSScriptRoot/run-proof.ps1" @PSBoundParameters -PrepareOnly
+& "$PSScriptRoot/run-proof.ps1" -UpstreamDirectory $UpstreamDirectory -GoBinDirectory $GoBinDirectory -GoPathDirectory $GoPathDirectory -BuildCacheDirectory $BuildCacheDirectory -PrepareOnly
 $saved = @{}
-foreach ($name in @('PATH','GOPATH','GOCACHE','GOFLAGS','GOMAXPROCS','NO_PROXY','CROC_E2E_BINARY_NAME','NINGMAO_SENDER_BINARY','NINGMAO_EVENT_PROOF','NINGMAO_CANCEL_PROOF')) {
+foreach ($name in @('PATH','GOPATH','GOCACHE','GOFLAGS','GOMAXPROCS','NO_PROXY','CROC_E2E_BINARY_NAME','NINGMAO_SENDER_BINARY','NINGMAO_GO_SENDER_BINARY','NINGMAO_GO_SENDER_SHA256','NINGMAO_EVENT_PROOF','NINGMAO_CANCEL_PROOF')) {
     $saved[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
 }
 function Run([string]$Program,[string[]]$Arguments) {
@@ -35,6 +36,13 @@ try {
     try {
         Run go @('test','./cmd/ningmao-share-proof')
         Run go @('build','-o',$env:NINGMAO_SENDER_BINARY,'./cmd/ningmao-share-proof')
+        if ($SupervisorBinary) {
+            $env:NINGMAO_GO_SENDER_BINARY = $env:NINGMAO_SENDER_BINARY
+            $env:NINGMAO_GO_SENDER_SHA256 = (Get-FileHash -LiteralPath $env:NINGMAO_GO_SENDER_BINARY -Algorithm SHA256).Hash
+            $env:NINGMAO_SENDER_BINARY = (Resolve-Path -LiteralPath $SupervisorBinary).Path
+            $env:NINGMAO_EVENT_PROOF = Join-Path $upstream 'supervisor-events.jsonl'
+            $env:NINGMAO_CANCEL_PROOF = Join-Path $upstream 'supervisor-cancel-events.jsonl'
+        }
         Push-Location web
         try { Run npx @('playwright','test','e2e/ningmao-sender.spec.ts','--project=chromium') } finally { Pop-Location }
     } finally { Pop-Location }

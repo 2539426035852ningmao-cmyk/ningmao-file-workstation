@@ -1,5 +1,7 @@
 # 当前交付状态 · 2026-11-04（r4，优先于下方历史记录）
 
+2026-11-05 #61继续：新增受控Rust发送进程监督器（固定程序SHA256、来源句柄到临时副本、stdin配对/取消、任务事件和进程收尾），实际接Go→Chromium两项通过14.3秒；错误哈希不启动/不建任务、Store重开、Clippy和主工程check通过。证据见experiments/p3-browser/sender/README.md增量。仍未新增Tauri IPC/分享按钮或Runtime退出路由，下一步接这层生命周期和分享显示，不重做协议研究。上一提交69c3811的三组CI均success；本次新SHA仍需独立检查。r5 UI候选保持#60独立。
+
 2026-11-05 浏览器发送适配器增量：独立 `feat/p3-browser-sender-adapter` 基于 #59。GoAPI结构化发送器经实际Chromium确认/下载/SHA256和显式取消2项通过，输出无秘密任务事件；Rust内部桥接用这两份真实journal写入既有任务表，重开终态completed/cancelled保留，异常退出不当成功，相关Clippy通过。文档与复跑见 experiments/p3-browser/sender/README.md。未增加IPC或用户按钮、没有主程序实时进程监督器、公开服务/反向接收仍未做。UI r5在另一分支#60，Desktop/Preview CI现在均成功，不能用本分支替代r5源码。
 
 2026-11-05 浏览器实验已实际推进：固定 croc 4fc5ac0，Windows 本机完成 Chromium 6/6 真实 CLI↔Web/Web↔Web、错码、取消/重试；现有词表单测 CRLF 修复前 2失败/1通过，修复后3通过。完整失败过程、Windows 最小兼容补丁、脚本和脱敏哈希见 [隔离证明](../../experiments/p3-browser/README.md)。仅本机回环合成数据，测试进程和监听已清理；没有公网服务、手机/双Windows、人工接收/同名保护或柠猫任务接入成果。下一步是文件分享适配器及现有任务中心接入，不重写已验证的密码学。PR #59 从纯设计增补扩展为该隔离证明，仍依赖集成 #57，未修改 r4 业务/SQLite。

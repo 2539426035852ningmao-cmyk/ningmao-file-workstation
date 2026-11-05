@@ -4,6 +4,39 @@ mod browser_share_tasks;
 #[path = "../../../apps/desktop/src-tauri/src/store.rs"]
 mod store;
 use browser_share_tasks::BrowserShareTask;
+#[path = "../../../apps/desktop/src-tauri/src/browser_share_process.rs"]
+mod browser_share_process;
+
+#[test]
+fn untrusted_sender_binary_is_rejected_without_creating_a_job() {
+    let dir = tempfile::tempdir().unwrap();
+    let db = std::sync::Mutex::new(store::Store::open(&dir.path().join("state.db")).unwrap());
+    let result = browser_share_process::run(
+        &db,
+        2,
+        &browser_share_process::SenderProgram {
+            path: std::env::current_exe().unwrap(),
+            sha256: [0; 32],
+        },
+        &browser_share_process::Connection {
+            relay: "127.0.0.1:1".into(),
+            password: "synthetic".into(),
+            code: "acid-acorn-acre".into(),
+        },
+        &mut [],
+        &std::sync::atomic::AtomicBool::new(false),
+        |_| panic!("untrusted executable must not emit events"),
+    );
+    assert_eq!(result.err().unwrap(), "分享组件校验失败");
+    assert!(
+        db.lock()
+            .unwrap()
+            .management_snapshot()
+            .unwrap()
+            .jobs
+            .is_empty()
+    );
+}
 
 #[test]
 fn process_exit_cannot_report_success_or_change_a_terminal() {

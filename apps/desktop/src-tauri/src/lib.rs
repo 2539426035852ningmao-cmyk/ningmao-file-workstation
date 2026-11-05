@@ -1,3 +1,4 @@
+pub mod browser_share_process;
 pub mod browser_share_tasks;
 pub mod chat;
 pub mod desktop;
