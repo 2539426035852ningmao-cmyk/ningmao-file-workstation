@@ -1,5 +1,7 @@
 # 当前执行入口（2026-11-05，r6）
 
+新功能增量已开始GUI/IPC：互传页按能力隐藏/显示本机浏览器分享，随机代码、创建与停止；真实Tauri按素材ID发送/按Store权限取消，ShareControl复用。编译时debug配置固定发送器路径/hash，release不开；固定开发relay53318/web53323尚未启动，普通包入口隐藏。7界面PASS（受控后端），Rust7PASS+1ignored，真实UUID代码Go/Chromium2PASS10.8s；未验证新原生GUI端到端，不扩大结论。下一步集中本机服务+配置debug包端到端，不再只备案；r6未覆盖。
+
 r6原生基础子集现已PASS：420×520深色空架→AI未配置引导/配置页/关闭→互传零选择禁用发送、无绑定禁用接收→菜单End定位完整退出，进程/监听归零。仅便携data/webview，无模型/监听/私人素材。更多菜单较长需滚动，记录未来精简分组，保留能力，不擅自删除。详见ACTIVE-DELIVERY最新子集，不能扩大成完整原生/跨设备/模型验收。
 
 独立集成分支feat/p3-p4-consolidated-preview-20261105 / Draft #62；#61的1a09bde与#60的8a7068a无冲突整合。功能/包源码15c6c026803938e44c33e82145a245444b300db1，126浏览器PASS、102RustPASS/5ignored、Windows包/便携核验PASS。r6 ZIP和完整SHA见ACTIVE-DELIVERY顶部；旧r5保留、未安装/启动/发布/合并。没有正式分享组件/启动IPC/GUI/链接；下一步r6原生子集及可信分享组件配置。新SHA查独立CI，不继承父分支PASS。

@@ -16,6 +16,9 @@ export type TransferSelection={shelf_id:number;files:{id:number;name:string}[]};
 export function TransferPanel({backend,open,onOpenChange,initialMode,selection,shelves}:{backend:TransferBackend;open:boolean;onOpenChange:(value:boolean)=>void;initialMode:"send"|"receive";selection:TransferSelection;shelves:Shelf[]}){
   const [mode,setMode]=useState(initialMode),[view,setView]=useState(empty),[error,setError]=useState("");
   const [copied,setCopied]=useState("");
+  const [browserReady,setBrowserReady]=useState(false),[browserBusy,setBrowserBusy]=useState(false),[browserCode,setBrowserCode]=useState(""),[browserStatus,setBrowserStatus]=useState("");
+  useEffect(()=>{if(!open||!backend.browserAvailable)return;let live=true;void backend.browserAvailable().then(value=>{if(live)setBrowserReady(value);}).catch(()=>{if(live)setBrowserReady(false);});return()=>{live=false;};},[backend,open]);
+  async function browserShare(){if(browserBusy||!backend.browserSend)return;const code=crypto.randomUUID();setBrowserCode(code);setBrowserBusy(true);setBrowserStatus("等待浏览器接收；60秒后自动停止");setError("");try{const result=await backend.browserSend(selection.shelf_id,selection.files.map(file=>file.id),code);setBrowserStatus(result.status==="completed"?"对方已确认内容校验":result.status==="cancelled"?"已停止，来源保留":"未确认完成，请核对接收结果");}catch(e){setError(String(e));setBrowserCode("");}finally{setBrowserBusy(false);}}
   const [address,setAddress]=useState(""),[fingerprint,setFingerprint]=useState(""),[bindAddress,setBindAddress]=useState(""),[target,setTarget]=useState(0);
   const [working,setWorking]=useState(false),[sending,setSending]=useState(false),[cancelling,setCancelling]=useState(false),[progress,setProgress]=useState<TransferProgress|null>(null),[result,setResult]=useState<TransferResult|null>(null);
   const pendingId=useRef<string|null>(null),live=useRef(true),show=useRef(onOpenChange);show.current=onOpenChange;
@@ -36,6 +39,7 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
       <p className="transfer-note">已选 {selection.files.length} 项{selection.files.length>16?"，一次最多发送16项":""}</p>
       {!selection.files.length&&<p className="capability-hint">先在文件架选择文件，再使用“发送到设备”。</p>}
       {!!selection.files.length&&<ul className="transfer-files" aria-label="待发送文件">{selection.files.map(file=><li key={file.id} title={file.name}>{file.name}</li>)}</ul>}
+      {browserReady&&<section className="connection-fields" aria-label="浏览器本机验证"><strong>浏览器分享 · 本机验证</strong><p className="muted">仅当前电脑可用，尚不支持跨设备。接收页：http://127.0.0.1:53323</p>{browserCode&&<><Input aria-label="浏览器分享代码" readOnly value={browserCode}/><Button variant="outline" onClick={()=>void copy(browserCode,"分享代码")}>复制分享代码</Button></>}<p role="status">{browserStatus}</p>{browserBusy?<Button variant="outline" onClick={()=>void backend.browserCancel?.().catch(e=>setError(String(e)))}>停止浏览器分享</Button>:<Button disabled={activeSend||!selection.files.length||selection.files.length>16} onClick={()=>void browserShare()}>创建浏览器分享</Button>}</section>}
       <form className="transfer-form" onSubmit={e=>{e.preventDefault();void send();}}>
         <fieldset className="connection-fields"><legend>连接信息</legend>
         <label>接收方地址<Input aria-label="接收方地址" placeholder="192.168.1.20:53317" value={address} disabled={activeSend} onChange={e=>setAddress(e.target.value)} maxLength={80}/></label>

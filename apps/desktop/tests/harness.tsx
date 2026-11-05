@@ -16,6 +16,7 @@ let transferView:TransferView={receiving:false,address:null,fingerprint:null,she
 let transferEvents:Parameters<TransferBackend["subscribe"]>[0]|undefined,transferFinish:((value:TransferResult)=>void)|undefined;
 const transferCalls:string[]=[];
 let chatPending:(()=>void)|undefined;
+let browserFinish:((value:{job_id:number;status:string})=>void)|undefined;
 const chatCalls:string[]=[];
 declare global{interface Window{chatHarness:{calls:()=>string[]}}}
 window.chatHarness={calls:()=>chatCalls};
@@ -36,6 +37,9 @@ let maximized=false;
 let duplicateTicket=0,duplicateCanceled=false;
 const backend:Backend={
   transfer:{
+    async browserAvailable(){return new URLSearchParams(location.search).has("browser-share");},
+    async browserSend(shelf,ids,code){transferCalls.push(`browser:${shelf}:${ids.join(",")}:${code.length}`);return new Promise(resolve=>{browserFinish=resolve;});},
+    async browserCancel(){transferCalls.push("browser-cancel");browserFinish?.({job_id:18,status:"cancelled"});},
     async view(){return structuredClone(transferView);},
     async receive(shelf,address){transferCalls.push(`receive:${shelf}:${address}`);transferView={...transferView,receiving:true,address:"127.0.0.1:53317",fingerprint:"a".repeat(64),shelf_id:shelf};transferEvents?.changed();},
     async stopReceive(){transferCalls.push("stop-receive");transferView={...transferView,receiving:false,pending:null};transferEvents?.changed();},

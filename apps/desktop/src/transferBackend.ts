@@ -6,6 +6,9 @@ export type TransferView={receiving:boolean;address:string|null;fingerprint:stri
 export type TransferProgress={job_id:number;phase:string;file_index:number;file_count:number;file_bytes:number;file_total:number;bytes:number;total:number};
 export type TransferResult={job_id:number;status:string;message:string;files:{index:number;status:string;bytes:number}[]};
 export interface TransferBackend{
+  browserAvailable?():Promise<boolean>;
+  browserSend?(shelf:number,ids:number[],code:string):Promise<{job_id:number;status:string}>;
+  browserCancel?():Promise<void>;
   view():Promise<TransferView>;
   receive(shelf:number,address:string):Promise<void>;
   stopReceive():Promise<void>;
@@ -15,6 +18,9 @@ export interface TransferBackend{
   subscribe(events:{changed:()=>void;progress:(value:TransferProgress)=>void}):Promise<()=>void>;
 }
 export const nativeTransfer:TransferBackend={
+  browserAvailable:()=>invoke("browser_share_available"),
+  browserSend:(shelfId,ids,code)=>invoke("browser_share_send",{shelfId,ids,code}),
+  browserCancel:()=>invoke("browser_share_cancel"),
   view:()=>invoke("transfer_view"),
   receive:(shelfId,bindAddress)=>invoke("transfer_receive",{shelfId,bindAddress}),
   stopReceive:()=>invoke("transfer_stop_receive"),
