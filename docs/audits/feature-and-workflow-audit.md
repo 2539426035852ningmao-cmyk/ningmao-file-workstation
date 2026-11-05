@@ -30,7 +30,7 @@
 
 - Tauri Entry 状态枚举当前仍是 Orb、Capsule、QuickPeek；几何尺寸分别为 48×48、184×48、300×224。证据：apps/desktop/src-tauri/src/entry.rs，L7–12、L149–153。
 - DesktopEntry 前端组件根据状态渲染 Orb 或 QuickPeek；Capsule 目前只显示文件架名称、语义状态和箭头。证据：apps/desktop/src/orb/AdaptiveShelfDock.tsx，L49–59。
-- QuickPeek 当前包含最近素材、文件架列表搜索、外观设置、返回/收起和打开文件架入口。证据：apps/desktop/src/orb/QuickPeek.tsx，L12–16。
+- QuickPeek 当前包含最近素材、文件架列表搜索、外观设置、返回/收起和打开文件架入口。证据：apps/desktop/src/orb/QuickPeek.tsx，L12–16。Store 的 entry_preview 查询按 id DESC 返回最近 3 项（L726–760），所以这是最近收集摘要，不是完整文件浏览。
 - 目前 Capsule 还不是用户要求的增强型快捷工作层；QuickPeek 的少量有价值能力需要重新分配，不能直接删组件后丢失入口。
 - OrbMotionController 当前主要处理双眼视线、眨眼和窗口移动状态，不是完整的窗口形变控制器。证据：apps/desktop/src/orb/OrbMotionController.ts，L1–23。
 - 横向 Capsule 当前槽位尺寸为 184×48；这不足以证明名称/状态、最近素材、添加、切换和任务摘要可以同时舒适呈现。增强版必须先做可操作原型，按优先级收纳，不把五个功能区机械地全部塞进一条窄条。
@@ -47,7 +47,7 @@
 ### 3.3 拖放约束
 
 - entry_geometry 在 native_dragging 时不移动、不缩放、不隐藏窗口；源码注释明确要求不要在 OLE Enter 与 Drop/Leave 之间改变目标窗口几何。证据：apps/desktop/src-tauri/src/desktop_runtime.rs，L246–255。
-- present() 在切换入口形态前调用 require_idle；正在原生拖放时拒绝改变形态。证据：apps/desktop/src-tauri/src/desktop_runtime.rs，L324–353；require_idle 位于同文件 L145–175 附近。
+- present() 在切换入口形态前调用 require_idle；正在原生拖放时拒绝改变形态。证据：apps/desktop/src-tauri/src/desktop_runtime.rs，L324–353；require_idle 位于同文件 L151–172。
 - 这不是可以为了动画绕开的限制。拖入期间应冻结命中区域，只提供不改变窗口几何的视觉反馈；Drop/Leave 完成后再显示收集结果和形态变化。
 
 ### 3.4 主题实现与新决定不一致
@@ -113,7 +113,7 @@
 
 1. **大展开的窗口交接架构**：当前 Orb/Capsule/QuickPeek 在 desktop-entry，Full Shelf 由 main 或 shelf-id 原生窗口承载。需要比较同一 WebView 形变与受控视觉交接两条路线，并证明 OLE 拖放、多架和管理中心不退化。
 2. **横向展开的具体交互密度**：最近素材建议 3 项、快速添加、文件架切换、任务摘要和大展开入口是否能在横向尺寸内舒适呈现；必须用真实 125% DPI 原型验证。
-3. **形态触发与拖入反馈**：当前单击可展开，hover 主要处理贴边自动隐藏；需要确认是否增加悬停自动展开。技术约束要求拖动期间不改变 OLE 窗口几何，建议拖动时只做视觉高亮，Drop/Leave 后再展开反馈。
+3. **形态触发与拖入反馈**：当前单击可展开；hover 代码主要负责贴边唤回和延迟自动收起，并未直接把 Orb 变成 Capsule（desktop_runtime.rs L558–620）。是否增加悬停自动展开仍需确认。技术约束要求拖动期间不改变 OLE 窗口几何，建议拖动时只做视觉高亮，Drop/Leave 后再展开反馈。
 4. **直接大展开启动行为**：需要确定启动时打开上次活动文件架还是默认架；没有文件架、上次显示器已断开、窗口位置失效时如何回退。
 
 ### P1 · 功能和信息架构收束
@@ -150,3 +150,5 @@
 - [主题设置代码](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/blob/ffb8bc8ea8568544e28ec5e0103c6f064b15a4e9/apps/desktop/src/preferences.ts#L34-L48) · [球体独立外观代码](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/blob/ffb8bc8ea8568544e28ec5e0103c6f064b15a4e9/apps/desktop/src/orb/appearance.ts#L1-L5)
 - [管理中心五栏导航](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/blob/ffb8bc8ea8568544e28ec5e0103c6f064b15a4e9/apps/desktop/src/Manager.tsx#L13-L13) · [管理中心内容分区](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/blob/ffb8bc8ea8568544e28ec5e0103c6f064b15a4e9/apps/desktop/src/Manager.tsx#L65-L87)
 - [当前 CSS 形变动画](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/blob/ffb8bc8ea8568544e28ec5e0103c6f064b15a4e9/apps/desktop/src/style.css#L284-L341) · [App 面板状态与入口](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/blob/ffb8bc8ea8568544e28ec5e0103c6f064b15a4e9/apps/desktop/src/App.tsx#L126-L151)
+
+- [最近三项摘要查询](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/blob/ffb8bc8ea8568544e28ec5e0103c6f064b15a4e9/apps/desktop/src-tauri/src/store.rs#L726-L760) · [当前 hover/贴边自动收起逻辑](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/blob/ffb8bc8ea8568544e28ec5e0103c6f064b15a4e9/apps/desktop/src-tauri/src/desktop_runtime.rs#L558-L620)
