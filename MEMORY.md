@@ -1,4 +1,6 @@
-# 当前执行入口（2026-11-05，r5）
+# 当前执行入口（2026-11-05，r6）
+
+独立集成分支feat/p3-p4-consolidated-preview-20261105 / Draft #62；#61的1a09bde与#60的8a7068a无冲突整合。功能/包源码15c6c026803938e44c33e82145a245444b300db1，126浏览器PASS、102RustPASS/5ignored、Windows包/便携核验PASS。r6 ZIP和完整SHA见ACTIVE-DELIVERY顶部；旧r5保留、未安装/启动/发布/合并。没有正式分享组件/启动IPC/GUI/链接；下一步r6原生子集及可信分享组件配置。新SHA查独立CI，不继承父分支PASS。
 
 r5本地Windows包已构建并完成原生UI子集：互传分区/两行指纹/方向键切换、AI配置直达/返回/关闭、正常退出PASS，未启用接收或模型。源码50b7563；ZIP `D:/Ningmao-Preview-P3-P4-20261105-r5.zip` SHA256 `4d15aa434f78df05c12e53c6369119e62e83fee476d90267f609402025518a26`。独立数据，r4保留；#60 CI仍排队，不能冒称通过。精确哈希/范围见ACTIVE-DELIVERY顶部。Rust工具链已复用项目最初work/toolchains下现成1.99.1，构建缓存D盘Ningmao-Codex-P3-desktop-target；仅进程级配置，不再重新安装或全盘找工具。下一步从CI状态与浏览器分享适配器继续，不重复原生基础UI检查。
 

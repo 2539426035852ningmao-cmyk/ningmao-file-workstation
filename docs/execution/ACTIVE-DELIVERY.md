@@ -1,4 +1,16 @@
-# 当前交付状态 · 2026-11-05（r5，优先于下方历史记录）
+# 当前交付状态 · 2026-11-05（r6，优先于下方历史记录）
+
+## r6 独立集成候选 / Draft #62
+
+分支feat/p3-p4-consolidated-preview-20261105；#61的1a09bde与#60的8a7068a本地无冲突整合，未合并任何GitHub PR/main。功能/包源码15c6c026803938e44c33e82145a245444b300db1。无额外IPC、schema、依赖或锁文件变更；保留两侧历史证据。
+
+合并后测试构建及全量Playwright126PASS（2.5分钟），桌面Rust cargo test --locked --no-default-features为102PASS/5ignored；生产构建、Windows debug MSI及便携包核验PASS。首次长任务句柄无法继续读取，改为本地日志重跑取得完整结果，未将缺失输出算通过。408条许可记录仍1条既有版本映射警告。
+
+本地便携ZIP D:/Ningmao-Preview-P3-P4-20261105-r6.zip，SHA256 bb169a6ee9cdca0bac92234cdddc14dc22b2dea5e5519840ced5314593b036e4。EXE在D:/Ningmao-Package-P3-P4-20261105-r6/Ningmao-Preview-0.1.0-x64.exe，SHA256 613f9e789ef4a4582597c3f7a989c884b55931d3ca81860aed2244a4d15de888；同目录MSI的SHA256 f99cddb7e24eb7e13281e9c3ef843d3de2fb52965339e5058a836a9ac72aff88。manifest锁定15c6c02，未签名debug，未安装/启动。D盘路径不是公开下载链接。
+
+便携目录D:/Ningmao-Portable-P3-P4-20261105-r6独立data/webview，旧r5/r4不覆盖。回滚用原r5独立目录；数据备份先完整退出再复制data/webview，不互相覆盖数据库。新包GUI/DPI/多屏、双机/LocalSend及真实模型仍NOT_TESTED，CI查#62新SHA独立结果。
+
+本包统一r5互传/AI界面和#61内部后端，仍没有正式浏览器分享组件配置/启动IPC/GUI/链接，不能宣称免安装跨设备已完成。下一步r6原生启动/面板/退出子集，然后可信组件配置与分享GUI；沿此集成分支继续，不重复分叉、不自动安装/发布/合并。
 
 ## r5 Windows 候选与原生检查
 
