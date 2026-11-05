@@ -1,5 +1,8 @@
 # 柠猫文件工作站 · 阶段路线图
 
+> 2026-11-05同步：r7核心初版/PR #62已有候选实现与精确证据。当前功能和S1/S2问题见[项目总览](project-status.md)，唯一执行记录见[ACTIVE-DELIVERY](execution/ACTIVE-DELIVERY.md)。下方旧日期的状态仅为历史，长期设计和安全合同不变；不要按r21重造程序。主分支入口更新见[PR #63](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/63)，尚未合并。
+
+
 > 2026-11-05 增补：用户确认增加 P3 浏览器免安装双向互传（链接/代码/二维码），见 [实施与复用合同](research/P3-browser-companion-2026-11-05.md) / Issue #58。优先验证 croc 官方浏览器↔CLI，结合 FilePizza/PairDrop/copyparty 的体验与架构；先隔离真实收发再接桌面任务中心，随后跨网/手机与第二 Windows 验收。功能尚未实现，不替换原 LAN 与 P4 主线。
 
 > **长期方向性规划，不代表功能已实现**。原版本 2026-10-24；当前状态快照更新于 2026-10-26。原 43 项冻结决策与新增 P4 44 项并存。

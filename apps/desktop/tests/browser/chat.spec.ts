@@ -15,7 +15,11 @@ test("AI入口可脱机配置，聊天上下文和历史由后端保存",async({
   await page.getByRole("menuitem",{name:"AI 对话",exact:true}).click();
   const chat=page.getByRole("dialog",{name:"AI 对话",exact:true});
   await expect(chat).toContainText("配置模型后开始对话");
-  await chat.getByRole("button",{name:"模型设置",exact:true}).click();
+  await chat.getByRole("button",{name:"配置模型",exact:true}).click();
+  await expect(chat.getByRole("heading",{name:"模型连接"})).toBeVisible();
+  await chat.getByRole("button",{name:"返回对话",exact:true}).click();
+  await expect(chat.getByLabel("消息")).toBeVisible();
+  await chat.getByRole("button",{name:"配置模型",exact:true}).click();
   await chat.getByLabel("服务地址").fill("http://localhost:11434/v1");
   await chat.getByLabel("模型 ID").fill("synthetic-model");
   await chat.getByLabel("启用模型服务").check();

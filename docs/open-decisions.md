@@ -1,5 +1,8 @@
 # 尚未闭合的问题 · 决策与验证登记簿
 
+> 2026-11-05同步：r7核心初版/PR #62已有候选实现与精确证据。当前功能和S1/S2问题见[项目总览](project-status.md)，唯一执行记录见[ACTIVE-DELIVERY](execution/ACTIVE-DELIVERY.md)。下方旧日期的状态仅为历史，长期设计和安全合同不变；不要按r21重造程序。主分支入口更新见[PR #63](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/63)，尚未合并。
+
+
 > 日期：2026-10-26。**这里不重新提出已回答的43项 V0.1 或44项 P4 选择题。**
 > 三种分类必须分清：**需要事实验证** ≠ **需要用户选择** ≠ **需要危险操作专项授权**。
 > GitHub 讨论记录：[Issue #43 · 首个公开版本门槛与 P3/P4 待确认边界](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/issues/43)。

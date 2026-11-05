@@ -1,3 +1,4 @@
+mod browser_share_desktop;
 pub mod browser_share_process;
 pub mod browser_share_tasks;
 pub mod chat;
@@ -1972,6 +1973,9 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            browser_share_desktop::browser_share_available,
+            browser_share_desktop::browser_share_send,
+            browser_share_desktop::browser_share_cancel,
             transfer_desktop::transfer_view,
             transfer_desktop::transfer_receive,
             transfer_desktop::transfer_stop_receive,

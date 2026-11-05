@@ -11,6 +11,7 @@ mod browser_share_process;
 fn share_control_owns_one_session_and_releases_failed_preparation() {
     let control = browser_share_process::ShareControl::default();
     assert!(control.prepare_exit().is_ok());
+    assert_eq!(control.current_job().unwrap(), None);
     let session = control.begin().unwrap();
     assert!(control.begin().is_err());
     assert!(control.prepare_exit().is_err());

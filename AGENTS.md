@@ -2,6 +2,8 @@
 
 ## 需求与阶段
 
+- 2026-11-05接续优先读docs/execution/ACTIVE-DELIVERY.md与docs/project-status.md：当前r7/PR #62已有P3/P4候选能力，下方r21“仅规划”状态仅是历史；不重造主工程，也不把本机证据扩大为真实双设备/模型/稳定发布。主分支文档同步见PR #63，未合并前默认首页仍可能落后；安全和审批要求不变。
+
 - 中文名称：柠猫文件工作站；英文名称：Ningmao File Workstation。
 - 仅操作用户授权的本仓库 `2539426035852ningmao-cmyk/ningmao-file-workstation`；不得擅自修改其他项目。
 - 先读 `docs/project-status.md`、`docs/codex-start-here.md`、`docs/product-decisions.md`（原43项）、`docs/product/P4-confirmed-decisions-01-44-2026-10-26.md`（独立44项）及当前任务记录；保留全部确认决定，不重做问卷，历史M1基线按需核查。

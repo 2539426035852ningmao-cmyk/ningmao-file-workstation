@@ -52,6 +52,14 @@ struct ActiveShare {
 pub struct ShareControl(Mutex<Option<ActiveShare>>);
 pub struct ShareSession<'a>(&'a ShareControl, Arc<AtomicBool>);
 impl ShareControl {
+    pub fn current_job(&self) -> Result<Option<i64>> {
+        Ok(self
+            .0
+            .lock()
+            .map_err(|_| "分享状态不可用")?
+            .as_ref()
+            .and_then(|active| active.job))
+    }
     pub fn begin(&self) -> Result<ShareSession<'_>> {
         let mut active = self.0.lock().map_err(|_| "分享状态不可用")?;
         if active.is_some() {

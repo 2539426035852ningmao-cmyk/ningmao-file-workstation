@@ -74,6 +74,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         },
         |line| {
             assert!(control.prepare_exit().is_err());
+            assert!(control.current_job().unwrap().is_some());
             assert!(control.begin().is_err());
             let mut output = std::io::stdout();
             let _ = output.write_all(line);

@@ -1,4 +1,20 @@
-# 当前执行入口（2026-11-04，r4）
+# 当前执行入口（2026-11-05，r7 核心初版）
+
+全仓库信息已同步：README/PRODUCT/总览/问题方向/路线/开工/文档导航统一指向ACTIVE-DELIVERY。当前b3d0737的三组CI全部success。纯文档主分支同步PR #63基于main fc8903d，HEAD d141eb7；未合并前默认首页仍旧，本轮没有自动合并或发布。#62集成分支也同步了导航，问题矩阵保留S1/S2和未验边界，不再将P3/P4一概写成规划。后续仍在本集成分支推进，不去纯文档分支开发应用。
+
+已交付r7核心便携候选，源码b960dcb2bb298557abb97029333ed91a698fd956，ZIP/SHA/使用说明在ACTIVE-DELIVERY顶部。128浏览器PASS、102RustPASS/6ignored，服务真实专项1PASS，Clippy/包核验PASS；r7实际启动/菜单/正常退出及监听归零PASS。未附未清关Go组件，browser入口隐藏；不能说r7已支持跨设备浏览器。新增debug分享服务自动启动/校验/作用域清理，组合原生复测待续。旧r6/r5不覆盖，用户先试r7不再等所有远期功能；后续组件分发/许可证与原生GUI组合复测→双设备/AI真实验收。
+
+重要增量：4fd1e3d配置debug程序已原生通过浏览器本机闭环：系统选择合成TXT→选中→发送到设备→创建→真实Chromium接收SHA/正文一致→原生确认完成；第二次原生停止→cancelled。退出重开DB任务completed/cancelled保留，来源不变，测试程序/发送器/relay/web和监听全部清理。真实安全证据native-local.json，复跑native-receive.spec.ts；首次接收器等GUI超90秒失败后重跑PASS2.2s。仍是本地组件开发验证，不是可分发/跨设备，r6不覆盖。下一步host生命周期可复跑入口、组件分发/许可清关，再扩展网络。不要再次把这条原生闭环写成未验或重复研究协议。
+
+新功能增量已开始GUI/IPC：互传页按能力隐藏/显示本机浏览器分享，随机代码、创建与停止；真实Tauri按素材ID发送/按Store权限取消，ShareControl复用。编译时debug配置固定发送器路径/hash，release不开；固定开发relay53318/web53323尚未启动，普通包入口隐藏。7界面PASS（受控后端），Rust7PASS+1ignored，真实UUID代码Go/Chromium2PASS10.8s；未验证新原生GUI端到端，不扩大结论。下一步集中本机服务+配置debug包端到端，不再只备案；r6未覆盖。
+
+r6原生基础子集现已PASS：420×520深色空架→AI未配置引导/配置页/关闭→互传零选择禁用发送、无绑定禁用接收→菜单End定位完整退出，进程/监听归零。仅便携data/webview，无模型/监听/私人素材。更多菜单较长需滚动，记录未来精简分组，保留能力，不擅自删除。详见ACTIVE-DELIVERY最新子集，不能扩大成完整原生/跨设备/模型验收。
+
+独立集成分支feat/p3-p4-consolidated-preview-20261105 / Draft #62；#61的1a09bde与#60的8a7068a无冲突整合。功能/包源码15c6c026803938e44c33e82145a245444b300db1，126浏览器PASS、102RustPASS/5ignored、Windows包/便携核验PASS。r6 ZIP和完整SHA见ACTIVE-DELIVERY顶部；旧r5保留、未安装/启动/发布/合并。没有正式分享组件/启动IPC/GUI/链接；下一步r6原生子集及可信分享组件配置。新SHA查独立CI，不继承父分支PASS。
+
+r5本地Windows包已构建并完成原生UI子集：互传分区/两行指纹/方向键切换、AI配置直达/返回/关闭、正常退出PASS，未启用接收或模型。源码50b7563；ZIP `D:/Ningmao-Preview-P3-P4-20261105-r5.zip` SHA256 `4d15aa434f78df05c12e53c6369119e62e83fee476d90267f609402025518a26`。独立数据，r4保留；#60 CI仍排队，不能冒称通过。精确哈希/范围见ACTIVE-DELIVERY顶部。Rust工具链已复用项目最初work/toolchains下现成1.99.1，构建缓存D盘Ningmao-Codex-P3-desktop-target；仅进程级配置，不再重新安装或全盘找工具。下一步从CI状态与浏览器分享适配器继续，不重复原生基础UI检查。
+
+2026-11-05 当前UI候选：`feat/capability-panels-polish` / Draft #60，独立基于 #57；互传标准Tabs键盘切换、连接字段分区/指纹换行、空状态引导；AI 配置模型直达/返回对话/设置操作分组。10项相关浏览器回归和生产构建通过，340×320深浅主题合成截图在 docs/research/capability-panels-evidence；Windows CI/新包/原生仍待验，旧r4保留。浏览器免安装真实协议证明在另一分支 PR #59（Windows Chromium6项PASS，含兼容补丁），未接当前程序，不能添加空分享按钮或混淆两支证据。下一步先核对#60检查和Windows候选，再接文件分享适配器。
 
 2026-11-05 #61run_items授权素材入口已实现：Store按架ID校验素材ID并解析来源，打开只读句柄走监督器；example改用该真实路径，去重复文件准备。错架拒绝/会话释放/来源保留PASS，Rust7PASS+1明确ignored，Clippy/checkPASS，真实Chromium接收/取消2PASS19.2秒。尚无正式sidecar资源配置/IPC/GUI/链接；下一步固定组件分发与分享显示。回滚ca3fa6f，r5不覆盖。
 

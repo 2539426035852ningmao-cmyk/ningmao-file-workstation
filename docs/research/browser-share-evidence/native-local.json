@@ -1,0 +1,44 @@
+{
+  "date": "2026-11-05",
+  "sourceCommit": "4fd1e3d1bb3186dfbc71ee27680e71b00a314374",
+  "environment": "Windows native Tauri debug + loopback croc web + Chromium",
+  "applicationSha256": "632ab2bea423f98bac6d30a1944ee0fc2e715279d5c73b9a370b19b540bf93be",
+  "senderSha256": "f17fa2779c16928e90732edd29a87f12450ca17ff78b40bdd7564d86c86792e9",
+  "sourceBytes": 46,
+  "sourceSha256": "b366999a800f3adf029b989603dee6dd3ca8ba89670a1d0643d5a3ac94fb889d",
+  "download": "Playwright SHA256 equals source; exact synthetic content verified",
+  "receiverTest": "1 passed, 2.2 seconds",
+  "nativeUI": [
+    "file chooser adds synthetic reference",
+    "select card and send-to-device",
+    "create browser invitation",
+    "native shows receiver verified",
+    "second invitation cancelled using native stop button",
+    "normal menu exit"
+  ],
+  "jobsAfterExitAndDatabaseReopen": [
+    {
+      "id": 1,
+      "status": "completed",
+      "message": "浏览器分享：对方已确认内容校验 · 1 项 · 46 B"
+    },
+    {
+      "id": 2,
+      "status": "cancelled",
+      "message": "浏览器分享：已停止，来源保留 · 1 项 · 46 B"
+    }
+  ],
+  "cleanup": {
+    "applicationExited": true,
+    "senderProcesses": 0,
+    "loopbackListeners": 0,
+    "invitationFileRemoved": true
+  },
+  "limits": [
+    "loopback only",
+    "fixed local build component, not portable distribution",
+    "no second device, phone or public network",
+    "not included in r6"
+  ],
+  "failedAttempt": "Receiver initially waited 90 seconds before native invitation was ready; rerun after actual invitation passed"
+}
