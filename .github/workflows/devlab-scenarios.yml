@@ -1,0 +1,21 @@
+name: DevLab scenario controller guards
+on:
+  pull_request:
+    paths: ['tools/devlab/**', '.github/workflows/devlab-scenarios.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  controller:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: '24' }
+      - run: node --check tools/devlab/run.mjs
+      - run: node --test tools/devlab/run.test.mjs
