@@ -18,7 +18,7 @@ Windows 资源管理器与桌面创作应用之间的素材接收、整理、预
 
 ## Capabilities and Constraints
 
-M1-03 的 SpaceUI 与 shadcn/ui 研究原型已合入 main。主工程采用独立 Tauri 2 / Rust / React / TypeScript / SQLite，UI 以 shadcn/ui 为主，SpaceUI FileThumb 按需复用。当前真实程序在 #30→#32→#35→#36→#40 堆叠未合并 PR 中，最新 P2 r21 已经通过浏览器/Rust/Windows CI，并有基础快捷键实机 PASS；但跨窗文件操作、回收、DPI/多屏完整 Windows 验收仍未完成，没有正式 Release。默认产品为小型悬浮架，而非 1120×760 研究型大型工作台。状态证据见 docs/project-status.md，开发入口见 docs/codex-start-here.md。
+当前为r7核心便携测试候选，完整桌面工程仍未合并main；当前集成在PR #62。已有文件工作站、窗口/Dock、任务/回收、本地搜索/规则、LAN互传和可配置AI；开发构建完成过本机浏览器分享原生下载/取消，组件未随r7分发，入口隐藏。真实双机、手机/跨网、真实AI、多DPI/多屏和正式发布门槛仍未全部通过。技术沿用Tauri 2/Rust/React/TypeScript/SQLite及shadcn/ui，不改变框架。最新精确状态以docs/execution/ACTIVE-DELIVERY.md为准。
 
 ## Brand Commitments
 
@@ -26,7 +26,7 @@ M1-03 的 SpaceUI 与 shadcn/ui 研究原型已合入 main。主工程采用独�
 
 ## Evidence on Hand
 
-已确认的原 V0.1 43 项决策 + 独立 P4 44 项（docs/product/P4-confirmed-decisions-01-44-2026-10-26.md）；历史 M1 Windows 研究证据；P2 r19 指定 UI 用户验收；P2 r21 最新构建、CI 和部分 Windows 快捷键实测。无正式发行版；未审定最终品牌图像；不同源码/二进制之间不继承 PASS。P3 免费 LAN / P4 AI 插件目前为待实施计划，不把文档当成实际能力。
+原43项与P4独立44项冻结决定、历史分SHA原生证据、r7本机128界面/102Rust通过（6跳过）、显式服务专项与r7原生启动/退出。候选b3d0737三组CI通过；这些结果不等于真实双机/模型/全Windows矩阵通过。精确证据及边界见ACTIVE-DELIVERY，能力总览见docs/project-status.md。
 
 ## Product Principles
 

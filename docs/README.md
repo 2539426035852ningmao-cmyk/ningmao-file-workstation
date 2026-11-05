@@ -4,6 +4,8 @@
 
 ## 推荐从这里开始
 
+**2026-11-05当前入口：** [r7精确交付/测试/回滚](execution/ACTIVE-DELIVERY.md) · [现有功能与已知问题](project-status.md) · [初版使用说明](first-preview-quickstart.md)。旧文档日期和旧SHA保留作历史证据，不替代当前状态。
+
 | 你要做什么 | 正确入口 |
 |---|---|
 | 第一次认识柠猫 | [仓库首页](../README.md) · [产品说明](../PRODUCT.md) |
