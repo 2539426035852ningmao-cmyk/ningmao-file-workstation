@@ -1,5 +1,13 @@
 # 当前交付状态 · 2026-11-05（r7 核心初版，优先于下方历史记录）
 
+## 仓库全貌同步（2026-11-05）
+
+已实时核对#30/#32/#35/#36/#40/#57/#59/#60/#61/#62均open未合并（除#30非Draft，其余Draft），记录真实依赖/精确SHA；r7记录b3d0737的Desktop42034138430、Preview42034138440、P3回环42034138237三组CI均success。当前包源码仍b960dcb，本轮仅文档，不改二进制和数据。
+
+已统一README、PRODUCT、项目功能/问题总览、AGENTS/MEMORY、路线、文档导航、开工入口和未决项导航；S1/S2表区分已知缺口/未验收/原生观察，并列解决方向。不推测低概率问题、不声称无S0风险。历史证据与失败保留在归档和原提交，仍以本文件为唯一执行记录。
+
+为修正默认分支仍停r21的说明，另建纯文档PR #63，base main fc8903dc3a34a17707db3a9cbd12f631baaef71b，docs/repository-status-sync-20261105 / d141eb7ddf45a81b664cf967502a26d5c21ba64b；不夹带功能、不自动合并。**PR #63未合并前，默认main页面不会自动更新**。本集成分支同样同步导航，日后按现有审批流程处理文档/功能依赖，不能据此提前合并#62或发布。
+
 ## r7 · 先交付可直接试用的核心便携包
 
 功能/包源码b960dcb2bb298557abb97029333ed91a698fd956，仍在Draft #62集成分支。独立便携ZIP D:/Ningmao-Preview-P3-P4-20261105-r7.zip，SHA256 51e06036d0223f18e00dac8dc72d4a8338144a0e6ae38b6c5b840ae4c91c749a；EXE SHA256 5423d50d17345b5ece8e903a80807563540482b16cd7e3d4440f0c19ee9451ac。未签名Windows x64 debug，已有WebView2方可启动。本地路径不是互联网下载链接。ZIP解压后双击Start-Ningmao.cmd；包内新增“使用说明.md”，源文件docs/first-preview-quickstart.md。

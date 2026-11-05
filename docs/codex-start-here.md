@@ -1,5 +1,8 @@
 # Codex 从这里开始 · 2026-10-26 主仓库交接入口
 
+> 2026-11-05同步：r7核心初版/PR #62已有候选实现与精确证据。当前功能和S1/S2问题见[项目总览](project-status.md)，唯一执行记录见[ACTIVE-DELIVERY](execution/ACTIVE-DELIVERY.md)。下方旧日期的状态仅为历史，长期设计和安全合同不变；不要按r21重造程序。主分支入口更新见[PR #63](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/63)，尚未合并。
+
+
 > 2026-10-27候选增量：r22真实复制失败/重试、零架新建、整架/单项恢复、失效引用返回及正常重启已有精确原生子集证据；P2总关卡仍PARTIAL。见[恢复验收](research/P2-closeout-evidence/r22-recovery-native.json)与[失败反馈修复](research/P2-closeout-evidence/r22-copy-feedback.json)。下方r21快照为历史，开工仍需实时核查PR40。
 
 

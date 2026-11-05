@@ -1,5 +1,8 @@
 # 柠猫文件工作站 · 文档导航
 
+> 2026-11-05同步：r7核心初版/PR #62已有候选实现与精确证据。当前功能和S1/S2问题见[项目总览](project-status.md)，唯一执行记录见[ACTIVE-DELIVERY](execution/ACTIVE-DELIVERY.md)。下方旧日期的状态仅为历史，长期设计和安全合同不变；不要按r21重造程序。主分支入口更新见[PR #63](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/63)，尚未合并。
+
+
 > 本页是文档目录，不代表功能实现或最新 Windows 原生状态。**先看 [项目状态页](project-status.md)，再看源码和 PR。**
 
 ## 推荐从这里开始
