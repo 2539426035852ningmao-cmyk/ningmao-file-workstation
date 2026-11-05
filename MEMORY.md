@@ -1,5 +1,7 @@
 # 当前执行入口（2026-11-05，r6）
 
+重要增量：4fd1e3d配置debug程序已原生通过浏览器本机闭环：系统选择合成TXT→选中→发送到设备→创建→真实Chromium接收SHA/正文一致→原生确认完成；第二次原生停止→cancelled。退出重开DB任务completed/cancelled保留，来源不变，测试程序/发送器/relay/web和监听全部清理。真实安全证据native-local.json，复跑native-receive.spec.ts；首次接收器等GUI超90秒失败后重跑PASS2.2s。仍是本地组件开发验证，不是可分发/跨设备，r6不覆盖。下一步host生命周期可复跑入口、组件分发/许可清关，再扩展网络。不要再次把这条原生闭环写成未验或重复研究协议。
+
 新功能增量已开始GUI/IPC：互传页按能力隐藏/显示本机浏览器分享，随机代码、创建与停止；真实Tauri按素材ID发送/按Store权限取消，ShareControl复用。编译时debug配置固定发送器路径/hash，release不开；固定开发relay53318/web53323尚未启动，普通包入口隐藏。7界面PASS（受控后端），Rust7PASS+1ignored，真实UUID代码Go/Chromium2PASS10.8s；未验证新原生GUI端到端，不扩大结论。下一步集中本机服务+配置debug包端到端，不再只备案；r6未覆盖。
 
 r6原生基础子集现已PASS：420×520深色空架→AI未配置引导/配置页/关闭→互传零选择禁用发送、无绑定禁用接收→菜单End定位完整退出，进程/监听归零。仅便携data/webview，无模型/监听/私人素材。更多菜单较长需滚动，记录未来精简分组，保留能力，不擅自删除。详见ACTIVE-DELIVERY最新子集，不能扩大成完整原生/跨设备/模型验收。
