@@ -7,10 +7,7 @@ mod browser_share_tasks;
 mod store;
 use std::{
     io::{BufRead, Write},
-    sync::{
-        Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
-    },
+    sync::{Arc, Mutex},
 };
 #[derive(serde::Deserialize)]
 struct Request {
@@ -29,18 +26,23 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut line = String::new();
     input.read_line(&mut line)?;
     let request: Request = serde_json::from_str(&line)?;
-    let cancel = Arc::new(AtomicBool::new(false));
-    let flag = cancel.clone();
+    let directory = tempfile::tempdir()?;
+    let db = Arc::new(Mutex::new(store::Store::open(
+        &directory.path().join("state.db"),
+    )?));
+    let control = Arc::new(browser_share_process::ShareControl::default());
+    let session = control.begin()?;
+    let cancelling = control.clone();
+    let task_db = db.clone();
     std::thread::spawn(move || {
         let mut line = String::new();
         if input.read_line(&mut line).is_ok()
             && serde_json::from_str::<serde_json::Value>(&line).is_ok_and(|v| v["cancel"] == true)
         {
-            flag.store(true, Ordering::Release);
+            let job = task_db.lock().unwrap().management_snapshot().unwrap().jobs[0].id;
+            assert!(cancelling.cancel_job(job).unwrap());
         }
     });
-    let directory = tempfile::tempdir()?;
-    let db = Mutex::new(store::Store::open(&directory.path().join("state.db"))?);
     let mut files: Vec<_> = request
         .paths
         .iter()
@@ -70,7 +72,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             .into(),
         sha256,
     };
-    let outcome = browser_share_process::run(
+    let outcome = session.run(
         &db,
         2,
         &program,
@@ -80,13 +82,16 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             code: request.code,
         },
         &mut sources,
-        &cancel,
         |line| {
+            assert!(control.prepare_exit().is_err());
+            assert!(control.begin().is_err());
             let mut output = std::io::stdout();
             let _ = output.write_all(line);
             let _ = output.flush();
         },
     )?;
+    control.prepare_exit()?;
+    assert!(!control.cancel_job(outcome.job_id)?);
     assert_eq!(
         db.lock().unwrap().management_snapshot()?.jobs[0].status,
         outcome.status

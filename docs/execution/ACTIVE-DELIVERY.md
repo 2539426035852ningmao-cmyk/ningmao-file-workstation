@@ -1,5 +1,7 @@
 # 当前交付状态 · 2026-11-04（r4，优先于下方历史记录）
 
+2026-11-05 #61生命周期接线：Runtime持有ShareControl，既有任务中心cancel_copy经Store权限校验后可路由分享取消，clean_quit阻止未收尾分享退出；同一控制器经真实Go→Chromium成功/按实际任务ID取消2项PASS12.3秒，准备失败释放/重复启动与退出阻止/终态后释放PASS，journal显式重开PASS、Clippy与主工程checkPASS。先新增测试编译失败再实现通过；端口/进程残留为0。06016d7的三组CI已success，新提交需独立核查。仍无主程序启动分享IPC/按钮/链接，尚未GUI验收，不把路由接线扩大为可用功能。下一步可信组件配置、文件架ID授权来源与分享信息展示。r5/#60、旧数据和候选不变。
+
 2026-11-05 #61继续：新增受控Rust发送进程监督器（固定程序SHA256、来源句柄到临时副本、stdin配对/取消、任务事件和进程收尾），实际接Go→Chromium两项通过14.3秒；错误哈希不启动/不建任务、Store重开、Clippy和主工程check通过。证据见experiments/p3-browser/sender/README.md增量。仍未新增Tauri IPC/分享按钮或Runtime退出路由，下一步接这层生命周期和分享显示，不重做协议研究。上一提交69c3811的三组CI均success；本次新SHA仍需独立检查。r5 UI候选保持#60独立。
 
 2026-11-05 浏览器发送适配器增量：独立 `feat/p3-browser-sender-adapter` 基于 #59。GoAPI结构化发送器经实际Chromium确认/下载/SHA256和显式取消2项通过，输出无秘密任务事件；Rust内部桥接用这两份真实journal写入既有任务表，重开终态completed/cancelled保留，异常退出不当成功，相关Clippy通过。文档与复跑见 experiments/p3-browser/sender/README.md。未增加IPC或用户按钮、没有主程序实时进程监督器、公开服务/反向接收仍未做。UI r5在另一分支#60，Desktop/Preview CI现在均成功，不能用本分支替代r5源码。

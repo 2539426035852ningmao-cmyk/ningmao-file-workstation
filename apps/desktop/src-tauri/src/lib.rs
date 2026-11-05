@@ -56,6 +56,7 @@ struct RecycleOutcome {
     message: String,
 }
 struct Runtime {
+    browser_shares: browser_share_process::ShareControl,
     transfers: transfer_desktop::TransferControl,
     chat: chat::ChatControl,
     store: Mutex<Store>,
@@ -401,6 +402,9 @@ fn cancel_copy(app: tauri::AppHandle, window: tauri::WebviewWindow, job_id: i64)
         .map_err(error)?
         .validate_job_scope(scope, job_id)?;
     if transfer_desktop::cancel_job(&app, scope, job_id)? {
+        return Ok(());
+    }
+    if state.browser_shares.cancel_job(job_id)? {
         return Ok(());
     }
     let active = state.active.lock().map_err(error)?;
@@ -1197,8 +1201,9 @@ fn quit(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<()> {
 fn clean_quit(app: tauri::AppHandle) -> Result<()> {
     lifecycle_idle(&app)?;
     desktop_runtime::require_idle(&app)?;
-    transfer_desktop::prepare_exit(&app)?;
     let state = app.state::<Runtime>();
+    state.browser_shares.prepare_exit()?;
+    transfer_desktop::prepare_exit(&app)?;
     if state.active.lock().map_err(error)?.is_some() {
         return Err("复制尚未结束，请先等待完成或取消。".into());
     }
@@ -1834,6 +1839,7 @@ pub fn run() {
                 std::io::Error::other(format!("相同数据目录已有实例或无法锁定：{e}"))
             })?;
             app.manage(Runtime {
+                browser_shares: Default::default(),
                 transfers: Default::default(),
                 chat: Default::default(),
                 store: Mutex::new(

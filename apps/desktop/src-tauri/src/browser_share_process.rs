@@ -11,7 +11,7 @@ use std::{
     path::{Component, Path, PathBuf},
     process::{Command, Stdio},
     sync::{
-        Mutex,
+        Arc, Mutex,
         atomic::{AtomicBool, Ordering},
         mpsc,
     },
@@ -44,6 +44,81 @@ pub struct Outcome {
     pub status: String,
 }
 
+struct ActiveShare {
+    job: Option<i64>,
+    cancel: Arc<AtomicBool>,
+}
+#[derive(Default)]
+pub struct ShareControl(Mutex<Option<ActiveShare>>);
+pub struct ShareSession<'a>(&'a ShareControl, Arc<AtomicBool>);
+impl ShareControl {
+    pub fn begin(&self) -> Result<ShareSession<'_>> {
+        let mut active = self.0.lock().map_err(|_| "分享状态不可用")?;
+        if active.is_some() {
+            return Err("请先完成或取消当前浏览器分享".into());
+        }
+        let cancel = Arc::new(AtomicBool::new(false));
+        *active = Some(ActiveShare {
+            job: None,
+            cancel: cancel.clone(),
+        });
+        Ok(ShareSession(self, cancel))
+    }
+    // The command boundary validates the job's shelf scope before calling this.
+    pub fn cancel_job(&self, job: i64) -> Result<bool> {
+        let active = self.0.lock().map_err(|_| "分享状态不可用")?;
+        if let Some(active) = active.as_ref()
+            && active.job == Some(job)
+        {
+            active.cancel.store(true, Ordering::Release);
+            return Ok(true);
+        }
+        Ok(false)
+    }
+    pub fn prepare_exit(&self) -> Result<()> {
+        if self.0.lock().map_err(|_| "分享状态不可用")?.is_some() {
+            Err("浏览器分享仍在进行，请先完成或在任务中心取消".into())
+        } else {
+            Ok(())
+        }
+    }
+}
+impl ShareSession<'_> {
+    pub fn run(
+        self,
+        store: &Mutex<Store>,
+        shelf: i64,
+        program: &SenderProgram,
+        connection: &Connection,
+        sources: &mut [Source<'_>],
+        notify: impl Fn(&[u8]),
+    ) -> Result<Outcome> {
+        run(
+            store,
+            shelf,
+            program,
+            connection,
+            sources,
+            &self.1,
+            |job, line| {
+                if let Ok(mut active) = self.0.0.lock()
+                    && let Some(active) = active.as_mut()
+                {
+                    active.job = Some(job);
+                }
+                notify(line);
+            },
+        )
+    }
+}
+impl Drop for ShareSession<'_> {
+    fn drop(&mut self) {
+        if let Ok(mut active) = self.0.0.lock() {
+            *active = None;
+        }
+    }
+}
+
 pub fn run(
     store: &Mutex<Store>,
     shelf: i64,
@@ -51,7 +126,7 @@ pub fn run(
     connection: &Connection,
     sources: &mut [Source<'_>],
     cancel: &AtomicBool,
-    notify: impl Fn(&[u8]),
+    notify: impl Fn(i64, &[u8]),
 ) -> Result<Outcome> {
     let mut executable = File::open(&program.path).map_err(|_| "分享组件不存在")?;
     let mut hash = Sha256::new();
@@ -151,12 +226,13 @@ pub fn run(
                 }
                 match receive.recv_timeout(Duration::from_millis(50)) {
                     Ok(Ok(line)) => {
-                        job = Some(task.accept(
+                        let accepted = task.accept(
                             &mut *store.lock().map_err(|_| "任务状态不可用")?,
                             shelf,
                             &line,
-                        )?);
-                        notify(&line);
+                        )?;
+                        job = Some(accepted);
+                        notify(accepted, &line);
                     }
                     Ok(Err(())) => return Err("分享组件事件无效".into()),
                     Err(mpsc::RecvTimeoutError::Disconnected) => break,

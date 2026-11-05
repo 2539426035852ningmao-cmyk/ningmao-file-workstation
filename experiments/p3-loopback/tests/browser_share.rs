@@ -8,6 +8,36 @@ use browser_share_tasks::BrowserShareTask;
 mod browser_share_process;
 
 #[test]
+fn share_control_owns_one_session_and_releases_failed_preparation() {
+    let control = browser_share_process::ShareControl::default();
+    assert!(control.prepare_exit().is_ok());
+    let session = control.begin().unwrap();
+    assert!(control.begin().is_err());
+    assert!(control.prepare_exit().is_err());
+    assert!(!control.cancel_job(42).unwrap());
+    let dir = tempfile::tempdir().unwrap();
+    let db = std::sync::Mutex::new(store::Store::open(&dir.path().join("state.db")).unwrap());
+    let result = session.run(
+        &db,
+        2,
+        &browser_share_process::SenderProgram {
+            path: std::env::current_exe().unwrap(),
+            sha256: [0; 32],
+        },
+        &browser_share_process::Connection {
+            relay: "127.0.0.1:1".into(),
+            password: "synthetic".into(),
+            code: "acid-acorn-acre".into(),
+        },
+        &mut [],
+        |_| panic!("must not launch"),
+    );
+    assert_eq!(result.err().unwrap(), "分享组件校验失败");
+    assert!(control.prepare_exit().is_ok());
+    assert!(control.begin().is_ok());
+}
+
+#[test]
 fn untrusted_sender_binary_is_rejected_without_creating_a_job() {
     let dir = tempfile::tempdir().unwrap();
     let db = std::sync::Mutex::new(store::Store::open(&dir.path().join("state.db")).unwrap());
@@ -25,7 +55,7 @@ fn untrusted_sender_binary_is_rejected_without_creating_a_job() {
         },
         &mut [],
         &std::sync::atomic::AtomicBool::new(false),
-        |_| panic!("untrusted executable must not emit events"),
+        |_, _| panic!("untrusted executable must not emit events"),
     );
     assert_eq!(result.err().unwrap(), "分享组件校验失败");
     assert!(
