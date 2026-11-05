@@ -11,6 +11,7 @@
 - [D05 产品决策记录](docs/product/D05-fluid-workspace-and-theme-contract-2026-11-05.md)
 - [功能与用户流程审计](docs/audits/feature-and-workflow-audit.md)
 - [UI 开发与验收清单](docs/development/ui-acceptance-checklist.md)
+- [Design Contract v0.1 历史归档](docs/archive/design-contract-v0.1-2026-10-24.md)
 - [原 V0.1 43 项冻结决策](docs/product-decisions.md)
 - [P4 44 项冻结决策](docs/product/P4-confirmed-decisions-01-44-2026-10-26.md)
 
