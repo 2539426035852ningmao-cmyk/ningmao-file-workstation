@@ -1,5 +1,7 @@
 # 当前执行入口（2026-11-04，r4）
 
+2026-11-05 #61run_items授权素材入口已实现：Store按架ID校验素材ID并解析来源，打开只读句柄走监督器；example改用该真实路径，去重复文件准备。错架拒绝/会话释放/来源保留PASS，Rust7PASS+1明确ignored，Clippy/checkPASS，真实Chromium接收/取消2PASS19.2秒。尚无正式sidecar资源配置/IPC/GUI/链接；下一步固定组件分发与分享显示。回滚ca3fa6f，r5不覆盖。
+
 2026-11-05质量自查见ACTIVE-DELIVERY最新章节：四PR实际依赖已核对，87ff98d三CI成功；不把#60/#61同名文件当冗余。新增真实Store终态/错架/大小/重开回归6PASS+1明确ignored，Clippy通过。无已证实需业务修复问题，不强行删除/重构。#60与#61仅状态文档重叠，尚未整合验证；后续继续分享GUI与可信组件配置。旧r5/数据不变。
 
 2026-11-05 #61续：ShareControl生命周期已接主Runtime持有、cancel_copy权限校验后的分享取消、clean_quit空闲检查。真实example用同一控制器按Store任务ID取消，成功/取消Chromium2项PASS12.3s，准备失败释放/重复启动拒绝/退出阻止与收尾放行PASS，实际journal重开PASS，Clippy/check通过，测试无残留。06016d7三组CI成功。尚无启动分享的IPC/GUI/链接，下一步后端固定组件配置与按架ID打开授权来源，接分享显示；不把路径/hash环境测试入口给前端，不覆盖r5或自动合并。

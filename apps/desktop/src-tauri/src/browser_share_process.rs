@@ -84,6 +84,56 @@ impl ShareControl {
     }
 }
 impl ShareSession<'_> {
+    pub fn run_items(
+        self,
+        store: &Mutex<Store>,
+        shelf: i64,
+        ids: &[i64],
+        program: &SenderProgram,
+        connection: &Connection,
+        notify: impl Fn(&[u8]),
+    ) -> Result<Outcome> {
+        if !(1..=16).contains(&ids.len()) {
+            return Err("请选择1–16个文件".into());
+        }
+        let paths = {
+            let db = store.lock().map_err(|_| "文件记录不可用")?;
+            db.validate_item_scope(Some(shelf), ids)?;
+            ids.iter()
+                .map(|id| db.opening_target(*id))
+                .collect::<Result<Vec<_>>>()?
+        };
+        let names = paths
+            .iter()
+            .map(|path| {
+                path.file_name()
+                    .and_then(|name| name.to_str())
+                    .map(str::to_owned)
+                    .ok_or("文件名无法发送".to_string())
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let mut files = paths
+            .iter()
+            .map(|path| {
+                let mut options = File::options();
+                options.read(true);
+                #[cfg(windows)]
+                {
+                    use std::os::windows::fs::OpenOptionsExt;
+                    options.share_mode(1).custom_flags(0x00200000);
+                }
+                options
+                    .open(path)
+                    .map_err(|_| "文件被占用或无法安全读取".to_string())
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let mut sources = names
+            .iter()
+            .zip(files.iter_mut())
+            .map(|(name, file)| Source { name, file })
+            .collect::<Vec<_>>();
+        self.run(store, shelf, program, connection, &mut sources, notify)
+    }
     pub fn run(
         self,
         store: &Mutex<Store>,

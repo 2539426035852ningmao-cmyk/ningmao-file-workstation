@@ -1,5 +1,7 @@
 # 当前交付状态 · 2026-11-04（r4，优先于下方历史记录）
 
+2026-11-05 #61授权来源入口：ShareSession新增run_items，仅按架ID/素材ID通过Store权限校验和opening_target解析来源，按既有LAN方式打开只读Windows句柄，再交给原监督器；不让前端传磁盘路径。隔离example删去重复开文件/文件名组装，实际登记合成引用后走同一新入口。错误架ID在启动前拒绝且会话释放/来源保留PASS；Rust7PASS/1明确ignored、Clippy、主工程checkPASS；真实新入口→Go→Chromium接收及按任务ID取消2PASS19.2秒。初次测试因unwrap_err需要Debug编译失败，改测试取err后通过；无业务失败隐藏。当前资源配置没有正式sidecar，尚未完成固定组件分发/配置或注册IPC/GUI/链接；下一步继续该层，不把实验环境hash作为生产信任。ca3fa6f CI曾仍运行中，不继承87ff98d结果。旧r5与数据未改，回滚ca3fa6f；无安装/发布/合并/模型/费用。
+
 ## 2026-11-05 有边界质量自查（优先于下方历史描述）
 
 核实远端四个PR均open/Draft、未合并且mergeable：#57 `5c97a204b8f77b8e0273fb0aaf8e29e70c255857`（集成）；#59 `5e197dd5dafc3f2c4e2bede81f3c65d848972d98`基于#57（协议实验）；#60 `8a7068a634df5311971cbad60b92fc4c397bc67c`基于#57（UI/r5）；#61自查起点`87ff98d366fb3839121b0d470975859f6088e1fe`基于#59（Rust任务/进程）。87ff98d的Desktop/Preview/P3三组CI均success，不继承给自查新提交。

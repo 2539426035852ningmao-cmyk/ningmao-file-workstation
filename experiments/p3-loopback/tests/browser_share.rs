@@ -69,6 +69,47 @@ fn untrusted_sender_binary_is_rejected_without_creating_a_job() {
 }
 
 #[test]
+fn item_share_rejects_other_shelf_before_starting_sender_and_releases_session() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("synthetic.txt");
+    std::fs::write(&source, b"source retained").unwrap();
+    let mut db = store::Store::open(&dir.path().join("state.db")).unwrap();
+    let id = db.add_reference(2, &source).unwrap();
+    let db = std::sync::Mutex::new(db);
+    let control = browser_share_process::ShareControl::default();
+    let program = browser_share_process::SenderProgram {
+        path: dir.path().join("missing.exe"),
+        sha256: [0; 32],
+    };
+    let connection = browser_share_process::Connection {
+        relay: "127.0.0.1:1".into(),
+        password: "synthetic".into(),
+        code: "acid-acorn-acre".into(),
+    };
+    assert!(
+        control
+            .begin()
+            .unwrap()
+            .run_items(&db, 1, &[id], &program, &connection, |_| panic!(
+                "must not start"
+            ))
+            .err()
+            .unwrap()
+            .contains("自己的文件架")
+    );
+    assert!(control.prepare_exit().is_ok());
+    assert!(
+        db.lock()
+            .unwrap()
+            .management_snapshot()
+            .unwrap()
+            .jobs
+            .is_empty()
+    );
+    assert_eq!(std::fs::read(source).unwrap(), b"source retained");
+}
+
+#[test]
 fn process_exit_cannot_report_success_or_change_a_terminal() {
     let dir = tempfile::tempdir().unwrap();
     let mut db = store::Store::open(&dir.path().join("state.db")).unwrap();

@@ -43,21 +43,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             assert!(cancelling.cancel_job(job).unwrap());
         }
     });
-    let mut files: Vec<_> = request
+    let ids = request
         .paths
         .iter()
-        .map(std::fs::File::open)
-        .collect::<std::io::Result<_>>()?;
-    let names: Vec<_> = request
-        .paths
-        .iter()
-        .map(|p| p.file_name().unwrap().to_str().unwrap().to_owned())
-        .collect();
-    let mut sources: Vec<_> = names
-        .iter()
-        .zip(files.iter_mut())
-        .map(|(name, file)| browser_share_process::Source { name, file })
-        .collect();
+        .map(|path| db.lock().unwrap().add_reference(2, path))
+        .collect::<store::Result<Vec<_>>>()?;
     let expected = std::env::var("NINGMAO_GO_SENDER_SHA256")?;
     if expected.len() != 64 {
         return Err("sender hash required".into());
@@ -72,16 +62,16 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             .into(),
         sha256,
     };
-    let outcome = session.run(
+    let outcome = session.run_items(
         &db,
         2,
+        &ids,
         &program,
         &browser_share_process::Connection {
             relay: request.relay,
             password: request.password,
             code: request.code,
         },
-        &mut sources,
         |line| {
             assert!(control.prepare_exit().is_err());
             assert!(control.begin().is_err());
