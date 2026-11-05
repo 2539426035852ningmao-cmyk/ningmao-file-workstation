@@ -84,6 +84,46 @@ fn process_exit_cannot_report_success_or_change_a_terminal() {
 }
 
 #[test]
+fn share_terminals_survive_exit_replay_and_database_reopen() {
+    for (phase, expected) in [
+        ("verified", "completed"),
+        ("failed", "failed"),
+        ("cancelled", "cancelled"),
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("state.db");
+        let mut db = store::Store::open(&path).unwrap();
+        let mut task = BrowserShareTask::default();
+        let event = |phase: &str| {
+            serde_json::to_vec(&serde_json::json!({"version":1,"phase":phase,"files":1,"total":10}))
+                .unwrap()
+        };
+        let job = task.accept(&mut db, 2, &event("queued")).unwrap();
+        assert!(task.accept(&mut db, 1, &event("waiting")).is_err());
+        assert!(
+            task.accept(
+                &mut db,
+                2,
+                br#"{"version":1,"phase":"waiting","files":1,"total":11}"#
+            )
+            .is_err()
+        );
+        assert_eq!(db.management_snapshot().unwrap().jobs[0].status, "queued");
+        task.accept(&mut db, 2, &event("waiting")).unwrap();
+        task.accept(&mut db, 2, &event(phase)).unwrap();
+        assert!(task.accept(&mut db, 2, &event(phase)).is_err());
+        assert!(task.accept(&mut db, 2, &event("failed")).is_err());
+        task.exited(&mut db).unwrap();
+        drop(db);
+        let db = store::Store::open(&path).unwrap();
+        let jobs = db.management_snapshot().unwrap().jobs;
+        assert_eq!(jobs.len(), 1);
+        assert_eq!(jobs[0].id, job);
+        assert_eq!(jobs[0].status, expected);
+    }
+}
+
+#[test]
 #[ignore = "Requires event journal produced by the real sender/browser E2E"]
 fn real_browser_verified_events_persist_in_existing_store() {
     for (variable, terminal) in [

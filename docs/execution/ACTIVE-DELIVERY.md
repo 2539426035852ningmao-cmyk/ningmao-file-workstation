@@ -1,5 +1,17 @@
 # 当前交付状态 · 2026-11-04（r4，优先于下方历史记录）
 
+## 2026-11-05 有边界质量自查（优先于下方历史描述）
+
+核实远端四个PR均open/Draft、未合并且mergeable：#57 `5c97a204b8f77b8e0273fb0aaf8e29e70c255857`（集成）；#59 `5e197dd5dafc3f2c4e2bede81f3c65d848972d98`基于#57（协议实验）；#60 `8a7068a634df5311971cbad60b92fc4c397bc67c`基于#57（UI/r5）；#61自查起点`87ff98d366fb3839121b0d470975859f6088e1fe`基于#59（Rust任务/进程）。87ff98d的Desktop/Preview/P3三组CI均success，不继承给自查新提交。
+
+调用关系：文件权限在Store/命令边界；LAN用transfer_sender/runtime和Rust TLS；浏览器用ShareControl→监督器→Go，二者通过既有Store与cancel_copy汇合，协议认证不同，不合并密码学/握手。clean_quit统一退出入口，各模块只报告是否空闲。ChatPanel→chatBackend→Rust chat→Store/DPAPI，受检三个文件没有localStorage/sessionStorage、console输出或持续轮询；订阅已有卸载清理。这是源码定向审查，不是完整安全认证或真实模型验收。
+
+本轮未证明有可安全删除的业务冗余，删除0；未重构已稳定Copy、身份、SQLite、网络认证或窗口。新增真实Store测试覆盖三种终态、重复终态、错架/大小不一致事件、退出及数据库重开；普通测试6 PASS/真实journal1项明确ignored（本轮未重跑浏览器），严格Clippy PASS。无mock业务逻辑，无新依赖、IPC、监听、模型或费用。现有失败记录和许可证保留。
+
+整合接续：#60代码改动仅ChatPanel/TransferPanel/style及浏览器测试，#61业务为Rust/实验，两者共享MEMORY与本文件会有文档冲突；后续在候选分支按#57→#59→#61接入，再带入#60 UI，逐项核对IPC/模块与测试，文档保留两侧精确证据，不自动合并。尚未执行集成，不能仅凭文件集不重叠声称兼容PASS。
+
+S0：本次定向范围无新增已证实缺陷，不代表全面无缺陷。S1：分享GUI/可信组件配置未接，真实双设备/手机/公网及真实AI未验；S2：许可证精确版本映射警告、多DPI/多屏及完整性能检查待续。回滚到87ff98d，仅撤销本轮测试/文档即可，无数据迁移。下一轮继续分享GUI闭环，仍按原路线；本轮不重打/覆盖r5，未安装/发布/合并。
+
 2026-11-05 #61生命周期接线：Runtime持有ShareControl，既有任务中心cancel_copy经Store权限校验后可路由分享取消，clean_quit阻止未收尾分享退出；同一控制器经真实Go→Chromium成功/按实际任务ID取消2项PASS12.3秒，准备失败释放/重复启动与退出阻止/终态后释放PASS，journal显式重开PASS、Clippy与主工程checkPASS。先新增测试编译失败再实现通过；端口/进程残留为0。06016d7的三组CI已success，新提交需独立核查。仍无主程序启动分享IPC/按钮/链接，尚未GUI验收，不把路由接线扩大为可用功能。下一步可信组件配置、文件架ID授权来源与分享信息展示。r5/#60、旧数据和候选不变。
 
 2026-11-05 #61继续：新增受控Rust发送进程监督器（固定程序SHA256、来源句柄到临时副本、stdin配对/取消、任务事件和进程收尾），实际接Go→Chromium两项通过14.3秒；错误哈希不启动/不建任务、Store重开、Clippy和主工程check通过。证据见experiments/p3-browser/sender/README.md增量。仍未新增Tauri IPC/分享按钮或Runtime退出路由，下一步接这层生命周期和分享显示，不重做协议研究。上一提交69c3811的三组CI均success；本次新SHA仍需独立检查。r5 UI候选保持#60独立。
