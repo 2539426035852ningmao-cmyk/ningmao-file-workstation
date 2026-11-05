@@ -12,6 +12,7 @@ Copy-Item -LiteralPath (Join-Path $package 'Ningmao-Preview-0.1.0-x64.exe') -Des
 foreach ($name in @('LICENSE.txt','THIRD_PARTY_NOTICES.txt','license-manifest.json','build-manifest.json')) { Copy-Item -LiteralPath (Join-Path $package $name) -Destination $output }
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'portable/Start-Ningmao.cmd') -Destination $output
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'portable/README.md') -Destination $output
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot '../docs/first-preview-quickstart.md') -Destination (Join-Path $output '使用说明.md')
 if ((Get-FileHash (Join-Path $package 'Ningmao-Preview-0.1.0-x64.exe')).Hash -ne (Get-FileHash (Join-Path $output 'app/Ningmao-Preview-0.1.0-x64.exe')).Hash) { throw 'Portable executable hash mismatch' }
 Get-ChildItem -LiteralPath $output -File -Recurse | Sort-Object FullName | ForEach-Object { '{0}  {1}' -f (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant(), [IO.Path]::GetRelativePath($output,$_.FullName) } | Set-Content -LiteralPath (Join-Path $output 'SHA256SUMS.txt') -Encoding utf8
 Write-Output 'Portable preview prepared; no installation or launch performed.'
