@@ -33,6 +33,7 @@
 - QuickPeek 当前包含最近素材、文件架列表搜索、外观设置、返回/收起和打开文件架入口。证据：apps/desktop/src/orb/QuickPeek.tsx，L12–16。
 - 目前 Capsule 还不是用户要求的增强型快捷工作层；QuickPeek 的少量有价值能力需要重新分配，不能直接删组件后丢失入口。
 - OrbMotionController 当前主要处理双眼视线、眨眼和窗口移动状态，不是完整的窗口形变控制器。证据：apps/desktop/src/orb/OrbMotionController.ts，L1–23。
+- 横向 Capsule 当前槽位尺寸为 184×48；这不足以证明名称/状态、最近素材、添加、切换和任务摘要可以同时舒适呈现。增强版必须先做可操作原型，按优先级收纳，不把五个功能区机械地全部塞进一条窄条。
 
 ### 3.2 为什么大展开会有跳跃风险
 
@@ -71,7 +72,7 @@
 |---|---|---|---|---|
 | 悬浮球拖动/贴边/唤出 | r7 DesktopEntry + Rust geometry | 保留 | 悬浮球 | 原生拖放和窗口移动需实机验收 |
 | 右键系统菜单 | 当前 AdaptiveShelfDock 未见明确 onContextMenu 入口 | 补充设计并核实实现 | 悬浮球 | 不应复制主文件架的完整菜单 |
-| 文件拖入悬浮入口 | 有原生拖放状态保护代码 | 保留并加强反馈 | 悬浮球/横向展开 | 拖动期间不得改变 OLE 目标几何 |
+| 文件拖入悬浮入口 | 有原生拖放状态保护代码；完整投放入口/端到端路径仍需核对 | 保留并加强反馈 | 悬浮球/横向展开 | 拖动期间不得改变 OLE 目标几何 |
 | 横向胶囊 | 当前仅名称/状态/箭头 | 增强 | 横向展开 | 维持轻量，不做缩小版文件管理器 |
 | QuickPeek 中展开 | 300×224 的旧状态 | 取消状态，迁移有价值能力 | 横向展开/大展开 | 不能丢失文件架切换等能力 |
 | 最近素材摘要 | QuickPeek 当前展示素材卡片 | 保留少量摘要 | 横向展开 | 点击后进入大展开定位，不另开预览窗 |
@@ -135,3 +136,17 @@
 4. 对核心用户流程做步骤计数和异常恢复检查。
 5. 只有文档与原型验收后，才进入业务代码重构；先保留原生文件安全和任务底座。
 
+
+
+## 8. 精确源码入口（r7 候选 SHA）
+
+以下链接固定到本次审计的候选提交，后续代码变化应更新证据：
+
+- [入口状态与尺寸](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/blob/ffb8bc8ea8568544e28ec5e0103c6f064b15a4e9/apps/desktop/src-tauri/src/entry.rs#L7-L12) · [三形态尺寸](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/blob/ffb8bc8ea8568544e28ec5e0103c6f064b15a4e9/apps/desktop/src-tauri/src/entry.rs#L149-L153)
+- [DesktopEntry 状态渲染与打开入口](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/blob/ffb8bc8ea8568544e28ec5e0103c6f064b15a4e9/apps/desktop/src/orb/AdaptiveShelfDock.tsx#L49-L59)
+- [QuickPeek 当前内容](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/blob/ffb8bc8ea8568544e28ec5e0103c6f064b15a4e9/apps/desktop/src/orb/QuickPeek.tsx#L12-L16)
+- [原生入口几何更新](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/blob/ffb8bc8ea8568544e28ec5e0103c6f064b15a4e9/apps/desktop/src-tauri/src/desktop_runtime.rs#L246-L322) · [状态切换](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/blob/ffb8bc8ea8568544e28ec5e0103c6f064b15a4e9/apps/desktop/src-tauri/src/desktop_runtime.rs#L324-L385) · [打开完整文件架](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/blob/ffb8bc8ea8568544e28ec5e0103c6f064b15a4e9/apps/desktop/src-tauri/src/desktop_runtime.rs#L423-L490)
+- [独立文件架窗口创建](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/blob/ffb8bc8ea8568544e28ec5e0103c6f064b15a4e9/apps/desktop/src-tauri/src/shelf_windows.rs#L55-L103) · [管理中心单实例与尺寸](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/blob/ffb8bc8ea8568544e28ec5e0103c6f064b15a4e9/apps/desktop/src-tauri/src/desktop_runtime.rs#L669-L705)
+- [主题设置代码](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/blob/ffb8bc8ea8568544e28ec5e0103c6f064b15a4e9/apps/desktop/src/preferences.ts#L34-L48) · [球体独立外观代码](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/blob/ffb8bc8ea8568544e28ec5e0103c6f064b15a4e9/apps/desktop/src/orb/appearance.ts#L1-L5)
+- [管理中心五栏导航](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/blob/ffb8bc8ea8568544e28ec5e0103c6f064b15a4e9/apps/desktop/src/Manager.tsx#L13-L13) · [管理中心内容分区](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/blob/ffb8bc8ea8568544e28ec5e0103c6f064b15a4e9/apps/desktop/src/Manager.tsx#L65-L87)
+- [当前 CSS 形变动画](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/blob/ffb8bc8ea8568544e28ec5e0103c6f064b15a4e9/apps/desktop/src/style.css#L284-L341) · [App 面板状态与入口](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/blob/ffb8bc8ea8568544e28ec5e0103c6f064b15a4e9/apps/desktop/src/App.tsx#L126-L151)
