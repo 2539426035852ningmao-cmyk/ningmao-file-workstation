@@ -36,3 +36,18 @@ jobs:
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           cargo run --locked --manifest-path experiments/p3-loopback/Cargo.toml -- probe (Join-Path $env:RUNNER_TEMP 'ningmao-p3-probe')
           exit $LASTEXITCODE
+      - name: Record synthetic two-process evidence
+        shell: pwsh
+        run: |
+          $reportPath = Join-Path $env:RUNNER_TEMP 'ningmao-p3-probe/sender-result.json'
+          $report = Get-Content -LiteralPath $reportPath -Raw | ConvertFrom-Json
+          if ($report.status -ne 'SUCCESS' -or $report.scope -ne 'TWO_PROCESS_LOOPBACK_MTLS') { throw 'Unexpected probe result' }
+          "Source: $env:GITHUB_SHA; OS: $env:RUNNER_OS; topology: two processes on ONE runner, not independent machines or LAN." >> $env:GITHUB_STEP_SUMMARY
+          "Synthetic source SHA256: $($report.sha256); source preserved: $($report.sourcePreserved); collision protected: $($report.collisionProtected)." >> $env:GITHUB_STEP_SUMMARY
+      - name: Upload only sanitized transfer result
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: p3-loopback-evidence-${{ runner.os }}
+          path: ${{ runner.temp }}/ningmao-p3-probe/sender-result.json
+          if-no-files-found: error
+          retention-days: 7
