@@ -58,4 +58,10 @@
 
 ## 回滚
 
+### 后续裁剪定位（只读核查）
+
+已核对固定上游源码：`web/src/App.tsx` 通过 lazy import 加载 `SSHPanel`，任务入口位于 `web/src/TaskLauncher.tsx`；仅隐藏入口不足以移除产物。`web/package.json` 的 build 会先调用 `scripts/build-wasm.mjs`，embed 再由 `scripts/embed-dist.mjs` 将 dist 复制进 Go 内嵌资源。因此后续必须在源文件和构建入口同时限定文件分享范围，并重新生成嵌入资源，不能手改 dist 或宣称隐藏按钮就是安全裁剪。
+
+`src/webcli/webcli.go` 明确仅在非空 store-dir 时创建 StoreService；当前移除参数的修复与该实际条件一致。剩余任务是核对路由注册及静态资产，保留直接文件发送/接收及原有许可，不整体重写协议。上游现有本机兼容补丁、发送器和成功记录均未改动。
+
 保持独立分支及 Draft PR。撤回 #68 的应用/脚本变更即可返回基线 ffb8bc8，无数据库迁移。正常完整退出后再备份独立 data/webview；旧 r7 保留原目录及哈希，不跨版本覆盖真实用户数据库。没有安装 MSI、发布、自动合并、修改防火墙或开启公开服务。
