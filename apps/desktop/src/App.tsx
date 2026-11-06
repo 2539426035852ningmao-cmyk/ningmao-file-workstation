@@ -117,7 +117,7 @@ function VirtualFiles(props:{items:Item[];backend:Backend;selected:number[];list
     {props.items.slice(row.index*columns,(row.index+1)*columns).map(item=><Asset key={item.id} item={item} backend={props.backend} list={props.list} size={props.size} selected={props.selected.includes(item.id)} disabled={props.disabled} bound={props.bound} select={keys=>props.select(item.id,keys)} inspect={()=>props.inspect(item.id)} open={()=>props.open(item.id)} drag={()=>props.drag(item.id)} tag={()=>props.tag(item)} remove={()=>props.remove(item.id)}/>)}
   </div>)}{box && <div className="selection-marquee" data-testid="selection-marquee" aria-hidden="true" style={box}/>}</div></div></SortableContext>;
 }
-export default function App({backend,native,detachedShelfId}:{backend:Backend;native:boolean;detachedShelfId?:number}) {
+export default function App({backend,native,detachedShelfId,active=true}:{backend:Backend;native:boolean;detachedShelfId?:number;active?:boolean}) {
   const [data,setData]=useState<Snapshot>(blank),[shelfId,setShelfId]=useState(detachedShelfId??1);
   const [catalog,setCatalog]=useState<CatalogShelf[]>([]),[detachedIds,setDetachedIds]=useState<number[]>([]);
   const [selection,setSelection]=useState<{ids:number[];anchor:number|null;focus:number|null}>({ids:[],anchor:null,focus:null});
@@ -259,14 +259,14 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   },[running?.id,backend]);
   useEffect(()=>{
     const fn=(e:KeyboardEvent)=>{
-      if(e.defaultPrevented || e.isComposing || (e.target instanceof HTMLElement && e.target.closest("input,textarea,select,[contenteditable],.drag-handle,[role=dialog],[role=menu]"))) return;
+      if(!active || e.defaultPrevented || e.isComposing || (e.target instanceof HTMLElement && e.target.closest("input,textarea,select,[contenteditable],.drag-handle,[role=dialog],[role=menu]"))) return;
       if(e.code==="Space" && current) {e.preventDefault();setPreview(true);}
       if((e.ctrlKey || e.metaKey) && e.key.toLowerCase()==="a" && e.target instanceof HTMLElement && e.target.closest('.file-scroll')){e.preventDefault();marquee(visible.map(i=>i.id));}
       if(e.key==="Escape") {if(!preview && !details)setSelected(null);setPreview(false);setDetails(false);}
       if(e.key==="Delete" && chosen.length && !e.repeat && e.target instanceof HTMLElement && e.target.closest('.file-scroll')){e.preventDefault();void perform(async()=>{try{const ids=chosen.map(i=>i.id);if(backend.removeReferences)await backend.removeReferences(ids);else for(const id of ids)await backend.remove(id);setUndo({entity:"item",id:ids[0],ids});}finally{await refresh();}setSelected(null);setMessage("选中项已移入柠猫回收站，原文件保留。");});}
     };
     window.addEventListener("keydown",fn);return()=>window.removeEventListener("keydown",fn);
-  },[current,chosen,visible,bound,backend,preview,details]);
+  },[current,chosen,visible,bound,backend,preview,details,active]);
   useLayoutEffect(()=>{
     if(searchOpen)searchInput.current?.focus();
     else if(restoreSearchFocus.current){restoreSearchFocus.current=false;searchButton.current?.focus();}
@@ -277,10 +277,10 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   },[message]);
   function closeSearch(){restoreSearchFocus.current=true;setQuery("");setSearchOpen(false);}
   useEffect(()=>{
-    const fn=(e:KeyboardEvent)=>{if(e.isComposing || e.defaultPrevented || (e.target instanceof HTMLElement && e.target.closest('[role="dialog"],[role="menu"]')))return;
+    const fn=(e:KeyboardEvent)=>{if(!active || e.isComposing || e.defaultPrevented || (e.target instanceof HTMLElement && e.target.closest('[role="dialog"],[role="menu"]')))return;
       if((e.ctrlKey || e.metaKey) && e.key.toLowerCase()==="f"){e.preventDefault();setSearchOpen(true);searchInput.current?.focus();}
     };window.addEventListener("keydown",fn);return()=>window.removeEventListener("keydown",fn);
-  },[]);
+  },[active]);
   async function tag(item:Item) { await perform(async()=>{await backend.tags(item.id,item.tags.includes("精选")?item.tags.filter(t=>t!=="精选"):[...item.tags,"精选"]);await refresh();}); }
   async function remove(id:number) { await perform(async()=>{await backend.remove(id);setUndo({entity:"item",id});setSelected(null);setDetails(false);await refresh();setMessage("已移入柠猫回收站，原文件保留。");}); }
   useEffect(()=>setRepairFeedback(null),[selected,shelfId]);
@@ -316,7 +316,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
     <RecycleDrawer backend={backend} open={recycleOpen} onOpenChange={setRecycleOpen} shelfId={shelfId} onChanged={refresh}/>
     {undo&&<div className="undo-record" role="status">已移入柠猫回收站 <Button variant="ghost" onClick={()=>void perform(async()=>{for(const id of undo.ids??[undo.id])await backend.restoreTrash?.(undo.entity,id);setUndo(null);await refresh();})}>撤销</Button></div>}
     <div className="shelf-chrome" {...windowDrag}><header className="shelf-header">
-      {!searchOpen && <OrbFace brand/>}
+      {!searchOpen && <OrbFace brand locked={!active}/>}
       {searchOpen ? <div className="shelf-search"><Search size={16}/><Input ref={searchInput} aria-label="搜索文件" placeholder="搜索当前文件架" value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==="Escape" && !e.nativeEvent.isComposing){e.preventDefault();e.stopPropagation();closeSearch();}}}/><Button variant="ghost" size="icon" aria-label="关闭搜索" onClick={closeSearch}><X size={16}/></Button></div> : <>
         <ShelfMenu label="文件架" align="start" trigger={<Button className="shelf-switch" variant="ghost" aria-label="切换文件架"><span>{shelf?.name || "主窗口"}</span><ChevronDown size={14}/></Button>}>
           <DropdownMenu.RadioGroup value={String(shelfId)} onValueChange={id=>switchShelf(Number(id))}>{data.shelves.map(s=><div className="shelf-choice" key={s.id}><DropdownMenu.RadioItem disabled={detachedShelfId!==undefined} value={String(s.id)}>{s.kind==="bound"?<Folder size={16}/>:<Archive size={16}/>}<span>{s.name}</span><DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem><button className="shelf-recycle" aria-label={`回收文件架 ${s.name}`} disabled={busy||!!running||hover||!!dragging||!backend.trashShelf} onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();void perform(async()=>{await backend.trashShelf?.(s.id);setUndo({entity:"shelf",id:s.id});await refresh();setMessage("整个文件架已移入柠猫回收站，原文件保留。");});}}><Trash2 size={14}/></button></div>)}</DropdownMenu.RadioGroup>
