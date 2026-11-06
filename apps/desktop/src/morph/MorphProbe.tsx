@@ -33,7 +33,7 @@ export default function MorphProbe({backend,native=false}:{backend:Backend;nativ
   async function run(){
     setTesting(true);setCycles(0);setError("");
     try{for(let i=1;i<=20;i++){
-      for(const mode of ['orb','capsule','full'] as const)if(!await controller.move(mode))throw new Error("探针被中断，未计为通过。");
+      for(const mode of ['orb','capsule','full'] as const)if(!await controller.move(mode))throw new Error(controller.lastError||"探针被中断，未计为通过。");
       setCycles(i);
     }
     if(native)await invoke('morph_probe_report');

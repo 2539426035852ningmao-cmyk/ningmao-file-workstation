@@ -8,6 +8,7 @@ export class MorphController {
   frame:Frame={width:420,height:520,radius:20};
   full:Frame={...this.frame};
   mode:Mode="full";
+  lastError="";
   private target:Mode="full";
   private blocked=false;
   private alive=false;
@@ -21,7 +22,7 @@ export class MorphController {
   private emit(animating:boolean){this.publish({...this.frame,mode:this.mode,animating});}
   private endpoint():Frame{return this.target==="full"?this.full:this.target==="orb"?{width:48,height:48,radius:24}:{width:288,height:72,radius:36};}
   move(mode:Mode):Promise<boolean>{
-    this.settle?.(false);this.target=mode;this.revision++;
+    this.settle?.(false);this.lastError="";this.target=mode;this.revision++;
     const settled=new Promise<boolean>(resolve=>{this.settle=resolve;});
     this.start();return settled;
   }
@@ -33,10 +34,11 @@ export class MorphController {
     const tick=async(now:number)=>{
       if(!this.alive||this.blocked){this.running=false;this.emit(false);return;}
       if(revision!==this.revision){from={...this.frame};started=now;revision=this.revision;}
-      const to=this.endpoint(),t=matchMedia('(prefers-reduced-motion: reduce)').matches?1:Math.min(1,(now-started)/240),ease=1-Math.pow(1-t,3);
+      // RAF timestamps can precede an IPC continuation's performance.now().
+      const to=this.endpoint(),t=matchMedia('(prefers-reduced-motion: reduce)').matches?1:Math.max(0,Math.min(1,(now-started)/240)),ease=1-Math.pow(1-t,3);
       const next=t===1?to:{width:from.width+(to.width-from.width)*ease,height:from.height+(to.height-from.height)*ease,radius:from.radius+(to.radius-from.radius)*ease};
       try{const actual=await this.apply(next);if(!this.alive)return;this.frame=actual;}
-      catch(e){this.running=false;this.emit(false);this.settle?.(false);this.settle=undefined;this.failed(String(e));return;}
+      catch(e){this.lastError=String(e);this.running=false;this.emit(false);this.settle?.(false);this.settle=undefined;this.failed(this.lastError);return;}
       if(t===1&&revision===this.revision){this.mode=this.target;this.running=false;this.emit(false);this.settle?.(true);this.settle=undefined;return;}
       this.emit(true);this.raf=requestAnimationFrame(tick);
     };

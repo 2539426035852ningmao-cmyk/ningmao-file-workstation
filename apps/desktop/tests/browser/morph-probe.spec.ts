@@ -1,5 +1,20 @@
 import {test,expect} from "@playwright/test";
 
+test("RAF时间早于请求时刻时不会插值出尺寸边界",async({page})=>{
+  await page.addInitScript(()=>{const raf=window.requestAnimationFrame.bind(window);window.requestAnimationFrame=callback=>raf(time=>callback(time-100));});
+  await page.goto('/tests/harness.html?morph-probe');
+  await expect(page.getByRole('button',{name:'运行20次形变探针'})).toBeEnabled();
+  const widths=page.evaluate(()=>new Promise<number[]>(resolve=>{
+    const surface=document.querySelector('[data-morph-mode]')!,values:number[]=[];
+    const observer=new MutationObserver(()=>{values.push(Number(surface.getAttribute('data-width')));if(surface.getAttribute('data-morph-mode')==='capsule'){observer.disconnect();resolve(values);}});
+    observer.observe(surface,{attributes:true});
+  }));
+  await page.keyboard.press('Alt+ArrowLeft');
+  const actual=await widths;
+  expect(Math.max(...actual)).toBeLessThanOrEqual(420);
+  expect(Math.min(...actual)).toBeGreaterThanOrEqual(48);
+});
+
 test("同宿主收起再展开保留搜索和选择，隐藏时不响应文件快捷键",async({page})=>{
   await page.goto('/tests/harness.html?morph-probe');
   await page.getByRole('button',{name:'选择 Alpha.txt',exact:true}).click();
