@@ -7,6 +7,7 @@ mod desktop_runtime;
 #[cfg(windows)]
 mod duplicate_control;
 pub mod entry;
+mod morph_probe;
 mod search_control;
 mod shelf_windows;
 pub mod store;
@@ -1823,6 +1824,7 @@ pub fn run() {
         window_state = window_state.with_filename(file.to_string_lossy());
     }
     tauri::Builder::default()
+        .manage(morph_probe::State::default())
         .plugin(window_state.build())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
@@ -1973,6 +1975,9 @@ pub fn run() {
             }
         })
         .invoke_handler(tauri::generate_handler![
+            morph_probe::morph_probe_begin,
+            morph_probe::morph_probe_frame,
+            morph_probe::morph_probe_report,
             browser_share_desktop::browser_share_available,
             browser_share_desktop::browser_share_send,
             browser_share_desktop::browser_share_cancel,

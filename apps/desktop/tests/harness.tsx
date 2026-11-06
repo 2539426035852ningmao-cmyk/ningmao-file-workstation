@@ -1,6 +1,7 @@
 // This harness is a separate test-only build entry. Production dist contains no mock backend.
 import { createRoot } from "react-dom/client";
 import App from "../src/App";
+import MorphProbe from "../src/morph/MorphProbe";
 import DesktopEntry from "../src/DesktopEntry";
 import Manager from "../src/Manager";
 import {mockIPC,clearMocks} from "@tauri-apps/api/mocks";
@@ -160,4 +161,4 @@ window.testHarness={
 };
 if(new URLSearchParams(location.search).has("desktop-entry")){const count=Math.max(1,Math.min(8,Number(new URLSearchParams(location.search).get("count")) || 7));state.shelves=state.shelves.slice(0,count);for(let id=3;id<=count;id++)state.shelves.push({id,name:`项目 ${id}`,kind:"persistent",root:null,available:true});desktop.layout.enabled=true;desktop.layout.collapsed=state.shelves.map(s=>s.id);publishDesktop();}
 if(new URLSearchParams(location.search).has("edge")){desktop.edge_hidden=true;desktop.layout.preferences={edge:"right",auto_hide:true,topmost:true};}
-createRoot(document.getElementById("root")!).render(new URLSearchParams(location.search).has("desktop-entry")?<DesktopEntry backend={backend}/>:new URLSearchParams(location.search).has("manager")?<Manager backend={backend}/>:<App backend={backend} native={true} detachedShelfId={ownShelf}/>);
+createRoot(document.getElementById("root")!).render(new URLSearchParams(location.search).has("desktop-entry")?<DesktopEntry backend={backend}/>:new URLSearchParams(location.search).has("manager")?<Manager backend={backend}/>:new URLSearchParams(location.search).has("morph-probe")?<MorphProbe backend={backend}/>:<App backend={backend} native={true} detachedShelfId={ownShelf}/>);
