@@ -1,5 +1,8 @@
 # Codex 从这里开始 · 2026-10-26 主仓库交接入口
 
+> **2026-11-06 新增｜外部设备与 AI 真实验收执行入口：** 用户允许以 GitHub 云 Windows、云手机、Cloudflare Dashboard、LM Studio 和 OpenRouter 免费模型支撑测试。Codex 请先读 [外部设备、Cloudflare 公网与多厂商 AI 实施合同](execution/external-device-cloudflare-ai-providers-2026-11-06.md)，按 T0–T6 分阶段落实代码与证据；它是新能力验证入口，**不是功能已交付声明**。Cloudflare 的公开部署/收费资源和真实模型密钥仍须通过各自安全关卡。当前应用基线是 [Draft #62](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/62)，新 Fluid Workspace 以 #64/#65/#66 独立研发，禁止以旧 r21 快照代替实时状态。
+
+
 > 2026-11-05同步：r7核心初版/PR #62已有候选实现与精确证据。当前功能和S1/S2问题见[项目总览](project-status.md)，唯一执行记录见[ACTIVE-DELIVERY](execution/ACTIVE-DELIVERY.md)。下方旧日期的状态仅为历史，长期设计和安全合同不变；不要按r21重造程序。主分支入口更新见[PR #63](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/63)，尚未合并。
 
 
