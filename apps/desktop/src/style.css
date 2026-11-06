@@ -425,3 +425,5 @@ html[data-file-window="true"],html[data-file-window="true"] body,html[data-file-
 .global-search-message{padding:0 16px 16px;overflow-y:auto;font-size:13px}
 .global-search footer{display:flex;justify-content:space-between;padding:10px 16px;border-top:1px solid var(--line);color:var(--muted-text);font-size:11px;flex-shrink:0}
 @media(prefers-reduced-motion:reduce){.global-search[data-slot="sheet-content"]{animation:none;transition:none}}
+
+.transfer-experiment{margin:12px 0;color:var(--muted-foreground);font-size:12px}.transfer-experiment>summary{cursor:pointer;padding:8px 0}.transfer-experiment[open]>summary{margin-bottom:8px}.capability-hint>button{display:block;margin-top:8px}
