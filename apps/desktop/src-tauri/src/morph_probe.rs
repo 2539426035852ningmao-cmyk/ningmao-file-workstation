@@ -72,7 +72,7 @@ fn valid(frame: Frame, full: Frame) -> bool {
         && frame.radius.is_finite()
         && (48.0..=full.width).contains(&frame.width)
         && (48.0..=full.height).contains(&frame.height)
-        && (0.0..=frame.height.min(frame.width) / 2.0).contains(&frame.radius)
+        && (0.0..=36.0).contains(&frame.radius)
 }
 #[tauri::command]
 pub fn morph_probe_frame(
@@ -84,7 +84,10 @@ pub fn morph_probe_frame(
     let mut probe = state.0.lock().map_err(error)?;
     let full = probe.full.ok_or("请先初始化形变探针。")?;
     if !valid(frame, full) {
-        return Err("形变尺寸超出本次探针范围。".into());
+        return Err(format!(
+            "形变尺寸超出本次探针范围：{} × {}，圆角 {}。",
+            frame.width, frame.height, frame.radius
+        ));
     }
     window
         .set_size(tauri::LogicalSize::new(frame.width, frame.height))
@@ -134,7 +137,12 @@ pub fn morph_probe_frame(
     Ok(Frame {
         width: actual.width,
         height: actual.height,
-        ..frame
+        // Match CSS radius normalization after physical-pixel rounding. Radius
+        // and height arrive as separately decoded floats, not exact halves.
+        radius: frame
+            .radius
+            .min(actual.width / 2.0)
+            .min(actual.height / 2.0),
     })
 }
 #[tauri::command]
@@ -164,6 +172,14 @@ mod tests {
                 width: 48.0,
                 height: 48.0,
                 radius: 24.0
+            },
+            full
+        ));
+        assert!(valid(
+            Frame {
+                width: 48.0,
+                height: 48.0,
+                radius: 24.000000000000004
             },
             full
         ));
