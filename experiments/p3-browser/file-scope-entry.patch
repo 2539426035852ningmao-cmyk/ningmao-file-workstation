@@ -1,0 +1,28 @@
+diff --git a/web/src/TaskLauncher.tsx b/web/src/TaskLauncher.tsx
+index 8db0af6..01b9c0a 100644
+--- a/web/src/TaskLauncher.tsx
++++ b/web/src/TaskLauncher.tsx
+@@ -1,5 +1,5 @@
+ import { useEffect, useRef, useState } from "react";
+-import { ArrowLeft, ArrowRight, Download, Link, SquareTerminal, Upload } from "lucide-react";
++import { ArrowLeft, ArrowRight, Download, Link, Upload } from "lucide-react";
+ 
+ export type Task = "home" | "send" | "store" | "receive" | "ssh";
+ 
+@@ -20,7 +20,7 @@ export function taskFromHash(hash = window.location.hash): Task {
+     case "#receive":
+       return "receive";
+     case "#ssh":
+-      return "ssh";
++      return "home";
+     default:
+       return "home";
+   }
+@@ -102,7 +102,6 @@ export function TaskLauncher({
+     { task: "send", icon: Upload, description: "Send to someone who is online now." },
+     ...(storeEnabled ? [{ task: "store" as const, icon: Link, description: "Share an encrypted link. Download later." }] : []),
+     { task: "receive", icon: Download, description: "Open a croc code or encrypted link." },
+-    { task: "ssh", icon: SquareTerminal, description: "Join a shared terminal with an invitation." },
+   ] as const;
+   return (
+     <section className="task-launcher" aria-labelledby="task-launcher-title">

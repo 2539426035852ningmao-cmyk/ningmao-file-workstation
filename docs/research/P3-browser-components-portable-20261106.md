@@ -60,6 +60,8 @@
 
 ### 后续裁剪定位（只读核查）
 
+后续增量：已在隔离上游源码实际执行入口裁剪，保存为 `experiments/p3-browser/file-scope-entry.patch`，对应测试为 `sender/file-scope-entry.test.tsx`（复跑时复制到上游 web/src）。真实 TaskLauncher 测试先失败，再经移除 Join SSH 卡片、将 #ssh 深链接返回 home 后通过；发送/接收卡片仍存在，TypeScript 全工程类型检查通过。该补丁尚未接入默认准备脚本，也未进入任何 Windows 候选；上游原 TaskLauncher 测试仍含预期 SSH 可用的断言，完整 profile 测试尚需调整并复跑。SSHPanel chunk/WASM/后台路由尚未裁剪，不把本次入口测试当成完整安全边界或组件发行放行。
+
 已核对固定上游源码：`web/src/App.tsx` 通过 lazy import 加载 `SSHPanel`，任务入口位于 `web/src/TaskLauncher.tsx`；仅隐藏入口不足以移除产物。`web/package.json` 的 build 会先调用 `scripts/build-wasm.mjs`，embed 再由 `scripts/embed-dist.mjs` 将 dist 复制进 Go 内嵌资源。因此后续必须在源文件和构建入口同时限定文件分享范围，并重新生成嵌入资源，不能手改 dist 或宣称隐藏按钮就是安全裁剪。
 
 `src/webcli/webcli.go` 明确仅在非空 store-dir 时创建 StoreService；当前移除参数的修复与该实际条件一致。剩余任务是核对路由注册及静态资产，保留直接文件发送/接收及原有许可，不整体重写协议。上游现有本机兼容补丁、发送器和成功记录均未改动。
