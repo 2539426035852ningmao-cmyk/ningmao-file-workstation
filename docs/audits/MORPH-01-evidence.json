@@ -1,0 +1,227 @@
+{
+  "date": "2026-11-06",
+  "timezone": "Asia/Hong_Kong",
+  "scope": "Read-only audit and existing r7 isolated native observation; no runtime changes",
+  "sourceCommit": "ffb8bc8ea8568544e28ec5e0103c6f064b15a4e9",
+  "binarySourceCommit": "b960dcb2bb298557abb97029333ed91a698fd956",
+  "exeSha256": "5423d50d17345b5ece8e903a80807563540482b16cd7e3d4440f0c19ee9451ac",
+  "zipSha256": "51e06036d0223f18e00dac8dc72d4a8338144a0e6ae38b6c5b840ae4c91c749a",
+  "os": {
+    "name": "Windows 11 Home China",
+    "version": "10.0.22631",
+    "dpi": "125% inferred from serialized main 525x650 physical / 420x520 logical; per-window DPI API not sampled",
+    "monitorLayout": "NOT_CAPTURED",
+    "resolution": "NOT_CAPTURED"
+  },
+  "tests": {
+    "rust": {
+      "passed": 14,
+      "failed": 0,
+      "ignored": 0,
+      "targets": [
+        "orb_entry",
+        "detached_shelves",
+        "window_recovery",
+        "surface_raster",
+        "desktop_loop"
+      ],
+      "logSha256": "c02d1e60c30c45f223256241bbf9f1a57ccd7a22e782157865073be47eb2b698"
+    },
+    "browser": {
+      "passed": 36,
+      "failed": 0,
+      "durationSeconds": 36.4,
+      "specs": [
+        "orb.spec.ts",
+        "desktop-loop.spec.ts",
+        "detached-shelves.spec.ts",
+        "shelf-view-memory.spec.ts",
+        "window-chrome.spec.ts"
+      ],
+      "logSha256": "d6d36191c70996330099e9ba2be918db9e9e205be658644e2ec0be813d12c765"
+    }
+  },
+  "native": {
+    "traceKind": "Timestamped stable UI observations, not a frame-time or Win32 event trace. Rectangles are capture bounds; first orb capture width included excess space, not treated as actual HWND width.",
+    "observations": [
+      {
+        "label": "full-initial",
+        "time": "2026-11-06T02:14:50.283Z",
+        "window": "main",
+        "captureBounds": [
+          {
+            "originX": 697,
+            "originY": 185,
+            "width": 420,
+            "height": 520
+          }
+        ]
+      },
+      {
+        "label": "orb-after-collapse",
+        "time": "2026-11-06T02:15:10.616Z",
+        "window": "desktop-entry",
+        "captureBounds": [
+          {
+            "originX": 617,
+            "originY": 185,
+            "width": 136,
+            "height": 64
+          }
+        ]
+      },
+      {
+        "label": "capsule",
+        "time": "2026-11-06T02:15:27.474Z",
+        "window": "desktop-entry",
+        "captureBounds": [
+          {
+            "originX": 617,
+            "originY": 165,
+            "width": 200,
+            "height": 96
+          }
+        ]
+      },
+      {
+        "label": "capsule-settled",
+        "time": "2026-11-06T02:15:39.456Z",
+        "window": "desktop-entry",
+        "captureBounds": [
+          {
+            "originX": 617,
+            "originY": 165,
+            "width": 200,
+            "height": 96
+          }
+        ]
+      },
+      {
+        "label": "legacy-quick-peek",
+        "time": "2026-11-06T02:15:51.730Z",
+        "window": "desktop-entry",
+        "captureBounds": [
+          {
+            "originX": 617,
+            "originY": 185,
+            "width": 316,
+            "height": 240
+          }
+        ]
+      },
+      {
+        "label": "full-open",
+        "time": "2026-11-06T02:16:12.470Z",
+        "window": "main",
+        "captureBounds": [
+          {
+            "originX": 697,
+            "originY": 185,
+            "width": 420,
+            "height": 520
+          }
+        ]
+      },
+      {
+        "label": "full-search-confirmed",
+        "time": "2026-11-06T02:16:57.759Z",
+        "window": "main",
+        "captureBounds": [
+          {
+            "originX": 697,
+            "originY": 185,
+            "width": 420,
+            "height": 520
+          }
+        ]
+      },
+      {
+        "label": "orb-second-collapse",
+        "time": "2026-11-06T02:17:30.811Z",
+        "window": "desktop-entry",
+        "captureBounds": [
+          {
+            "originX": 617,
+            "originY": 185,
+            "width": 64,
+            "height": 64
+          }
+        ]
+      },
+      {
+        "label": "full-reopen-search-cleared",
+        "time": "2026-11-06T02:18:46.031Z",
+        "window": "main",
+        "captureBounds": [
+          {
+            "originX": 697,
+            "originY": 185,
+            "width": 420,
+            "height": 520
+          }
+        ]
+      },
+      {
+        "label": "independent-manager",
+        "time": "2026-11-06T02:20:23.881Z",
+        "window": "manager",
+        "captureBounds": [
+          {
+            "originX": 104,
+            "originY": 73,
+            "width": 1042,
+            "height": 751
+          }
+        ]
+      }
+    ],
+    "persistedLayout": {
+      "entryPosition": [
+        617,
+        185
+      ],
+      "mainGeometry": {
+        "x": 697,
+        "y": 185,
+        "width": 420,
+        "height": 520
+      },
+      "entryTopmost": true,
+      "mainTopmost": false,
+      "edge": "free",
+      "detachedCount": 0
+    },
+    "findings": [
+      {
+        "id": "F1",
+        "status": "FAIL_D05",
+        "observation": "Opening Full changes native window identity and reuses original main position."
+      },
+      {
+        "id": "F3",
+        "status": "FAIL_D05",
+        "observation": "Confirmed MORPH01 search; collapse; Tab and Ctrl+Enter on orb; same main returned with query cleared/search closed."
+      }
+    ],
+    "manager": "Independent window opened and closed normally; no concurrency test",
+    "cleanup": {
+      "applicationExited": true,
+      "integrity": "ok",
+      "itemCount": 0,
+      "jobCount": 0
+    },
+    "notTested": [
+      "same-window Full implementation",
+      "controlled visual handoff implementation",
+      "frame timing and flicker duration",
+      "20 rapid cycles",
+      "native OLE drop and drag-out",
+      "multiple shelves native lifecycle in this run",
+      "150% DPI",
+      "mixed DPI",
+      "monitor hotplug",
+      "Windows 10",
+      "actual foreground-event timeline"
+    ]
+  }
+}
