@@ -709,7 +709,7 @@ pub fn setup(app: &tauri::AppHandle, root: &Path) -> Result<()> {
     let catalog = shelves(app)?;
     {
         let mut l = state.layout.lock().map_err(error)?;
-        l.reconcile(&catalog.iter().map(|s| s.id).collect::<Vec<_>>());
+        l.prepare_startup(&catalog.iter().map(|s| s.id).collect::<Vec<_>>());
         l.fold_entry();
     }
     app.manage(state);
@@ -741,6 +741,8 @@ pub fn setup(app: &tauri::AppHandle, root: &Path) -> Result<()> {
             .map_err(error)?;
         if !data.layout.expanded {
             main.hide().map_err(error)?;
+        } else {
+            main.show().map_err(error)?;
         }
     }
     // Webviews are created only for saved visible independent shelves; collapsed ones stay lazy.

@@ -1982,7 +1982,12 @@ pub fn run() {
                 _process_lock: lock,
             });
             desktop_runtime::setup(app.handle(), &root).map_err(std::io::Error::other)?;
-            if let Some(config) = &recovery_window { tauri::WebviewWindowBuilder::from_config(app.handle(), config)?.build()?; }
+            if let Some(config) = &recovery_window {
+                let main = tauri::WebviewWindowBuilder::from_config(app.handle(), config)?.build()?;
+                if desktop_runtime::view(app.handle()).map_err(std::io::Error::other)?.layout.expanded {
+                    main.show()?;
+                }
+            }
             wake_shortcut::setup(app.handle(), &root);
             let show = tauri::menu::MenuItem::with_id(
                 app,

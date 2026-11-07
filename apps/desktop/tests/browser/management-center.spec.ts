@@ -1,4 +1,17 @@
 import {test,expect} from "@playwright/test";
+test("启动模式仅圆球与完整架，保存后重新打开仍保留",async({page})=>{
+  await page.goto("/tests/harness.html?manager");
+  await page.getByRole("button",{name:"设置",exact:true}).click();
+  const startup=page.getByRole("combobox",{name:"启动时显示"});
+  await expect(startup).toHaveValue("orb");
+  await expect(startup.locator("option")).toHaveCount(2);
+  await startup.selectOption("full");
+  await page.getByRole("button",{name:"保存桌面设置"}).click();
+  await expect(page.getByRole("status")).toContainText("已保存");
+  await page.reload();
+  await page.getByRole("button",{name:"设置",exact:true}).click();
+  await expect(page.getByRole("combobox",{name:"启动时显示"})).toHaveValue("full");
+});
 
 test("管理中心按需打开，跨架检索和批量标签保留来源",async({page})=>{
   await page.goto("/tests/harness.html");await page.getByRole("button",{name:"更多操作",exact:true}).click();

@@ -1,4 +1,9 @@
 # 当前执行入口（2026-11-07，统一候选持续交付）
+2026-11-08 双启动模式集成：沿用 D05 冻结合同，管理中心现有桌面设置只增加「悬浮球（默认）/完整文件架」。Preferences 新增 serde 默认 startup，旧 v4 配置不迁移数据库；启动先 reconcile 原活跃架，再决定 collapse/open，失效目标沿用现有目录回退、零可用主架显示现有空状态，独立架恢复保留。main 初始隐藏、配置及运行态就绪后按模式显示，恢复备份入口仍在确认及 Store 管理后创建 WebView，避免提前请求。
+
+验证：启动逻辑新增测试先红后绿，覆盖旧配置默认、上次活跃架、配置序列化/恢复和零架回退；Rust 全114PASS/7ignored、严格Clippy PASS，管理/胶囊19界面PASS，设置截图窄窗无横向溢出，机械检测零项，仓库基础检查PASS。全量界面145PASS（2.7m）；本源码 Windows 新包/重启尚待本批最终证据，不能继承9bc包的原生结果。无新增依赖、无schema迁移，不改Copy/SQLite/原生投放。旧9bc候选保留；回滚先完整退出，备份data/webview后换回旧程序，新增startup字段旧程序会按既有未知字段保护拒写旧布局，必要时仅在保留备份后移除新增preferences.startup；不得覆盖数据库。后续优先胶囊收集入口与主面板协调，连续原生形变仍#66独立探针，不宣称P0–P4完成。
+
+最终远端状态：bd2f3271a6759c5c35a297fa040a225d7f483cc1三CI全success（Desktop42382789154/Preview42382789095/P342382789099，Windows/Ubuntu P3都通过），旧P3失败保留；App源码没有因实验观察器修复变化，用户可运行包仍9bc6b3b/哈希见ACTIVE。所有测试程序已退出、fixture/来源完整，未安装/合并/发布；此纯构建后补记随下一功能提交归档，GitHub PR #68已同步。D05基础路径已去QuickPeek，但连续形变/启动模式/胶囊快捷收集和新原生OLE等仍待补；P3公网/手机/双机与P4Agent/插件/工作流未完成，不标全项目结束。
 
 本批最终应用候选9bc6b3b33d6f4e84bc522ef0f609e33793e2794b：胶囊切其他架先收球原生PASS，目标空架正确且不再遮标题；正常退出PID18348/监听零、3引用原架保留/来源3SHA不变/DB完整。干净便携D:/Ningmao-Capsule-Fixed-9bc6b3b.zip与精确哈希见ACTIVE，旧包不覆盖。Desktop/Preview CI成功，P3 Windows大文件断线观察OS5失败；实际本机回环成功但不掩盖CI。已用真实production Staged+delete-pending稳定复现旧观察器File::open=OS5，修复仅experiments清理观察用条目消失判断（不吞权限错/不放宽超时/不改生产收发），新增回归先红后绿、P3全36PASS/1ignored、Clippy/64MiB双进程SUCCESS。新测试提交等待CI，不再仅重跑失败作业；具体原CI子调用未记录，保留准确上限。实验变更不改应用源码，不将新HEAD当旧包build-manifest。
 

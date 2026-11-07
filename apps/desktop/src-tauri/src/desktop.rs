@@ -59,6 +59,14 @@ pub struct Preferences {
     pub auto_hide: bool,
     pub topmost: bool,
     pub flow: crate::entry::Flow,
+    pub startup: Startup,
+}
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum Startup {
+    #[default]
+    Orb,
+    Full,
 }
 impl Default for Preferences {
     fn default() -> Self {
@@ -67,6 +75,7 @@ impl Default for Preferences {
             auto_hide: false,
             topmost: true,
             flow: crate::entry::Flow::Vertical,
+            startup: Startup::Orb,
         }
     }
 }
@@ -124,6 +133,14 @@ impl Default for Layout {
     }
 }
 impl Layout {
+    pub fn prepare_startup(&mut self, catalog: &[i64]) {
+        self.reconcile(catalog);
+        if self.preferences.startup == Startup::Orb && self.active_shelf > 0 {
+            self.collapse(self.active_shelf);
+        } else {
+            self.open(self.active_shelf);
+        }
+    }
     pub fn validate(&self) -> bool {
         self.version == 4
             && !(self.preferences.edge == Edge::Free && self.preferences.auto_hide)

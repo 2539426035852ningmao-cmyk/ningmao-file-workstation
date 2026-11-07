@@ -1,6 +1,11 @@
 # 当前交付状态 · 2026-11-07（优先于下方历史记录）
+2026-11-08 双启动模式集成：沿用 D05 冻结合同，管理中心现有桌面设置只增加「悬浮球（默认）/完整文件架」。Preferences 新增 serde 默认 startup，旧 v4 配置不迁移数据库；启动先 reconcile 原活跃架，再决定 collapse/open，失效目标沿用现有目录回退、零可用主架显示现有空状态，独立架恢复保留。main 初始隐藏、配置及运行态就绪后按模式显示，恢复备份入口仍在确认及 Store 管理后创建 WebView，避免提前请求。
+
+验证：启动逻辑新增测试先红后绿，覆盖旧配置默认、上次活跃架、配置序列化/恢复和零架回退；Rust 全114PASS/7ignored、严格Clippy PASS，管理/胶囊19界面PASS，设置截图窄窗无横向溢出，机械检测零项，仓库基础检查PASS。全量界面145PASS（2.7m）；本源码 Windows 新包/重启尚待本批最终证据，不能继承9bc包的原生结果。无新增依赖、无schema迁移，不改Copy/SQLite/原生投放。旧9bc候选保留；回滚先完整退出，备份data/webview后换回旧程序，新增startup字段旧程序会按既有未知字段保护拒写旧布局，必要时仅在保留备份后移除新增preferences.startup；不得覆盖数据库。后续优先胶囊收集入口与主面板协调，连续原生形变仍#66独立探针，不宣称P0–P4完成。
 
 ## 2026-11-07 · P0–P4连续总交接生效
+
+最终CI补记（随下一功能提交归档，避免纯状态再触发构建）：仓库HEAD bd2f3271a6759c5c35a297fa040a225d7f483cc1 的Desktop42382789154、Preview42382789095、P342382789099均success，P3 Windows/Ubuntu均通过。旧9bc6b3b P3失败保留；新增delete-pending观察器回归和完整双进程已通过新SHA CI。当前可运行本机应用包仍为9bc6b3b的已原生验证二进制，bd2f327只改实验测试/交接，无应用代码差异；不混用build-manifest或EXE SHA。PR #68正文/评论已同步终态，源码工作保持原分支，未安装/合并/发布。
 
 P3本批CI真实故障收尾：9bc6b3b的Desktop42381701486/Preview42381701482成功，P342381701447仅Windows在large-disconnect报PermissionDenied/OS5，Ubuntu成功；没有反复重跑掩盖失败。Windows合成回归使用真实Destination::stage及生产同款FileDispositionInfo，明确复现delete-pending条目仍能列出但File::open返回OS5，旧await_staging(false)因此失败。最小修复仅实验观察器：清理等待以实际暂存条目消失为准，不再重开待删除文件，不把拒绝访问当作清理成功；5秒期限、生产协议/复制/删除逻辑不变，补4个无秘密子阶段标签便于未来准确定位。新回归先红后绿，P3全36PASS/1ignored，Clippy及实际64MiB双进程回环SUCCESS，来源保护/冲突/取消/断线/清理/下一会话均通过。原CI未细分子步骤，因此对该次OS5具体调用仍保留证据上限，不宣称排除所有外部环境原因；新SHA CI待验。
 
