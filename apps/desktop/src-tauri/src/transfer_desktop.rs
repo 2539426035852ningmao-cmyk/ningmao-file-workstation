@@ -127,17 +127,15 @@ pub async fn transfer_receive(
             .shelf(shelf_id)?
             .root
             .ok_or("请选择已绑定的真实文件夹。")?;
-        let certificate = rcgen::generate_simple_self_signed(vec!["localhost".into()])
-            .map_err(|_| "无法创建设备证书。")?;
-        let fingerprint = format!("{:x}", Sha256::digest(certificate.cert.der()));
+        let certificate = crate::transfer_identity::load(&state.data_root)?;
+        let fingerprint = format!("{:x}", Sha256::digest(&certificate.certificate));
         let config = rustls::ServerConfig::builder()
             .with_no_client_auth()
             .with_single_cert(
-                vec![certificate.cert.der().clone()],
-                rustls::pki_types::PrivatePkcs8KeyDer::from(
-                    certificate.signing_key.serialize_der(),
-                )
-                .into(),
+                vec![rustls::pki_types::CertificateDer::from(
+                    certificate.certificate,
+                )],
+                rustls::pki_types::PrivatePkcs8KeyDer::from(certificate.key).into(),
             )
             .map_err(|_| "无法配置设备证书。")?;
         *state.transfers.events.lock().map_err(error)? =
@@ -445,4 +443,39 @@ pub async fn transfer_devices(
         .map_err(|_| "暂时无法查找附近设备，请检查局域网连接。".to_string())?;
     devices.retain(|device| own.as_ref() != Some(&device.fingerprint));
     Ok(devices)
+}
+
+#[tauri::command]
+pub fn transfer_peers(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+) -> Result<Vec<crate::transfer_identity::Peer>> {
+    metadata_scope(&window)?;
+    crate::transfer_identity::peers(&app.state::<Runtime>().data_root)
+}
+#[tauri::command]
+pub async fn transfer_pair(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    name: String,
+    address: String,
+    fingerprint: String,
+) -> Result<()> {
+    metadata_scope(&window)?;
+    if name.is_empty() || name.chars().count() > 64 {
+        return Err("设备名称无效。".into());
+    }
+    let address: SocketAddrV4 = address.parse().map_err(|_| "设备地址无效。")?;
+    let fingerprint = fingerprint.to_ascii_lowercase();
+    let client =
+        LocalhostTransferClient::pinned(address, &fingerprint).map_err(|_| "设备连接信息无效。")?;
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::transfer_identity::remember_verified(
+            &app.state::<Runtime>().data_root,
+            crate::transfer_identity::Peer { name, fingerprint },
+            client,
+        )
+    })
+    .await
+    .map_err(error)?
 }

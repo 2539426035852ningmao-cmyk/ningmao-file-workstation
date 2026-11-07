@@ -37,6 +37,8 @@ let maximized=false;
 let duplicateTicket=0,duplicateCanceled=false;
 const backend:Backend={
   transfer:{
+    async peers(){return JSON.parse(localStorage.getItem("test-transfer-peers")||"[]");},
+    async pair(name,address,fingerprint){transferCalls.push(`pair:${address}`);localStorage.setItem("test-transfer-peers",JSON.stringify([{name,fingerprint}]));},
     async devices(){return new URLSearchParams(location.search).has("nearby")?[{name:"合成接收电脑",address:"127.0.0.1:53317",fingerprint:"a".repeat(64)}]:[];},
     async browserAvailable(){return new URLSearchParams(location.search).has("browser-share");},
     async browserSend(shelf,ids,code){transferCalls.push(`browser:${shelf}:${ids.join(",")}:${code.length}`);return new Promise(resolve=>{browserFinish=resolve;});},

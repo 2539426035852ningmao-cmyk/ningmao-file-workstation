@@ -28,7 +28,7 @@ test('附近设备单击选中后可发送，无需填写地址',async({page})=>
  await page.getByRole('button',{name:'更多操作',exact:true}).click();
  await page.getByRole('menuitem',{name:'发送到设备',exact:true}).click();
  await page.getByRole('button',{name:'合成接收电脑 · AAAAAA',exact:true}).click();
- await expect(page.getByRole('button',{name:'发送文件',exact:true})).toBeEnabled();
+ await expect(page.getByRole('button',{name:'确认设备并发送',exact:true})).toBeEnabled();
  await expect(page.getByLabel('接收方地址',{exact:true})).toHaveValue('127.0.0.1:53317');
  expect(await page.evaluate(()=>window.transferHarness.calls())).toEqual([]);
 });
@@ -41,4 +41,21 @@ test('首次接收可以就地选择文件夹，选择后不会自动监听',asy
  await expect(page.getByLabel('接收文件架')).toHaveValue('3');
  await expect(page.getByRole('button',{name:'开启接收',exact:true})).toBeEnabled();
  expect(await page.evaluate(()=>window.transferHarness.calls())).toEqual([]);
+});
+
+
+test('首次确认设备先配对再发送，重新打开后记住设备',async({page})=>{
+ await page.goto('/tests/harness.html?nearby');
+ await page.getByText('Alpha.txt',{exact:true}).click();
+ await page.getByRole('button',{name:'更多操作',exact:true}).click();
+ await page.getByRole('menuitem',{name:'发送到设备',exact:true}).click();
+ await page.getByRole('button',{name:'合成接收电脑 · AAAAAA',exact:true}).click();
+ await page.getByRole('button',{name:'确认设备并发送',exact:true}).click();
+ expect((await page.evaluate(()=>window.transferHarness.calls()))[0]).toBe('pair:127.0.0.1:53317');
+ await page.reload();
+ await page.getByText('Alpha.txt',{exact:true}).click();
+ await page.getByRole('button',{name:'更多操作',exact:true}).click();
+ await page.getByRole('menuitem',{name:'发送到设备',exact:true}).click();
+ await page.getByRole('button',{name:'合成接收电脑 · AAAAAA · 已配对',exact:true}).click();
+ await expect(page.getByRole('button',{name:'发送文件',exact:true})).toBeEnabled();
 });

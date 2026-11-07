@@ -146,6 +146,14 @@ impl LoopbackClient {
     pub fn probe_connect(&self) -> Result<StreamOwned<ClientConnection, TcpStream>> {
         self.connect()
     }
+
+    pub fn verify_peer(&self) -> Result<()> {
+        let mut stream = self.connect()?;
+        while stream.conn.is_handshaking() {
+            stream.conn.complete_io(&mut stream.sock)?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug)]

@@ -8,6 +8,8 @@ export type TransferResult={job_id:number;status:string;message:string;files:{in
 export type NearbyDevice={name:string;address:string;fingerprint:string};
 export interface TransferBackend{
   devices?():Promise<NearbyDevice[]>;
+  peers?():Promise<{name:string;fingerprint:string}[]>;
+  pair?(name:string,address:string,fingerprint:string):Promise<void>;
   browserAvailable?():Promise<boolean>;
   browserSend?(shelf:number,ids:number[],code:string):Promise<{job_id:number;status:string}>;
   browserCancel?():Promise<void>;
@@ -21,6 +23,8 @@ export interface TransferBackend{
 }
 export const nativeTransfer:TransferBackend={
   devices:()=>invoke("transfer_devices"),
+  peers:()=>invoke("transfer_peers"),
+  pair:(name,address,fingerprint)=>invoke("transfer_pair",{name,address,fingerprint}),
   browserAvailable:()=>invoke("browser_share_available"),
   browserSend:(shelfId,ids,code)=>invoke("browser_share_send",{shelfId,ids,code}),
   browserCancel:()=>invoke("browser_share_cancel"),

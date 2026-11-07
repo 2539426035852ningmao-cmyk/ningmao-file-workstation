@@ -13,6 +13,7 @@ pub mod store;
 use ningmao_transfer_client as loopback_transport;
 mod transfer_desktop;
 mod transfer_discovery;
+mod transfer_identity;
 pub mod transfer_runtime;
 pub mod transfer_sender;
 pub mod transfer_tasks;
@@ -1979,6 +1980,8 @@ pub fn run() {
             browser_share_desktop::browser_share_cancel,
             transfer_desktop::transfer_view,
             transfer_desktop::transfer_devices,
+            transfer_desktop::transfer_pair,
+            transfer_desktop::transfer_peers,
             transfer_desktop::transfer_receive,
             transfer_desktop::transfer_stop_receive,
             transfer_desktop::transfer_decide,
