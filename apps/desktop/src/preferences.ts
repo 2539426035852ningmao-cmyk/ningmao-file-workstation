@@ -31,19 +31,30 @@ export function writeShelfView(id:number,view:ShelfView,writable:boolean):string
   const latest=readViewMemory();
   return writeViewMemory({...latest.views,[id]:view},writable && latest.writable);
 }
-export function readTheme():"dark"|"light" {
-  try {return localStorage.getItem("ningmao-theme")==="light"?"light":"dark";}
+export const themes={light:"白色",dark:"深蓝色",blue:"亮蓝色"} as const;
+export type Theme=keyof typeof themes;
+export function readTheme():Theme {
+  try {
+    const value=localStorage.getItem("ningmao-theme");
+    if(value==="light" || value==="dark" || value==="blue")return value;
+    const legacy=localStorage.getItem("ningmao-orb-appearance-v1");
+    return legacy==="warm-white"?"light":legacy==="brand-blue"?"blue":"dark";
+  }
   catch {return "dark";}
 }
-export function writeTheme(theme:"dark"|"light"):string {
-  try {localStorage.setItem("ningmao-theme",theme);return "";}
+export function applyTheme(theme:Theme):void {
+  document.documentElement.classList.remove("dark","light","blue");
+  document.documentElement.classList.add(theme);
+}
+export function writeTheme(theme:Theme):string {
+  try {localStorage.setItem("ningmao-theme",theme);window.dispatchEvent(new Event("ningmao-theme-changed"));return "";}
   catch {return "主题已切换，但无法保存设置；重启后可能恢复原主题";}
 }
-export function observeTheme(update:(theme:"dark"|"light")=>void):()=>void {
+export function observeTheme(update:(theme:Theme)=>void):()=>void {
   const read=()=>{try{return localStorage.getItem("ningmao-theme");}catch{return undefined;}};
   let previous=read();
-  const refresh=()=>{const value=read();if(value!==undefined && value!==previous){previous=value;update(value==="light"?"light":"dark");}};
+  const refresh=()=>{const value=read();if(value!==undefined && value!==previous){previous=value;update(readTheme());}};
   const storage=(event:StorageEvent)=>{if(event.key===null || event.key==="ningmao-theme")refresh();};
-  window.addEventListener("storage",storage);window.addEventListener("focus",refresh);
-  return()=>{window.removeEventListener("storage",storage);window.removeEventListener("focus",refresh);};
+  window.addEventListener("storage",storage);window.addEventListener("focus",refresh);window.addEventListener("ningmao-theme-changed",refresh);
+  return()=>{window.removeEventListener("storage",storage);window.removeEventListener("focus",refresh);window.removeEventListener("ningmao-theme-changed",refresh);};
 }

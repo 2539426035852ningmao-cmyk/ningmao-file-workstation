@@ -12,7 +12,7 @@ for(const status of ["failed","completed","cancelled"])test(`快速复制${statu
   expect(await page.evaluate(()=>JSON.parse(localStorage.getItem("test-state")!).jobs[0].status)).toBe(status);
 });
 const screenshots=process.env.M105_SCREENSHOTS;
-async function more(page:import("@playwright/test").Page,name:string){await page.getByRole("button",{name:"更多操作",exact:true}).click();await page.getByRole("menuitem",{name,exact:true}).click();}
+async function more(page:import("@playwright/test").Page,name:string,radio=false){await page.getByRole("button",{name:"更多操作",exact:true}).click();await page.getByRole(radio?"menuitemradio":"menuitem",{name,exact:true}).click();}
 test("单击选中、空格预览、双击请求系统默认程序",async({page})=>{
   await page.goto("/tests/harness.html");
   const file=page.getByRole("button",{name:"选择 Alpha.txt",exact:true});
@@ -120,7 +120,7 @@ test("手动排序中途反馈、持久顺序、深浅主题与窄窗详情",asy
   const name=page.locator(".asset-name").first();
   expect(await name.evaluate(n=>n.clientHeight>=parseFloat(getComputedStyle(n).lineHeight))).toBe(true);
   if(screenshots)await page.screenshot({path:path.join(screenshots,"desktop-dark.png")});
-  await more(page,"切换浅色主题");
+  await more(page,"白色主题",true);
   await settle(page);
   if(screenshots)await page.screenshot({path:path.join(screenshots,"desktop-light.png")});
   await page.setViewportSize({width:640,height:720});

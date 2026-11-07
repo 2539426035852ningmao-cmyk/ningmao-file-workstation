@@ -11,7 +11,7 @@ try {
     }
     $groups=@{
         P1=@('file-shelf','multiselection','metadata-sorting','shelf-filters','shelf-view-memory','clipboard')
-        P2=@('orb','desktop-loop','detached-shelves','management-center','p2-shortcut','window-chrome','workspace-panels')
+        P2=@('orb','desktop-loop','detached-shelves','management-center','p2-shortcut','window-chrome','workspace-panels','workspace-theme')
         P3=@('transfer','transfer-guidance','browser-share')
         P4=@('local-search','duplicates','chat')
     }

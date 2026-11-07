@@ -16,19 +16,20 @@ test("原创入口从球到胶囊到轻预览，明确打开与键盘返回",asy
   await expect.poll(()=>page.evaluate(()=>window.testHarness.calls())).toContain("expand:1");
 });
 
-test("皮肤独立于主题、双眼无按钮语义、减少动态效果仍可使用",async({page})=>{
+test("入口切换全局主题、双眼无按钮语义、减少动态效果仍可使用",async({page})=>{
   await page.emulateMedia({reducedMotion:"reduce"});
   await page.goto("/tests/harness.html?desktop-entry");
   const face=page.locator(".orb-face").first();await expect(face.locator("path")).toHaveCount(2);
   await expect(face).toHaveAttribute("aria-hidden","true");
   await page.getByRole("button",{name:"展开 灵感收集",exact:true}).click();
   await page.getByRole("button",{name:"查看 灵感收集 轻预览",exact:true}).click();
-  await page.getByRole("button",{name:"入口外观",exact:true}).click();
-  await page.getByRole("radio",{name:"深蓝黑",exact:true}).check();
+  await page.getByRole("button",{name:"应用主题",exact:true}).click();
+  await page.getByRole("radio",{name:"深蓝色",exact:true}).check();
   await expect(page.locator("[data-orb-appearance='navy-black']").first()).toBeVisible();
   await page.evaluate(()=>{localStorage.setItem("ningmao-theme","light");window.dispatchEvent(new StorageEvent("storage",{key:"ningmao-theme"}));});
   await expect(page.locator("html")).toHaveClass(/light/);
-  await expect(page.getByRole("radio",{name:"深蓝黑",exact:true})).toBeChecked();
+  await expect(page.getByRole("radio",{name:"白色",exact:true})).toBeChecked();
+  await page.getByRole("radio",{name:"深蓝色",exact:true}).check();
   await page.keyboard.press("Escape");await page.keyboard.press("Escape");
   await expect(page.getByTestId("morph-capsule")).toBeVisible();
   const flat=await page.locator(".orb-body").first().evaluate(el=>{const css=getComputedStyle(el);return {background:css.backgroundColor,image:css.backgroundImage,border:css.borderTopWidth,shadow:css.boxShadow};});
@@ -100,19 +101,19 @@ test("动效只在需要时请求帧，隐藏后停止计时器与帧，非活�
   await expect.poll(async()=>{const p=await probe();return p.frames+p.timers;}).toBe(0);
 });
 
-test("六组皮肤主题与四形态证据（合成浏览器，不是Windows原生）",async({page})=>{
+test("三套全局主题与现有入口证据（轻预览仍待移除，不是Windows原生）",async({page})=>{
   const folder=process.env.ORB_EVIDENCE;if(folder)mkdirSync(folder,{recursive:true});
   await page.setViewportSize({width:420,height:520});
   await page.addInitScript(()=>localStorage.removeItem("test-desktop-layout"));
-  for(const theme of ["dark","light"])for(const skin of ["warm-white","navy-black","brand-blue"]){
+  for(const theme of ["dark","light","blue"]){
     await page.goto("/tests/harness.html?desktop-entry&count=1");
-    await page.evaluate(({theme,skin})=>{localStorage.setItem("ningmao-theme",theme);localStorage.setItem("ningmao-orb-appearance-v1",skin);window.dispatchEvent(new StorageEvent("storage",{key:null}));},{theme,skin});
+    await page.evaluate(theme=>{localStorage.setItem("ningmao-theme",theme);window.dispatchEvent(new StorageEvent("storage",{key:"ningmao-theme"}));},theme);
     await page.getByRole("button",{name:"展开 灵感收集",exact:true}).press("Escape");
-    const shot=async(name:string)=>{if(folder){await page.mouse.click(400,500);await page.waitForTimeout(320);await page.locator("nav[aria-label='悬浮文件架入口']").screenshot({path:path.join(folder,`${theme}-${skin}-${name}.png`),omitBackground:true,animations:"disabled"});}};
+    const shot=async(name:string)=>{if(folder){await page.mouse.click(400,500);await page.waitForTimeout(320);await page.locator("nav[aria-label='悬浮文件架入口']").screenshot({path:path.join(folder,`${theme}-${name}.png`),omitBackground:true,animations:"disabled"});}};
     await shot("orb");await page.getByRole("button",{name:"展开 灵感收集",exact:true}).click();await shot("capsule");
     await page.getByRole("button",{name:"查看 灵感收集 轻预览",exact:true}).click();await expect(page.getByTestId("peek-file")).toHaveCount(3);await shot("peek");
     await page.goto("/tests/harness.html");await expect(page.getByRole("status").last()).toContainText("文件架已恢复");
-    if(folder)await page.locator(".workstation").screenshot({path:path.join(folder,`${theme}-${skin}-shelf.png`)});
+    if(folder)await page.locator(".workstation").screenshot({path:path.join(folder,`${theme}-shelf.png`)});
   }
 });
 

@@ -9,7 +9,7 @@ import { DndContext, DragOverlay, KeyboardSensor, PointerSensor, closestCenter, 
 import { SortableContext, rectSortingStrategy, sortableKeyboardCoordinates, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Archive, Trash2, ArrowDownToLine, Check, ChevronDown, File, Folder, FolderPlus, GripVertical, Grid2X2, Info, List, Moon, MoreHorizontal, Pin, Plus, RefreshCw, Search, Star, Sun, X } from "lucide-react";
+import { Archive, Trash2, ArrowDownToLine, Check, ChevronDown, File, Folder, FolderPlus, GripVertical, Grid2X2, Info, List, MoreHorizontal, Pin, Plus, RefreshCw, Search, Star, X } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Badge } from "./components/ui/badge";
@@ -20,7 +20,7 @@ import { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem, C
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "./components/ui/sheet";
 import { FileThumb } from "./components/spaceui/FileThumb";
 import type { Backend, CatalogShelf, DesktopView, DuplicateReport, Item, Progress, Snapshot } from "./backend";
-import { defaultView,observeTheme,readTheme,readViewMemory,writeTheme,writeShelfView,type ShelfView } from "./preferences";
+import { applyTheme,defaultView,observeTheme,readTheme,readViewMemory,themes,writeTheme,writeShelfView,type ShelfView,type Theme } from "./preferences";
 import { isSortMode,sortItems,sortOptions } from "./sorting";
 import {OrbFace} from "./orb/OrbFace";
 import { defaultFilters,filterItems,type ShelfFilters } from "./filters";
@@ -248,7 +248,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
     void Promise.all([refresh(),backend.desktopState()]).then(([,desktop])=>{if(live) {desktopChanged(desktop);setMessage("文件架已恢复。");setLoading(false);}}).catch(e=>{if(live) {setError(String(e));setLoading(false);}});
     return ()=>{live=false;cleanup?.();};
   },[backend]);
-  useEffect(()=>{ document.documentElement.className=theme;setThemeWarning(writeTheme(theme)); },[theme]);
+  useEffect(()=>{applyTheme(theme);setThemeWarning(writeTheme(theme));},[theme]);
   useEffect(()=>observeTheme(setTheme),[]);
   function setView(patch:Partial<ShelfView>) {
     if(shelfId<=0)return;
@@ -361,7 +361,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
         <DropdownMenu.Separator/>
         <DropdownMenu.Item disabled={loading} onSelect={()=>void perform(async()=>{await refresh();setMessage("已刷新文件状态。");})}><RefreshCw size={16}/>刷新文件状态</DropdownMenu.Item>
         <DropdownMenu.Item onSelect={()=>setTasks(true)}>复制任务</DropdownMenu.Item>
-        <DropdownMenu.Item onSelect={()=>setTheme(theme==="dark"?"light":"dark")}>{theme==="dark"?<Sun size={16}/>:<Moon size={16}/>}切换{theme==="dark"?"浅色":"深色"}主题</DropdownMenu.Item>
+        <DropdownMenu.Label>应用主题</DropdownMenu.Label><DropdownMenu.RadioGroup value={theme} onValueChange={value=>setTheme(value as Theme)}>{Object.entries(themes).map(([key,label])=><DropdownMenu.RadioItem key={key} value={key}>{label}主题<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>)}</DropdownMenu.RadioGroup>
         <DropdownMenu.CheckboxItem disabled={!native} checked={topmost} onCheckedChange={()=>void perform(async()=>setTopmost(await backend.topmost()))}><Pin size={16}/>窗口置顶<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.CheckboxItem>
         <DropdownMenu.Separator/><DropdownMenu.Item disabled={!native} onSelect={()=>void perform(()=>backend.quit())}>完整退出</DropdownMenu.Item>
       </ShelfMenu>

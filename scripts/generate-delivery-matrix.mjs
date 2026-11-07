@@ -24,7 +24,7 @@ for(const [id,,title,text] of p4){
 }
 for(const [id,text,src,entry,next] of [
  ['D05-1','Orb→Capsule→Full，移除独立QuickPeek','apps/desktop/src/DesktopEntry.tsx','桌面入口','吸收#66有界探针；OLE目标几何冻结回归'],
- ['D05-2','白/深蓝/亮蓝三套完整主题','apps/desktop/src/style.css','所有窗口/面板','迁移旧主题与球体独立配色，统一Token'],
+ ['D05-2','白/深蓝/亮蓝三套完整主题','apps/desktop/src/style.css；preferences.ts','文件架更多菜单/管理中心设置/入口主题；所有窗口同步','三套Token与旧设置兼容已实现，跨窗/重开和全量141界面通过；新包原生及最终视觉待验'],
  ['D05-3','管理中心三栏、独立窗口','apps/desktop/src/Manager.tsx','文件与素材/任务中心/设置；原文件架/素材/标签下沉二级','三栏目已实现并经浏览器回归；新包原生及最终视觉待验'],
  ['D05-4','单主要辅助面板及上下文保持',sources[0],'预览/搜索/互传/AI','Ctrl+K不再叠加现有模态面板、AI草稿保留已测；异步结果/固定详情仍需整体仲裁'],
  ])lines.push(`|${id}|${text}|IN_PROGRESS|${src}|${entry}|探针/旧界面局部证据，产品闭环未验|PARTIAL|首版阻断：${next}|`);

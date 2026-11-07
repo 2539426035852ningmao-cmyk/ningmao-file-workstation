@@ -72,9 +72,11 @@
   font-family: "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
   font-size: 14px; line-height: 1.5; color-scheme: light;
   --background: #ffffff; --foreground: #20232a; --secondary: #f1f3f6; --accent: #edf1f7; --muted-foreground: #616773; --border: #dfe3e9; --primary: #245fc8; --primary-foreground: #fff;
+  --orb-fill:#f5f3ef; --orb-eye:#191b20;
   --surface: var(--background); --surface-raised: var(--secondary); --surface-nav: color-mix(in srgb, var(--background) 60%, var(--secondary)); --line: var(--border); --text: var(--foreground); --muted-text: var(--muted-foreground); --blue: var(--primary); --hover: var(--accent);
 }
-:root.dark { color-scheme: dark; --background: #191b20; --foreground: #e9ebf0; --secondary: #262931; --accent: #2b2f38; --muted-foreground: #a3aab6; --border: #363a44; --primary: #2869d6; }
+:root.dark { color-scheme: dark; --background: #191e28; --foreground: #f5f6f8; --secondary: #252e3c; --accent: #2c394d; --muted-foreground: #b3bfd2; --border: #3b4b63; --primary: #6fa7ff; --primary-foreground:#102137; --orb-fill:#191e28; --orb-eye:#f5f6f8; }
+:root.blue { color-scheme: light; --background:#deebff; --foreground:#132b51; --secondary:#cbdfff; --accent:#b8d3fc; --muted-foreground:#35547e; --border:#94b5e6; --primary:#174da0; --primary-foreground:#fff; --orb-fill:#2869d6; --orb-eye:#f8faff; }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--surface); color: var(--text); overflow: hidden; }
 button, input, select { font: inherit; }

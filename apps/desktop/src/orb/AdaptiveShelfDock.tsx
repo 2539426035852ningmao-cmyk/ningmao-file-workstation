@@ -2,12 +2,12 @@ import {ScrollActivity} from "../components/ScrollActivity";
 import {useEffect,useRef,useState,type CSSProperties} from "react";
 import {Check,ChevronLeft,ChevronRight,PanelLeftOpen} from "lucide-react";
 import type {Backend,DesktopView,EntryPresentation,PeekData} from "../backend";
-import {observeTheme,readTheme} from "../preferences";
+import {applyTheme,observeTheme,readTheme,writeTheme} from "../preferences";
 import {CapsuleClose} from "./CapsuleClose";
 import {useWindowDrag} from "./useWindowDrag";
 import {OrbFace} from "./OrbFace";
 import {QuickPeek} from "./QuickPeek";
-import {appearances,appearanceKey,readAppearance,writeAppearance,type OrbAppearance} from "./appearance";
+import {appearances,themeAppearance,type OrbAppearance} from "./appearance";
 
 // The capsule has one short status line; full receipts remain in QuickPeek.
 function capsuleReceipt(message:string){
@@ -22,19 +22,20 @@ function capsuleReceipt(message:string){
 // Native code owns geometry, the frozen destination and imported paths.
 export default function AdaptiveShelfDock({backend}:{backend:Backend}) {
   const [view,setView]=useState<DesktopView|null>(null),[error,setError]=useState(""),[notice,setNotice]=useState("");
-  const [appearance,setAppearance]=useState(readAppearance),[settings,setSettings]=useState(false),[peek,setPeek]=useState<PeekData|null>(null),[active,setActive]=useState<number|null>(null);
+  const [theme,setTheme]=useState(readTheme),[settings,setSettings]=useState(false),[peek,setPeek]=useState<PeekData|null>(null),[active,setActive]=useState<number|null>(null);
+  const appearance=themeAppearance(theme);
   const drag=useWindowDrag(()=>backend.desktopMove(),!view?.native_dragging);
   const state=useRef(view);state.current=view;const pending=useRef(false),peekRequest=useRef(0),alive=useRef(true);
-  const presentation=view?.presentation??{kind:"orb",shelf_id:null},locked=!!view?.native_dragging,skin=appearances[appearance];
+  const presentation=view?.presentation??{kind:"orb",shelf_id:null},locked=!!view?.native_dragging;
   async function act(action:()=>Promise<void>){if(pending.current)return;pending.current=true;setError("");try{await action();}catch(e){if(alive.current)setError(String(e));}finally{pending.current=false;}}
   function present(id:number,kind:EntryPresentation["kind"]){if(state.current?.native_dragging)return;setSettings(false);void act(()=>backend.desktopPresent(id,kind));}
   function direct(id:number){if(!state.current?.native_dragging)void act(()=>backend.desktopOpen(id));}
-  useEffect(()=>observeTheme(theme=>{document.documentElement.classList.toggle("dark",theme==="dark");document.documentElement.classList.toggle("light",theme==="light");}),[]);
+  useEffect(()=>{applyTheme(theme);},[theme]);
+  useEffect(()=>observeTheme(setTheme),[]);
   useEffect(()=>{document.documentElement.classList.add("desktop-entry-surface",readTheme());alive.current=true;let dispose:(()=>void)|undefined;
     void backend.subscribe({drop:()=>{},hover:()=>{},progress:()=>{},drag:()=>{},desktop:value=>{if(alive.current)setView(value);},near:value=>{if(value.shelf_id!==null)setActive(value.shelf_id);document.querySelectorAll<HTMLElement>("[data-orb-host]").forEach(host=>{const id=Number(host.closest("[data-shelf-id]")?.getAttribute("data-shelf-id"));host.dispatchEvent(new CustomEvent("ningmao-near-pointer",{detail:id===value.shelf_id?value:null}));});},finished:message=>{if(alive.current){if(message.startsWith("复制有错误")){setNotice("");setError(message);}else setNotice(message);}},error:message=>{if(alive.current)setError(message);}}).then(fn=>{if(alive.current)dispose=fn;else fn();}).catch(e=>setError(String(e)));
     void backend.desktopState().then(value=>{if(alive.current)setView(value);}).catch(e=>setError(String(e)));
-    const storage=(event:StorageEvent)=>{if(event.key===appearanceKey || event.key===null)setAppearance(readAppearance());};window.addEventListener("storage",storage);
-    return()=>{alive.current=false;dispose?.();window.removeEventListener("storage",storage);document.documentElement.classList.remove("desktop-entry-surface");};
+    return()=>{alive.current=false;dispose?.();document.documentElement.classList.remove("desktop-entry-surface");};
   },[backend]);
   useEffect(()=>{const request=++peekRequest.current;setPeek(null);if(presentation.kind!=="quick-peek" || presentation.shelf_id===null)return;void backend.desktopPeek(presentation.shelf_id).then(data=>{if(alive.current && request===peekRequest.current)setPeek(data);}).catch(e=>{if(alive.current && request===peekRequest.current)setError(String(e));});},[backend,presentation.kind,presentation.shelf_id]);
   useEffect(()=>{const escape=(event:KeyboardEvent)=>{if(event.key!=="Escape" || state.current?.native_dragging)return;if(settings){setSettings(false);return;}const p=state.current?.presentation;if(p?.shelf_id && p.kind!=="orb"){event.preventDefault();present(p.shelf_id,p.kind==="quick-peek"?"capsule":"orb");}};window.addEventListener("keydown",escape);return()=>window.removeEventListener("keydown",escape);},[backend,settings]);
@@ -45,8 +46,8 @@ export default function AdaptiveShelfDock({backend}:{backend:Backend}) {
   const success=notice.startsWith("复制完成") || notice.startsWith("已接收") || notice.startsWith("已处理");
   const geometry=view?.geometry??{width:64,height:(view?.entries.length??1)*56+8+(view && view.total>5?24:0),slots:view?.entries.map((entry,i)=>({id:entry.id,x:8,y:8+i*56,width:48,height:48}))??[]};
   const activeId=active??presentation.shelf_id??view?.entries.find(e=>e.id===view.layout.active_shelf)?.id??view?.entries[0]?.id;
-  function changeAppearance(value:OrbAppearance){setAppearance(value);setError(writeAppearance(value));}
-  return <nav className={view?.edge_hidden?"desktop-edge-handle":"adaptive-dock"} aria-label="悬浮文件架入口" data-orb-appearance={appearance} data-edge={view?.layout.preferences.edge} data-dragging={locked} data-tone={warning?"error":view?.copying?"working":success?"success":"idle"} style={{"--orb-fill":skin.fill,"--orb-eye":skin.eye,width:view?.edge_hidden?(["top","bottom"].includes(view.layout.preferences.edge)?64:18):geometry.width,height:view?.edge_hidden?(["top","bottom"].includes(view.layout.preferences.edge)?18:64):geometry.height} as CSSProperties} onPointerEnter={()=>{if(!locked)void backend.desktopHover(true).catch(e=>setError(String(e)));}} onPointerLeave={()=>{if(!locked)void backend.desktopHover(false).catch(e=>setError(String(e)));}}>
+  function changeAppearance(value:OrbAppearance){const next=appearances[value].theme;setTheme(next);setError(writeTheme(next));}
+  return <nav className={view?.edge_hidden?"desktop-edge-handle":"adaptive-dock"} aria-label="悬浮文件架入口" data-orb-appearance={appearance} data-edge={view?.layout.preferences.edge} data-dragging={locked} data-tone={warning?"error":view?.copying?"working":success?"success":"idle"} style={{width:view?.edge_hidden?(["top","bottom"].includes(view.layout.preferences.edge)?64:18):geometry.width,height:view?.edge_hidden?(["top","bottom"].includes(view.layout.preferences.edge)?18:64):geometry.height} as CSSProperties} onPointerEnter={()=>{if(!locked)void backend.desktopHover(true).catch(e=>setError(String(e)));}} onPointerLeave={()=>{if(!locked)void backend.desktopHover(false).catch(e=>setError(String(e)));}}>
     <ScrollActivity/>
     {view?.edge_hidden?<button aria-label="唤出贴边文件架" title={warning || "靠近展开，拖入添加文件"} onFocus={()=>{if(!locked)void backend.desktopHover(true);}} onClick={()=>{if(!locked)void backend.desktopHover(true);}}><PanelLeftOpen size={14}/></button>:<>
 

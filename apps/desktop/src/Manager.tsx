@@ -6,7 +6,7 @@ import {Archive,Check,Folder,Layers,Search,Settings,Tags,ListTodo,RefreshCw,X} f
 import {Button} from "./components/ui/button";
 import {Input} from "./components/ui/input";
 import type {Backend,DesktopPreferences,DesktopView,ManagementSnapshot,Progress} from "./backend";
-import {observeTheme,readTheme,writeTheme} from "./preferences";
+import {applyTheme,observeTheme,readTheme,themes,writeTheme,type Theme} from "./preferences";
 import {localTagSuggestions} from "./localTagSuggestions";
 
 const empty:ManagementSnapshot={shelves:[],items:[],jobs:[]};
@@ -44,7 +44,7 @@ export default function Manager({backend}:{backend:Backend}) {
     }).then(fn=>{if(live.current)dispose=fn;else fn();}).catch(e=>setError(String(e)));
     return()=>{live.current=false;dispose?.();};
   },[backend]);
-  useEffect(()=>{document.documentElement.classList.toggle("dark",theme==="dark");},[theme]);
+  useEffect(()=>{applyTheme(theme);},[theme]);
   useEffect(()=>observeTheme(setTheme),[]);
   useEffect(()=>{setPage(0);},[query,shelf,tagFilter]);
   const visible=useMemo(()=>data.items.filter(i=>(!shelf || i.shelf_id===shelf) && (!tagFilter || i.tags.includes(tagFilter)) && query.trim().toLocaleLowerCase().split(/\s+/).every(term=>[i.name,...i.tags].join(" ").toLocaleLowerCase().includes(term))),[data.items,shelf,tagFilter,query]);
@@ -88,7 +88,7 @@ export default function Manager({backend}:{backend:Backend}) {
         {preferences.edge==="free" && <label>自由排列<select value={preferences.flow??"vertical"} onChange={e=>patchPreferences({flow:e.target.value as DesktopPreferences["flow"]})}><option value="vertical">竖向紧凑</option><option value="horizontal">横向紧凑</option></select></label>}
         <label className="manager-checkbox"><input type="checkbox" checked={preferences.auto_hide} disabled={preferences.edge==="free"} onChange={e=>patchPreferences({auto_hide:e.target.checked})}/>离开入口后自动收起</label><label className="manager-checkbox"><input type="checkbox" checked={preferences.topmost} onChange={e=>patchPreferences({topmost:e.target.checked})}/>悬浮入口置顶</label><Button type="submit" disabled={busy || !dirty}><Check size={15}/>保存桌面设置</Button></form>
         {backend.exportDataBackup&&<><h3>数据备份</h3><p className="manager-note">保存文件架、标签和任务等软件数据；原始文件与设备私钥需另行保管。备份可能含对话和加密设置，请妥善保存。</p><Button variant="outline" disabled={busy} onClick={()=>void act(async()=>{if(await backend.exportDataBackup!())setMessage("数据备份已导出并通过完整性检查。");})}>导出数据备份</Button>{backend.scheduleDataRestore&&<Button variant="outline" disabled={busy} onClick={()=>void act(async()=>{if(await backend.scheduleDataRestore!())setMessage("恢复已安排。请完整退出并重新启动；当前数据暂不更改，恢复前会自动备份。");})}>从备份恢复</Button>}</>}
-        {backend.recoverWindows&&<Button variant="outline" disabled={busy} onClick={()=>void act(async()=>{const count=await backend.recoverWindows!();setMessage(count?`已找回 ${count} 个屏幕外窗口。`:"窗口已在可见屏幕内。");})}>找回屏幕外窗口</Button>}<WakeShortcutSettings backend={backend}/><h3>显示主题</h3><label>应用主题<select value={theme} onChange={e=>{const value=e.target.value==="dark"?"dark":"light";setTheme(value);const warning=writeTheme(value);if(warning)setError(warning);else setMessage("主题已保存。");}}><option value="dark">深色</option><option value="light">浅色</option></select></label><p className="manager-note">管理中心关闭后释放窗口；软件完整退出仍通过文件架或托盘执行。</p>
+        {backend.recoverWindows&&<Button variant="outline" disabled={busy} onClick={()=>void act(async()=>{const count=await backend.recoverWindows!();setMessage(count?`已找回 ${count} 个屏幕外窗口。`:"窗口已在可见屏幕内。");})}>找回屏幕外窗口</Button>}<WakeShortcutSettings backend={backend}/><h3>显示主题</h3><label>应用主题<select value={theme} onChange={e=>{const value=e.target.value as Theme;setTheme(value);const warning=writeTheme(value);if(warning)setError(warning);else setMessage("主题已保存。");}}>{Object.entries(themes).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label><p className="manager-note">管理中心关闭后释放窗口；软件完整退出仍通过文件架或托盘执行。</p>
       </section>}
     </>}
     <footer className="manager-status" role="status">{message || "记录保存在本机，原文件保留。"}</footer></main>
