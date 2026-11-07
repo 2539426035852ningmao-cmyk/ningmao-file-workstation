@@ -360,3 +360,33 @@ Dock 负责多个文件架的收纳、切换、拆分/合并、贴边、隐藏�
 - [shadcn/ui](https://ui.shadcn.com/)、[Radix UI](https://www.radix-ui.com/) 和 [Lucide](https://lucide.dev/)：沿用项目已选组件基座并核对许可证。
 
 所有第三方代码和资产继续遵守仓库许可证清单、来源记录和版本锁定要求。
+
+## 16. 小型产品组件与 Token 使用约定（2026-11-08实施补充）
+
+本节细化已有规则，不新建第二套主题文件。运行值由 apps/desktop/src/style.css 提供；新增控件先复用现有组件和变量。历史硬编码不为形式统一而一次性重写。
+
+| 语义 | 白 | 深蓝 | 亮蓝 | 用途 |
+|---|---|---|---|---|
+| background / foreground | #ffffff / #20232a | #191e28 / #f5f6f8 | #deebff / #132b51 | 所有形态表面与正文 |
+| secondary / border | #f1f3f6 / #dfe3e9 | #252e3c / #3b4b63 | #cbdfff / #94b5e6 | 次层表面、分隔 |
+| primary / primary-foreground | #245fc8 / #fff | #6fa7ff / #102137 | #174da0 / #fff | 主动作、选中与焦点 |
+| muted-foreground | #616773 | #b3bfd2 | #35547e | 辅助说明，不使用整体透明度降低正文对比 |
+| destructive / destructive-foreground | #b8323e / #fff | 同白 | 同白 | 危险实色底与其文字；不是错误正文色 |
+| danger-text | #b8323e | #ff9ba8 | #b8323e | 错误文字、危险文字；当前三背景实测对比≥4.5 |
+| danger-soft | danger-text与surface混合12% | 同算法 | 同算法 | 错误条/回收悬停，仍有明确文字，不能只靠红色 |
+
+Tailwind 的 destructive 桥接同名CSS变量，互传与AI错误共用 danger-text；窗口关闭悬停、Dock警告和胶囊关闭复用 destructive。保持引用/Copy、取消等待与错误恢复文字，不因配色替换语义。
+
+| 组件/布局 | 已有约定 | 实施与键盘要求 |
+|---|---|---|
+| 文件架顶栏 | 44px单行；图标按钮30×32；控制组2px间隔 | 长名省略并title全文；至少20px空白拖动；Tab可达窗口控制 |
+| 文件文字 | 名称13px/20px行高，类型12px/16px | 单行省略、全文提示；三档缩略图均不得压扁行高 |
+| 管理中心 | 三一级栏目；次级设置按任务分组 | 常规间距4/8/12/16；组间24；备份按钮8px可换行，不增常驻小架入口 |
+| 圆角 | window20、item12、control8 | 最大化窗口无圆角；原生轮廓几何和OLE冻结不随CSS改动 |
+| 图标 | 统一Lucide，常规16，辅助12–14，主要添加18 | 图标按钮有aria-label及title；文字动作直接命名；不另加emoji图标体系 |
+| 输入/按钮 | 复用Button/Input/原生select | 不另造表单框架；focus-visible清晰；禁用防误触，错误保留输入 |
+| Sheet/Dialog/菜单 | 复用Radix焦点/滚动/关闭机制 | 一个主要辅助面板；需要停止任务时沿用现有确认；菜单提供快捷键备选 |
+| 空/错误状态 | 说明当前状态、给一个合理下一动作 | 零架可新建/恢复；失效引用保留信息；保留来源/安全提示 |
+| 动效 | 复用已有原创OrbMotionController及CSS转场 | 原生拖放优先；隐藏暂停；reduced-motion降级；不增加全局RAF或动画框架 |
+
+文件架是日常工作空间；胶囊保持快捷层，管理中心保持独立原生窗口。连续Fluid形变、最终原生小字号观感、全DPI与多屏仍按各自证据验收，本节不预先放行。
