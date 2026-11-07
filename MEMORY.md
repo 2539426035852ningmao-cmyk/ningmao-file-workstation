@@ -1,5 +1,7 @@
 # 当前执行入口（2026-11-06，浏览器组件随包验证）
 
+最新dc598b1739cef13ba888b35ba5e0f47d37a2666d已加入DPAPI持久设备证书/私钥及发送端配对记录、首次真实TLS核验后才记住设备、已配对直接发送，代码/干净Windows便携包已完成。106Rust/7ignored、最终实际TLS与DPAPI2专项、12UI/Clippy/仓库检查PASS；新包未原生配对，双设备未验，三个新CI待终态。包/源码哈希见ACTIVE-DELIVERY顶部，不得复制身份私钥进入发行包。此前75800af原生就地选择接收目录/自动地址开启/停止/正常退出及三CI已PASS，Windows防火墙提示由用户手动取消，没有获得防火墙权限。下一具体任务是配对管理（查看/取消配对）及双设备验收，再收束浏览器组件许可/SSH资产；普通包仍不附未清关浏览器组件。保留本地补记，避免只为状态文字打断CI。
+
 2026-11-07最新：仍在 feat/browser-components-portable-20261106 / #68。43d87408873273bfe58ad34fb3d2c2b6e87054e9 已接真实UDP附近设备发现、自动接收IPv4、点设备发送和一次粘贴备用连接；用户明确批准本轮临时私有LAN发现，实际同机网卡发现/释放PASS，104Rust/7ignored、10UI、三个CI均通过。同SHAWindows包/原生查询/退出已通过，ZIP及EXE完整哈希见ACTIVE-DELIVERY顶部。不是双机/稳定配对/LocalSend兼容。当前后续小批补接收页就地选保存文件夹，复用原choose_folder主窗权限，不自动监听，11UI通过；新Windows候选按新SHA构建。不要按下方历史重做协议/文档，下一项是稳定身份/配对及双设备验收，浏览器SSH/WASM与许可仍待收束，无自动合并/发行。
 
 继续先读 docs/execution/ACTIVE-DELIVERY.md 顶部。当前 `feat/browser-components-portable-20261106` / Draft #68，基于 #62 ffb8bc8，功能源码710a429。同EXE相对组件、固定SHA、关闭意外寄存服务已实现；70项实际许可文本已生成但尚未发行清关。真实Windows选择文件→浏览器下载SHA/正文一致→第二次取消→正常退出重启任务保留全部PASS，来源不变、最终组件/监听为零。Desktop/Preview/P3三组功能CI成功。精确哈希/未决与回滚见 docs/research/P3-browser-components-portable-20261106.md；不要重复研究已通过的协议/原生闭环。
