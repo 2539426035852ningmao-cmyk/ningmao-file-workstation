@@ -1899,6 +1899,27 @@ async fn recover_desktop_windows(
     shelf_windows::recover_visible(&app)
 }
 pub fn run() {
+    let mut context = tauri::generate_context!();
+    let recovery_window = if std::env::args_os()
+        .nth(1)
+        .is_some_and(|value| value == "--restore-backup")
+    {
+        let original = context
+            .config()
+            .app
+            .windows
+            .iter()
+            .find(|window| window.label == "main")
+            .cloned();
+        for window in &mut context.config_mut().app.windows {
+            if window.label == "main" {
+                window.create = false;
+            }
+        }
+        original
+    } else {
+        None
+    };
     let mut window_state = tauri_plugin_window_state::Builder::default()
         .with_state_flags(tauri_plugin_window_state::StateFlags::SIZE);
     if let Some(root) = std::env::var_os("NINGMAO_DATA_DIR") {
@@ -1910,7 +1931,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(window_state.build())
         .plugin(tauri_plugin_dialog::init())
-        .setup(|app| {
+        .setup(move |app| {
             let root = std::env::var_os("NINGMAO_DATA_DIR")
                 .map(PathBuf::from)
                 .unwrap_or(app.path().app_data_dir()?);
@@ -1961,6 +1982,7 @@ pub fn run() {
                 _process_lock: lock,
             });
             desktop_runtime::setup(app.handle(), &root).map_err(std::io::Error::other)?;
+            if let Some(config) = &recovery_window { tauri::WebviewWindowBuilder::from_config(app.handle(), config)?.build()?; }
             wake_shortcut::setup(app.handle(), &root);
             let show = tauri::menu::MenuItem::with_id(
                 app,
@@ -1997,8 +2019,6 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            // Startup recovery confirmation pumps native messages before desktop state exists.
-            if window.app_handle().try_state::<desktop_runtime::Desktop>().is_none() { return; }
             desktop_runtime::window_event(window, event);
             if matches!(event, tauri::WindowEvent::Moved(_)) {
                 window_surface::observe_move(window);
@@ -2157,7 +2177,7 @@ pub fn run() {
             desktop_detach,
             desktop_merge
         ])
-        .run(tauri::generate_context!())
+        .run(context)
         .expect("柠猫文件工作站启动失败；数据未自动清理");
 }
 
