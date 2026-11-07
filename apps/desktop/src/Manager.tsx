@@ -2,7 +2,7 @@ import {WakeShortcutSettings} from "./components/WakeShortcutSettings";
 import {GlobalSearch} from "./components/GlobalSearch";
 import {ScrollActivity} from "./components/ScrollActivity";
 import {useEffect,useMemo,useRef,useState} from "react";
-import {Archive,Check,File,Folder,Layers,Search,Settings,Tags,ListTodo,RefreshCw,X} from "lucide-react";
+import {Archive,Check,Folder,Layers,Search,Settings,Tags,ListTodo,RefreshCw,X} from "lucide-react";
 import {Button} from "./components/ui/button";
 import {Input} from "./components/ui/input";
 import type {Backend,DesktopPreferences,DesktopView,ManagementSnapshot,Progress} from "./backend";
@@ -10,7 +10,8 @@ import {observeTheme,readTheme,writeTheme} from "./preferences";
 import {localTagSuggestions} from "./localTagSuggestions";
 
 const empty:ManagementSnapshot={shelves:[],items:[],jobs:[]};
-const sections=[["overview","总览",Layers],["assets","素材",File],["tags","标签",Tags],["jobs","任务",ListTodo],["settings","设置",Settings]] as const;
+const sections=[["files","文件与素材",Layers],["jobs","任务中心",ListTodo],["settings","设置",Settings]] as const;
+const fileSections=[["overview","文件架"],["assets","素材"],["tags","标签"]] as const;
 const jobNames:Record<string,string>={queued:"等待中",copying:"复制中",completed:"已完成",failed:"失败",partial:"部分完成",cancelled:"已取消",interrupted:"上次中断"};
 const defaultPreferences:DesktopPreferences={edge:"free",auto_hide:false,topmost:true};
 const perPage=100;
@@ -20,6 +21,7 @@ const bytesLabel=(n:number)=>n>=1048576?`${(n/1048576).toFixed(1)} MB`:n>=1024?`
 export default function Manager({backend}:{backend:Backend}) {
   const [data,setData]=useState(empty),[desktop,setDesktop]=useState<DesktopView|null>(null);
   const [section,setSection]=useState("overview"),[query,setQuery]=useState(""),[shelf,setShelf]=useState(0),[tagFilter,setTagFilter]=useState("");
+  const fileSection=fileSections.some(([key])=>key===section),primarySection=fileSection?"files":section;
   const [selected,setSelected]=useState<number[]>([]),[page,setPage]=useState(0),[tag,setTag]=useState(""),[detail,setDetail]=useState<number|null>(null);
   const [suggestionsOpen,setSuggestionsOpen]=useState(false);
   const [error,setError]=useState(""),[message,setMessage]=useState(""),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
@@ -62,8 +64,9 @@ export default function Manager({backend}:{backend:Backend}) {
     </article>;
   })}</div>;
   return <div className="manager-shell">
-    <aside className="manager-nav"><h1>管理中心</h1><nav aria-label="管理中心导航">{sections.map(([key,label,Icon])=><Button key={key} variant="ghost" className={section===key?"active":""} aria-current={section===key?"page":undefined} onClick={()=>setSection(key)}><Icon size={17}/><span>{label}</span></Button>)}</nav><p>柠猫文件工作站</p></aside>
-    <main className="manager-main"><ScrollActivity/><header><h2>{sections.find(([key])=>key===section)?.[1]}</h2><Button variant="ghost" size="sm" disabled={loading || busy} onClick={()=>void act(async()=>{await refresh();setMessage("已刷新收集记录。");})}><RefreshCw size={15}/>刷新记录</Button></header>
+    <aside className="manager-nav"><h1>管理中心</h1><nav aria-label="管理中心导航">{sections.map(([key,label,Icon])=><Button key={key} variant="ghost" className={primarySection===key?"active":""} aria-current={primarySection===key?"page":undefined} onClick={()=>setSection(key==="files"?"overview":key)}><Icon size={17}/><span>{label}</span></Button>)}</nav><p>柠猫文件工作站</p></aside>
+    <main className="manager-main"><ScrollActivity/><header><h2>{sections.find(([key])=>key===primarySection)?.[1]}</h2><Button variant="ghost" size="sm" disabled={loading || busy} onClick={()=>void act(async()=>{await refresh();setMessage("已刷新收集记录。");})}><RefreshCw size={15}/>刷新记录</Button></header>
+    {fileSection&&<nav className="manager-file-sections" aria-label="文件与素材分类">{fileSections.map(([key,label])=><Button key={key} variant="ghost" aria-current={section===key?"page":undefined} onClick={()=>setSection(key)}>{label}</Button>)}</nav>}
     {error && <div className="error-bar" role="alert"><span>{error}</span><Button variant="ghost" size="icon" aria-label="关闭管理错误" onClick={()=>setError("")}><X size={15}/></Button></div>}
     {desktop?.warning && <p className="manager-warning" role="alert">{desktop.warning}</p>}
     {loading?<p className="manager-empty">正在读取已收集记录…</p>:<>

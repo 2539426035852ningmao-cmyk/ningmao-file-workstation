@@ -2,6 +2,12 @@
 
 ## 2026-11-07 · P0–P4连续总交接生效
 
+本批D05导航已落实：管理中心仅保留“文件与素材、任务中心、设置”三个一级栏目，文件架/素材/标签归入首项二级切换，原筛选、批量标签、任务取消与设置能力保留。复现AI面板Ctrl+K叠出第二个dialog后，最小修复为已有dialog时不另开搜索，关闭后正常Ctrl+K，AI未发送草稿保留。两项新测试先失败后通过，相关34项界面PASS38.7秒；深浅管理截图已本机核对、机械检测无发现。没有借此重构Rust/数据库；这不是D05三形态/三主题完成，固定详情及异步结果的完整仲裁仍待补。
+
+P0/P1精确原生结果：源码af5d3a44971146e02a66bc668eb1742584aa85fa的隔离技术EXE实际通过启动确认→损坏库恢复→主窗可用，integrity_check=ok，原31字节损坏库原样保留于before-restore副本。Explorer复制唯一合成TXT→文件架Ctrl+V→真实卡片/SQLite单条原路径引用PASS；原内容SHA256610607d8a1bf466b35cb57c9f8a21f00201946be83c24a27fa8fbddd502e735d保持不变。正常完整退出，PID及其TCP/UDP监听归零，测试Explorer关闭。截图图片剪贴板链路未验；不把文件剪贴板PASS扩大为全部收集功能。
+
+af5d3a4的Desktop42365289215、Preview42365289190、P342365289132均success。新MSI只读核验和空data/webview便携打包PASS，408许可记录/1警告；ZIP D:/Ningmao-Recovery-Fixed-af5d3a4.zip SHA25670c89c69a0b71b1fa5bcdd49347599ef374806a33880c9dca79844ae4ea08715，包EXE SHA256d3950dc89b5cc1fc86dba1fbfe7e575bf2c4746230fd3cc83e77986f0b3ef595。原生技术EXE与MSI重新链接EXE哈希不同，原生结果仅归前者f44141538ccd7fc2a366859c8d72de7ae54ddc4a864bd4ada91cb9aeeb8a3761，不能冒称新包二进制逐项原生通过。旧0f826fa/2616fb5启动恢复失败候选保留，不推荐为修复版。未安装/发布/合并，浏览器组件许可仍未正式放行。
+
 原生恢复复测继续：0f826fa的窗口回调防护仍未解决主WebView提前请求Desktop的崩溃，不能标修复成功；合成库仍为原始损坏字节，未写入私人数据。已撤回该无效回调防护，改为仅--restore-backup模式下延迟创建main WebView，先完成确认/恢复/Runtime和Desktop初始化，再按原配置创建main；普通启动不变。全目标Clippy通过，新原生复测待下述构建，旧失败均保留。
 
 0f826fa的Desktop42364860088/Preview42364860100/P342364860091三CI均success，但CI成功不能掩盖上述原生S1。P1剪贴板代码在该SHA构建通过，系统实际复制粘贴仍待原生验证。下一步先关闭恢复原生S1，再继续P1/D05，不对根因未证实的网络偶发失败加假设性防护。

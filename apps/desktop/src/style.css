@@ -216,6 +216,8 @@ select { padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; ba
 .manager-main h2 { font-size:20px; font-weight:600; line-height:28px; margin:0; }
 .manager-main h3 { font-size:14px; font-weight:600; margin:0; line-height:20px; }
 .manager-main > section { min-width:0; }
+.manager-file-sections { display:flex; gap:4px; padding-bottom:12px; flex-shrink:0; border-bottom:1px solid var(--line); }
+.manager-file-sections [aria-current="page"] { color:var(--blue); background:var(--hover); }
 .manager-section-heading { margin:16px 0 12px; }
 .manager-section-heading p,.manager-note,.manager-settings > p { color:var(--muted-text); font-size:12px; line-height:18px; margin:4px 0 12px; }
 .manager-shelves { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:0 24px; }

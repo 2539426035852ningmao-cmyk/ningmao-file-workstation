@@ -14,9 +14,13 @@ export function GlobalSearch({backend,revision,scoped=false}:{backend:Backend;re
   const navigating=useRef(false),list=useRef<HTMLDivElement>(null),live=useRef(true);
   useEffect(()=>{live.current=true;return()=>{live.current=false;};},[]);
   useEffect(()=>{
-    const key=(e:KeyboardEvent)=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"&&!e.altKey&&!e.isComposing){e.preventDefault();setOpen(value=>!value);}};
+    const key=(e:KeyboardEvent)=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"&&!e.altKey&&!e.isComposing){
+      // Keep the active panel's drafts and stop/confirmation flow intact.
+      if(!open && document.querySelector('[role="dialog"]'))return;
+      e.preventDefault();setOpen(value=>!value);
+    }};
     window.addEventListener("keydown",key);return()=>window.removeEventListener("keydown",key);
-  },[]);
+  },[open]);
   useEffect(()=>{
     let current=true;
     setResponse(empty);setError("");setActive(0);
