@@ -2,6 +2,7 @@ mod browser_share_desktop;
 pub mod browser_share_process;
 pub mod browser_share_tasks;
 pub mod chat;
+mod clipboard_files;
 pub mod desktop;
 mod desktop_runtime;
 #[cfg(windows)]
@@ -163,6 +164,29 @@ async fn choose_files(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Re
     })
     .await
     .map_err(error)?
+}
+#[tauri::command]
+async fn save_clipboard_image(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    bytes: Vec<u8>,
+) -> Result<String> {
+    shelf_windows::scope(&window)?;
+    let root = app.state::<Runtime>().data_root.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        clipboard_files::save_image(&root, &bytes).and_then(|path| {
+            path.to_str()
+                .map(str::to_owned)
+                .ok_or("图片保存路径编码不受支持。".into())
+        })
+    })
+    .await
+    .map_err(error)?
+}
+#[tauri::command]
+fn clipboard_files(window: tauri::WebviewWindow) -> Result<Vec<String>> {
+    shelf_windows::scope(&window)?;
+    clipboard_files::read_paths()
 }
 #[tauri::command]
 async fn choose_folder(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<Option<i64>> {
@@ -2079,6 +2103,8 @@ pub fn run() {
             snapshot,
             choose_files,
             choose_folder,
+            clipboard_files,
+            save_clipboard_image,
             import_paths,
             cancel_copy,
             remove_reference,

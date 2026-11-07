@@ -224,6 +224,17 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   }
   importRef.current=paths=>void receive(paths);
   useEffect(()=>{
+    const paste=(event:ClipboardEvent)=>{
+      if(!backend.clipboardFiles||busy||running||document.querySelector('[role="dialog"]')||event.target instanceof Element&&event.target.closest('input,textarea,[contenteditable="true"]'))return;
+      event.preventDefault();
+      const shelf=activeShelf.current;
+      const image=Array.from(event.clipboardData?.files??[]).find(file=>file.type.startsWith('image/'));
+      const paths=image&&backend.saveClipboardImage?image.arrayBuffer().then(bytes=>backend.saveClipboardImage!(Array.from(new Uint8Array(bytes)))).then(path=>[path]):backend.clipboardFiles();
+      void paths.then(values=>{if(activeShelf.current!==shelf){setError("文件架已切换，请重新粘贴。");return;}importRef.current(values);}).catch(e=>setError(String(e)));
+    };
+    window.addEventListener('paste',paste);return()=>window.removeEventListener('paste',paste);
+  },[backend,busy,running]);
+  useEffect(()=>{
     let live=true; let cleanup:(()=>void)|undefined;
     void backend.subscribe({
       drop:paths=>importRef.current(paths),hover:setHover,progress:setProgress,
