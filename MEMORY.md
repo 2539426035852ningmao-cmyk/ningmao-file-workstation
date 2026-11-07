@@ -1,5 +1,7 @@
 # 当前执行入口（2026-11-07，统一候选持续交付）
 
+本批最终应用候选9bc6b3b33d6f4e84bc522ef0f609e33793e2794b：胶囊切其他架先收球原生PASS，目标空架正确且不再遮标题；正常退出PID18348/监听零、3引用原架保留/来源3SHA不变/DB完整。干净便携D:/Ningmao-Capsule-Fixed-9bc6b3b.zip与精确哈希见ACTIVE，旧包不覆盖。Desktop/Preview CI成功，P3 Windows大文件断线观察OS5失败；实际本机回环成功但不掩盖CI。已用真实production Staged+delete-pending稳定复现旧观察器File::open=OS5，修复仅experiments清理观察用条目消失判断（不吞权限错/不放宽超时/不改生产收发），新增回归先红后绿、P3全36PASS/1ignored、Clippy/64MiB双进程SUCCESS。新测试提交等待CI，不再仅重跑失败作业；具体原CI子调用未记录，保留准确上限。实验变更不改应用源码，不将新HEAD当旧包build-manifest。
+
 84a8918299959c7d0d0f76dba4eb882ca1419752已推#68并三CI全success，新Windows/MSI/便携通过；同包原生3合成素材完整架→球→320胶囊数量/缩略图→直接Full通过，但切另一架旧胶囊留在前面遮标题，真实FAIL保留。当前修复仅direct共用方法先desktopPresent旧入口orb，再desktopOpen目标，回归先红后绿/受影响30PASS22.9秒；需要新包原生验证，不继承84a通过。旧测试已正常退出、监听归零、3来源哈希不变、DB完整。当前只改此局部，不扩大Windows权限或改文件语义。
 
 接续D05本批：移除独立QuickPeek产品状态/组件/CSS，旧IPC值只兼容映射Capsule；胶囊320×48直接显示最近3项/数量/语义，点击直开完整架、select切架、Esc收球，复用原metadata作用域及原native目标冻结，不扩大Dock文件权限。添加/粘贴仍在完整架，Fluid连续形变与双启动模式未完成。113Rust/7ignored及Clippy通过，新320实际GDI轮廓DPI专项通过；UI先红后绿，旧关闭坐标已对齐外角，一项模拟Leave后提前Esc的测试改为等真实解锁，最终全量143PASS2.7分钟。新包原生待验，不继承1950e75；本机空合成库加3项来源准备好，旧包保留，未安装/合并。
