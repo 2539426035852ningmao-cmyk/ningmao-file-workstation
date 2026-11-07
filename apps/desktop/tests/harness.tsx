@@ -109,6 +109,8 @@ const backend:Backend={
   async desktopPage(delta){desktop.layout.page+=delta;publishDesktop();},async desktopMove(){calls.push("move-entry");},async desktopDisable(){calls.push("disable-entry");},
   async snapshot(){if(snapshotFailure){const message=snapshotFailure;snapshotFailure="";throw new Error(message);}syncState();const shelves=state.shelves.filter(s=>ownShelf?s.id===ownShelf:!desktop.layout.detached?.some(w=>w.shelf_id===s.id)),allowed=new Set(shelves.map(s=>s.id));return structuredClone({shelves,items:state.items.filter(i=>allowed.has(i.shelf_id)),jobs:state.jobs.filter(j=>!ownShelf || j.shelf_id===ownShelf)});},
   async chooseFiles(){return ["SYNTHETIC/新增文件.txt"];},
+  async exportDataBackup(){calls.push("backup-export");return !new URLSearchParams(location.search).has("cancel-backup");},
+  async scheduleDataRestore(){calls.push("backup-restore-scheduled");return true;},
   async chooseFolder(){if(!state.shelves.some(s=>s.id===3))state.shelves.push({id:3,name:"测试绑定目录",kind:"bound",root:"SYNTHETIC/target",available:true});save();return 3;},
   async importPaths(shelf,paths){
     calls.push("import:"+shelf+":"+paths.length);

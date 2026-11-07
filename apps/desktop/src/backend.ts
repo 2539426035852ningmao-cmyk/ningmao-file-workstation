@@ -60,6 +60,8 @@ export interface Backend {
   snapshot(): Promise<Snapshot>;
   chooseFiles(): Promise<string[]>;
   chooseFolder(): Promise<number | null>;
+  exportDataBackup?():Promise<boolean>;
+  scheduleDataRestore?():Promise<boolean>;
   importPaths(shelf: number, paths: string[]): Promise<ImportResult>;
   remove(id: number): Promise<void>;
   relocate(id: number, directory: boolean): Promise<boolean>;
@@ -111,6 +113,8 @@ export const nativeBackend: Backend = {
   trashEntries:filter=>invoke("trash_entries",{filter}),trashShelf:shelfId=>invoke("trash_shelf",{shelfId}),
   restoreTrash:(entity,id)=>invoke("restore_trash",{entity,id}),purgeTrash:(entity,id)=>invoke("purge_trash",{entity,id}),
   snapshot: () => isTauri() ? invoke("snapshot") : Promise.reject("请启动 Windows 应用；浏览器预览不能读取本地文件。"),
+  exportDataBackup:()=>invoke("export_data_backup"),
+  scheduleDataRestore:()=>invoke("schedule_data_restore"),
   chooseFiles: () => invoke("choose_files"), chooseFolder: () => invoke("choose_folder"),
   importPaths: (shelfId, paths) => invoke("import_paths", { shelfId, paths }),
   remove: id => invoke("remove_reference", { id }), tags: (id,tags) => invoke("set_tags", { id,tags }),

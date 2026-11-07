@@ -1604,6 +1604,65 @@ async fn chat_send(
     result.map(|_| ())
 }
 #[tauri::command]
+async fn schedule_data_restore(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+) -> Result<bool> {
+    if metadata_scope(&window)?.is_some() {
+        return Err("请在主窗口或管理中心恢复数据。".into());
+    }
+    let pick = app.clone();
+    let selected = tauri::async_runtime::spawn_blocking(move || {
+        pick.dialog()
+            .file()
+            .set_title("选择柠猫数据备份")
+            .add_filter("SQLite", &["sqlite3"])
+            .blocking_pick_file()
+    })
+    .await
+    .map_err(error)?;
+    let Some(selected) = selected else {
+        return Ok(false);
+    };
+    let path = selected.into_path().map_err(error)?;
+    let dialog = app.clone();
+    let confirmed=tauri::async_runtime::spawn_blocking(move||dialog.dialog().message("下次启动时恢复软件数据库？当前数据库会先自动备份以便回滚。原始文件及设备身份不替换。恢复期间请勿运行其他实例。").title("确认安排数据恢复").buttons(tauri_plugin_dialog::MessageDialogButtons::OkCancel).parent(&window).blocking_show()).await.map_err(error)?;
+    if !confirmed {
+        return Ok(false);
+    };
+    let root = app.state::<Runtime>().data_root.clone();
+    tauri::async_runtime::spawn_blocking(move || Store::stage_restore(&path, &root))
+        .await
+        .map_err(error)??;
+    Ok(true)
+}
+#[tauri::command]
+async fn export_data_backup(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<bool> {
+    if metadata_scope(&window)?.is_some() {
+        return Err("请在主窗口或管理中心备份数据。".into());
+    }
+    let pick = app.clone();
+    let destination = tauri::async_runtime::spawn_blocking(move || {
+        pick.dialog()
+            .file()
+            .set_title("导出柠猫数据备份（不包含原始文件）")
+            .set_file_name("ningmao-backup.sqlite3")
+            .add_filter("SQLite", &["sqlite3"])
+            .blocking_save_file()
+    })
+    .await
+    .map_err(error)?;
+    let Some(destination) = destination else {
+        return Ok(false);
+    };
+    let destination = destination.into_path().map_err(error)?;
+    database(app, move |store| {
+        store.backup_to(&destination)?;
+        Ok(true)
+    })
+    .await
+}
+#[tauri::command]
 async fn management_snapshot(
     app: tauri::AppHandle,
     window: tauri::WebviewWindow,
@@ -1841,6 +1900,7 @@ pub fn run() {
             lock.try_lock().map_err(|e| {
                 std::io::Error::other(format!("相同数据目录已有实例或无法锁定：{e}"))
             })?;
+            Store::apply_pending_restore(&root).map_err(std::io::Error::other)?;
             app.manage(Runtime {
                 browser_shares: Default::default(),
                 transfers: Default::default(),
@@ -2044,6 +2104,8 @@ pub fn run() {
             desktop_disable,
             manager_open,
             management_snapshot,
+            export_data_backup,
+            schedule_data_restore,
             search_metadata,
             focus_search_result,
             take_search_focus,

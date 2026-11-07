@@ -120,6 +120,104 @@ pub struct Store {
     db: Connection,
 }
 impl Store {
+    pub fn validate_backup(path: &Path) -> Result<Connection> {
+        let source = Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
+            .map_err(err)?;
+        source
+            .pragma_update(None, "trusted_schema", false)
+            .map_err(err)?;
+        let integrity: String = source
+            .pragma_query_value(None, "integrity_check", |row| row.get(0))
+            .map_err(err)?;
+        let version: i64 = source
+            .pragma_query_value(None, "user_version", |row| row.get(0))
+            .map_err(err)?;
+        if integrity != "ok" || version != 2 {
+            return Err("备份损坏或版本不兼容，当前数据没有修改。".into());
+        }
+        for name in [
+            "shelves",
+            "items",
+            "jobs",
+            "record_ids",
+            "recycle_journal",
+            "recycle_layouts",
+            "hidden_bound_paths",
+            "chat_config",
+            "chat_sessions",
+            "chat_messages",
+        ] {
+            let count: i64 = source
+                .query_row(
+                    "SELECT count(*) FROM sqlite_master WHERE type='table' AND name=?1",
+                    [name],
+                    |row| row.get(0),
+                )
+                .map_err(err)?;
+            if count != 1 {
+                return Err("备份缺少必要数据表，当前数据没有修改。".into());
+            }
+        }
+        Ok(source)
+    }
+    pub fn stage_restore(backup: &Path, data_root: &Path) -> Result<()> {
+        let source = Self::validate_backup(backup)?;
+        let pending = data_root.join("restore-pending.sqlite3");
+        if pending.exists() {
+            return Err("已有待恢复备份，请完整退出后重新启动。".into());
+        }
+        source
+            .execute("VACUUM INTO ?1", [path_text(&pending)?])
+            .map_err(err)?;
+        Ok(())
+    }
+    pub fn apply_pending_restore(data_root: &Path) -> Result<Option<PathBuf>> {
+        let pending = data_root.join("restore-pending.sqlite3");
+        if !pending.exists() {
+            return Ok(None);
+        }
+        let source = Self::validate_backup(&pending)?;
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(err)?
+            .as_nanos();
+        let rollback = data_root.join(format!("before-restore-{stamp}.sqlite3"));
+        let mut destination = Self::open(&data_root.join("workstation.sqlite3"))?;
+        destination.backup_to(&rollback)?;
+        {
+            let transfer =
+                rusqlite::backup::Backup::new(&source, &mut destination.db).map_err(err)?;
+            transfer
+                .run_to_completion(64, Duration::from_millis(10), None)
+                .map_err(err)?;
+        }
+        drop(destination);
+        drop(source);
+        fs::rename(
+            &pending,
+            data_root.join(format!("restored-source-{stamp}.sqlite3")),
+        )
+        .map_err(err)?;
+        Ok(Some(rollback))
+    }
+    pub fn backup_to(&self, destination: &Path) -> Result<()> {
+        if destination.exists() {
+            return Err("请选择新的备份文件名，不覆盖已有文件。".into());
+        }
+        self.db
+            .execute("VACUUM INTO ?1", [path_text(destination)?])
+            .map_err(err)?;
+        let verify =
+            Connection::open_with_flags(destination, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
+                .map_err(err)?;
+        let integrity: String = verify
+            .pragma_query_value(None, "integrity_check", |row| row.get(0))
+            .map_err(err)?;
+        if integrity != "ok" {
+            return Err("备份完整性检查失败，请保留原数据并重新备份。".into());
+        }
+        Ok(())
+    }
     pub fn open(path: &Path) -> Result<Self> {
         let db = Connection::open(path).map_err(err)?;
         db.busy_timeout(Duration::from_secs(5)).map_err(err)?;
