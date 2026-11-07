@@ -15,6 +15,8 @@ export type TransferSelection={shelf_id:number;files:{id:number;name:string}[]};
 
 export function TransferPanel({backend,open,onOpenChange,initialMode,selection,shelves,chooseReceiveFolder}:{backend:TransferBackend;open:boolean;onOpenChange:(value:boolean)=>void;initialMode:"send"|"receive";selection:TransferSelection;shelves:Shelf[];chooseReceiveFolder?:()=>Promise<number|null>}){
   const [mode,setMode]=useState(initialMode),[view,setView]=useState(empty),[error,setError]=useState("");
+  const content=useRef<HTMLDivElement>(null);
+  useEffect(()=>{if(open&&mode==="receive")content.current?.scrollTo(0,0);},[open,mode,view.receiving]);
   const [copied,setCopied]=useState("");
   const [connection,setConnection]=useState("");
   const [known,setKnown]=useState<string[]>([]);
@@ -50,7 +52,7 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
     <Button className="transfer-close" variant="ghost" size="icon" aria-label="关闭文件互传" onClick={()=>onOpenChange(false)}><X size={16}/></Button>
     <Tabs className="transfer-workspace" value={mode} onValueChange={value=>setMode(value as "send"|"receive")}>
     <TabsList className="transfer-tabs" aria-label="互传方向"><TabsTrigger value="send">发送文件</TabsTrigger><TabsTrigger value="receive">接收文件</TabsTrigger></TabsList>
-    <TabsContent value={mode} className="transfer-content">{mode==="send"?<>
+    <TabsContent ref={content} value={mode} className="transfer-content">{mode==="send"?<>
       <strong>1. 选择文件</strong><p className="transfer-note">已选 {selection.files.length} 项{selection.files.length>16?"，一次最多发送16项":""}</p>
       {!selection.files.length&&<p className="capability-hint">先在文件架选择文件，再使用“发送到设备”。<Button variant="outline" onClick={()=>onOpenChange(false)}>返回文件架选文件</Button></p>}
       {!!selection.files.length&&<ul className="transfer-files" aria-label="待发送文件">{selection.files.map(file=><li key={file.id} title={file.name}>{file.name}</li>)}</ul>}
@@ -68,7 +70,17 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
       </form>
       <div className="transfer-status" role="status">{activeSend?<>{cancelling?"正在取消，等待安全结束":phases[progress?.phase??""]??"正在连接…"}{progress&&<><progress aria-label="发送进度" value={progress.bytes} max={progress.total||1}/><span>{sizes(progress.bytes)} / {sizes(progress.total)} · {progress.file_index+1}/{progress.file_count}项</span></>}</>:result?<><strong>{statuses[result.status]??result.status}</strong><p>{result.message}</p><ul>{result.files.map(file=><li key={file.index}>{selection.files[file.index]?.name??`文件 ${file.index+1}`} · {statuses[file.status]??file.status}</li>)}</ul></>:null}</div>
     </>:<>
-      {view.receiving?<section className="transfer-listening"><strong>已准备好接收 · 设备码 {view.fingerprint?.slice(0,6).toUpperCase()}</strong><p className="capability-hint">点击“复制连接信息”发给对方，对方只需粘贴一次。收到请求后，检查文件列表，再点击“接受文件”。</p><Button variant="outline" disabled={!view.address||!view.fingerprint} onClick={()=>void copy(`ningmao://receive?${new URLSearchParams({address:view.address??"",fingerprint:view.fingerprint??""})}`,"连接信息")}>复制连接信息</Button><div className="transfer-copy-field"><label>本机地址<Input aria-label="本机地址" value={view.address??""} readOnly/></label><Button variant="outline" disabled={!view.address} onClick={()=>void copy(view.address??"","地址")}>复制地址</Button></div><div className="transfer-copy-field"><label>本机证书指纹<textarea aria-label="本机证书指纹" value={view.fingerprint??""} readOnly rows={2}/></label><Button variant="outline" disabled={!view.fingerprint} onClick={()=>void copy(view.fingerprint??"","指纹")}>复制指纹</Button></div><p className="muted">接收到：{shelves.find(s=>s.id===view.shelf_id)?.name??"已选择的绑定目录"}</p>{copied&&<p role="status" className="muted">{copied}</p>}<Button variant="outline" disabled={working} onClick={()=>void action(()=>backend.stopReceive())}>停止接收</Button></section>:<form className="transfer-form" onSubmit={e=>{e.preventDefault();void action(()=>backend.receive(target,bindAddress.trim()));}}>
+      {view.receiving?<section className="transfer-listening">
+        <strong>已准备好接收 · 设备码 {view.fingerprint?.slice(0,6).toUpperCase()}</strong>
+        <p className="transfer-note">接收到：{shelves.find(s=>s.id===view.shelf_id)?.name??"已选择的绑定目录"}</p>
+        <p className="capability-hint">对方粘贴连接即可发送；收到请求后，你仍需确认。</p>
+        <div className="transfer-receive-actions"><Button disabled={!view.address||!view.fingerprint} onClick={()=>void copy(`ningmao://receive?${new URLSearchParams({address:view.address??"",fingerprint:view.fingerprint??""})}`,"连接信息")}>复制连接信息</Button><Button variant="outline" disabled={working} onClick={()=>void action(()=>backend.stopReceive())}>停止接收</Button></div>
+        {copied&&<p role="status" className="transfer-note">{copied}</p>}
+        <details className="transfer-connection-details"><summary>地址与证书信息</summary>
+          <div className="transfer-copy-field"><label>本机地址<Input aria-label="本机地址" value={view.address??""} readOnly/></label><Button variant="outline" disabled={!view.address} onClick={()=>void copy(view.address??"","地址")}>复制地址</Button></div>
+          <div className="transfer-copy-field"><label>本机证书指纹<textarea aria-label="本机证书指纹" value={view.fingerprint??""} readOnly rows={2}/></label><Button variant="outline" disabled={!view.fingerprint} onClick={()=>void copy(view.fingerprint??"","指纹")}>复制指纹</Button></div>
+        </details>
+      </section>:<form className="transfer-form" onSubmit={e=>{e.preventDefault();void action(()=>backend.receive(target,bindAddress.trim()));}}>
         <p className="capability-hint">先选文件保存位置，再开启接收。对方发送后，你仍可选择接受或拒绝。</p><label>接收文件架<select aria-label="接收文件架" value={target} onChange={e=>setTarget(Number(e.target.value))}><option value={0}>选择绑定目录</option>{bound.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
         {chooseReceiveFolder?<Button type="button" variant="outline" disabled={working} onClick={()=>void chooseFolder()}>{working?"正在选择…":bound.length?"选择其他保存文件夹":"选择保存文件夹"}</Button>:!bound.length&&<p className="muted">请在主窗口选择接收文件夹</p>}
         <details><summary>手动指定网络地址（通常无需填写）</summary><label>本机监听地址<Input aria-label="本机监听地址" placeholder="例如 192.168.1.20:53317" value={bindAddress} onChange={e=>setBindAddress(e.target.value)} maxLength={80}/></label>

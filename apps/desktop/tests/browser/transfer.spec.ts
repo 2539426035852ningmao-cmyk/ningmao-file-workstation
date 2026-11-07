@@ -52,6 +52,7 @@ test("文件互传默认关闭，显式开启并确认接收才提交",async({pa
   await panel.getByLabel("本机监听地址").fill("127.0.0.1:0");
   await panel.getByRole("button",{name:"开启接收",exact:true}).click();
   await expect(panel.getByLabel("本机地址")).toHaveValue("127.0.0.1:53317");
+  await panel.getByText("地址与证书信息",{exact:true}).click();
   await panel.getByRole("button",{name:"复制地址"}).click();
   expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe("127.0.0.1:53317");
   await panel.getByRole("button",{name:"复制指纹"}).click();
