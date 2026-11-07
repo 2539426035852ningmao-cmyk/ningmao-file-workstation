@@ -1,4 +1,22 @@
 import {test,expect} from '@playwright/test';
+for(const theme of ['light','dark','blue'])test(`接收就绪只展示关键动作，技术信息可用键盘展开 ${theme}`,async({page})=>{
+ await page.setViewportSize({width:340,height:320});await page.addInitScript(value=>localStorage.setItem('ningmao-theme',value),theme);
+ await page.goto('/tests/harness.html');await page.getByRole('button',{name:'更多操作',exact:true}).click();await page.getByRole('menuitem',{name:'文件互传',exact:true}).click();
+ await page.getByRole('button',{name:'选择保存文件夹',exact:true}).click();
+ await page.getByRole('button',{name:'开启接收',exact:true}).click();
+ const panel=page.getByRole('dialog',{name:'文件互传',exact:true});
+ await expect(panel.getByText('已准备好接收 · 设备码 AAAAAA')).toBeInViewport({ratio:1});
+ await expect(panel.getByLabel('本机地址',{exact:true})).toBeHidden();
+ await expect(panel.getByRole('button',{name:'复制连接信息',exact:true})).toBeInViewport({ratio:1});
+ await expect(panel.getByRole('button',{name:'停止接收',exact:true})).toBeInViewport({ratio:1});
+ await page.screenshot({path:`${process.env.M105_TEST_OUTPUT||'test-results'}/receive-ready-${theme}.png`});
+ const details=panel.getByText('地址与证书信息',{exact:true});await details.focus();await details.press('Enter');
+ await expect(panel.getByLabel('本机地址',{exact:true})).toHaveValue('127.0.0.1:53317');
+ await expect(panel.getByLabel('本机证书指纹',{exact:true})).toHaveValue('a'.repeat(64));
+ await panel.getByRole('button',{name:'停止接收',exact:true}).click();
+ await expect(panel.getByRole('button',{name:'开启接收',exact:true})).toBeVisible();
+ expect(await page.evaluate(()=>window.transferHarness.calls())).toEqual(['receive:3:','stop-receive']);
+});
 test('零选择可以直接返回选文件，测试分享默认收起',async({page})=>{
  await page.goto('/tests/harness.html?browser-share');
  await page.getByRole('button',{name:'更多操作',exact:true}).click();
