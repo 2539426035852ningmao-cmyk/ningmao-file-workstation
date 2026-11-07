@@ -18,15 +18,15 @@ Windows 资源管理器与桌面创作应用之间的素材接收、整理、预
 
 ## Capabilities and Constraints
 
-当前为r7核心便携测试候选，完整桌面工程仍未合并main；当前集成在PR #62。已有文件工作站、窗口/Dock、任务/回收、本地搜索/规则、LAN互传和可配置AI；开发构建完成过本机浏览器分享原生下载/取消，组件未随r7分发，入口隐藏。真实双机、手机/跨网、真实AI、多DPI/多屏和正式发布门槛仍未全部通过。技术沿用Tauri 2/Rust/React/TypeScript/SQLite及shadcn/ui，不改变框架。最新精确状态以docs/execution/ACTIVE-DELIVERY.md为准。
+当前应用为PR #68/5713c47359445664d43c806322f74c3c96456b42候选，继承PR #62；完整桌面工程仍未合并main。已有文件工作站、窗口/Dock、任务/回收、本地搜索/规则、LAN互传和可配置AI；开发构建完成过本机浏览器分享原生下载/取消，组件未随r7分发，入口隐藏。真实双机、手机/跨网、真实AI、多DPI/多屏和正式发布门槛仍未全部通过。技术沿用Tauri 2/Rust/React/TypeScript/SQLite及shadcn/ui，不改变框架。最新精确状态以docs/execution/ACTIVE-DELIVERY.md为准。
 
 ## Brand Commitments
 
-中文名柠猫文件工作站，英文名 Ningmao File Workstation；深浅双主题，默认蓝色强调色；不改已定产品需求。统一采用已获批准的 shadcn/ui 主设计系统，遵循根目录 design.md 的圆角、间距、文字与渐进式操作规范；设计尺寸仍需用户体验验收。
+中文名柠猫文件工作站，英文名 Ningmao File Workstation；白色、深蓝、亮蓝三套完整主题，默认蓝色强调色；不改已定产品需求。统一采用已获批准的 shadcn/ui 主设计系统，遵循根目录 design.md 的圆角、间距、文字与渐进式操作规范；设计尺寸仍需用户体验验收。
 
 ## Evidence on Hand
 
-原43项与P4独立44项冻结决定、历史分SHA原生证据、r7本机128界面/102Rust通过（6跳过）、显式服务专项与r7原生启动/退出。候选b3d0737三组CI通过；这些结果不等于真实双机/模型/全Windows矩阵通过。精确证据及边界见ACTIVE-DELIVERY，能力总览见docs/project-status.md。
+原43项与P4独立44项冻结决定、历史分SHA原生证据、r7本机128界面/102Rust通过（6跳过）、显式服务专项与r7原生启动/退出。当前5713c47全量147界面及Desktop/Preview/P3三组CI通过；原生子集含启动/重启、窗口控件、合成来源保留；这些结果不等于真实双机/模型/全Windows矩阵通过。精确证据及边界见ACTIVE-DELIVERY，能力总览见docs/project-status.md。
 
 ## Product Principles
 

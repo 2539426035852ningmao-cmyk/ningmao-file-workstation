@@ -1,0 +1,67 @@
+# 小型产品 UI/UX 收束：P0 审计与实施记录
+
+核验日期：2026-11-08。基线为 PR #68 的 5713c47359445664d43c806322f74c3c96456b42，不使用 main 代表应用状态。本任务的 P0–P4 是 UI 质量阶段，不替代项目原有产品路线 P0–P4。
+
+## 基线与唯一规范
+
+| 来源 | 实时核验 | 本轮处理 |
+|---|---|---|
+| PR #64 | open、未合并，3eb5beefb82a0d86d6d4409d4726784fd1c2611c | 原样复用其 design.md v0.2 与四份关联文档，不重新定义 D05 |
+| PR #66 | Draft、未合并，efd06f67167e14b39968b669ae640cbffd57c366 | 同 HWND 技术探针保持独立，不混入生产候选 |
+| PR #68 | Draft、未合并，5713c47359445664d43c806322f74c3c96456b42 | 当前应用基线；147 界面及三组 CI 成功，原生仅限已记录子集 |
+
+根 design.md 是唯一产品规范；apps/desktop/DESIGN.md 只记录工程实现。v0.1 按 #64 归档。D05 优先于旧的 QuickPeek、独立球体配色和管理中心五栏目描述；原43项与P4独立44项安全合同保留。最新执行状态仍以 ACTIVE-DELIVERY 为入口。
+
+独立工作区承接 #68 精确提交，原工作区及两份未提交构建后补记原样保留。未重置、覆盖、切换旧工作区，也未合并 #64/#66/#68。
+
+## 已有资源清单
+
+- 技术：Tauri 2、Rust、React 19、TypeScript、SQLite。依赖版本以 apps/desktop/package-lock.json 和 src-tauri/Cargo.lock 为准，不重新选型。
+- UI：shadcn/ui + radix-ui 1.8.1、Lucide、Tailwind 4；SpaceUI FileThumb 局部复用，@tanstack/react-virtual 3.14.22 管理文件列表。
+- 已有部件：Button/Input、Sheet/Dialog/菜单、WindowControls、OrbFace/MorphCapsule/AdaptiveShelfDock、管理中心、互传/AI 面板；不另造组件库或状态平台。
+- 样式：style.css 三套完整语义色，窗口/控件圆角及间距已有变量，但危险状态仍有硬编码和未定义变量，见下表。
+- 自动验证：现有 Playwright harness、Store/Rust 安全回归、仓库检查、fmt/Clippy、Windows 打包只读检查；浏览器不等于原生 OLE/DPI。
+- 动效：现有 OrbMotionController 停止收敛后的 RAF、隐藏暂停、减少动态效果、原生拖放锁定；不重写弹簧或增加动画框架。
+
+## 问题清单与处置
+
+| ID | 证据/问题 | 最小处理 | 当前边界 |
+|---|---|---|---|
+| U01 | 当前分支仍为 v0.1 规范，和 #64 D05 冲突 | 复用 #64 五份文档，标明历史审计日期 | 本次完成文档接续，不代表 #64 已合并 |
+| U02 | transfer-error/chat-error 使用 --destructive，但 :root 未定义 | P1 定义三主题错误文字/危险底色 Token，并桥接 Tailwind | 不改变错误内容、网络或 AI 逻辑 |
+| U03 | 窗口关闭、Dock 警告、回收状态混用多组红色 | P1 复用少量语义 Token，保证文字对比度 | 不删除文字安全语义，不修改关闭动作 |
+| U04 | Ctrl+K 有面板保护，但其他入口与弹窗独立 | P2 沿既有状态补实际可复现路径；保留任务停止确认和草稿 | 未复现前不建设通用面板总线 |
+| U05 | 小字原生截图有字形缺损感，浏览器行高完整 | 对比捕获与实际渲染证据后再决定修复 | UNKNOWN，不猜测 GPU 参数、不标已修复 |
+| U06 | 球/胶囊/Full 存在原生窗口交接，非连续形变 | P3 验证既有减少动态效果与拖放优先级；#66 单独研究 | 不把 CSS 过渡或探针视为正式 Fluid 形变 |
+| U07 | 双设备/全 DPI/多屏及模型等外部验收不完整 | P4 按已归档矩阵分别记录 | 未测仍 NOT_TESTED/PARTIAL，不以截图替代 |
+
+已完成的三形态、双启动、三栏目、三主题、原生 Copy/引用/恢复与附近设备配对均复用，不重复建设。
+
+## 技能审计与选择
+
+以下只读检查，没有运行第三方安装器、升级或安装新技能。未将技能源码/脚本打入软件包。
+
+| 技能 | 版本/固定来源 | 许可及维护核查 | 选择与冲突处理 |
+|---|---|---|---|
+| 本机 Impeccable | metadata 4.3.1；本机 SKILL SHA256 38c2e839e130008b6da814ab9c16f3fcbbedfdf721a9638eebd31a9e65341a7a | 上游 pbakaus/impeccable 为 Apache-2.0；当前上游687bc381bc9091bf252c0a05303640561014a425、11-07更新；本机整包与上游同一性未证明 | 仅使用现有 context/限定打磨/检测；已有Windows启动器可回退下载并校验sidecar，优先现存引擎，不运行安装/更新。夸张视觉、字体下载和访谈不能覆盖用户冻结规范 |
+| 本机 creative-desktop-ui-taste / tdd / ponytail | 本地 SKILL，无声明版号 | 本机辅助指导，未引入发行代码；版本/外部分发许可不补猜 | 使用桌面交互检查、最小实现和针对性测试，不新增工具链 |
+| Vercel web-design-guidelines | 1.0.0，vercel-labs/agent-skills@1a2c79d4e6c4a2283dc2c614b6538cbe1ed5ca62 | 仓库未返回统一许可、目标目录无LICENSE；本技能无可执行脚本，但要求每次取远端规则；10-28更新、未归档 | 仅评估，不安装/复制，许可UNKNOWN；网页规则不能改变原生权限和窗口合同 |
+| Vercel react-best-practices | 1.0.0，同上SHA | SKILL标MIT；仓库缺统一LICENSE，保留元数据与许可正文的区别；目标目录未见可执行安装脚本 | 本轮无性能瓶颈证据，不启用，不引入Next.js/服务端方案 |
+| Anthropic frontend-design | anthropics/skills@2c5958ecac7cee2b583967a2c4981d0f4a75c579；无独立版号 | 目标目录LICENSE.txt为Apache-2.0，11-06更新、未归档，目标目录无可执行脚本 | 不启用：新视觉方向与稳定桌面风格职责重复，只评估参考 |
+| Tauri 2 社区候选 | full-stack-skills/tauri-skills@77b57c4913873a0f8cab7db45116038dc18a27f0 | Apache-2.0，10-03更新、未归档；树中未发现安装脚本；这是社区项目，不是tauri-apps官方技能 | 无Rust/原生权限修改时不启用；以后先核具体子技能再只读选用，不装52项合集 |
+
+来源：[Vercel](https://github.com/vercel-labs/agent-skills/tree/1a2c79d4e6c4a2283dc2c614b6538cbe1ed5ca62)、[Anthropic](https://github.com/anthropics/skills/tree/2c5958ecac7cee2b583967a2c4981d0f4a75c579/skills/frontend-design)、[Impeccable](https://github.com/pbakaus/impeccable/tree/687bc381bc9091bf252c0a05303640561014a425)、[Tauri社区](https://github.com/full-stack-skills/tauri-skills/tree/77b57c4913873a0f8cab7db45116038dc18a27f0)、[Vercel正式规则](https://vercel.com/design/guidelines)。社交/社区反馈仅作发现线索，结论使用固定上游记录及本机源文件。
+
+## 流程对照与后续质量门槛
+
+| 用户任务 | 当前路径 | 收束方向/安全边界 |
+|---|---|---|
+| 收集 | 拖到指定球/胶囊，或完整架添加/Ctrl+V | 复用现有输入，引用/复制语义就近显示；胶囊快捷收集尚未完成 |
+| 选架 | 球/Dock入口，胶囊切架，完整架菜单 | 同一catalog，不增加第二套架列表；不移动正在投放的目标 |
+| 查看 | 单击选中、Space预览、双击默认打开 | 保留；菜单明确提供详情/预览和默认打开备选 |
+| 复制/发送 | 卡片拖出Copy、选择后菜单发送、管理任务 | 不在球上常驻网络配置；保留键盘、拒绝接收与取消路径 |
+| 恢复 | 软件回收站、管理中心备份及窗口找回 | 继续区分软件记录、原始文件、Windows回收站，不能合并确认语义 |
+
+P0：本报告与规范来源接续。P1：语义Token/组件用法，独立小PR。P2：只处理复现的流程缺口，独立PR。P3：尊重现有原创动画与减少动态效果，按证据小步修改。P4：汇总精确源码/构建SHA、自动测试和原生证据；后续阶段未完成时明确保留。
+
+本P0不改业务代码、Rust、SQLite、Copy/Move、IPC权限、协议或依赖；不用安装包验证纯文档。回滚本PR即可恢复文档，旧设计归档不删除，旧稳定候选和用户数据不受影响。
