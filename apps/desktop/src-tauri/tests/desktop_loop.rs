@@ -13,7 +13,8 @@ fn startup_mode_defaults_to_orb_and_preserves_active_context() {
     assert_eq!(layout.active_shelf, 7);
     assert!(layout.visible_ids().contains(&7));
     layout.preferences.startup = Startup::Full;
-    let mut restored: Layout = serde_json::from_str(&serde_json::to_string(&layout).unwrap()).unwrap();
+    let mut restored: Layout =
+        serde_json::from_str(&serde_json::to_string(&layout).unwrap()).unwrap();
     restored.prepare_startup(&[1, 7]);
     assert!(restored.expanded);
     assert_eq!(restored.active_shelf, 7);
