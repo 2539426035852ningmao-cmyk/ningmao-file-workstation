@@ -23,7 +23,7 @@ for(const [id,,title,text] of p4){
  lines.push(`|P4-${id}|${title}：${text}|${state}|${src}|${plugin?'管理中心规则建议已有，插件管理入口尚缺':n===28?'AI对话/配置':'搜索/管理中心；完整闭环待补'}|已有局部测试，完整需求未验收|NOT_TESTED（完整条目）|${advanced?'总指令允许后置高级理解，元数据基础仍需验收':plugin?'阻断：复用规则引擎补安装/启停/权限/卸载，用户标签保留':'需补齐完整闭环；模型/设备依赖单列，不静默延期'}|`);
 }
 for(const [id,text,src,entry,next] of [
- ['D05-1','Orb→Capsule→Full，移除独立QuickPeek','apps/desktop/src/DesktopEntry.tsx','桌面入口','吸收#66有界探针；OLE目标几何冻结回归'],
+ ['D05-1','Orb→Capsule→Full，移除独立QuickPeek','apps/desktop/src/orb/MorphCapsule.tsx；src-tauri/src/entry.rs','球→含最近3项/数量的胶囊→点击直接打开完整架；Esc收回球','旧轻预览组件/原生状态已移除，旧IPC值仅兼容映射胶囊；连续形变、快捷添加/粘贴、双启动模式和新原生OLE仍待完成'],
  ['D05-2','白/深蓝/亮蓝三套完整主题','apps/desktop/src/style.css；preferences.ts','文件架更多菜单/管理中心设置/入口主题；所有窗口同步','三套Token与旧设置兼容已实现，跨窗/重开和全量141界面通过；新包原生及最终视觉待验'],
  ['D05-3','管理中心三栏、独立窗口','apps/desktop/src/Manager.tsx','文件与素材/任务中心/设置；原文件架/素材/标签下沉二级','三栏目已实现并经浏览器回归；新包原生及最终视觉待验'],
  ['D05-4','单主要辅助面板及上下文保持',sources[0],'预览/搜索/互传/AI','Ctrl+K不再叠加现有模态面板、AI草稿保留已测；异步结果/固定详情仍需整体仲裁'],

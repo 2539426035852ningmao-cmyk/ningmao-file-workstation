@@ -903,7 +903,7 @@ pub fn window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
                                 }
                             }
                             Err(e) => {
-                                let _ = present(&task, id, crate::entry::Kind::QuickPeek);
+                                let _ = present(&task, id, crate::entry::Kind::Capsule);
                                 report(&task, e);
                             }
                         }

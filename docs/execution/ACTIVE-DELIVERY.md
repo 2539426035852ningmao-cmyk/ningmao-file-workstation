@@ -2,6 +2,14 @@
 
 ## 2026-11-07 · P0–P4连续总交接生效
 
+D05三形态路径本批接续：旧QuickPeek组件、样式及原生Kind::QuickPeek已移除，胶囊320×48就地呈现最多3项已登记素材/缩略图、总数量和引用/复制语义；再次点击直接desktopOpen完整架，Esc回球，原生select可打开其他架。旧IPC字符串quick-peek仅作为serde兼容别名映射Capsule，不产生额外产品状态。只读预览沿已有desktop_peek/Store条目作用域，不增加Dock文件读写权限，不改Copy/数据库/身份；快捷添加和粘贴仍在完整架，本批不冒称这些胶囊操作、双启动模式或连续Fluid形变已完成。
+
+先红后绿证据：2新界面检查复现旧版无胶囊最近素材/切架；Rust旧184宽度与新320断言明确失败。修复后113 Rust PASS/7ignored、Clippy PASS；最终320×48实际GDI栅格100%/125%/150%专项PASS。首轮界面29PASS/2旧关闭坐标失败（旧按钮宽不再等于整胶囊，已对齐真实外角），全量142PASS/1模拟Leave后未等解锁就Esc的验收同步失败；改为等待按钮实际解锁再继续，最终全量143PASS2.7分钟。生产前端/仓库检查PASS，机械检测无发现。新Windows候选/原生胶囊、贴边和真实OLE尚待验证，不能继承1950e75证据；回滚1950e758ed746009a58371afd84b7b98daee4b17。
+
+本机打包后补记（随下一功能批次提交，不为纯记录重跑CI）：1950e758ed746009a58371afd84b7b98daee4b17三CI全部success，Desktop42376464808/Preview42376464718/P342376464704。Windows编译/MSI载荷核验/干净便携打包PASS，ZIP D:/Ningmao-Themes-1950e75.zip SHA256a44e417905fe3acea65bd870e27767a3fd479ee8861480b5bf4260d7e2c11181；EXE SHA2568c46fb744435c5ab061a0aa9e17cb444d182c8ebff00e98f024f62c90e6abb2d。分发data/webview均空，旧候选保留，无安装/合并/发布。
+
+同包EXE原生子集PASS：默认深蓝→文件架菜单亮蓝→打开独立管理中心同为亮蓝→管理设置改白色→既有文件架同步白色→收起后暖白双眼球/胶囊→Ctrl+Enter回完整架→正常完整退出。PID27744退出、TCP/UDP归零、SQLite integrity_check=ok。WebView2退出时单条Chrome_WidgetWin_0注销1412警告，未观察到数据损坏/退出失败；保留原日志，不据此猜测加防护。未执行新包原生图片剪贴板、所有主题的拖放/多DPI/多屏或最终产品视觉验收；浏览器重载记忆通过不冒充Windows完整重启。
+
 D05全局主题批次：沿既有CSS Token实现白色/深蓝色/亮蓝色三套完整表面、文字、控件与双眼入口配色；文件架菜单、管理设置、现有入口主题选择均写同一主题记录，移除独立球皮肤写入，已存在全局主题优先，缺失时兼容旧皮肤且不删除原记录。新增跨管理/文件架/Dock、AI/搜索表面及重载检查2PASS8.3秒；受影响全量141界面PASS2.9分钟，深浅/亮蓝截图本机核对、机械检测无发现，最终三主题orb专项18PASS17.6秒，生产前端/仓库检查PASS。入口仍有旧轻预览，未伪称三形态完成；Windows新包主题与最终视觉尚待后续原生检查。没有新依赖、Rust/schema/文件操作变化，回滚019e751cc074beb909525a953a4236bb39c06dd9。
 
 019e751cc074beb909525a953a4236bb39c06dd9三CI全部success：Desktop42374906792/Preview42374906840/P342374906871。对应包EXE SHA256aa4c51eb56557f47858e897748d447604aa3bc48117a4244aa1746b676e85e41已实际启动：独立管理中心三栏目、文件架/素材/标签二级切换、任务与设置入口、AI面板CtrlK不叠搜索、Esc关闭后CtrlK正常搜索PASS；完整退出PID6568及TCP/UDP监听归零，退出后合成库integrity_check=ok。ZIP D:/Ningmao-Workspace-019e751.zip SHA256a207e1cfcf246a0132a129692ad606e4958b322777559e5afb8d4c9280cc811c，data/webview为空；无安装/公网/真实模型调用。旧候选全部保留，此包不含下一主题批次。

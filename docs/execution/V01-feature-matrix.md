@@ -1,6 +1,6 @@
 # 首版功能与验收矩阵
 
-生成时源码：019e751cc074beb909525a953a4236bb39c06dd9。本文件由 scripts/generate-delivery-matrix.mjs 生成；结论仅针对下述范围，不自动继承旧 SHA 的 PASS。
+生成时源码：1950e758ed746009a58371afd84b7b98daee4b17。本文件由 scripts/generate-delivery-matrix.mjs 生成；结论仅针对下述范围，不自动继承旧 SHA 的 PASS。
 
 唯一当前执行状态仍在 [ACTIVE-DELIVERY](ACTIVE-DELIVERY.md)。IN_PROGRESS 表示该完整复合需求仍有缺口，并非其中每个子功能均未实现。没有逐条完整验收的项目不标 TESTED。基础与增强均保留，DEFERRED 仅用于总指令明确允许后置的视频关键帧/OCR/音频理解。
 
@@ -95,7 +95,7 @@
 |P4-42|动态任务队列与资源调度：前台响应优先，后台索引/AI 并发受 CPU/RAM/GPU 实际负载约束，可降速暂停并安全恢复。|IN_PROGRESS|apps/desktop/src-tauri/src/store.rs|搜索/管理中心；完整闭环待补|已有局部测试，完整需求未验收|NOT_TESTED（完整条目）|需补齐完整闭环；模型/设备依赖单列，不静默延期|
 |P4-43|模型推荐、确认与回滚：复用已有兼容模型；新下载展示来源/用途/尺寸/空间，支持断点、兼容性验证、失败恢复、安全卸载。|IN_PROGRESS|apps/desktop/src-tauri/src/store.rs|搜索/管理中心；完整闭环待补|已有局部测试，完整需求未验收|NOT_TESTED（完整条目）|需补齐完整闭环；模型/设备依赖单列，不静默延期|
 |P4-44|阶段性真实交付与验收：搜索基础→智能检索→插件闭环→工作流；各阶段真实 Windows 样机、测试、独立回滚、旧功能回归。|IN_PROGRESS|apps/desktop/src-tauri/src/store.rs|搜索/管理中心；完整闭环待补|已有局部测试，完整需求未验收|NOT_TESTED（完整条目）|需补齐完整闭环；模型/设备依赖单列，不静默延期|
-|D05-1|Orb→Capsule→Full，移除独立QuickPeek|IN_PROGRESS|apps/desktop/src/DesktopEntry.tsx|桌面入口|探针/旧界面局部证据，产品闭环未验|PARTIAL|首版阻断：吸收#66有界探针；OLE目标几何冻结回归|
+|D05-1|Orb→Capsule→Full，移除独立QuickPeek|IN_PROGRESS|apps/desktop/src/orb/MorphCapsule.tsx；src-tauri/src/entry.rs|球→含最近3项/数量的胶囊→点击直接打开完整架；Esc收回球|探针/旧界面局部证据，产品闭环未验|PARTIAL|首版阻断：旧轻预览组件/原生状态已移除，旧IPC值仅兼容映射胶囊；连续形变、快捷添加/粘贴、双启动模式和新原生OLE仍待完成|
 |D05-2|白/深蓝/亮蓝三套完整主题|IN_PROGRESS|apps/desktop/src/style.css；preferences.ts|文件架更多菜单/管理中心设置/入口主题；所有窗口同步|探针/旧界面局部证据，产品闭环未验|PARTIAL|首版阻断：三套Token与旧设置兼容已实现，跨窗/重开和全量141界面通过；新包原生及最终视觉待验|
 |D05-3|管理中心三栏、独立窗口|IN_PROGRESS|apps/desktop/src/Manager.tsx|文件与素材/任务中心/设置；原文件架/素材/标签下沉二级|探针/旧界面局部证据，产品闭环未验|PARTIAL|首版阻断：三栏目已实现并经浏览器回归；新包原生及最终视觉待验|
 |D05-4|单主要辅助面板及上下文保持|IN_PROGRESS|apps/desktop/src/App.tsx|预览/搜索/互传/AI|探针/旧界面局部证据，产品闭环未验|PARTIAL|首版阻断：Ctrl+K不再叠加现有模态面板、AI草稿保留已测；异步结果/固定详情仍需整体仲裁|

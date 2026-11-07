@@ -1345,15 +1345,15 @@ async fn desktop_peek(
     shelf_id: i64,
 ) -> Result<store::EntryPreview> {
     if !desktop::permits(window.label(), desktop::Scope::Entry) {
-        return Err("只允许读取当前悬浮轻预览。".into());
+        return Err("只允许读取当前胶囊的收集记录。".into());
     }
     {
         let state = app.state::<desktop_runtime::Desktop>();
         let entry = state.entry.lock().map_err(error)?;
-        if entry.presentation.kind != entry::Kind::QuickPeek
+        if entry.presentation.kind != entry::Kind::Capsule
             || entry.presentation.shelf_id != Some(shelf_id)
         {
-            return Err("轻预览目标已变化，请重新打开。".into());
+            return Err("胶囊目标已变化，请重新打开。".into());
         }
     }
     tauri::async_runtime::spawn_blocking(move || {
