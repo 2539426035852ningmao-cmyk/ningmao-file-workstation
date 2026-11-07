@@ -354,9 +354,10 @@ html[data-always-scrollbars="true"] :is(.shelf-menu,.file-scroll,.manager-table-
 .workstation:has(.window-controls){border-radius:20px}
 .workstation:has(.window-controls) .shelf-header{padding-inline:8px;gap:2px}
 .workstation:has(.window-controls) .shelf-header>.brand-eyes{width:24px;min-width:24px;margin-right:0}
-.workstation:has(.window-controls) .shelf-header [data-slot="button"][data-size="icon"]{width:26px;height:28px}
-.window-controls{display:flex;gap:0;flex-shrink:0;margin-left:3px;padding-left:3px;border-left:1px solid var(--line)}
-.window-controls button{display:grid;place-items:center;width:26px;height:28px;padding:0;border:0;border-radius:5px;color:var(--muted-text);background:transparent;flex-shrink:0}
+.workstation:has(.window-controls) .shelf-header [data-slot="button"]{height:32px}
+.workstation:has(.window-controls) .shelf-header [data-slot="button"][data-size="icon"]{width:30px}
+.window-controls{display:flex;gap:2px;flex-shrink:0;margin-left:4px;padding-left:4px;border-left:1px solid var(--line)}
+.window-controls button{display:grid;place-items:center;width:30px;height:32px;padding:0;border:0;border-radius:var(--radius-control);color:var(--muted-text);background:transparent;flex-shrink:0}
 .window-controls button:hover{background:var(--hover);color:var(--text)}
 .window-controls .window-hide:hover{background:#c7434b;color:#fff}
 .compact-command{display:none!important}
@@ -379,6 +380,8 @@ html[data-file-window="true"],html[data-file-window="true"] body,html[data-file-
 
 .manager-shortcut-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .manager-shortcut-actions{display:flex;gap:8px;flex-wrap:wrap}
+.manager-backup-actions{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.manager-window-actions{margin-bottom:24px}
 .global-search[data-slot="sheet-content"]{inset:12px 12px auto;max-width:560px;max-height:calc(100dvh - 24px);margin-inline:auto;border:1px solid var(--line);border-radius:var(--radius-window);gap:0;overflow:hidden;animation-duration:160ms;transition-property:transform,opacity}
 .global-search [data-slot="sheet-header"]{padding:16px 48px 12px 16px;gap:4px}
 .global-search [data-slot="sheet-title"]{font-size:15px}
