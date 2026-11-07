@@ -21,3 +21,14 @@ test('连接信息一次粘贴填好地址指纹，不自动发送',async({page}
  expect(await page.evaluate(()=>window.transferHarness.calls())).toEqual([]);
  await expect(page.getByRole('button',{name:'发送文件',exact:true})).toBeEnabled();
 });
+
+test('附近设备单击选中后可发送，无需填写地址',async({page})=>{
+ await page.goto('/tests/harness.html?nearby');
+ await page.getByText('Alpha.txt',{exact:true}).click();
+ await page.getByRole('button',{name:'更多操作',exact:true}).click();
+ await page.getByRole('menuitem',{name:'发送到设备',exact:true}).click();
+ await page.getByRole('button',{name:'合成接收电脑 · AAAAAA',exact:true}).click();
+ await expect(page.getByRole('button',{name:'发送文件',exact:true})).toBeEnabled();
+ await expect(page.getByLabel('接收方地址',{exact:true})).toHaveValue('127.0.0.1:53317');
+ expect(await page.evaluate(()=>window.transferHarness.calls())).toEqual([]);
+});

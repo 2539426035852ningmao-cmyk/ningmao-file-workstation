@@ -37,6 +37,7 @@ let maximized=false;
 let duplicateTicket=0,duplicateCanceled=false;
 const backend:Backend={
   transfer:{
+    async devices(){return new URLSearchParams(location.search).has("nearby")?[{name:"合成接收电脑",address:"127.0.0.1:53317",fingerprint:"a".repeat(64)}]:[];},
     async browserAvailable(){return new URLSearchParams(location.search).has("browser-share");},
     async browserSend(shelf,ids,code){transferCalls.push(`browser:${shelf}:${ids.join(",")}:${code.length}`);return new Promise(resolve=>{browserFinish=resolve;});},
     async browserCancel(){transferCalls.push("browser-cancel");browserFinish?.({job_id:18,status:"cancelled"});},

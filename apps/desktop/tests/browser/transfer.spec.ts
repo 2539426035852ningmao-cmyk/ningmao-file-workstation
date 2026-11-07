@@ -48,6 +48,7 @@ test("文件互传默认关闭，显式开启并确认接收才提交",async({pa
   const panel=page.getByRole("dialog",{name:"文件互传",exact:true});
   expect(await page.evaluate(()=>window.transferHarness.calls())).toEqual([]);
   await panel.getByLabel("接收文件架").selectOption("3");
+  await panel.getByText("手动指定网络地址（通常无需填写）",{exact:true}).click();
   await panel.getByLabel("本机监听地址").fill("127.0.0.1:0");
   await panel.getByRole("button",{name:"开启接收",exact:true}).click();
   await expect(panel.getByLabel("本机地址")).toHaveValue("127.0.0.1:53317");
