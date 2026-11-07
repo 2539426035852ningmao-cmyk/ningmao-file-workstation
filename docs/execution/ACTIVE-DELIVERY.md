@@ -2,6 +2,10 @@
 
 ## 2026-11-07 · P0–P4连续总交接生效
 
+备份恢复源码ab6d9bca4e861cbe7793dad53d853684433d55c1已生成Windows/MSI/便携候选（未启动/安装）：EXE SHA256315cf6d2c6951f631204bb486c9f05fadf595d72a45233259e3c21b3ff87cad7，ZIP D:/Ningmao-Backup-20261107-ab6d9bc.zip SHA256ec0088384e1cefe4bac7457bd35d0e675f5117e9665f16c2c74790ceb142f577。保留上一候选。当前尚非最终统一验收包。
+
+真实CI回归：ab6d9bc的P3 run42354039794在Windows/Ubuntu均编译失败，实验直接包含主Store源码但rusqlite未启用backup；非网络传输失败。已在实验Cargo.toml补同一feature，未新增依赖/改协议/删测试。修复后本地P3全目标Clippy、35测试/1ignored及实际双进程回环probe全PASS，sender-result为SUCCESS，合成SHA256591011a9a08b456c2eadc062b3bf48e54d46d90904dc7e07ec6effdc77363689，来源/同名/取消/断线检查通过。旧CI失败保留，不标整个候选CI通过；Desktop/Preview旧run尚在执行，修复统一提交后再核对新SHA，不继承旧PASS。
+
 P0备份恢复切片已完成代码：管理中心设置导出备份/安排恢复；恢复来源只读完整性/版本/必需表预检，安排后当前库不替换，下一次启动取得数据目录独占锁后先导出before-restore快照，再用rusqlite已有Backup API恢复，保留恢复来源快照。仅启用原rusqlite的backup特性，无新依赖或schema迁移。3项实际SQLite/WAL/重开/拒绝无效备份/不覆盖/回滚副本测试PASS0.12秒；17项相关管理界面PASS12.5秒，全目标Clippy和生产前端构建PASS。新包/原生保存对话框及真实重启恢复尚待本批构建验证；当前库已经损坏时Store::open仍可能阻断恢复，保持明确P0缺口，不标P0放行。此前481b8c0三CI已全部成功，可提交本批，不取消已有构建。
 
 P0下一批实际实现：Store::backup_to复用既有VACUUM INTO，管理中心设置新增“导出数据备份”，仅主窗/管理中心全局权限可调用系统保存对话框，取消不写文件、已有文件拒绝覆盖，生成后做只读完整性检查。备份包含数据库中的引用/标签/任务/对话及加密设置，不复制实体素材或设备私钥，界面明确保管范围。真实临时SQLite/WAL→导出→重新打开→原库继续更新→旧备份不覆盖测试PASS0.06秒，Clippy/生产前端构建PASS。首次新增测试因snapshot需要可变Store编译失败，修正测试绑定后通过。恢复入口/完整配置备份/新包原生导出仍未完成，不标P0放行。
