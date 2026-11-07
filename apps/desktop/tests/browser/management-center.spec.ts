@@ -1,4 +1,17 @@
 import {test,expect} from "@playwright/test";
+test("启动模式仅圆球与完整架，保存后重新打开仍保留",async({page})=>{
+  await page.goto("/tests/harness.html?manager");
+  await page.getByRole("button",{name:"设置",exact:true}).click();
+  const startup=page.getByRole("combobox",{name:"启动时显示"});
+  await expect(startup).toHaveValue("orb");
+  await expect(startup.locator("option")).toHaveCount(2);
+  await startup.selectOption("full");
+  await page.getByRole("button",{name:"保存桌面设置"}).click();
+  await expect(page.getByRole("status")).toContainText("已保存");
+  await page.reload();
+  await page.getByRole("button",{name:"设置",exact:true}).click();
+  await expect(page.getByRole("combobox",{name:"启动时显示"})).toHaveValue("full");
+});
 
 test("管理中心按需打开，跨架检索和批量标签保留来源",async({page})=>{
   await page.goto("/tests/harness.html");await page.getByRole("button",{name:"更多操作",exact:true}).click();
@@ -29,7 +42,7 @@ test("本地规则建议解释依据，确认后只写内部标签",async({page}
 });
 test("管理中心的复制任务可以安全取消并刷新记录",async({page})=>{
   await page.goto("/tests/harness.html");await page.evaluate(async()=>{await window.testHarness.tags(1,[]);const state=JSON.parse(localStorage.getItem("test-state")!);state.jobs=[{id:1,shelf_id:1,status:"copying",message:"合成复制任务",staging:null}];localStorage.setItem("test-state",JSON.stringify(state));});
-  await page.goto("/tests/harness.html?manager");await page.getByRole("button",{name:"任务",exact:true}).click();await page.getByRole("button",{name:"取消复制",exact:true}).click();await expect(page.getByText("已取消",{exact:true})).toBeVisible();await expect(page.getByRole("button",{name:"取消复制",exact:true})).toHaveCount(0);
+  await page.goto("/tests/harness.html?manager");await page.getByRole("button",{name:"任务中心",exact:true}).click();await page.getByRole("button",{name:"取消复制",exact:true}).click();await expect(page.getByText("已取消",{exact:true})).toBeVisible();await expect(page.getByRole("button",{name:"取消复制",exact:true})).toHaveCount(0);
 });
 test("贴边细柄在鼠标靠近时请求展开，分页仍可用",async({page})=>{
   await page.setViewportSize({width:64,height:312});await page.goto("/tests/harness.html?desktop-entry&edge");
@@ -75,7 +88,7 @@ test("管理检索支持名称与标签组合，筛选不修改来源",async({pa
 
 test("管理任务从进度事件发现新任务，持续更新且完成后不残留进度",async({page})=>{
  await page.setViewportSize({width:1040,height:720});await page.addInitScript(()=>localStorage.setItem("ningmao-theme","dark"));
- await page.goto("/tests/harness.html?manager");await page.getByRole("button",{name:"任务",exact:true}).click();await expect(page.getByText("暂无复制任务",{exact:true})).toBeVisible();
+ await page.goto("/tests/harness.html?manager");await page.getByRole("button",{name:"任务中心",exact:true}).click();await expect(page.getByText("暂无复制任务",{exact:true})).toBeVisible();
  await page.evaluate(async()=>{await window.testHarness.tags(1,[]);const saved=JSON.parse(localStorage.getItem("test-state")!);saved.jobs=[{id:1,shelf_id:1,status:"queued",message:"等待复制2项",staging:null}];localStorage.setItem("test-state",JSON.stringify(saved));window.testHarness.notifyProgress({job_id:1,name:"合成大文件.bin",file_index:1,file_count:2,bytes:512,total:1024});});
  const progress=page.getByRole("progressbar",{name:"当前文件复制进度"});await expect(progress).toHaveAttribute("value","512");await expect(page.getByText("合成大文件.bin · 1/2",{exact:true})).toBeVisible();await expect(page.getByText("复制中",{exact:true})).toBeVisible();
  await page.screenshot({path:`${process.env.M105_TEST_OUTPUT || "test-results"}/manager-task-progress-dark.png`});
@@ -89,7 +102,7 @@ test("管理任务从进度事件发现新任务，持续更新且完成后不�
 test("任务可按架与状态查找，取消请求等待结果且不重复发送",async({page})=>{
  await page.setViewportSize({width:760,height:520});await page.addInitScript(()=>localStorage.setItem("ningmao-theme","light"));
  await page.goto("/tests/harness.html");await page.evaluate(async()=>{await window.testHarness.tags(1,[]);const saved=JSON.parse(localStorage.getItem("test-state")!);saved.jobs=[{id:1,shelf_id:1,status:"copying",message:"正在复制合成素材",staging:null},{id:2,shelf_id:2,status:"failed",message:"合成读取失败",staging:null},{id:3,shelf_id:1,status:"completed",message:"合成复制成功",staging:null}];localStorage.setItem("test-state",JSON.stringify(saved));});
- await page.goto("/tests/harness.html?manager&pending-cancel");await page.getByRole("button",{name:"任务",exact:true}).click();
+ await page.goto("/tests/harness.html?manager&pending-cancel");await page.getByRole("button",{name:"任务中心",exact:true}).click();
  await page.getByRole("combobox",{name:"任务状态"}).selectOption("attention");await expect(page.getByRole("article",{name:"复制任务 2",exact:true})).toBeVisible();await expect(page.getByRole("button",{name:"取消复制",exact:true})).toHaveCount(0);
  await page.getByRole("combobox",{name:"任务文件架"}).selectOption("1");await expect(page.getByText("没有匹配的复制任务",{exact:true})).toBeVisible();
  await page.getByRole("combobox",{name:"任务状态"}).selectOption("running");await page.getByRole("button",{name:"取消复制",exact:true}).click();await expect(page.getByRole("button",{name:"取消中…",exact:true})).toBeDisabled();await expect(page.getByRole("status")).toContainText("已请求取消");expect(await page.evaluate(()=>window.testHarness.calls().filter(c=>c==="cancel:1").length)).toBe(1);await page.screenshot({path:`${process.env.M105_TEST_OUTPUT || "test-results"}/manager-task-cancelling-light.png`});
@@ -99,7 +112,7 @@ test("任务可按架与状态查找，取消请求等待结果且不重复发�
 
 
 test("复制任务创建后首个字节进度之前即可在管理中心取消",async({page})=>{
- await page.goto("/tests/harness.html?manager&pending-cancel");await page.getByRole("button",{name:"任务",exact:true}).click();await expect(page.getByText("暂无复制任务",{exact:true})).toBeVisible();
+ await page.goto("/tests/harness.html?manager&pending-cancel");await page.getByRole("button",{name:"任务中心",exact:true}).click();await expect(page.getByText("暂无复制任务",{exact:true})).toBeVisible();
  await page.evaluate(async()=>{await window.testHarness.tags(1,[]);const saved=JSON.parse(localStorage.getItem("test-state")!);saved.jobs=[{id:1,shelf_id:1,status:"queued",message:"等待复制2项",staging:null}];localStorage.setItem("test-state",JSON.stringify(saved));window.testHarness.notifyCopying(true);});
  await expect(page.getByText("等待中",{exact:true})).toBeVisible();await page.getByRole("button",{name:"取消复制",exact:true}).click();await expect(page.getByRole("button",{name:"取消中…",exact:true})).toBeDisabled();expect(await page.evaluate(()=>window.testHarness.calls().filter(c=>c==="cancel:1").length)).toBe(1);
 });

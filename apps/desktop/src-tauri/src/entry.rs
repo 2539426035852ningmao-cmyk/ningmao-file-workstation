@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 pub enum Kind {
     #[default]
     Orb,
+    #[serde(alias = "quick-peek")]
     Capsule,
-    QuickPeek,
 }
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -148,8 +148,7 @@ impl EntryState {
                 };
                 let (w, h) = match kind {
                     Kind::Orb => (48.0, 48.0),
-                    Kind::Capsule => (184.0, 48.0),
-                    Kind::QuickPeek => (300.0, 224.0),
+                    Kind::Capsule => (320.0, 48.0),
                 };
                 let slot = Slot {
                     id,

@@ -13,6 +13,7 @@
     "windows": [
       {
         "label": "main",
+        "visible": false,
         "title": "柠猫文件工作站 · P2 候选",
         "width": 420,
         "height": 520,

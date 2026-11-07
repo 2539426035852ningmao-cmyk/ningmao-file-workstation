@@ -36,7 +36,7 @@ test("无重复结果在最小尺寸深浅主题中清晰显示",async({page})=>
   await expect(dialog.getByText("所选文件没有发现相同内容或同一文件的多个引用。")).toBeVisible();
   for (const theme of ["light","dark"]) {
     await page.evaluate(value=>{document.documentElement.className=value;},theme);
-    await expect(dialog).toHaveCSS("background-color",theme==="light"?"rgb(255, 255, 255)":"rgb(25, 27, 32)");
+    await expect(dialog).toHaveCSS("background-color",theme==="light"?"rgb(255, 255, 255)":"rgb(25, 30, 40)");
     await expect.poll(async()=>{const box=await dialog.boundingBox();return !!box && box.x>=0 && box.x+box.width<=340 && box.height<=320;}).toBe(true);
     await page.screenshot({path:`D:/Ningmao-Codex-P4-20261028-filters/duplicates-${theme}.png`});
   }

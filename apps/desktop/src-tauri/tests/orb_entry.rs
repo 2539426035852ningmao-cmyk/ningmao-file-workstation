@@ -10,10 +10,9 @@ fn presentation_and_native_drag_freeze_identity_and_geometry_until_cancel_or_dro
     layout.collapse(7);
     let mut entry = EntryState::default();
     entry.present(&layout, 4, Kind::Capsule).unwrap();
-    assert_eq!(entry.geometry(&layout).slots[0].width, 184.0);
-    entry.present(&layout, 4, Kind::QuickPeek).unwrap();
+    assert_eq!(entry.geometry(&layout).slots[0].width, 320.0);
     let before = serde_json::to_value(entry.geometry(&layout)).unwrap();
-    assert_eq!(entry.begin_drag(&layout, 16.0, 16.0, 1.0), Some(4));
+    assert_eq!(entry.begin_drag(&layout, 32.0, 32.0, 1.0), Some(4));
     assert!(entry.present(&layout, 7, Kind::Capsule).is_err());
     layout.collapsed.reverse();
     layout.preferences.edge = Edge::Top;
@@ -80,7 +79,7 @@ fn horizontal_vertical_and_hidden_edges_keep_real_targets_in_their_slots() {
 }
 
 #[test]
-fn quick_peek_is_bounded_registered_metadata_without_paths_or_directory_scan() {
+fn capsule_preview_is_bounded_registered_metadata_without_paths_or_directory_scan() {
     use ningmao_desktop_lib::store::Store;
     let root = tempfile::tempdir().unwrap();
     let mut store = Store::open(&root.path().join("test.sqlite3")).unwrap();
@@ -104,4 +103,11 @@ fn quick_peek_is_bounded_registered_metadata_without_paths_or_directory_scan() {
     );
     assert!(store.entry_preview(999).is_err());
     store.integrity_check().unwrap();
+}
+
+#[test]
+fn legacy_quick_peek_request_normalizes_to_capsule_without_an_extra_state() {
+    let kind: Kind = serde_json::from_str("\"quick-peek\"").unwrap();
+    assert_eq!(kind, Kind::Capsule);
+    assert_eq!(serde_json::to_string(&kind).unwrap(), "\"capsule\"");
 }

@@ -3,7 +3,8 @@ param(
     [Parameter(Mandatory)][string]$GoBinDirectory,
     [Parameter(Mandatory)][string]$GoPathDirectory,
     [Parameter(Mandatory)][string]$BuildCacheDirectory,
-    [string]$SupervisorBinary
+    [string]$SupervisorBinary,
+    [switch]$PrepareOnly
 )
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
@@ -36,6 +37,7 @@ try {
     try {
         Run go @('test','./cmd/ningmao-share-proof')
         Run go @('build','-o',$env:NINGMAO_SENDER_BINARY,'./cmd/ningmao-share-proof')
+        if ($PrepareOnly) { return }
         if ($SupervisorBinary) {
             $env:NINGMAO_GO_SENDER_BINARY = $env:NINGMAO_SENDER_BINARY
             $env:NINGMAO_GO_SENDER_SHA256 = (Get-FileHash -LiteralPath $env:NINGMAO_GO_SENDER_BINARY -Algorithm SHA256).Hash

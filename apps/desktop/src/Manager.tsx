@@ -2,17 +2,18 @@ import {WakeShortcutSettings} from "./components/WakeShortcutSettings";
 import {GlobalSearch} from "./components/GlobalSearch";
 import {ScrollActivity} from "./components/ScrollActivity";
 import {useEffect,useMemo,useRef,useState} from "react";
-import {Archive,Check,File,Folder,Layers,Search,Settings,Tags,ListTodo,RefreshCw,X} from "lucide-react";
+import {Archive,Check,Folder,Layers,Search,Settings,Tags,ListTodo,RefreshCw,X} from "lucide-react";
 import {Button} from "./components/ui/button";
 import {Input} from "./components/ui/input";
 import type {Backend,DesktopPreferences,DesktopView,ManagementSnapshot,Progress} from "./backend";
-import {observeTheme,readTheme,writeTheme} from "./preferences";
+import {applyTheme,observeTheme,readTheme,themes,writeTheme,type Theme} from "./preferences";
 import {localTagSuggestions} from "./localTagSuggestions";
 
 const empty:ManagementSnapshot={shelves:[],items:[],jobs:[]};
-const sections=[["overview","总览",Layers],["assets","素材",File],["tags","标签",Tags],["jobs","任务",ListTodo],["settings","设置",Settings]] as const;
+const sections=[["files","文件与素材",Layers],["jobs","任务中心",ListTodo],["settings","设置",Settings]] as const;
+const fileSections=[["overview","文件架"],["assets","素材"],["tags","标签"]] as const;
 const jobNames:Record<string,string>={queued:"等待中",copying:"复制中",completed:"已完成",failed:"失败",partial:"部分完成",cancelled:"已取消",interrupted:"上次中断"};
-const defaultPreferences:DesktopPreferences={edge:"free",auto_hide:false,topmost:true};
+const defaultPreferences:DesktopPreferences={edge:"free",auto_hide:false,topmost:true,startup:"orb"};
 const perPage=100;
 const runningJob=(status:string)=>status==="queued" || status==="copying";
 const bytesLabel=(n:number)=>n>=1048576?`${(n/1048576).toFixed(1)} MB`:n>=1024?`${(n/1024).toFixed(1)} KB`:`${n} B`;
@@ -20,6 +21,7 @@ const bytesLabel=(n:number)=>n>=1048576?`${(n/1048576).toFixed(1)} MB`:n>=1024?`
 export default function Manager({backend}:{backend:Backend}) {
   const [data,setData]=useState(empty),[desktop,setDesktop]=useState<DesktopView|null>(null);
   const [section,setSection]=useState("overview"),[query,setQuery]=useState(""),[shelf,setShelf]=useState(0),[tagFilter,setTagFilter]=useState("");
+  const fileSection=fileSections.some(([key])=>key===section),primarySection=fileSection?"files":section;
   const [selected,setSelected]=useState<number[]>([]),[page,setPage]=useState(0),[tag,setTag]=useState(""),[detail,setDetail]=useState<number|null>(null);
   const [suggestionsOpen,setSuggestionsOpen]=useState(false);
   const [error,setError]=useState(""),[message,setMessage]=useState(""),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
@@ -42,7 +44,7 @@ export default function Manager({backend}:{backend:Backend}) {
     }).then(fn=>{if(live.current)dispose=fn;else fn();}).catch(e=>setError(String(e)));
     return()=>{live.current=false;dispose?.();};
   },[backend]);
-  useEffect(()=>{document.documentElement.classList.toggle("dark",theme==="dark");},[theme]);
+  useEffect(()=>{applyTheme(theme);},[theme]);
   useEffect(()=>observeTheme(setTheme),[]);
   useEffect(()=>{setPage(0);},[query,shelf,tagFilter]);
   const visible=useMemo(()=>data.items.filter(i=>(!shelf || i.shelf_id===shelf) && (!tagFilter || i.tags.includes(tagFilter)) && query.trim().toLocaleLowerCase().split(/\s+/).every(term=>[i.name,...i.tags].join(" ").toLocaleLowerCase().includes(term))),[data.items,shelf,tagFilter,query]);
@@ -62,8 +64,9 @@ export default function Manager({backend}:{backend:Backend}) {
     </article>;
   })}</div>;
   return <div className="manager-shell">
-    <aside className="manager-nav"><h1>管理中心</h1><nav aria-label="管理中心导航">{sections.map(([key,label,Icon])=><Button key={key} variant="ghost" className={section===key?"active":""} aria-current={section===key?"page":undefined} onClick={()=>setSection(key)}><Icon size={17}/><span>{label}</span></Button>)}</nav><p>柠猫文件工作站</p></aside>
-    <main className="manager-main"><ScrollActivity/><header><h2>{sections.find(([key])=>key===section)?.[1]}</h2><Button variant="ghost" size="sm" disabled={loading || busy} onClick={()=>void act(async()=>{await refresh();setMessage("已刷新收集记录。");})}><RefreshCw size={15}/>刷新记录</Button></header>
+    <aside className="manager-nav"><h1>管理中心</h1><nav aria-label="管理中心导航">{sections.map(([key,label,Icon])=><Button key={key} variant="ghost" className={primarySection===key?"active":""} aria-current={primarySection===key?"page":undefined} onClick={()=>setSection(key==="files"?"overview":key)}><Icon size={17}/><span>{label}</span></Button>)}</nav><p>柠猫文件工作站</p></aside>
+    <main className="manager-main"><ScrollActivity/><header><h2>{sections.find(([key])=>key===primarySection)?.[1]}</h2><Button variant="ghost" size="sm" disabled={loading || busy} onClick={()=>void act(async()=>{await refresh();setMessage("已刷新收集记录。");})}><RefreshCw size={15}/>刷新记录</Button></header>
+    {fileSection&&<nav className="manager-file-sections" aria-label="文件与素材分类">{fileSections.map(([key,label])=><Button key={key} variant="ghost" aria-current={section===key?"page":undefined} onClick={()=>setSection(key)}>{label}</Button>)}</nav>}
     {error && <div className="error-bar" role="alert"><span>{error}</span><Button variant="ghost" size="icon" aria-label="关闭管理错误" onClick={()=>setError("")}><X size={15}/></Button></div>}
     {desktop?.warning && <p className="manager-warning" role="alert">{desktop.warning}</p>}
     {loading?<p className="manager-empty">正在读取已收集记录…</p>:<>
@@ -81,10 +84,12 @@ export default function Manager({backend}:{backend:Backend}) {
       {section==="tags" && <section><p className="manager-note">标签只保存在软件内，不改名或移动原文件。</p><div className="manager-tag-list">{tags.length?tags.map(t=><button key={t} onClick={()=>{setTagFilter(t);setQuery("");setShelf(0);setSection("assets");}}><Tags size={16}/><span>{t}</span><small>{data.items.filter(i=>i.tags.includes(t)).length} 项</small></button>):<p className="manager-empty">暂无标签，选择素材后可批量添加。</p>}</div></section>}
       {section==="jobs" && <section><p className="manager-note">最近20项复制任务；进度条表示当前文件，取消后保留来源和已完成副本。</p><div className="manager-filters"><select aria-label="任务文件架" value={jobShelf} onChange={e=>setJobShelf(Number(e.target.value))}><option value={0}>全部文件架</option>{[...new Set(data.jobs.map(j=>j.shelf_id))].map(id=><option key={id} value={id}>{shelfName(id)}</option>)}</select><select aria-label="任务状态" value={jobStatus} onChange={e=>setJobStatus(e.target.value)}><option value="all">全部状态</option><option value="running">进行中</option><option value="attention">需处理</option><option value="finished">已结束</option></select></div>{jobs}</section>}
       {section==="settings" && <section className="manager-settings"><h3>桌面入口</h3><p>贴边后保留细柄；鼠标靠近或拖入时展开，拖入期间保持接收。</p><form onSubmit={e=>{e.preventDefault();void act(async()=>{const saved=await backend.desktopConfigure(preferences);settingsDirty.current=false;setDirty(false);await refresh();setMessage(saved?"桌面设置已保存。":"设置已临时应用；布局文件未改写，请查看提示。");});}}>
+        <label>启动时显示<select value={preferences.startup ?? "orb"} onChange={e=>patchPreferences({startup:e.target.value as "orb"|"full"})}><option value="orb">悬浮球（默认）</option><option value="full">完整文件架</option></select></label>
         <label>入口位置模式<select value={preferences.edge} onChange={e=>patchPreferences({edge:e.target.value as DesktopPreferences["edge"],auto_hide:e.target.value==="free"?false:preferences.auto_hide})}><option value="free">自由悬浮</option><option value="left">屏幕左侧</option><option value="right">屏幕右侧</option><option value="top">屏幕上方</option><option value="bottom">屏幕下方</option></select></label>
         {preferences.edge==="free" && <label>自由排列<select value={preferences.flow??"vertical"} onChange={e=>patchPreferences({flow:e.target.value as DesktopPreferences["flow"]})}><option value="vertical">竖向紧凑</option><option value="horizontal">横向紧凑</option></select></label>}
         <label className="manager-checkbox"><input type="checkbox" checked={preferences.auto_hide} disabled={preferences.edge==="free"} onChange={e=>patchPreferences({auto_hide:e.target.checked})}/>离开入口后自动收起</label><label className="manager-checkbox"><input type="checkbox" checked={preferences.topmost} onChange={e=>patchPreferences({topmost:e.target.checked})}/>悬浮入口置顶</label><Button type="submit" disabled={busy || !dirty}><Check size={15}/>保存桌面设置</Button></form>
-        {backend.recoverWindows&&<Button variant="outline" disabled={busy} onClick={()=>void act(async()=>{const count=await backend.recoverWindows!();setMessage(count?`已找回 ${count} 个屏幕外窗口。`:"窗口已在可见屏幕内。");})}>找回屏幕外窗口</Button>}<WakeShortcutSettings backend={backend}/><h3>显示主题</h3><label>应用主题<select value={theme} onChange={e=>{const value=e.target.value==="dark"?"dark":"light";setTheme(value);const warning=writeTheme(value);if(warning)setError(warning);else setMessage("主题已保存。");}}><option value="dark">深色</option><option value="light">浅色</option></select></label><p className="manager-note">管理中心关闭后释放窗口；软件完整退出仍通过文件架或托盘执行。</p>
+        {backend.exportDataBackup&&<><h3>数据备份</h3><p className="manager-note">保存文件架、标签和任务等软件数据；原始文件与设备私钥需另行保管。备份可能含对话和加密设置，请妥善保存。</p><div className="manager-backup-actions" role="group" aria-label="数据备份操作"><Button variant="outline" disabled={busy} onClick={()=>void act(async()=>{if(await backend.exportDataBackup!())setMessage("数据备份已导出并通过完整性检查。");})}>导出数据备份</Button>{backend.scheduleDataRestore&&<Button variant="outline" disabled={busy} onClick={()=>void act(async()=>{if(await backend.scheduleDataRestore!())setMessage("恢复已安排。请完整退出并重新启动；当前数据暂不更改，恢复前会自动备份。");})}>从备份恢复</Button>}</div></>}
+        {backend.recoverWindows&&<div className="manager-window-actions"><Button variant="outline" disabled={busy} onClick={()=>void act(async()=>{const count=await backend.recoverWindows!();setMessage(count?`已找回 ${count} 个屏幕外窗口。`:"窗口已在可见屏幕内。");})}>找回屏幕外窗口</Button></div>}<WakeShortcutSettings backend={backend}/><h3>显示主题</h3><label>应用主题<select value={theme} onChange={e=>{const value=e.target.value as Theme;setTheme(value);const warning=writeTheme(value);if(warning)setError(warning);else setMessage("主题已保存。");}}>{Object.entries(themes).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label><p className="manager-note">管理中心关闭后释放窗口；软件完整退出仍通过文件架或托盘执行。</p>
       </section>}
     </>}
     <footer className="manager-status" role="status">{message || "记录保存在本机，原文件保留。"}</footer></main>

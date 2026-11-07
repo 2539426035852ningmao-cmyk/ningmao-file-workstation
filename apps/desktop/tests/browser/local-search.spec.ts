@@ -6,7 +6,7 @@ const items=[sample(1,"Alpha.txt",1),sample(2,"角色 Design.png",1,"png",["收�
 async function setup(page:Page,query=""){
   await page.setViewportSize({width:420,height:520});
   await page.addInitScript(items=>{localStorage.setItem("test-state",JSON.stringify({shelves:[{id:1,name:"灵感收集",kind:"persistent",root:null,available:true},{id:2,name:"项目参考",kind:"persistent",root:null,available:true}],items,jobs:[]}));},items);
-  await page.goto("/tests/harness.html"+query);await expect(query.includes("manager")?page.getByRole("heading",{name:"总览",exact:true}):page.getByRole("button",{name:"更多操作",exact:true})).toBeVisible();
+  await page.goto("/tests/harness.html"+query);await expect(query.includes("manager")?page.getByRole("heading",{name:"文件与素材",exact:true}):page.getByRole("button",{name:"更多操作",exact:true})).toBeVisible();
   await page.keyboard.press("Control+k");return page.getByRole("dialog",{name:query.includes("shelf=")?"搜索当前文件架":"跨文件架搜索",exact:true});
 }
 test("类别、架类型和失效状态可以单独或组合筛选",async({page})=>{
@@ -31,7 +31,7 @@ test("中文英文、标签及类型搜索聚合同文件引用，不暴露路�
   await input.fill("DESIGN");await expect(dialog.getByRole("listbox").getByRole("option")).toHaveCount(1);
   await page.evaluate(()=>document.documentElement.className="light");await expect(dialog).toHaveCSS("background-color","rgb(255, 255, 255)");
   const dir=process.env.SEARCH_EVIDENCE;if(dir){mkdirSync(dir,{recursive:true});await page.screenshot({path:path.join(dir,"search-light.png")});}
-  await page.evaluate(()=>document.documentElement.className="dark");await expect(dialog).toHaveCSS("background-color","rgb(25, 27, 32)");if(dir)await page.screenshot({path:path.join(dir,"search-dark.png")});
+  await page.evaluate(()=>document.documentElement.className="dark");await expect(dialog).toHaveCSS("background-color","rgb(25, 30, 40)");if(dir)await page.screenshot({path:path.join(dir,"search-dark.png")});
   await page.keyboard.press("Escape");await expect(dialog).toHaveCount(0);expect((await page.evaluate(()=>JSON.parse(localStorage.getItem("test-state")!).items)).length).toBe(items.length);
 });
 test("定位跨架结果清除旧过滤并滚动到目标，Ctrl F 保持可用",async({page})=>{

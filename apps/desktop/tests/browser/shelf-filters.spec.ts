@@ -60,7 +60,7 @@ test("刷新后已选标签消失仍显示原条件，无结果可明确清除",
 for(const [width,height,theme] of [[340,320,"light"],[420,520,"dark"],[640,720,"light"]] as const){
   test(`${width}×${height} ${theme} 筛选抽屉可滚动、键盘退出，活动提示不遮挡语义`,async({page})=>{
     await setup(page);await page.setViewportSize({width,height});
-    if(theme==="light"){await page.getByRole("button",{name:"更多操作",exact:true}).click();await page.getByRole("menuitem",{name:"切换浅色主题",exact:true}).click();}
+    if(theme==="light"){await page.getByRole("button",{name:"更多操作",exact:true}).click();await page.getByRole("menuitemradio",{name:"白色主题",exact:true}).click();}
     const dialog=await openFilters(page);const type=dialog.getByRole("combobox",{name:"文件类型",exact:true});await type.selectOption("txt");await type.focus();
     await expect.poll(async()=>{const box=await dialog.boundingBox();return !!box && box.x>=0 && box.x+box.width<=width+1;}).toBe(true);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);

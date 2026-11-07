@@ -5,11 +5,12 @@ test("B01 body movement crosses threshold once and suppresses shape click",async
  await expect.poll(()=>page.evaluate(()=>window.testHarness.calls().filter(v=>v==="move-entry").length)).toBe(1);
  await expect(orb).toBeVisible();
 });
-test("B03 B04 capsule neutral close is not a permanent clickable X, peek circles are fully clickable",async({page})=>{
+test("B04 capsule close remains contextual and returns directly to orb",async({page})=>{
  await page.goto("/tests/harness.html?desktop-entry&count=1");await page.getByRole("button",{name:"展开 灵感收集",exact:true}).click();await page.mouse.move(400,400);
  await expect(page.locator(".capsule-close")).toBeHidden();
- await page.getByRole("button",{name:"查看 灵感收集 轻预览",exact:true}).click();const back=page.getByRole("button",{name:"返回胶囊",exact:true});
- expect(await back.evaluate(el=>getComputedStyle(el).borderRadius)).toBe("50%");await back.click();await expect(page.getByTestId("morph-capsule")).toBeVisible();
+ const root=await page.locator('.orb-control[data-orb-mode="capsule"]').boundingBox();
+ await page.mouse.move(root!.x+root!.width-13,root!.y+4);const close=page.getByRole("button",{name:"收回圆球",exact:true});
+ await expect(close).toBeEnabled();await close.press("Enter");await expect(page.getByRole("button",{name:"展开 灵感收集",exact:true})).toBeVisible();
 });
 test("B05 idle menu scrollbar is transparent without losing keyboard reach",async({page})=>{
  await page.goto("/tests/harness.html");await page.getByRole("button",{name:"更多操作",exact:true}).click();const menu=page.getByRole("menu",{name:"更多操作",exact:true});
@@ -30,9 +31,9 @@ test("B06 system recycle preview is distinct and cancellation preserves rows",as
 });
 
 test("B04 neutral protrusion cannot close until red core is reached",async({page})=>{
- await page.goto("/tests/harness.html?desktop-entry&count=1");await page.getByRole("button",{name:"展开 灵感收集",exact:true}).click();const body=page.getByTestId("morph-capsule"),b=(await body.boundingBox())!;
+ await page.goto("/tests/harness.html?desktop-entry&count=1");await page.getByRole("button",{name:"展开 灵感收集",exact:true}).click();const body=page.locator('.orb-control[data-orb-mode="capsule"]'),b=(await body.boundingBox())!;
  await page.mouse.move(b.x+b.width-12,b.y+19);await expect(page.locator(".capsule-extrusion")).toHaveAttribute("data-active","false");await expect(page.locator(".capsule-close")).toBeDisabled();
- await page.mouse.move(b.x+b.width-12,b.y+4);await expect(page.locator(".capsule-close")).toBeEnabled();await page.locator(".capsule-close").click();await expect(page.getByRole("button",{name:"展开 灵感收集",exact:true})).toBeVisible();
+ await page.mouse.move(b.x+b.width-13,b.y+4);await expect(page.locator(".capsule-close")).toBeEnabled();await page.locator(".capsule-close").click();await expect(page.getByRole("button",{name:"展开 灵感收集",exact:true})).toBeVisible();
 });
 test("B02 current eye pose stays fixed throughout window movement",async({page})=>{
  await page.goto("/tests/harness.html?desktop-entry&count=1");const orb=page.getByRole("button",{name:"展开 灵感收集",exact:true}),b=(await orb.boundingBox())!;await page.mouse.move(b.x+40,b.y+20);const eyes=page.locator(".orb-face");await expect.poll(()=>eyes.evaluate(el=>parseFloat((el as SVGElement).style.getPropertyValue("--gaze-x")))).toBeGreaterThan(.1);

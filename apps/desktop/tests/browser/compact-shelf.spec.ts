@@ -29,7 +29,7 @@ test("小文件架只有一行主操作，搜索原位展开并恢复焦点",asy
 for(const [width,height] of [[340,320],[420,520],[640,720]])for(const theme of ["dark","light"]){
   test(`${width}×${height} ${theme} 文件区与菜单不溢出`,async({page})=>{
     await page.setViewportSize({width,height});await page.goto("/tests/harness.html");
-    if(theme==="light")await more(page,"切换浅色主题");
+    if(theme==="light")await more(page,"白色主题",true);
     await page.evaluate(()=>window.testHarness.drop(["SYNTHETIC/封面设计 草稿.txt","SYNTHETIC/会议记录.txt","SYNTHETIC/参考资料.txt","SYNTHETIC/素材清单.txt","SYNTHETIC/这是用于验证省略显示且不会撑开浮窗的很长中文文件名.txt"]));
     await expect(page.locator(".status-toast")).toHaveCount(0);
     const geometry=await page.evaluate(()=>{

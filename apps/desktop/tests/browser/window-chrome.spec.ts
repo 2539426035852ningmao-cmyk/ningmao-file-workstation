@@ -7,7 +7,7 @@ for(const width of [340,420])test(`integrated window controls ${width}`,async({p
  const metrics=await page.locator(".shelf-header").evaluate(e=>({height:e.getBoundingClientRect().height,width:e.scrollWidth}));expect(metrics.height).toBe(44);expect(metrics.width).toBeLessThanOrEqual(width);
  if(process.env.ORB_EVIDENCE){mkdirSync(process.env.ORB_EVIDENCE,{recursive:true});await page.screenshot({path:path.join(process.env.ORB_EVIDENCE,`integrated-titlebar-${width}-dark.png`)});}
  await page.getByRole("button",{name:"最大化窗口",exact:true}).click();await expect(page.getByRole("button",{name:"还原窗口",exact:true})).toBeVisible();
- await page.getByRole("button",{name:"还原窗口",exact:true}).click();await page.getByRole("button",{name:"更多操作",exact:true}).click();await page.getByRole("menuitem",{name:"切换浅色主题",exact:true}).click();await expect(page.locator(".window-controls")).toBeVisible();if(process.env.ORB_EVIDENCE)await page.screenshot({path:path.join(process.env.ORB_EVIDENCE,`integrated-titlebar-${width}-light.png`)});
+ await page.getByRole("button",{name:"还原窗口",exact:true}).click();await page.getByRole("button",{name:"更多操作",exact:true}).click();await page.getByRole("menuitemradio",{name:"白色主题",exact:true}).click();await expect(page.locator(".window-controls")).toBeVisible();if(process.env.ORB_EVIDENCE)await page.screenshot({path:path.join(process.env.ORB_EVIDENCE,`integrated-titlebar-${width}-light.png`)});
 });
 
 test("normal file surface keeps transparent outer corners and a draggable upper layer",async({page})=>{

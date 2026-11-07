@@ -29,7 +29,7 @@ const ownShelf=Number(new URLSearchParams(location.search).get("shelf")) || unde
 let events:Events;let fail="";let snapshotFailure="";let next=10;let cancelRelocation=false;let cancelOpening=false;const calls:string[]=[];
 const save=()=>localStorage.setItem("test-state",JSON.stringify(state));
 let desktop:DesktopView=JSON.parse(localStorage.getItem("test-desktop-layout") || "null")??{layout:{enabled:false,expanded:true,active_shelf:1,collapsed:[],detached:[],page:0,preferences:{edge:"free",auto_hide:false,topmost:true}},entries:[],total:0,warning:null,copying:false,edge_hidden:false};
-function publishDesktop(){desktop.entries=desktop.layout.collapsed.slice(desktop.layout.page*5,desktop.layout.page*5+5).map(id=>state.shelves.find(s=>s.id===id)!);desktop.total=desktop.layout.collapsed.length;desktop.catalog=state.shelves.map(({id,name,kind})=>({id,name,kind}));if(!desktop.entries.some(s=>s.id===desktop.presentation?.shelf_id))desktop.presentation={kind:"orb",shelf_id:null};let x=8,y=desktop.presentation?.kind==="capsule"?24:8,width=64,height=64;const horizontal=["top","bottom"].includes(desktop.layout.preferences.edge) || desktop.layout.preferences.edge==="free" && desktop.layout.preferences.flow==="horizontal";const slots=desktop.entries.filter(s=>desktop.presentation?.kind==="orb" || s.id===desktop.presentation?.shelf_id).map(s=>{const mode=s.id===desktop.presentation?.shelf_id?desktop.presentation.kind:"orb",w=mode==="quick-peek"?300:mode==="capsule"?184:48,h=mode==="quick-peek"?224:48,slot={id:s.id,x,y,width:w,height:h};width=Math.max(width,x+w+8);height=Math.max(height,y+h+(mode==="capsule"?24:8));if(horizontal)x+=w+8;else y+=h+8;return slot;});desktop.geometry={width,height:height+(desktop.total>5?24:0),slots};localStorage.setItem("test-desktop-layout",JSON.stringify(desktop));events?.desktop?.(structuredClone(desktop));}
+function publishDesktop(){desktop.entries=desktop.layout.collapsed.slice(desktop.layout.page*5,desktop.layout.page*5+5).map(id=>state.shelves.find(s=>s.id===id)!);desktop.total=desktop.layout.collapsed.length;desktop.catalog=state.shelves.map(({id,name,kind})=>({id,name,kind}));if(!desktop.entries.some(s=>s.id===desktop.presentation?.shelf_id))desktop.presentation={kind:"orb",shelf_id:null};let x=8,y=desktop.presentation?.kind==="capsule"?24:8,width=64,height=64;const horizontal=["top","bottom"].includes(desktop.layout.preferences.edge) || desktop.layout.preferences.edge==="free" && desktop.layout.preferences.flow==="horizontal";const slots=desktop.entries.filter(s=>desktop.presentation?.kind==="orb" || s.id===desktop.presentation?.shelf_id).map(s=>{const mode=s.id===desktop.presentation?.shelf_id?desktop.presentation.kind:"orb",w=mode==="capsule"?320:48,h=48,slot={id:s.id,x,y,width:w,height:h};width=Math.max(width,x+w+8);height=Math.max(height,y+h+(mode==="capsule"?24:8));if(horizontal)x+=w+8;else y+=h+8;return slot;});desktop.geometry={width,height:height+(desktop.total>5?24:0),slots};localStorage.setItem("test-desktop-layout",JSON.stringify(desktop));events?.desktop?.(structuredClone(desktop));}
 function syncState(){state=JSON.parse(localStorage.getItem("test-state") || JSON.stringify(state));}
 const recycle:{entry:TrashEntry;item?:Item;shelf?:Snapshot["shelves"][number];children?:Item[]}[]=[];
 function trashItem(id:number){const item=state.items.find(i=>i.id===id)!;const shelf=state.shelves.find(s=>s.id===item.shelf_id)!;recycle.push({entry:{id,entity:"item",name:item.name,shelf_id:shelf.id,shelf_name:shelf.name,shelf_kind:shelf.kind,path:item.path,removed_at:Date.now()/1000,children:0},item});state.items=state.items.filter(i=>i.id!==id);save();}
@@ -37,6 +37,9 @@ let maximized=false;
 let duplicateTicket=0,duplicateCanceled=false;
 const backend:Backend={
   transfer:{
+    async peers(){return JSON.parse(localStorage.getItem("test-transfer-peers")||"[]");},
+    async pair(name,address,fingerprint){transferCalls.push(`pair:${address}`);localStorage.setItem("test-transfer-peers",JSON.stringify([{name,fingerprint}]));},
+    async devices(){return new URLSearchParams(location.search).has("nearby")?[{name:"合成接收电脑",address:"127.0.0.1:53317",fingerprint:"a".repeat(64)}]:[];},
     async browserAvailable(){return new URLSearchParams(location.search).has("browser-share");},
     async browserSend(shelf,ids,code){transferCalls.push(`browser:${shelf}:${ids.join(",")}:${code.length}`);return new Promise(resolve=>{browserFinish=resolve;});},
     async browserCancel(){transferCalls.push("browser-cancel");browserFinish?.({job_id:18,status:"cancelled"});},
@@ -105,7 +108,11 @@ const backend:Backend={
   async desktopOpen(id){calls.push("expand:"+id);if(!desktop.layout.detached?.some(s=>s.shelf_id===id)){desktop.layout.expanded=true;desktop.layout.active_shelf=id;events.activate?.(id);}publishDesktop();},
   async desktopPage(delta){desktop.layout.page+=delta;publishDesktop();},async desktopMove(){calls.push("move-entry");},async desktopDisable(){calls.push("disable-entry");},
   async snapshot(){if(snapshotFailure){const message=snapshotFailure;snapshotFailure="";throw new Error(message);}syncState();const shelves=state.shelves.filter(s=>ownShelf?s.id===ownShelf:!desktop.layout.detached?.some(w=>w.shelf_id===s.id)),allowed=new Set(shelves.map(s=>s.id));return structuredClone({shelves,items:state.items.filter(i=>allowed.has(i.shelf_id)),jobs:state.jobs.filter(j=>!ownShelf || j.shelf_id===ownShelf)});},
+  async saveClipboardImage(){calls.push("clipboard-image");return "SYNTHETIC/粘贴图片.png";},
+  async clipboardFiles(){calls.push("clipboard-files");return ["SYNTHETIC/剪贴板文件.txt"];},
   async chooseFiles(){return ["SYNTHETIC/新增文件.txt"];},
+  async exportDataBackup(){calls.push("backup-export");return !new URLSearchParams(location.search).has("cancel-backup");},
+  async scheduleDataRestore(){calls.push("backup-restore-scheduled");return true;},
   async chooseFolder(){if(!state.shelves.some(s=>s.id===3))state.shelves.push({id:3,name:"测试绑定目录",kind:"bound",root:"SYNTHETIC/target",available:true});save();return 3;},
   async importPaths(shelf,paths){
     calls.push("import:"+shelf+":"+paths.length);

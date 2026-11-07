@@ -5,7 +5,11 @@ export type PendingTransfer={id:string;alias:string;files:{name:string;size:numb
 export type TransferView={receiving:boolean;address:string|null;fingerprint:string|null;shelf_id:number|null;pending:PendingTransfer|null;sending:boolean};
 export type TransferProgress={job_id:number;phase:string;file_index:number;file_count:number;file_bytes:number;file_total:number;bytes:number;total:number};
 export type TransferResult={job_id:number;status:string;message:string;files:{index:number;status:string;bytes:number}[]};
+export type NearbyDevice={name:string;address:string;fingerprint:string};
 export interface TransferBackend{
+  devices?():Promise<NearbyDevice[]>;
+  peers?():Promise<{name:string;fingerprint:string}[]>;
+  pair?(name:string,address:string,fingerprint:string):Promise<void>;
   browserAvailable?():Promise<boolean>;
   browserSend?(shelf:number,ids:number[],code:string):Promise<{job_id:number;status:string}>;
   browserCancel?():Promise<void>;
@@ -18,6 +22,9 @@ export interface TransferBackend{
   subscribe(events:{changed:()=>void;progress:(value:TransferProgress)=>void}):Promise<()=>void>;
 }
 export const nativeTransfer:TransferBackend={
+  devices:()=>invoke("transfer_devices"),
+  peers:()=>invoke("transfer_peers"),
+  pair:(name,address,fingerprint)=>invoke("transfer_pair",{name,address,fingerprint}),
   browserAvailable:()=>invoke("browser_share_available"),
   browserSend:(shelfId,ids,code)=>invoke("browser_share_send",{shelfId,ids,code}),
   browserCancel:()=>invoke("browser_share_cancel"),

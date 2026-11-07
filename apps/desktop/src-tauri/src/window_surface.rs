@@ -64,7 +64,7 @@ pub fn contours(entry: &EntryState, layout: &Layout) -> Vec<Contour> {
             y: s.y,
             width: s.width,
             height: s.height,
-            radius: if s.width == 300.0 { 20.0 } else { 24.0 },
+            radius: 24.0,
         })
         .collect::<Vec<_>>();
     if entry.presentation.kind == Kind::Capsule

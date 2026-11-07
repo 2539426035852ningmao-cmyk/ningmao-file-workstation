@@ -211,8 +211,25 @@ fn staging_size(root: &Path) -> Result<u64> {
 fn await_staging(root: &Path, exists: bool) -> Result<()> {
     let started = Instant::now();
     loop {
-        let bytes = staging_size(root)?;
-        if (exists && bytes >= CHUNK as u64) || (!exists && bytes == 0) {
+        let observed = if exists {
+            staging_size(root)? >= CHUNK as u64
+        } else {
+            // A Windows delete-pending file is still listed but reopening it returns OS 5.
+            // Cleanup means the entry is gone, not that its size currently appears to be zero.
+            let mut present = false;
+            for entry in fs::read_dir(root.join("received"))? {
+                if entry?
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with(".ningmao-receive-")
+                {
+                    present = true;
+                    break;
+                }
+            }
+            !present
+        };
+        if observed {
             return Ok(());
         }
         if started.elapsed() > Duration::from_secs(5) {
@@ -299,12 +316,16 @@ fn streaming_tests(root: &Path) -> Result<Value> {
     phase(root, "large-disconnect")?;
     let (status, plan) = prepare(root, json!({"f":meta("disconnected-large.bin")}))?;
     assert_eq!(status, 200);
+    phase(root, "large-disconnect-stage-observation")?;
     let pending = partial_upload(root, &plan, size)?;
     eprintln!("partial stream observed before disconnect");
+    phase(root, "large-disconnect-close-socket")?;
     pending.sock.shutdown(std::net::Shutdown::Both)?;
     drop(pending);
+    phase(root, "large-disconnect-cleanup")?;
     await_staging(root, false)?;
     assert!(!root.join("received/disconnected-large.bin").exists());
+    phase(root, "large-disconnect-cancel")?;
     cancel(root, &plan)?;
     // A failed/cancelled stream cannot poison the next accepted session.
     phase(root, "recovery-transfer")?;
@@ -624,6 +645,53 @@ pub fn main() {
 }
 #[cfg(test)]
 mod tests {
+    #[cfg(windows)]
+    #[test]
+    fn cleanup_observation_waits_for_delete_pending_staging_without_reopening_it() {
+        use std::{io::Write, os::windows::io::AsRawHandle};
+        use windows_sys::Win32::Storage::FileSystem::{
+            FILE_DISPOSITION_INFO, FileDispositionInfo, SetFileInformationByHandle,
+        };
+        let root = tempfile::tempdir().unwrap();
+        std::fs::create_dir(root.path().join("received")).unwrap();
+        let directory = super::Destination::open(&root.path().join("received")).unwrap();
+        let mut staged = directory.stage().unwrap();
+        staged.write_all(&[42; super::CHUNK]).unwrap();
+        let path = std::fs::read_dir(root.path().join("received"))
+            .unwrap()
+            .next()
+            .unwrap()
+            .unwrap()
+            .path();
+        let info = FILE_DISPOSITION_INFO { DeleteFile: true };
+        assert_ne!(
+            unsafe {
+                SetFileInformationByHandle(
+                    staged.as_file_mut().as_raw_handle(),
+                    FileDispositionInfo,
+                    (&info as *const FILE_DISPOSITION_INFO).cast(),
+                    std::mem::size_of::<FILE_DISPOSITION_INFO>() as u32,
+                )
+            },
+            0
+        );
+        assert_eq!(
+            std::fs::File::open(path).unwrap_err().raw_os_error(),
+            Some(5)
+        );
+        let cleanup = std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            drop(staged);
+        });
+        let observed = super::await_staging(root.path(), false);
+        let remaining = std::fs::read_dir(root.path().join("received"))
+            .unwrap()
+            .count();
+        cleanup.join().unwrap();
+        assert!(observed.is_ok(), "cleanup observer failed: {observed:?}");
+        assert_eq!(remaining, 0);
+    }
+
     #[test]
     fn rejected_socket_preserves_response_with_queued_request_bytes() {
         use std::{

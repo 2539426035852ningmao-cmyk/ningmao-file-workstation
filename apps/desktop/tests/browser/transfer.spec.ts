@@ -11,6 +11,7 @@ for(const theme of ["light","dark"])test(`互传分区与键盘切换适配340×
   await receive.focus();await page.keyboard.press("ArrowLeft");
   await expect(panel.getByRole("tab",{name:"发送文件",exact:true})).toHaveAttribute("aria-selected","true");
   await expect(panel.getByRole("tabpanel")).toContainText("先在文件架选择文件");
+  await panel.getByText("手动连接 / 查看设备信息",{exact:true}).click();
   await panel.getByLabel("证书指纹",{exact:true}).fill("a".repeat(64));
   await expect(panel.getByLabel("证书指纹",{exact:true})).toHaveValue("a".repeat(64));
   const send=panel.getByRole("button",{name:"发送文件",exact:true});
@@ -47,6 +48,7 @@ test("文件互传默认关闭，显式开启并确认接收才提交",async({pa
   const panel=page.getByRole("dialog",{name:"文件互传",exact:true});
   expect(await page.evaluate(()=>window.transferHarness.calls())).toEqual([]);
   await panel.getByLabel("接收文件架").selectOption("3");
+  await panel.getByText("手动指定网络地址（通常无需填写）",{exact:true}).click();
   await panel.getByLabel("本机监听地址").fill("127.0.0.1:0");
   await panel.getByRole("button",{name:"开启接收",exact:true}).click();
   await expect(panel.getByLabel("本机地址")).toHaveValue("127.0.0.1:53317");
@@ -69,6 +71,7 @@ test("选中项发送使用固定ID，进度与取消等待以真实终态为准
   await page.getByRole("button",{name:"更多操作",exact:true}).click();
   await page.getByRole("menuitem",{name:"发送到设备",exact:true}).click();
   const panel=page.getByRole("dialog",{name:"文件互传",exact:true});
+  await panel.getByText("手动连接 / 查看设备信息",{exact:true}).click();
   await panel.getByLabel("接收方地址").fill("127.0.0.1:53317");
   await panel.getByLabel("证书指纹").fill("a".repeat(64));
   await panel.getByRole("button",{name:"发送文件",exact:true}).click();

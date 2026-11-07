@@ -4,11 +4,7 @@ use windows::Win32::Graphics::Gdi::{CreateRoundRectRgn, DeleteObject, HGDIOBJ, P
 #[test]
 fn floating_surface_mask_preserves_visible_antialias_coverage_at_each_dpi() {
     for scale in [1.0, 1.25, 1.5] {
-        for (width, height, radius) in [
-            (48.0, 48.0, 24.0),
-            (184.0, 48.0, 24.0),
-            (300.0, 224.0, 20.0),
-        ] {
+        for (width, height, radius) in [(48.0, 48.0, 24.0), (320.0, 48.0, 24.0)] {
             let c = Contour {
                 x: 8.0,
                 y: 8.0,

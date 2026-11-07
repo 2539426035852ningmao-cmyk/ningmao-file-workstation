@@ -64,7 +64,7 @@ test("自动排序与搜索、刷新兼容，相同值按名称及稳定ID排序
 });
 
 test("窄窗新增排序可用键盘选中且菜单末项仍可到达",async({page})=>{
-  await setup(page);await page.getByRole("button",{name:"更多操作",exact:true}).click();await page.getByRole("menuitem",{name:"切换浅色主题",exact:true}).click();await page.setViewportSize({width:340,height:320});
+  await setup(page);await page.getByRole("button",{name:"更多操作",exact:true}).click();await page.getByRole("menuitemradio",{name:"白色主题",exact:true}).click();await page.setViewportSize({width:340,height:320});
   await page.getByRole("button",{name:"更多操作",exact:true}).press("Enter");
   const option=page.getByRole("menuitemradio",{name:"大小从大到小",exact:true});await option.focus();await page.keyboard.press("Enter");
   await page.getByRole("button",{name:"更多操作",exact:true}).click();await expect(option).toHaveAttribute("aria-checked","true");

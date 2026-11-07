@@ -4,6 +4,27 @@ use ningmao_desktop_lib::{
 };
 use std::fs;
 #[test]
+fn startup_mode_defaults_to_orb_and_preserves_active_context() {
+    use ningmao_desktop_lib::desktop::Startup;
+    let mut layout: Layout = serde_json::from_str(r#"{"version":4,"active_shelf":7}"#).unwrap();
+    assert_eq!(layout.preferences.startup, Startup::Orb);
+    layout.prepare_startup(&[1, 7]);
+    assert!(!layout.expanded);
+    assert_eq!(layout.active_shelf, 7);
+    assert!(layout.visible_ids().contains(&7));
+    layout.preferences.startup = Startup::Full;
+    let mut restored: Layout =
+        serde_json::from_str(&serde_json::to_string(&layout).unwrap()).unwrap();
+    restored.prepare_startup(&[1, 7]);
+    assert!(restored.expanded);
+    assert_eq!(restored.active_shelf, 7);
+    assert!(!restored.collapsed.contains(&7));
+    restored.preferences.startup = Startup::Orb;
+    restored.prepare_startup(&[]);
+    assert!(restored.expanded);
+    assert_eq!(restored.active_shelf, 0);
+}
+#[test]
 fn named_shelves_and_atomic_cross_shelf_reference_copy_preserve_sources() {
     let root = tempfile::tempdir().unwrap();
     let file = root.path().join("中文 原件.txt");

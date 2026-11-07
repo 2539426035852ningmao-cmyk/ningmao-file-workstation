@@ -9,8 +9,8 @@ export type Job = { id: number; shelf_id: number; status: string; message: strin
 export type Snapshot = { shelves: Shelf[]; items: Item[]; jobs: Job[] };
 export type Progress = { job_id: number; name: string; file_index: number; file_count: number; bytes: number; total: number };
 export type ImportResult = { added: number; job_id: number | null; errors: string[] };
-export type DesktopPreferences={edge:"free"|"left"|"right"|"top"|"bottom";auto_hide:boolean;topmost:boolean;flow?:"vertical"|"horizontal"};
-export type EntryPresentation={kind:"orb"|"capsule"|"quick-peek";shelf_id:number|null};
+export type DesktopPreferences={edge:"free"|"left"|"right"|"top"|"bottom";auto_hide:boolean;topmost:boolean;flow?:"vertical"|"horizontal";startup?:"orb"|"full"};
+export type EntryPresentation={kind:"orb"|"capsule";shelf_id:number|null};
 export type EntrySlot={id:number;x:number;y:number;width:number;height:number};
 export type PeekData={shelf:CatalogShelf;total:number;items:{id:number;name:string;kind:string;status:string;thumbnail:string|null}[]};
 export type ManagedReference=Pick<Item,"id"|"shelf_id"|"path"|"name"|"kind"|"tags">;
@@ -59,7 +59,11 @@ export interface Backend {
   purgeTrash?:(entity:string,id:number)=>Promise<boolean>;
   snapshot(): Promise<Snapshot>;
   chooseFiles(): Promise<string[]>;
+  clipboardFiles?():Promise<string[]>;
+  saveClipboardImage?(bytes:number[]):Promise<string>;
   chooseFolder(): Promise<number | null>;
+  exportDataBackup?():Promise<boolean>;
+  scheduleDataRestore?():Promise<boolean>;
   importPaths(shelf: number, paths: string[]): Promise<ImportResult>;
   remove(id: number): Promise<void>;
   relocate(id: number, directory: boolean): Promise<boolean>;
@@ -111,6 +115,10 @@ export const nativeBackend: Backend = {
   trashEntries:filter=>invoke("trash_entries",{filter}),trashShelf:shelfId=>invoke("trash_shelf",{shelfId}),
   restoreTrash:(entity,id)=>invoke("restore_trash",{entity,id}),purgeTrash:(entity,id)=>invoke("purge_trash",{entity,id}),
   snapshot: () => isTauri() ? invoke("snapshot") : Promise.reject("请启动 Windows 应用；浏览器预览不能读取本地文件。"),
+  exportDataBackup:()=>invoke("export_data_backup"),
+  scheduleDataRestore:()=>invoke("schedule_data_restore"),
+  clipboardFiles:()=>invoke("clipboard_files"),
+  saveClipboardImage:bytes=>invoke("save_clipboard_image",{bytes}),
   chooseFiles: () => invoke("choose_files"), chooseFolder: () => invoke("choose_folder"),
   importPaths: (shelfId, paths) => invoke("import_paths", { shelfId, paths }),
   remove: id => invoke("remove_reference", { id }), tags: (id,tags) => invoke("set_tags", { id,tags }),

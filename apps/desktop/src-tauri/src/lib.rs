@@ -2,6 +2,7 @@ mod browser_share_desktop;
 pub mod browser_share_process;
 pub mod browser_share_tasks;
 pub mod chat;
+mod clipboard_files;
 pub mod desktop;
 mod desktop_runtime;
 #[cfg(windows)]
@@ -12,6 +13,8 @@ mod shelf_windows;
 pub mod store;
 use ningmao_transfer_client as loopback_transport;
 mod transfer_desktop;
+mod transfer_discovery;
+mod transfer_identity;
 pub mod transfer_runtime;
 pub mod transfer_sender;
 pub mod transfer_tasks;
@@ -161,6 +164,29 @@ async fn choose_files(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Re
     })
     .await
     .map_err(error)?
+}
+#[tauri::command]
+async fn save_clipboard_image(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    bytes: Vec<u8>,
+) -> Result<String> {
+    shelf_windows::scope(&window)?;
+    let root = app.state::<Runtime>().data_root.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        clipboard_files::save_image(&root, &bytes).and_then(|path| {
+            path.to_str()
+                .map(str::to_owned)
+                .ok_or("图片保存路径编码不受支持。".into())
+        })
+    })
+    .await
+    .map_err(error)?
+}
+#[tauri::command]
+fn clipboard_files(window: tauri::WebviewWindow) -> Result<Vec<String>> {
+    shelf_windows::scope(&window)?;
+    clipboard_files::read_paths()
 }
 #[tauri::command]
 async fn choose_folder(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<Option<i64>> {
@@ -1319,15 +1345,15 @@ async fn desktop_peek(
     shelf_id: i64,
 ) -> Result<store::EntryPreview> {
     if !desktop::permits(window.label(), desktop::Scope::Entry) {
-        return Err("只允许读取当前悬浮轻预览。".into());
+        return Err("只允许读取当前胶囊的收集记录。".into());
     }
     {
         let state = app.state::<desktop_runtime::Desktop>();
         let entry = state.entry.lock().map_err(error)?;
-        if entry.presentation.kind != entry::Kind::QuickPeek
+        if entry.presentation.kind != entry::Kind::Capsule
             || entry.presentation.shelf_id != Some(shelf_id)
         {
-            return Err("轻预览目标已变化，请重新打开。".into());
+            return Err("胶囊目标已变化，请重新打开。".into());
         }
     }
     tauri::async_runtime::spawn_blocking(move || {
@@ -1602,6 +1628,65 @@ async fn chat_send(
     result.map(|_| ())
 }
 #[tauri::command]
+async fn schedule_data_restore(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+) -> Result<bool> {
+    if metadata_scope(&window)?.is_some() {
+        return Err("请在主窗口或管理中心恢复数据。".into());
+    }
+    let pick = app.clone();
+    let selected = tauri::async_runtime::spawn_blocking(move || {
+        pick.dialog()
+            .file()
+            .set_title("选择柠猫数据备份")
+            .add_filter("SQLite", &["sqlite3"])
+            .blocking_pick_file()
+    })
+    .await
+    .map_err(error)?;
+    let Some(selected) = selected else {
+        return Ok(false);
+    };
+    let path = selected.into_path().map_err(error)?;
+    let dialog = app.clone();
+    let confirmed=tauri::async_runtime::spawn_blocking(move||dialog.dialog().message("下次启动时恢复软件数据库？当前数据库会先自动备份以便回滚。原始文件及设备身份不替换。恢复期间请勿运行其他实例。").title("确认安排数据恢复").buttons(tauri_plugin_dialog::MessageDialogButtons::OkCancel).parent(&window).blocking_show()).await.map_err(error)?;
+    if !confirmed {
+        return Ok(false);
+    };
+    let root = app.state::<Runtime>().data_root.clone();
+    tauri::async_runtime::spawn_blocking(move || Store::stage_restore(&path, &root))
+        .await
+        .map_err(error)??;
+    Ok(true)
+}
+#[tauri::command]
+async fn export_data_backup(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<bool> {
+    if metadata_scope(&window)?.is_some() {
+        return Err("请在主窗口或管理中心备份数据。".into());
+    }
+    let pick = app.clone();
+    let destination = tauri::async_runtime::spawn_blocking(move || {
+        pick.dialog()
+            .file()
+            .set_title("导出柠猫数据备份（不包含原始文件）")
+            .set_file_name("ningmao-backup.sqlite3")
+            .add_filter("SQLite", &["sqlite3"])
+            .blocking_save_file()
+    })
+    .await
+    .map_err(error)?;
+    let Some(destination) = destination else {
+        return Ok(false);
+    };
+    let destination = destination.into_path().map_err(error)?;
+    database(app, move |store| {
+        store.backup_to(&destination)?;
+        Ok(true)
+    })
+    .await
+}
+#[tauri::command]
 async fn management_snapshot(
     app: tauri::AppHandle,
     window: tauri::WebviewWindow,
@@ -1814,6 +1899,27 @@ async fn recover_desktop_windows(
     shelf_windows::recover_visible(&app)
 }
 pub fn run() {
+    let mut context = tauri::generate_context!();
+    let recovery_window = if std::env::args_os()
+        .nth(1)
+        .is_some_and(|value| value == "--restore-backup")
+    {
+        let original = context
+            .config()
+            .app
+            .windows
+            .iter()
+            .find(|window| window.label == "main")
+            .cloned();
+        for window in &mut context.config_mut().app.windows {
+            if window.label == "main" {
+                window.create = false;
+            }
+        }
+        original
+    } else {
+        None
+    };
     let mut window_state = tauri_plugin_window_state::Builder::default()
         .with_state_flags(tauri_plugin_window_state::StateFlags::SIZE);
     if let Some(root) = std::env::var_os("NINGMAO_DATA_DIR") {
@@ -1825,7 +1931,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(window_state.build())
         .plugin(tauri_plugin_dialog::init())
-        .setup(|app| {
+        .setup(move |app| {
             let root = std::env::var_os("NINGMAO_DATA_DIR")
                 .map(PathBuf::from)
                 .unwrap_or(app.path().app_data_dir()?);
@@ -1839,6 +1945,21 @@ pub fn run() {
             lock.try_lock().map_err(|e| {
                 std::io::Error::other(format!("相同数据目录已有实例或无法锁定：{e}"))
             })?;
+            let arguments: Vec<_> = std::env::args_os().skip(1).collect();
+            if arguments.first().is_some_and(|value| value == "--restore-backup") {
+                let backup = arguments.get(1).map(PathBuf::from).ok_or_else(|| std::io::Error::other("请将备份文件拖到恢复入口。"))?;
+                drop(Store::validate_backup(&backup).map_err(std::io::Error::other)?);
+                #[cfg(windows)]
+                let confirmed = unsafe {
+                    use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, IDYES, MB_YESNO, MB_ICONWARNING};
+                    MessageBoxW(None, windows::core::w!("从所选备份恢复柠猫数据库？当前数据将先保留供回滚，原始文件不会删除。确认后开始恢复。"), windows::core::w!("确认启动恢复"), MB_YESNO | MB_ICONWARNING) == IDYES
+                };
+                #[cfg(not(windows))]
+                let confirmed = false;
+                if !confirmed { std::process::exit(0); }
+                Store::stage_restore(&backup, &root).map_err(std::io::Error::other)?;
+            }
+            Store::apply_pending_restore(&root).map_err(std::io::Error::other)?;
             app.manage(Runtime {
                 browser_shares: Default::default(),
                 transfers: Default::default(),
@@ -1861,6 +1982,12 @@ pub fn run() {
                 _process_lock: lock,
             });
             desktop_runtime::setup(app.handle(), &root).map_err(std::io::Error::other)?;
+            if let Some(config) = &recovery_window {
+                let main = tauri::WebviewWindowBuilder::from_config(app.handle(), config)?.build()?;
+                if desktop_runtime::view(app.handle()).map_err(std::io::Error::other)?.layout.expanded {
+                    main.show()?;
+                }
+            }
             wake_shortcut::setup(app.handle(), &root);
             let show = tauri::menu::MenuItem::with_id(
                 app,
@@ -1977,6 +2104,9 @@ pub fn run() {
             browser_share_desktop::browser_share_send,
             browser_share_desktop::browser_share_cancel,
             transfer_desktop::transfer_view,
+            transfer_desktop::transfer_devices,
+            transfer_desktop::transfer_pair,
+            transfer_desktop::transfer_peers,
             transfer_desktop::transfer_receive,
             transfer_desktop::transfer_stop_receive,
             transfer_desktop::transfer_decide,
@@ -1998,6 +2128,8 @@ pub fn run() {
             snapshot,
             choose_files,
             choose_folder,
+            clipboard_files,
+            save_clipboard_image,
             import_paths,
             cancel_copy,
             remove_reference,
@@ -2039,6 +2171,8 @@ pub fn run() {
             desktop_disable,
             manager_open,
             management_snapshot,
+            export_data_backup,
+            schedule_data_restore,
             search_metadata,
             focus_search_result,
             take_search_focus,
@@ -2048,7 +2182,7 @@ pub fn run() {
             desktop_detach,
             desktop_merge
         ])
-        .run(tauri::generate_context!())
+        .run(context)
         .expect("柠猫文件工作站启动失败；数据未自动清理");
 }
 

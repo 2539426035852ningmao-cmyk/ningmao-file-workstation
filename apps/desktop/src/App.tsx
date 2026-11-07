@@ -9,7 +9,7 @@ import { DndContext, DragOverlay, KeyboardSensor, PointerSensor, closestCenter, 
 import { SortableContext, rectSortingStrategy, sortableKeyboardCoordinates, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Archive, Trash2, ArrowDownToLine, Check, ChevronDown, File, Folder, FolderPlus, GripVertical, Grid2X2, Info, List, Moon, MoreHorizontal, Pin, Plus, RefreshCw, Search, Star, Sun, X } from "lucide-react";
+import { Archive, Trash2, ArrowDownToLine, Check, ChevronDown, File, Folder, FolderPlus, GripVertical, Grid2X2, Info, List, MoreHorizontal, Pin, Plus, RefreshCw, Search, Star, X } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Badge } from "./components/ui/badge";
@@ -20,7 +20,7 @@ import { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem, C
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "./components/ui/sheet";
 import { FileThumb } from "./components/spaceui/FileThumb";
 import type { Backend, CatalogShelf, DesktopView, DuplicateReport, Item, Progress, Snapshot } from "./backend";
-import { defaultView,observeTheme,readTheme,readViewMemory,writeTheme,writeShelfView,type ShelfView } from "./preferences";
+import { applyTheme,defaultView,observeTheme,readTheme,readViewMemory,themes,writeTheme,writeShelfView,type ShelfView,type Theme } from "./preferences";
 import { isSortMode,sortItems,sortOptions } from "./sorting";
 import {OrbFace} from "./orb/OrbFace";
 import { defaultFilters,filterItems,type ShelfFilters } from "./filters";
@@ -224,6 +224,17 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   }
   importRef.current=paths=>void receive(paths);
   useEffect(()=>{
+    const paste=(event:ClipboardEvent)=>{
+      if(!backend.clipboardFiles||busy||running||document.querySelector('[role="dialog"]')||event.target instanceof Element&&event.target.closest('input,textarea,[contenteditable="true"]'))return;
+      event.preventDefault();
+      const shelf=activeShelf.current;
+      const image=Array.from(event.clipboardData?.files??[]).find(file=>file.type.startsWith('image/'));
+      const paths=image&&backend.saveClipboardImage?image.arrayBuffer().then(bytes=>backend.saveClipboardImage!(Array.from(new Uint8Array(bytes)))).then(path=>[path]):backend.clipboardFiles();
+      void paths.then(values=>{if(activeShelf.current!==shelf){setError("文件架已切换，请重新粘贴。");return;}importRef.current(values);}).catch(e=>setError(String(e)));
+    };
+    window.addEventListener('paste',paste);return()=>window.removeEventListener('paste',paste);
+  },[backend,busy,running]);
+  useEffect(()=>{
     let live=true; let cleanup:(()=>void)|undefined;
     void backend.subscribe({
       drop:paths=>importRef.current(paths),hover:setHover,progress:setProgress,
@@ -237,7 +248,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
     void Promise.all([refresh(),backend.desktopState()]).then(([,desktop])=>{if(live) {desktopChanged(desktop);setMessage("文件架已恢复。");setLoading(false);}}).catch(e=>{if(live) {setError(String(e));setLoading(false);}});
     return ()=>{live=false;cleanup?.();};
   },[backend]);
-  useEffect(()=>{ document.documentElement.className=theme;setThemeWarning(writeTheme(theme)); },[theme]);
+  useEffect(()=>{applyTheme(theme);setThemeWarning(writeTheme(theme));},[theme]);
   useEffect(()=>observeTheme(setTheme),[]);
   function setView(patch:Partial<ShelfView>) {
     if(shelfId<=0)return;
@@ -311,14 +322,14 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   return <div className={`workstation ${hover?"drop-active":""}`}><ScrollActivity/>
     <GlobalSearch backend={backend} revision={data} scoped={detachedShelfId!==undefined}/>
     {backend.chat&&chatLoaded&&<Suspense fallback={null}><ChatPanel backend={backend.chat} open={chatOpen} onOpenChange={setChatOpen}/></Suspense>}
-    {backend.transfer&&transferLoaded&&<Suspense fallback={null}><TransferPanel backend={backend.transfer} open={transfer.open} initialMode={transfer.mode} selection={transfer.selection} shelves={data.shelves} onOpenChange={open=>setTransfer(value=>({...value,open}))}/></Suspense>}
+    {backend.transfer&&transferLoaded&&<Suspense fallback={null}><TransferPanel backend={backend.transfer} open={transfer.open} initialMode={transfer.mode} selection={transfer.selection} shelves={data.shelves} chooseReceiveFolder={detachedShelfId===undefined?async()=>{const id=await backend.chooseFolder();if(id!==null)await refresh();return id;}:undefined} onOpenChange={open=>setTransfer(value=>({...value,open}))}/></Suspense>}
     <SystemRecycle backend={backend} ids={systemRecycleIds} onClose={()=>setSystemRecycleIds(null)} onChanged={refresh}/>
     <RecycleDrawer backend={backend} open={recycleOpen} onOpenChange={setRecycleOpen} shelfId={shelfId} onChanged={refresh}/>
     {undo&&<div className="undo-record" role="status">已移入柠猫回收站 <Button variant="ghost" onClick={()=>void perform(async()=>{for(const id of undo.ids??[undo.id])await backend.restoreTrash?.(undo.entity,id);setUndo(null);await refresh();})}>撤销</Button></div>}
     <div className="shelf-chrome" {...windowDrag}><header className="shelf-header">
       {!searchOpen && <OrbFace brand/>}
       {searchOpen ? <div className="shelf-search"><Search size={16}/><Input ref={searchInput} aria-label="搜索文件" placeholder="搜索当前文件架" value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==="Escape" && !e.nativeEvent.isComposing){e.preventDefault();e.stopPropagation();closeSearch();}}}/><Button variant="ghost" size="icon" aria-label="关闭搜索" onClick={closeSearch}><X size={16}/></Button></div> : <>
-        <ShelfMenu label="文件架" align="start" trigger={<Button className="shelf-switch" variant="ghost" aria-label="切换文件架"><span>{shelf?.name || "主窗口"}</span><ChevronDown size={14}/></Button>}>
+        <ShelfMenu label="文件架" align="start" trigger={<Button className="shelf-switch" variant="ghost" aria-label="切换文件架" title={shelf?.name || "主窗口"}><span>{shelf?.name || "主窗口"}</span><ChevronDown size={14}/></Button>}>
           <DropdownMenu.RadioGroup value={String(shelfId)} onValueChange={id=>switchShelf(Number(id))}>{data.shelves.map(s=><div className="shelf-choice" key={s.id}><DropdownMenu.RadioItem disabled={detachedShelfId!==undefined} value={String(s.id)}>{s.kind==="bound"?<Folder size={16}/>:<Archive size={16}/>}<span>{s.name}</span><DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem><button className="shelf-recycle" aria-label={`回收文件架 ${s.name}`} disabled={busy||!!running||hover||!!dragging||!backend.trashShelf} onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();void perform(async()=>{await backend.trashShelf?.(s.id);setUndo({entity:"shelf",id:s.id});await refresh();setMessage("整个文件架已移入柠猫回收站，原文件保留。");});}}><Trash2 size={14}/></button></div>)}</DropdownMenu.RadioGroup>
           {detachedShelfId===undefined && <><DropdownMenu.Separator/>{catalog.filter(s=>detachedIds.includes(s.id)).map(s=><DropdownMenu.Item key={s.id} onSelect={()=>void perform(()=>backend.desktopOpen(s.id))}>打开独立窗口 · {s.name}</DropdownMenu.Item>)}<DropdownMenu.Item disabled={!native || busy} onSelect={()=>{setNewName("");setSessionShelf(false);setFormError("");setCreating(true);}}><Plus size={16}/>新建文件架</DropdownMenu.Item><DropdownMenu.Item disabled={!native || busy || !!running} onSelect={()=>void perform(async()=>{const id=await backend.chooseFolder();await refresh();if(id)await switchShelf(id);})}><FolderPlus size={16}/>绑定文件夹</DropdownMenu.Item></>}
         </ShelfMenu>
@@ -350,7 +361,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
         <DropdownMenu.Separator/>
         <DropdownMenu.Item disabled={loading} onSelect={()=>void perform(async()=>{await refresh();setMessage("已刷新文件状态。");})}><RefreshCw size={16}/>刷新文件状态</DropdownMenu.Item>
         <DropdownMenu.Item onSelect={()=>setTasks(true)}>复制任务</DropdownMenu.Item>
-        <DropdownMenu.Item onSelect={()=>setTheme(theme==="dark"?"light":"dark")}>{theme==="dark"?<Sun size={16}/>:<Moon size={16}/>}切换{theme==="dark"?"浅色":"深色"}主题</DropdownMenu.Item>
+        <DropdownMenu.Label>应用主题</DropdownMenu.Label><DropdownMenu.RadioGroup value={theme} onValueChange={value=>setTheme(value as Theme)}>{Object.entries(themes).map(([key,label])=><DropdownMenu.RadioItem key={key} value={key}>{label}主题<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>)}</DropdownMenu.RadioGroup>
         <DropdownMenu.CheckboxItem disabled={!native} checked={topmost} onCheckedChange={()=>void perform(async()=>setTopmost(await backend.topmost()))}><Pin size={16}/>窗口置顶<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.CheckboxItem>
         <DropdownMenu.Separator/><DropdownMenu.Item disabled={!native} onSelect={()=>void perform(()=>backend.quit())}>完整退出</DropdownMenu.Item>
       </ShelfMenu>
