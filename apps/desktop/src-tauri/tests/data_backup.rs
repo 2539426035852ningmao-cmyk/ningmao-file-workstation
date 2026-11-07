@@ -90,3 +90,49 @@ fn backup_includes_committed_wal_and_does_not_overwrite() {
             .any(|s| s.name == "备份后")
     );
 }
+
+#[test]
+fn a_damaged_current_database_can_be_restored_without_losing_raw_evidence() {
+    let root = tempfile::tempdir().unwrap();
+    let path = root.path().join("workstation.sqlite3");
+    let backup = root.path().join("good.sqlite3");
+    let mut original = Store::open(&path).unwrap();
+    original.create_shelf("损坏后应恢复", false).unwrap();
+    original.backup_to(&backup).unwrap();
+    Store::stage_restore(&backup, root.path()).unwrap();
+    drop(original);
+    let damaged = b"synthetic damaged SQLite header";
+    std::fs::write(&path, damaged).unwrap();
+    let rollback = Store::apply_pending_restore(root.path()).unwrap().unwrap();
+    assert_eq!(std::fs::read(rollback).unwrap(), damaged);
+    let mut restored = Store::open(&path).unwrap();
+    assert!(
+        restored
+            .snapshot()
+            .unwrap()
+            .shelves
+            .iter()
+            .any(|s| s.name == "损坏后应恢复")
+    );
+}
+
+#[test]
+fn recovery_does_not_downgrade_a_newer_database() {
+    let root = tempfile::tempdir().unwrap();
+    let path = root.path().join("workstation.sqlite3");
+    let backup = root.path().join("good.sqlite3");
+    let original = Store::open(&path).unwrap();
+    original.backup_to(&backup).unwrap();
+    Store::stage_restore(&backup, root.path()).unwrap();
+    drop(original);
+    let db = rusqlite::Connection::open(&path).unwrap();
+    db.pragma_update(None, "user_version", 99).unwrap();
+    drop(db);
+    assert!(Store::apply_pending_restore(root.path()).is_err());
+    let db = rusqlite::Connection::open(&path).unwrap();
+    assert_eq!(
+        db.pragma_query_value::<i64, _>(None, "user_version", |row| row.get(0))
+            .unwrap(),
+        99
+    );
+}

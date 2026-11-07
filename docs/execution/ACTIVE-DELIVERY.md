@@ -2,6 +2,10 @@
 
 ## 2026-11-07 · P0–P4连续总交接生效
 
+P0损坏库启动恢复已补代码：仅在完整性检查确认NotADatabase/DatabaseCorrupt或损坏结果时，将原DB及WAL/SHM按原字节保留至唯一before-restore位置，再用SQLite Backup API恢复到新库。权限/版本等错误不触发替换。便携包新增Recover-Ningmao.cmd：完整退出后把有效备份拖到该入口，程序启动前预检、用户明确确认，再安排并执行恢复；支持主界面打不开时使用。不是永久删除，不覆盖已有回滚文件。5项真实数据库专项PASS0.16秒，启动入口全目标Clippy通过（新增的纯测试随后格式化编译通过），无需重复未改界面测试。最初头部损坏回归明确失败，直接SQLite恢复损坏目标仍失败，最终先保留原始文件后新建目标通过；失败证据本机保留。
+
+前批f1451ef三CI全success，P3配置回归已确认修复。当前新批Windows打包/原生恢复确认框待验证，不标整个P0最终放行。此批后下一具体P1缺口为Ctrl+V文件/图片收集，之后再D05产品化；不把高级需求静默删减。
+
 备份恢复源码ab6d9bca4e861cbe7793dad53d853684433d55c1已生成Windows/MSI/便携候选（未启动/安装）：EXE SHA256315cf6d2c6951f631204bb486c9f05fadf595d72a45233259e3c21b3ff87cad7，ZIP D:/Ningmao-Backup-20261107-ab6d9bc.zip SHA256ec0088384e1cefe4bac7457bd35d0e675f5117e9665f16c2c74790ceb142f577。保留上一候选。当前尚非最终统一验收包。
 
 真实CI回归：ab6d9bc的P3 run42354039794在Windows/Ubuntu均编译失败，实验直接包含主Store源码但rusqlite未启用backup；非网络传输失败。已在实验Cargo.toml补同一feature，未新增依赖/改协议/删测试。修复后本地P3全目标Clippy、35测试/1ignored及实际双进程回环probe全PASS，sender-result为SUCCESS，合成SHA256591011a9a08b456c2eadc062b3bf48e54d46d90904dc7e07ec6effdc77363689，来源/同名/取消/断线检查通过。旧CI失败保留，不标整个候选CI通过；Desktop/Preview旧run尚在执行，修复统一提交后再核对新SHA，不继承旧PASS。

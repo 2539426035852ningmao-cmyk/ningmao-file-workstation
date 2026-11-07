@@ -1900,6 +1900,20 @@ pub fn run() {
             lock.try_lock().map_err(|e| {
                 std::io::Error::other(format!("相同数据目录已有实例或无法锁定：{e}"))
             })?;
+            let arguments: Vec<_> = std::env::args_os().skip(1).collect();
+            if arguments.first().is_some_and(|value| value == "--restore-backup") {
+                let backup = arguments.get(1).map(PathBuf::from).ok_or_else(|| std::io::Error::other("请将备份文件拖到恢复入口。"))?;
+                drop(Store::validate_backup(&backup).map_err(std::io::Error::other)?);
+                #[cfg(windows)]
+                let confirmed = unsafe {
+                    use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, IDYES, MB_YESNO, MB_ICONWARNING};
+                    MessageBoxW(None, windows::core::w!("从所选备份恢复柠猫数据库？当前数据将先保留供回滚，原始文件不会删除。确认后开始恢复。"), windows::core::w!("确认启动恢复"), MB_YESNO | MB_ICONWARNING) == IDYES
+                };
+                #[cfg(not(windows))]
+                let confirmed = false;
+                if !confirmed { std::process::exit(0); }
+                Store::stage_restore(&backup, &root).map_err(std::io::Error::other)?;
+            }
             Store::apply_pending_restore(&root).map_err(std::io::Error::other)?;
             app.manage(Runtime {
                 browser_shares: Default::default(),

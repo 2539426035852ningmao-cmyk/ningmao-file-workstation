@@ -182,8 +182,46 @@ impl Store {
             .map_err(err)?
             .as_nanos();
         let rollback = data_root.join(format!("before-restore-{stamp}.sqlite3"));
-        let mut destination = Self::open(&data_root.join("workstation.sqlite3"))?;
-        destination.backup_to(&rollback)?;
+        let current = data_root.join("workstation.sqlite3");
+        let mut destination = match Self::open(&current) {
+            Ok(store) => {
+                store.backup_to(&rollback)?;
+                store
+            }
+            Err(open_error) => {
+                let check = Connection::open_with_flags(
+                    &current,
+                    rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+                )
+                .and_then(|db| {
+                    db.pragma_query_value::<String, _>(None, "integrity_check", |row| row.get(0))
+                });
+                let damaged = match check {
+                    Ok(value) => value != "ok",
+                    Err(rusqlite::Error::SqliteFailure(code, _)) => matches!(
+                        code.code,
+                        rusqlite::ErrorCode::DatabaseCorrupt | rusqlite::ErrorCode::NotADatabase
+                    ),
+                    Err(_) => false,
+                };
+                if !damaged {
+                    return Err(open_error);
+                }
+                // A corrupt database cannot produce a SQLite snapshot. Preserve its raw files first.
+                for suffix in ["-wal", "-shm", ""] {
+                    let mut original = current.as_os_str().to_owned();
+                    original.push(suffix);
+                    let mut preserved = rollback.as_os_str().to_owned();
+                    preserved.push(suffix);
+                    if Path::new(&original).exists() {
+                        fs::rename(&original, &preserved).map_err(err)?;
+                    }
+                }
+                Self {
+                    db: Connection::open(&current).map_err(err)?,
+                }
+            }
+        };
         {
             let transfer =
                 rusqlite::backup::Backup::new(&source, &mut destination.db).map_err(err)?;
