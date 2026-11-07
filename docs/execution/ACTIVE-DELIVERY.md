@@ -2,6 +2,10 @@
 
 ## 2026-11-07 · P0–P4连续总交接生效
 
+84a8918299959c7d0d0f76dba4eb882ca1419752本轮原生发现并修复真实遮挡：从胶囊切到另一架时，旧架仍留在collapsed，旧胶囊可能盖住新完整架标题。新增检查先失败（胶囊仍1个），最小修复direct共用入口先通过现有desktopPresent收回原胶囊，再desktopOpen目标，不改Rust布局/权限或投放判断。修复后受影响30界面PASS22.9秒，尚待新包原生复测；不能把84a8918当最终修复版。
+
+84a8918三CI全部success：Desktop42380983656/Preview42380983621/P342380983705；Windows/MSI/空data与webview便携核验PASS，ZIP D:/Ningmao-Capsule-84a8918.zip SHA2563aeca1508cf5dd81844ec2c9d508158b6b599fce44e040e0eb4f0fe14143f6ca，EXE SHA256bbfbcc84c9b79290f6718d04e5a963e8d61bef5f8f85a12d661e020a8b1d324b。原生完整架3合成引用→球→320胶囊含数量/3项及真实PNG缩略图→再点击直接完整架PASS；切到本次中转确实打开正确空架，但有上述遮挡FAIL。正常退出/监听归零、DB完整、来源三SHA未变，旧包保留，不上传私人素材或日志。
+
 D05三形态路径本批接续：旧QuickPeek组件、样式及原生Kind::QuickPeek已移除，胶囊320×48就地呈现最多3项已登记素材/缩略图、总数量和引用/复制语义；再次点击直接desktopOpen完整架，Esc回球，原生select可打开其他架。旧IPC字符串quick-peek仅作为serde兼容别名映射Capsule，不产生额外产品状态。只读预览沿已有desktop_peek/Store条目作用域，不增加Dock文件读写权限，不改Copy/数据库/身份；快捷添加和粘贴仍在完整架，本批不冒称这些胶囊操作、双启动模式或连续Fluid形变已完成。
 
 先红后绿证据：2新界面检查复现旧版无胶囊最近素材/切架；Rust旧184宽度与新320断言明确失败。修复后113 Rust PASS/7ignored、Clippy PASS；最终320×48实际GDI栅格100%/125%/150%专项PASS。首轮界面29PASS/2旧关闭坐标失败（旧按钮宽不再等于整胶囊，已对齐真实外角），全量142PASS/1模拟Leave后未等解锁就Esc的验收同步失败；改为等待按钮实际解锁再继续，最终全量143PASS2.7分钟。生产前端/仓库检查PASS，机械检测无发现。新Windows候选/原生胶囊、贴边和真实OLE尚待验证，不能继承1950e75证据；回滚1950e758ed746009a58371afd84b7b98daee4b17。

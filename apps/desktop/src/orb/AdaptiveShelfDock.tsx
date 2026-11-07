@@ -29,7 +29,7 @@ export default function AdaptiveShelfDock({backend}:{backend:Backend}) {
   const presentation=view?.presentation??{kind:"orb",shelf_id:null},locked=!!view?.native_dragging;
   async function act(action:()=>Promise<void>){if(pending.current)return;pending.current=true;setError("");try{await action();}catch(e){if(alive.current)setError(String(e));}finally{pending.current=false;}}
   function present(id:number,kind:EntryPresentation["kind"]){if(state.current?.native_dragging)return;void act(()=>backend.desktopPresent(id,kind));}
-  function direct(id:number){if(!state.current?.native_dragging)void act(()=>backend.desktopOpen(id));}
+  function direct(id:number){if(!state.current?.native_dragging)void act(async()=>{const p=state.current?.presentation;if(p?.kind==="capsule" && p.shelf_id!==null)await backend.desktopPresent(p.shelf_id,"orb");await backend.desktopOpen(id);});}
   useEffect(()=>{applyTheme(theme);},[theme]);
   useEffect(()=>observeTheme(setTheme),[]);
   useEffect(()=>{document.documentElement.classList.add("desktop-entry-surface",readTheme());alive.current=true;let dispose:(()=>void)|undefined;

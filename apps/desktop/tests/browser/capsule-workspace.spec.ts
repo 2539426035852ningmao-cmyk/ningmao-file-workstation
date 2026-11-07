@@ -26,3 +26,12 @@ test("胶囊接收拖动时锁住打开和切架，取消后可收回圆球",asy
   await page.keyboard.press("Escape");
   await expect(page.getByRole("button",{name:"展开 灵感收集",exact:true})).toBeVisible();
 });
+
+test("胶囊切架前收回当前入口，不让旧胶囊遮住新完整架",async({page})=>{
+  await page.goto("/tests/harness.html?desktop-entry&count=3");
+  await page.getByRole("button",{name:"展开 灵感收集",exact:true}).click();
+  await page.getByRole("combobox",{name:"打开其他文件架"}).selectOption("2");
+  await expect.poll(()=>page.evaluate(()=>window.testHarness.calls())).toContain("expand:2");
+  await expect(page.getByTestId("morph-capsule")).toHaveCount(0);
+  await expect(page.getByRole("button",{name:"展开 灵感收集",exact:true})).toBeVisible();
+});
