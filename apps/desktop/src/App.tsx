@@ -311,7 +311,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   return <div className={`workstation ${hover?"drop-active":""}`}><ScrollActivity/>
     <GlobalSearch backend={backend} revision={data} scoped={detachedShelfId!==undefined}/>
     {backend.chat&&chatLoaded&&<Suspense fallback={null}><ChatPanel backend={backend.chat} open={chatOpen} onOpenChange={setChatOpen}/></Suspense>}
-    {backend.transfer&&transferLoaded&&<Suspense fallback={null}><TransferPanel backend={backend.transfer} open={transfer.open} initialMode={transfer.mode} selection={transfer.selection} shelves={data.shelves} onOpenChange={open=>setTransfer(value=>({...value,open}))}/></Suspense>}
+    {backend.transfer&&transferLoaded&&<Suspense fallback={null}><TransferPanel backend={backend.transfer} open={transfer.open} initialMode={transfer.mode} selection={transfer.selection} shelves={data.shelves} chooseReceiveFolder={detachedShelfId===undefined?async()=>{const id=await backend.chooseFolder();if(id!==null)await refresh();return id;}:undefined} onOpenChange={open=>setTransfer(value=>({...value,open}))}/></Suspense>}
     <SystemRecycle backend={backend} ids={systemRecycleIds} onClose={()=>setSystemRecycleIds(null)} onChanged={refresh}/>
     <RecycleDrawer backend={backend} open={recycleOpen} onOpenChange={setRecycleOpen} shelfId={shelfId} onChanged={refresh}/>
     {undo&&<div className="undo-record" role="status">已移入柠猫回收站 <Button variant="ghost" onClick={()=>void perform(async()=>{for(const id of undo.ids??[undo.id])await backend.restoreTrash?.(undo.entity,id);setUndo(null);await refresh();})}>撤销</Button></div>}

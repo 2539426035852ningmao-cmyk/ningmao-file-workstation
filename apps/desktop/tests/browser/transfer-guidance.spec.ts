@@ -32,3 +32,13 @@ test('附近设备单击选中后可发送，无需填写地址',async({page})=>
  await expect(page.getByLabel('接收方地址',{exact:true})).toHaveValue('127.0.0.1:53317');
  expect(await page.evaluate(()=>window.transferHarness.calls())).toEqual([]);
 });
+
+test('首次接收可以就地选择文件夹，选择后不会自动监听',async({page})=>{
+ await page.goto('/tests/harness.html');
+ await page.getByRole('button',{name:'更多操作',exact:true}).click();
+ await page.getByRole('menuitem',{name:'文件互传',exact:true}).click();
+ await page.getByRole('button',{name:'选择保存文件夹',exact:true}).click();
+ await expect(page.getByLabel('接收文件架')).toHaveValue('3');
+ await expect(page.getByRole('button',{name:'开启接收',exact:true})).toBeEnabled();
+ expect(await page.evaluate(()=>window.transferHarness.calls())).toEqual([]);
+});

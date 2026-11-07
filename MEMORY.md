@@ -1,5 +1,7 @@
 # 当前执行入口（2026-11-06，浏览器组件随包验证）
 
+2026-11-07最新：仍在 feat/browser-components-portable-20261106 / #68。43d87408873273bfe58ad34fb3d2c2b6e87054e9 已接真实UDP附近设备发现、自动接收IPv4、点设备发送和一次粘贴备用连接；用户明确批准本轮临时私有LAN发现，实际同机网卡发现/释放PASS，104Rust/7ignored、10UI、三个CI均通过。同SHAWindows包/原生查询/退出已通过，ZIP及EXE完整哈希见ACTIVE-DELIVERY顶部。不是双机/稳定配对/LocalSend兼容。当前后续小批补接收页就地选保存文件夹，复用原choose_folder主窗权限，不自动监听，11UI通过；新Windows候选按新SHA构建。不要按下方历史重做协议/文档，下一项是稳定身份/配对及双设备验收，浏览器SSH/WASM与许可仍待收束，无自动合并/发行。
+
 继续先读 docs/execution/ACTIVE-DELIVERY.md 顶部。当前 `feat/browser-components-portable-20261106` / Draft #68，基于 #62 ffb8bc8，功能源码710a429。同EXE相对组件、固定SHA、关闭意外寄存服务已实现；70项实际许可文本已生成但尚未发行清关。真实Windows选择文件→浏览器下载SHA/正文一致→第二次取消→正常退出重启任务保留全部PASS，来源不变、最终组件/监听为零。Desktop/Preview/P3三组功能CI成功。精确哈希/未决与回滚见 docs/research/P3-browser-components-portable-20261106.md；不要重复研究已通过的协议/原生闭环。
 
 下一步收束上游SSH/Store UI及源资产署名，再做可分发组件；可继续现有薄AI Provider，但不调用模型/新费用。r7未覆盖；不把本机开发包冒充双设备/正式发行。#66为独立有界形变探针，20轮/60转场与搜索保留通过、两CI成功，未混入本分支。#64 D05新设计与#67外部测试/Provider合同均已读、尚未自动合入，正式UI不继续扩展旧QuickPeek或皮肤模型。
