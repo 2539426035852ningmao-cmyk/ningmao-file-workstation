@@ -1973,6 +1973,8 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
+            // Startup recovery confirmation pumps native messages before desktop state exists.
+            if window.app_handle().try_state::<desktop_runtime::Desktop>().is_none() { return; }
             desktop_runtime::window_event(window, event);
             if matches!(event, tauri::WindowEvent::Moved(_)) {
                 window_surface::observe_move(window);
