@@ -154,10 +154,9 @@ impl ReceiveSession {
         }
         fs::create_dir_all(staging_root).map_err(error)?;
         // Reject a pre-planted staging junction/symlink escaping the application data root.
-        let canonical_root = fs::canonicalize(
-            staging_root.parent().ok_or("暂存目录缺少可信父目录")?,
-        )
-        .map_err(error)?;
+        let canonical_root =
+            fs::canonicalize(staging_root.parent().ok_or("暂存目录缺少可信父目录")?)
+                .map_err(error)?;
         let canonical_staging = fs::canonicalize(staging_root).map_err(error)?;
         if canonical_staging.parent() != Some(canonical_root.as_path())
             || fs::symlink_metadata(staging_root)
