@@ -70,7 +70,11 @@ fn inspect(path: &Path) -> Result<(u64, Option<SystemTime>)> {
     }
     Ok((meta.len(), meta.modified().ok()))
 }
-fn checksum(path: &Path, expected_size: u64, expected_modified: Option<SystemTime>) -> Result<String> {
+fn checksum(
+    path: &Path,
+    expected_size: u64,
+    expected_modified: Option<SystemTime>,
+) -> Result<String> {
     let mut file = File::open(path).map_err(|_| "无法校验选中的源文件")?;
     let mut hasher = Sha256::new();
     let mut bytes = 0_u64;
@@ -277,7 +281,10 @@ mod tests {
         let chunk = read_owned(&permit, 0, MAX_CHUNK).unwrap();
         assert_eq!(chunk.bytes, 6);
         assert_eq!(chunk.data_base64, STANDARD.encode(b"abc123"));
-        assert_eq!(checksum(&permit.path, permit.size, permit.modified).unwrap(), format!("{:x}", Sha256::digest(b"abc123")));
+        assert_eq!(
+            checksum(&permit.path, permit.size, permit.modified).unwrap(),
+            format!("{:x}", Sha256::digest(b"abc123"))
+        );
         assert!(chunk.eof);
         assert!(read_owned(&permit, 8, 1).is_err());
         assert!(read_owned(&permit, 0, MAX_CHUNK + 1).is_err());
