@@ -9,7 +9,7 @@ import { DndContext, DragOverlay, KeyboardSensor, PointerSensor, closestCenter, 
 import { SortableContext, rectSortingStrategy, sortableKeyboardCoordinates, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Archive, Trash2, ArrowDownToLine, Check, ChevronDown, File, Folder, FolderPlus, GripVertical, Grid2X2, Info, List, MoreHorizontal, Pin, Plus, RefreshCw, Search, Star, X } from "lucide-react";
+import { Archive, Trash2, ArrowDownToLine, Check, ChevronDown, ClipboardPaste, File, Folder, FolderPlus, GripVertical, Grid2X2, Info, List, MoreHorizontal, Pin, Plus, RefreshCw, Search, Star, X } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Badge } from "./components/ui/badge";
@@ -223,14 +223,21 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
     } catch(e) { setError(String(e)); } finally { setBusy(false); }
   }
   importRef.current=paths=>void receive(paths);
+  async function pasteFiles(image?:File){
+    const shelf=activeShelf.current;setError("");
+    try{
+      const paths=image&&backend.saveClipboardImage?[await backend.saveClipboardImage(Array.from(new Uint8Array(await image.arrayBuffer())))]:await backend.clipboardFiles!();
+      if(activeShelf.current!==shelf){setError("文件架已切换，请重新粘贴。");return;}
+      if(!paths.length){setMessage("剪贴板中没有可添加的文件。请先复制文件；截图请按 Ctrl+V。");return;}
+      await receive(paths);
+    }catch(e){setError(String(e));}
+  }
   useEffect(()=>{
     const paste=(event:ClipboardEvent)=>{
       if(!backend.clipboardFiles||busy||running||document.querySelector('[role="dialog"]')||event.target instanceof Element&&event.target.closest('input,textarea,[contenteditable="true"]'))return;
       event.preventDefault();
-      const shelf=activeShelf.current;
       const image=Array.from(event.clipboardData?.files??[]).find(file=>file.type.startsWith('image/'));
-      const paths=image&&backend.saveClipboardImage?image.arrayBuffer().then(bytes=>backend.saveClipboardImage!(Array.from(new Uint8Array(bytes)))).then(path=>[path]):backend.clipboardFiles();
-      void paths.then(values=>{if(activeShelf.current!==shelf){setError("文件架已切换，请重新粘贴。");return;}importRef.current(values);}).catch(e=>setError(String(e)));
+      void pasteFiles(image);
     };
     window.addEventListener('paste',paste);return()=>window.removeEventListener('paste',paste);
   },[backend,busy,running]);
@@ -343,6 +350,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
         <DropdownMenu.Item className="compact-command" onSelect={()=>setSearchOpen(true)}>搜索文件</DropdownMenu.Item>
         <DropdownMenu.Item onSelect={()=>openGlobalSearch(moreButton.current)}><Search size={16}/><span>{detachedShelfId!==undefined?"搜索当前文件架":"跨文件架搜索"}</span><kbd aria-hidden="true">Ctrl+K</kbd></DropdownMenu.Item>
         <DropdownMenu.Item className="compact-command" disabled={!native || !shelf || busy || !!running} onSelect={()=>void perform(async()=>receive(await backend.chooseFiles()))}>添加文件</DropdownMenu.Item>
+        <DropdownMenu.Item disabled={!native || loading || !shelf || busy || !!running || !backend.clipboardFiles} title="粘贴资源管理器中复制的文件；截图请按 Ctrl+V" onSelect={()=>void pasteFiles()}><ClipboardPaste size={16}/><span>粘贴文件</span><kbd aria-hidden="true">Ctrl+V</kbd></DropdownMenu.Item>
         <DropdownMenu.Item disabled={!native || loading || !shelf || busy} onSelect={()=>void perform(()=>backend.desktopCollapse(shelfId))}>收起到悬浮入口</DropdownMenu.Item>
         <DropdownMenu.Item disabled={!native || loading || !shelf || busy} onSelect={()=>void perform(()=>detachedShelfId===undefined?backend.desktopDetach(shelfId):backend.desktopMerge(shelfId))}>{detachedShelfId===undefined?"拆分为独立窗口":"合并回主窗口"}</DropdownMenu.Item>
         {detachedShelfId===undefined && <DropdownMenu.Item disabled={!native} onSelect={()=>void perform(()=>backend.desktopDisable())}>关闭悬浮入口</DropdownMenu.Item>}
