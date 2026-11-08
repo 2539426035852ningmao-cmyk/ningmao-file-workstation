@@ -23,7 +23,7 @@ export class DeviceRegistry extends DurableObject<Env> {
     switch(uri){
       case "/issue": {
         if(!sub||sub.length>500)return json({error:"invalid_owner"},400);
-        return json(await issueCode(this.ctx.storage,sub));
+        return json(await this.ctx.storage.transaction(tx=>issueCode(tx,sub)));
       }
       case "/claim": {
         // Only one redemption can win, even if claim requests race across networks.

@@ -30,6 +30,17 @@ describe("W1 Windows device enrollment security",()=>{
     expect(await listedDevices(store,"account-B",time)).toEqual([]);
     expect((await listedDevices(store,"account-A",time)).map(d=>d.id)).toEqual([id]);
   });
+  it("issuing a new pairing code invalidates the previous unused code and bounds stored invites",async()=>{
+    const store=new MemoryStore();
+    const first=await issueCode(store,"A",time);
+    const second=await issueCode(store,"A",time+1);
+    expect(await claimCode(store,first.code,device,time+2)).toBeNull();
+    expect([...store.values.keys()].filter(k=>k.startsWith("invite:"))).toHaveLength(1);
+    expect(await claimCode(store,second.code,device,time+3)).toBeTruthy();
+    expect([...store.values.keys()].filter(k=>k.startsWith("invite:"))).toHaveLength(0);
+    expect(await listedDevices(store,"A",time+DEVICE_SESSION_TTL_MS+5)).toEqual([]);
+    expect([...store.values.keys()].filter(k=>k.startsWith("dev:"))).toHaveLength(0);
+  });
   it("device token authenticates exactly the issued device and account, not browser cookies",async()=>{
     const store=new MemoryStore(),code=(await issueCode(store,"A",time)).code;
     const claim=await claimCode(store,code,device,time+1);
