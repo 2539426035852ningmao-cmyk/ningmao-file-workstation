@@ -1,6 +1,6 @@
 //! W1 Windows device enrollment client. It redeems a one-use code by a native
 //! HTTPS request; no Access cookie/JWT and no file ticket is sent to the cloud.
- //! Until DPAPI persistence and WSS integration are reviewed, the credential
+//! Until DPAPI persistence and WSS integration are reviewed, the credential
 //! remains in memory and is lost when the desktop exits.
 use crate::{Runtime, error, store::Result};
 use reqwest::{Url, redirect::Policy};
