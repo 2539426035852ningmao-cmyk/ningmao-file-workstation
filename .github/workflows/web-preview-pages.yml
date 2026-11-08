@@ -35,6 +35,13 @@ jobs:
       - name: Build Pages static assets
         working-directory: apps/web
         run: npm run build
+      - name: Install Chromium for real browser interactions
+        working-directory: apps/web
+        run: npx playwright install --with-deps chromium
+      - name: Validate W0 three themes and file-preparation workflow
+        working-directory: apps/web
+        run: npm run test:browser
+
       - name: Verify project-site asset paths and preview safety
         run: |
           test -s apps/web/dist/index.html

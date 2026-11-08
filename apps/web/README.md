@@ -47,3 +47,9 @@ W0 需要在 Chrome/Edge 和至少一个手机尺寸验证：主题切换、刷�
 - **预期地址**：`https://2539426035852ningmao-cmyk.github.io/ningmao-file-workstation/`。只有实际出现 Pages 成功部署且地址返回完整网页后才能称其“上线”；Pages 没启用时此地址可能 404。
 - 页面能够拖入/选择/移除文件、切换三套完整主题和显示空态；未对接服务器的发送、接收、在线设备按钮明确禁用。静态预览**不会上传用户文件，也不会允许公网登录/传输**。
 - 回滚：在仓库 Settings → Pages 将 Source 设为 Disable 或停止发布，保留 `gh-pages` 历史以便回退；不要修改正式 Windows 安装包。
+
+## 本地操作闭环增强（静态预览）
+
+已添加本地文件准备：文件安全名称校验、去重、剪贴板粘贴、筛选/排序、文本及媒体临时预览、候选传输容量提示，以及可供自测的本地合成文本。仍无文件发送或服务器存储。
+
+UI 回归：`npm run test:browser`（Chromium/Playwright；首次需 `npx playwright install chromium`）。成熟开源流程借鉴与 W1–W4 功能边界参阅 `../../docs/design/WEB-FLOW-CLOSURE-REFERENCE-2026-11-09.md`。
