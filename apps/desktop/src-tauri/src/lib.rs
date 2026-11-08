@@ -109,6 +109,22 @@ fn desktop_window(window: &tauri::WebviewWindow) -> Result<()> {
         Err("未知桌面窗口。".into())
     }
 }
+/// IPC access to local files is allowed only from the bundled Tauri application,
+/// or from the exact dev-server origin in debug builds; not arbitrary localhost.
+fn trusted_native_origin(window: &tauri::WebviewWindow) -> Result<()> {
+    let url = window.url().map_err(error)?;
+    let production = (url.scheme() == "http" && url.host_str() == Some("tauri.localhost"))
+        || (url.scheme() == "tauri" && url.host_str() == Some("localhost"));
+    let development = cfg!(debug_assertions)
+        && url.scheme() == "http"
+        && matches!(url.host_str(), Some("localhost" | "127.0.0.1"))
+        && url.port() == Some(1431);
+    if production || development {
+        Ok(())
+    } else {
+        Err("当前页面不是工作站内置界面，禁止操作本机文件。".into())
+    }
+}
 fn metadata_scope(window: &tauri::WebviewWindow) -> Result<Option<i64>> {
     metadata_window(window)?;
     if window.label() == "manager" {

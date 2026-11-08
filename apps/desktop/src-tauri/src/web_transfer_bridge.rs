@@ -97,15 +97,7 @@ fn checksum(
     Ok(format!("{:x}", hasher.finalize()))
 }
 fn native_origin(window: &tauri::WebviewWindow) -> Result<()> {
-    let url = window.url().map_err(error)?;
-    if matches!(
-        url.host_str(),
-        Some("tauri.localhost" | "localhost" | "127.0.0.1")
-    ) {
-        Ok(())
-    } else {
-        Err("外部网页没有访问本机文件的权限".into())
-    }
+    crate::trusted_native_origin(window)
 }
 impl WebTransferBridge {
     fn issue(

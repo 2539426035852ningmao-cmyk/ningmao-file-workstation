@@ -117,15 +117,7 @@ fn safe_name(name: &str) -> bool {
     )
 }
 fn native_origin(window: &tauri::WebviewWindow) -> Result<()> {
-    let url = window.url().map_err(error)?;
-    if matches!(
-        url.host_str(),
-        Some("tauri.localhost" | "localhost" | "127.0.0.1")
-    ) {
-        Ok(())
-    } else {
-        Err("外部网页不能访问本机接收目录。".into())
-    }
+    crate::trusted_native_origin(window)
 }
 fn scoped(scope: Option<i64>, shelf: i64) -> Result<()> {
     if scope.is_some_and(|id| id != shelf) || shelf <= 0 {
@@ -245,7 +237,13 @@ fn stage(
     request: StageRequest<'_>,
 ) -> Result<ReceiveStarted> {
     let StageRequest {
-        owner, scope, shelf, ticket, name, size, sha256,
+        owner,
+        scope,
+        shelf,
+        ticket,
+        name,
+        size,
+        sha256,
     } = request;
     scoped(scope, shelf)?;
     if !ticket_valid(ticket)
@@ -590,19 +588,19 @@ mod tests {
         ] {
             assert!(
                 stage(
-            &control,
-            &mut store,
-            root.path(),
-            StageRequest {
-                owner: "manager",
-                scope: None,
-                shelf,
-                ticket,
-                name: bad,
-                size: 5,
-                sha256: &hash(b"hello"),
-            },
-        )
+                    &control,
+                    &mut store,
+                    root.path(),
+                    StageRequest {
+                        owner: "manager",
+                        scope: None,
+                        shelf,
+                        ticket,
+                        name: bad,
+                        size: 5,
+                        sha256: &hash(b"hello"),
+                    },
+                )
                 .is_err()
             );
         }
