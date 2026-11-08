@@ -1,340 +1,214 @@
-import { useCallback, useEffect, useRef, useState, type ChangeEvent, type DragEvent } from "react";
-import { ArrowDownToLine, ArrowLeftRight, ArrowUpFromLine, CheckCircle2, CircleHelp, CloudOff, File, FolderOpen, HardDriveDownload, Laptop, LockKeyhole, Monitor, Moon, Send, ShieldCheck, Smartphone, Sun, UploadCloud, X } from "lucide-react";
-import { hex, MAX_BYTES, readable, shortName, validInvite, type Invite } from "./guards";
-import { PeerLink, type WireSignal } from "./peer";
-import { sameSession } from "./signaling";
+import {useCallback, useEffect, useMemo, useRef, useState} from "react";
+import {ArrowDownToLine, ArrowLeftRight, ArrowUpRight, Check, CheckCircle2, CircleHelp, CloudUpload, FileArchive, FileAudio, FileImage, FileText, FileVideo, FolderOpen, Laptop, LockKeyhole, Menu, Plus, Send, ShieldCheck, Smartphone, X} from "lucide-react";
+import {classifyFile, formatBytes} from "./file-utils.mjs";
+import {safeFileName, addDistinct, queueReview, visibleQueue, MAX_BROWSER_TRANSFER_BYTES, MAX_BROWSER_TRANSFER_FILES} from "./file-preparation.mjs";
+import {LocalFilePreview} from "./LocalFilePreview";
+import {useTransferController, type Device} from "./useTransferController";
+import {addDistinct, queueReview, visibleQueue, MAX_BROWSER_TRANSFER_BYTES, MAX_BROWSER_TRANSFER_FILES} from "./file-preparation.mjs";
+import {LocalFilePreview} from "./LocalFilePreview";
 
 type Theme = "light" | "dark" | "blue";
-type Device = { id: string; name: string };
-type Task = { id: string; name: string; direction: "发送" | "接收"; status: string; fraction: number };
-type Message = { type: string; from?: string; to?: string; id?: string; devices?: Device[]; payload?: Record<string, unknown> };
-type Incoming = { from: string; meta: Invite };
-type Download = { id: string; name: string; size: number; url: string };
-const DEVICE_KEY = "ningmao-web-device-id";
-const NAME_KEY = "ningmao-web-device-name";
-const THEME_KEY = "ningmao-web-theme";
+type Screen = "transfer" | "devices" | "activity";
+type Queued = {id:string; file:File};
+const themes: {value:Theme;label:string}[] = [{value:"light",label:"浅白"},{value:"dark",label:"深蓝"},{value:"blue",label:"亮蓝"}];
+const mimeIcon = {image:FileImage, video:FileVideo, audio:FileAudio, archive:FileArchive, document:FileText};
 
-function stored(key: string, fallback: string) { try { return localStorage.getItem(key) || fallback; } catch { return fallback; } }
-function persist(key: string, value: string) { try { localStorage.setItem(key, value); } catch { /* Private mode */ } }
-function initialDevice() {
-  const existing = stored(DEVICE_KEY, "");
-  if (/^[\da-f]{8}(-[\da-f]{4}){3}-[\da-f]{12}$/i.test(existing)) return existing;
-  const id = crypto.randomUUID();
-  persist(DEVICE_KEY, id);
-  return id;
+function FileGlyph({name}:{name:string}) {
+  const Icon = mimeIcon[classifyFile(name) as keyof typeof mimeIcon];
+  return <Icon size={22} aria-hidden="true"/>;
 }
-function deviceIcon(name: string) { return /phone|手机|iphone|android/i.test(name) ? Smartphone : Laptop; }
-const deviceId = initialDevice();
+function EmptyState({icon:Icon,title,description}:{icon:typeof Laptop;title:string;description:string}) {
+  return <div className="empty-state"><Icon size={29} strokeWidth={1.5}/><strong>{title}</strong><span>{description}</span></div>;
+}
 
 export function App() {
-  const [theme, setTheme] = useState<Theme>(() => {
-    const t = stored(THEME_KEY, "dark");
-    return t === "light" || t === "blue" ? t : "dark";
+  const transfer = useTransferController();
+  const [targetId,setTargetId] = useState("");
+  const [selectedId,setSelectedId] = useState("");
+  const requestDialogRef = useRef<HTMLDialogElement>(null);
+  const [theme,setTheme] = useState<Theme>(() => {
+    try {const saved=localStorage.getItem("ningmao-web-theme");return themes.some(x=>x.value===saved)?saved as Theme:"dark";} catch {return "dark";}
   });
-  const [deviceName, setDeviceName] = useState(() => stored(NAME_KEY, /Android|iPhone|iPad/i.test(navigator.userAgent) ? "移动浏览器" : "我的浏览器"));
-  const [identity, setIdentity] = useState<{ email: string } | null>(null);
-  const [connection, setConnection] = useState<"loading" | "unauthorized" | "offline" | "online">("loading");
-  const [devices, setDevices] = useState<Device[]>([]);
-  const [file, setFile] = useState<File | null>(null);
-  const [destination, setDestination] = useState("");
-  const [incoming, setIncoming] = useState<Incoming | null>(null);
-  const requestDialog = useRef<HTMLDialogElement>(null);
-  const [downloads, setDownloads] = useState<Download[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [notice, setNotice] = useState("");
-  const [busy, setBusy] = useState(false);
-  const socket = useRef<WebSocket | null>(null);
-  const link = useRef<PeerLink | null>(null);
-  const active = useRef<{ id: string; to: string } | null>(null);
-  const outbound = useRef<{ bytes: ArrayBuffer; meta: Invite; to: string } | null>(null);
-  const inbound = useRef<Incoming | null>(null);
-  const fileInput = useRef<HTMLInputElement>(null);
-  const downloadUrls = useRef<string[]>([]);
-  const handler = useRef<(msg: Message) => void>(() => {});
-  const outgoingDeadline = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const incomingDeadline = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const clearOutgoing = () => { if (outgoingDeadline.current) clearTimeout(outgoingDeadline.current); outgoingDeadline.current = null; };
-  const clearIncoming = () => { if (incomingDeadline.current) clearTimeout(incomingDeadline.current); incomingDeadline.current = null; };
-
-  const updateTask = useCallback((id: string, patch: Partial<Task>) => {
-    setTasks(old => old.map(task => task.id === id ? { ...task, ...patch } : task));
-  }, []);
-  const sendSignal = useCallback((message: WireSignal | { type: string; to: string; payload: Record<string, unknown> }) => {
-    if (socket.current?.readyState !== WebSocket.OPEN) throw new Error("设备连接已断开");
-    socket.current.send(JSON.stringify(message));
-  }, []);
-  const fail = useCallback((text: string) => {
-    if (outgoingDeadline.current) clearTimeout(outgoingDeadline.current);
-    if (incomingDeadline.current) clearTimeout(incomingDeadline.current);
-    outgoingDeadline.current = null;
-    incomingDeadline.current = null;
-    setNotice(text);
-    if (active.current) {
-      updateTask(active.current.id, { status: "失败：" + text });
-      try { sendSignal({ type: "cancel", to: active.current.to, payload: { id: active.current.id } }); } catch { /* disconnected */ }
-    }
-    link.current?.close(); link.current = null;
-    active.current = null; outbound.current = null; inbound.current = null;
-    setIncoming(null); setBusy(false);
-  }, [sendSignal, updateTask]);
-  const makeLink = useCallback((remote: string, id: string, direction: "发送" | "接收") => new PeerLink({
-    remote,
-    signal: sendSignal,
-    progress: (done, total) => updateTask(id, { fraction: total ? done / total : 1, status: direction === "发送" ? "正在发送" : "正在接收" }),
-    ready: (blob, meta) => {
-      const url = URL.createObjectURL(blob);
-      downloadUrls.current.push(url);
-      setDownloads(old => [{ id: meta.id, name: meta.name, size: meta.size, url }, ...old].slice(0, 8));
-      updateTask(id, { fraction: 1, status: "已校验，可保存到设备" });
-      try { sendSignal({ type: "receipt", to: remote, payload: { id, ok: true } }); } catch { /* receiver still has the verified file */ }
-      clearOutgoing(); clearIncoming();
-      setBusy(false); active.current = null; inbound.current = null;
-    },
-    transmitted: () => {
-      updateTask(id, { fraction: 1, status: "已发送，等待对方校验" });
-      clearOutgoing();
-      outgoingDeadline.current = setTimeout(() => fail("接收方未在规定时间内确认校验"), 60_000);
-    },
-    error: fail
-  }), [sendSignal, updateTask, fail]);
-
-  handler.current = (msg: Message) => {
-    if (msg.type === "presence" && Array.isArray(msg.devices)) {
-      setDevices(msg.devices.filter(p => p.id !== deviceId));
-      return;
-    }
-    if (msg.type === "unavailable") {
-      const current = active.current;
-      if (current && current.id === msg.id && current.to === msg.to) fail("接收设备已离线");
-      return;
-    }
-    const from = msg.from || "";
-    const payload = msg.payload || {};
-    if (msg.type === "invite") {
-      if (!validInvite(payload) || active.current || inbound.current) {
-        if (from) try { sendSignal({ type: "decision", to: from, payload: { id: String(payload.id || ""), accepted: false } }); } catch { /* disconnected */ }
-        return;
-      }
-      const request = { from, meta: payload };
-      inbound.current = request;
-      setIncoming(request);
-      clearIncoming();
-      incomingDeadline.current = setTimeout(() => {
-        if (inbound.current?.meta.id === request.meta.id) {
-          inbound.current = null;
-          setIncoming(null);
-          try { sendSignal({ type: "decision", to: request.from, payload: { id: request.meta.id, accepted: false } }); } catch { /* disconnected */ }
-        }
-      }, 60_000);
-      return;
-    }
-    if (msg.type === "decision" && outbound.current && active.current?.to === from &&
-        payload.id === outbound.current.meta.id) {
-      clearOutgoing();
-      if (payload.accepted !== true) {
-        updateTask(outbound.current.meta.id, { status: "对方已拒绝" });
-        outbound.current = null; active.current = null; setBusy(false);
-        return;
-      }
-      const { bytes, meta } = outbound.current;
-      outgoingDeadline.current = setTimeout(() => fail("建立传输连接超时"), 120_000);
-      const rtc = makeLink(from, meta.id, "发送");
-      link.current = rtc;
-      void rtc.startSender(bytes, meta).catch(e => fail(String(e)));
-      outbound.current = null;
-      return;
-    }
-    if ((msg.type === "description" || msg.type === "candidate") && sameSession(active.current, from, payload) && link.current) {
-      void link.current.handle(msg.type, payload).catch(e => fail(String(e)));
-      return;
-    }
-    if (msg.type === "receipt" && sameSession(active.current, from, payload) && payload.ok === true) {
-      clearOutgoing();
-      updateTask(active.current!.id, { status: "对方已校验（需自行保存）", fraction: 1 });
-      active.current = null; link.current?.close(); link.current = null; setBusy(false);
-      return;
-    }
-    if (msg.type === "cancel" && sameSession(active.current, from, payload)) {
-      clearOutgoing(); clearIncoming();
-      updateTask(active.current!.id, { status: "对方已取消" });
-      link.current?.close(); link.current = null;
-      active.current = null; outbound.current = null; inbound.current = null;
-      setIncoming(null); setBusy(false);
-    }
-  };
+  const [screen,setScreen] = useState<Screen>("transfer");
+  const [queued,setQueued] = useState<Queued[]>([]);
+  const [dragActive,setDragActive] = useState(false);
+  const [showHelp,setShowHelp] = useState(false);
+  const [mobileMenu,setMobileMenu] = useState(false);
+  const [query,setQuery] = useState("");
+  const [kind,setKind] = useState("all");
+  const [sort,setSort] = useState("added");
+  const [feedback,setFeedback] = useState("");
+  const [previewItem,setPreviewItem] = useState<Queued|null>(null);
+  const queuedRef = useRef<Queued[]>([]);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    let disposed = false;
-    let retry: ReturnType<typeof setTimeout> | null = null;
-    let ws: WebSocket | null = null;
-    let ping: ReturnType<typeof setInterval> | null = null;
-    const connect = async () => {
-      setConnection("loading");
-      try {
-        const response = await fetch("/api/me", { cache: "no-store", credentials: "same-origin" });
-        if (!response.ok) { if (!disposed) setConnection(response.status === 401 ? "unauthorized" : "offline"); return; }
-        const me = await response.json() as { email: string };
-        if (disposed) return;
-        setIdentity(me);
-      } catch { if (!disposed) setConnection("offline"); return; }
-      const wsUrl = new URL("/api/connect", location.href);
-      wsUrl.protocol = location.protocol === "https:" ? "wss:" : "ws:";
-      wsUrl.searchParams.set("device", deviceId);
-      wsUrl.searchParams.set("name", deviceName);
-      ws = new WebSocket(wsUrl);
-      socket.current = ws;
-      ws.onopen = () => {
-        if (disposed) return;
-        setConnection("online");
-        ping = setInterval(() => {
-          if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "ping" }));
-        }, 30_000);
-      };
-      ws.onmessage = e => {
-        try { handler.current(JSON.parse(e.data as string) as Message); } catch { /* reject malformed server message */ }
-      };
-      ws.onclose = () => {
-        if (ping) clearInterval(ping);
-        if (disposed) return;
-        setConnection("offline"); setDevices([]);
-        link.current?.close(); link.current = null;
-        if (active.current) updateTask(active.current.id, { status: "网络中断，未确认完成" });
-        clearOutgoing(); clearIncoming();
-        outbound.current = null; active.current = null; inbound.current = null;
-        setBusy(false); setIncoming(null);
-        retry = setTimeout(connect, 3500);
-      };
-      ws.onerror = () => { if (!disposed) setConnection("offline"); };
+    const dialog = requestDialogRef.current;
+    if (transfer.incoming && dialog && !dialog.open) dialog.showModal();
+  },[transfer.incoming]);
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try {localStorage.setItem("ningmao-web-theme",theme);} catch { /* private mode */ }
+  },[theme]);
+
+  const addFiles = useCallback((items: FileList | File[]) => {
+    const change = addDistinct(queuedRef.current, Array.from(items), () => crypto.randomUUID());
+    queuedRef.current = change.items;
+    setQueued(change.items);
+    const messages: string[] = [];
+    if (change.added) messages.push("已加入 " + change.added + " 个文件（仅保存在当前页面）");
+    if (change.duplicates) messages.push("跳过 " + change.duplicates + " 个重复文件");
+    if (change.invalid) messages.push("拒绝 " + change.invalid + " 个不安全文件名或文件夹");
+    const review = queueReview(change.items);
+    if (review.oversizedIds.length) messages.push(review.oversizedIds.length + " 个文件超过当前联网候选的 64 MiB 单文件上限");
+    if (review.excessCount) messages.push("文件数量超过当前联网候选的 16 项上限");
+    setFeedback(messages.join("；") || "没有新增文件");
+  },[]);
+  const removeFile = (id:string) => {
+    const next = queuedRef.current.filter(item => item.id !== id);
+    queuedRef.current = next;
+    setQueued(next);
+    setPreviewItem(item => item?.id === id ? null : item);
+    setFeedback("已从列表移除，原文件不受影响");
+  };
+  const clearFiles = () => {
+    queuedRef.current = []; setQueued([]); setPreviewItem(null);
+    setFeedback("列表已清空；原文件未被修改");
+  };
+  const addExample = () => addFiles([new File(
+    ["Ningmao 本地合成样例\n仅用于预览选择、筛选和预览流程。\n本文件没有上传至服务器。"],
+    "Ningmao-本地测试.txt", {type:"text/plain",lastModified:1}
+  )]);
+  const reviewed = useMemo(() => queueReview(queued),[queued]);
+  const filtered = useMemo(() => visibleQueue(queued,query,kind,sort),[queued,query,kind,sort]);
+  const selected = queued.find(item=>item.id===selectedId) ?? queued[0] ?? null;
+  const chosenDevice = transfer.devices.find(device=>device.id===targetId) ?? null;
+  const canSend = transfer.connection==="online" && !!chosenDevice && !!selected && !transfer.busy && selected.file.size<=MAX_BROWSER_TRANSFER_BYTES && safeFileName(selected.file.name);
+  const connectionLabel = transfer.connection==="online" ? "已连接" : transfer.connection==="loading" ? "连接中" : transfer.connection==="unauthorized" ? "未验证" : "未连接";
+
+  useEffect(() => {
+    const onPaste = (event: ClipboardEvent) => {
+      if (event.clipboardData?.files?.length) {
+        event.preventDefault(); addFiles(event.clipboardData.files);
+      }
     };
-    void connect();
+    const onDragOver = (event: DragEvent) => {
+      if (event.dataTransfer?.types.includes("Files")) event.preventDefault();
+    };
+    const onDrop = (event: DragEvent) => {
+      if (event.defaultPrevented || !event.dataTransfer?.files.length) return;
+      event.preventDefault(); setDragActive(false); addFiles(event.dataTransfer.files);
+    };
+    window.addEventListener("paste",onPaste);
+    window.addEventListener("dragover",onDragOver);
+    window.addEventListener("drop",onDrop);
     return () => {
-      disposed = true;
-      if (retry) clearTimeout(retry);
-      if (ping) clearInterval(ping);
-      ws?.close();
-      if (socket.current === ws) socket.current = null;
-      link.current?.close();
-      clearOutgoing(); clearIncoming();
+      window.removeEventListener("paste",onPaste);
+      window.removeEventListener("dragover",onDragOver);
+      window.removeEventListener("drop",onDrop);
     };
-  }, [deviceName]);
+  },[addFiles]);
+  useEffect(() => {
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {setMobileMenu(false);setShowHelp(false);}
+    };
+    window.addEventListener("keydown",onEscape);
+    return () => window.removeEventListener("keydown",onEscape);
+  },[]);
 
-  useEffect(() => () => {
-    for (const url of downloadUrls.current) URL.revokeObjectURL(url);
-  }, []);
-  useEffect(() => {
-    const activeUrls = new Set(downloads.map(d => d.url));
-    for (const url of downloadUrls.current) if (!activeUrls.has(url)) URL.revokeObjectURL(url);
-    downloadUrls.current = [...activeUrls];
-  }, [downloads]);
-  useEffect(() => {
-    if (!incoming) return;
-    const dialog = requestDialog.current;
-    if (!dialog) return;
-    dialog.showModal();
-    return () => { if (dialog.open) dialog.close(); };
-  }, [incoming]);
-  const choose = (incomingFile?: File) => {
-    if (!incomingFile) return;
-    if (incomingFile.size > MAX_BYTES) {
-      setNotice(`首版单文件最大 ${readable(MAX_BYTES)}，请换一个较小的文件`);
-      return;
-    }
-    setFile(incomingFile); setNotice("");
-  };
-  const onInput = (e: ChangeEvent<HTMLInputElement>) => {
-    choose(e.target.files?.[0]);
-    e.target.value = "";
-  };
-  const onDrop = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    choose(e.dataTransfer.files[0]);
-  };
-  async function sendFile() {
-    if (busy || connection !== "online" || !destination || !file) return;
-    setBusy(true); setNotice("");
-    try {
-      const bytes = await file.arrayBuffer();
-      if (bytes.byteLength > MAX_BYTES) throw new Error("文件超过首版容量限制");
-      const sha256 = hex(await crypto.subtle.digest("SHA-256", bytes));
-      const meta: Invite = { id: crypto.randomUUID(), name: file.name.slice(0, 200), size: bytes.byteLength, mime: file.type.slice(0, 100), sha256 };
-      active.current = { id: meta.id, to: destination };
-      outbound.current = { bytes, meta, to: destination };
-      setTasks(old => [{ id: meta.id, name: meta.name, direction: "发送" as const, status: "等待接收确认", fraction: 0 }, ...old].slice(0, 20));
-      sendSignal({ type: "invite", to: destination, payload: meta });
-      clearOutgoing();
-      outgoingDeadline.current = setTimeout(() => fail("接收方未在 60 秒内确认"), 60_000);
-    } catch (e) { fail(e instanceof Error ? e.message : String(e)); }
-  }
-  function decide(accepted: boolean) {
-    const request = inbound.current;
-    if (!request) return;
-    clearIncoming();
-    setIncoming(null);
-    if (!accepted) {
-      inbound.current = null;
-      try { sendSignal({ type: "decision", to: request.from, payload: { id: request.meta.id, accepted: false } }); } catch { /* disconnected */ }
-      return;
-    }
-    active.current = { id: request.meta.id, to: request.from };
-    setBusy(true);
-    setTasks(old => [{ id: request.meta.id, name: request.meta.name, direction: "接收" as const, status: "正在建立连接", fraction: 0 }, ...old].slice(0, 20));
-    const rtc = makeLink(request.from, request.meta.id, "接收");
-    link.current = rtc;
-    rtc.prepareReceiver(request.meta);
-    clearOutgoing();
-    outgoingDeadline.current = setTimeout(() => fail("接收数据超时或网络无法直连"), 120_000);
-    try { sendSignal({ type: "decision", to: request.from, payload: { id: request.meta.id, accepted: true } }); }
-    catch (e) { fail(String(e)); }
-  }
-  function cancel() {
-    if (!active.current) return;
-    const { id, to } = active.current;
-    clearOutgoing(); clearIncoming();
-    updateTask(id, { status: "已取消" });
-    try { sendSignal({ type: "cancel", to, payload: { id } }); } catch { /* disconnected */ }
-    link.current?.close(); link.current = null;
-    active.current = null; outbound.current = null; inbound.current = null;
-    setBusy(false); setIncoming(null);
-  }
-  const current = devices.find(d => d.id === destination);
-  return <div className="web-app" data-theme={theme}>
-    <div className="shell">
-      <header className="topbar">
-        <a href="/" className="brand" aria-label="柠猫 Transfer 首页"><span className="brand-icon"><ArrowLeftRight size={20}/></span><span><strong>柠猫 <span className="brand-light">Transfer</span></strong><small>文件，自由流动</small></span></a>
-        <div className="header-right"><span className={`connection-indicator ${connection}`}><span className="dot"/>{connection === "online" ? "已连接" : connection === "loading" ? "连接中" : "未连接"}</span><span className="account">{identity?.email || "未登录"}</span><a className="avatar" href="/cdn-cgi/access/logout" title="退出 Cloudflare Access">N</a></div>
-      </header>
-      <main className="workspace">
-        <section className="intro"><div><div className="eyebrow"><span className="tiny-dot"/> 柠猫 Web · 工作空间</div><h1>文件，<span>传到你要用的地方。</span></h1><p>选择设备、拖入文件、确认接收。无需先上传云盘。</p></div></section>
-        {connection !== "online" && <div className="warning" role="status"><LockKeyhole size={17}/><div><strong>{connection === "unauthorized" ? "尚未通过身份验证" : connection === "loading" ? "正在验证访问身份" : "连接服务暂不可用"}</strong><span>{connection === "unauthorized" ? "部署时需配置 Cloudflare Access 应用与 Worker 环境变量。此页面不会模拟登录成功。" : "请检查网络和服务部署状态，当前不能发送或接收文件。"}</span></div><button onClick={() => location.reload()}>重新尝试</button></div>}
-        <div className="content-grid">
-          <section className="panel devices-panel"><div className="section-title"><div><div className="section-kicker">DEVICES</div><h2>我的设备 <span>{devices.length}</span></h2></div><Monitor size={20}/></div>
-            <div className="device-list">
-              <div className="device own"><div className="device-icon"><Monitor size={20}/></div><div className="device-text"><strong>{deviceName}</strong><small>此浏览器 · {deviceId.slice(0, 8)}</small></div><span className="device-pill">本机</span></div>
-              {devices.map(device => { const Icon = deviceIcon(device.name); return <button key={device.id} className={`device select-device ${destination === device.id ? "selected" : ""}`} onClick={() => setDestination(device.id)} disabled={busy} aria-pressed={destination === device.id}><div className="device-icon"><Icon size={20}/></div><div className="device-text"><strong title={device.name}>{shortName(device.name)}</strong><small>在线 · {device.id.slice(0, 8)}</small></div><span className="device-online"/></button>; })}
-              {devices.length === 0 && <div className="empty-device"><CloudOff size={24}/><strong>暂无其他在线设备</strong><span>在另一台设备使用同一账号打开本网站，就会显示在这里。</span></div>}
+  return <div className="app-shell">
+    <aside className="sidebar" aria-label="主导航">
+      <a className="brand" href={import.meta.env.BASE_URL} aria-label="柠猫 Transfer 首页"><span className="brand-icon"><ArrowLeftRight size={21}/></span><span className="brand-name">柠猫 <b>Transfer</b><small>轻松连接每一台设备</small></span></a>
+      <div className="sidebar-section">工作空间</div>
+      <nav className="nav">
+        <button className={screen==="transfer"?"nav-link selected":"nav-link"} onClick={()=>setScreen("transfer")}><ArrowLeftRight size={18}/>文件互传</button>
+        <button className={screen==="devices"?"nav-link selected":"nav-link"} onClick={()=>setScreen("devices")}><Laptop size={18}/>我的设备</button>
+        <button className={screen==="activity"?"nav-link selected":"nav-link"} onClick={()=>setScreen("activity")}><FolderOpen size={18}/>传输记录</button>
+      </nav>
+      <div className="sidebar-bottom"><div className="privacy-note"><ShieldCheck size={18}/><span>隐私优先设计<small>文件经接收方确认后才发送，不提供默认云端保存</small></span></div><div className="sidebar-foot">Ningmao Web · 统一候选 W1–W3</div></div>
+    </aside>
+    <div className="main-column">
+      <header className="topbar"><button className="mobile-menu icon-button" aria-label="打开导航" aria-expanded={mobileMenu} onClick={()=>setMobileMenu(v=>!v)}><Menu size={20}/></button><span className="breadcrumb">工作空间 <span>/</span> {screen==="transfer"?"文件互传":screen==="devices"?"我的设备":"传输记录"}</span><div className="top-actions"><span className="preview-status"><span className="dot"/>{connectionLabel}</span><div className="theme-switch" aria-label="主题切换">{themes.map(item=><button key={item.value} type="button" className={theme===item.value?"theme-dot active "+item.value:"theme-dot "+item.value} aria-label={item.label} aria-pressed={theme===item.value} title={item.label} onClick={()=>setTheme(item.value)} />)}</div><button className="icon-button" aria-label="关于当前版本" onClick={()=>setShowHelp(true)}><CircleHelp size={19}/></button></div></header>
+      {mobileMenu&&<div className="mobile-popover"><button onClick={()=>{setScreen("transfer");setMobileMenu(false)}}>文件互传</button><button onClick={()=>{setScreen("devices");setMobileMenu(false)}}>我的设备</button><button onClick={()=>{setScreen("activity");setMobileMenu(false)}}>传输记录</button></div>}
+      <main className="content">
+        {screen==="transfer"&&<>
+          <div className="page-heading"><div><div className="eyebrow">FILE TRANSFER</div><h1>文件互传</h1><p>准备文件，选择同账号在线设备，确认后加密传送。</p></div><span className="stage-tag">联网联调候选</span></div>
+          {transfer.connection!=="online" && <div className="connection-warning" role="status"><LockKeyhole size={17}/><span>{transfer.connection==="loading"?"正在验证身份与设备状态":transfer.connection==="unauthorized"?"尚未通过 Cloudflare Access 服务端验证":"连接服务离线。此环境不会模拟登录或在线设备。"}<small>公开 GitHub Pages 仍是独立的安全 UI 预览，联网功能需要受保护的 Worker 部署。</small></span><button type="button" className="secondary-button" onClick={()=>location.reload()}>重试</button></div>}
+          {feedback && <div className="queue-feedback" role="status" aria-live="polite"><span>{feedback}</span><button className="icon-button" type="button" aria-label="关闭提示" onClick={() => setFeedback("")}><X size={16}/></button></div>}
+          <div className="transfer-layout"><section className="primary-card">
+            <div className="card-heading"><div><h2>准备发送</h2><p>文件不会因为选择而自动上传</p></div><span className="count-chip">{queued.length} 个文件</span></div>
+            <input ref={inputRef} type="file" multiple hidden aria-label="选择文件" onChange={event=>{if(event.target.files)addFiles(event.target.files);event.target.value="";}}/>
+            <div className={dragActive?"upload-zone dragging":"upload-zone"} onDragEnter={event=>{event.preventDefault();setDragActive(true);}} onDragOver={event=>event.preventDefault()} onDragLeave={event=>{event.preventDefault();if(!event.currentTarget.contains(event.relatedTarget as Node))setDragActive(false);}} onDrop={event=>{event.preventDefault();setDragActive(false);if(event.dataTransfer.files.length)addFiles(event.dataTransfer.files);}}>
+              <div className="upload-symbol"><CloudUpload size={30}/></div><strong>将文件拖放到这里</strong><span>也可以从电脑中选择文件</span><button type="button" className="primary-button" onClick={()=>inputRef.current?.click()}><Plus size={16}/>选择文件</button><small>支持常见图片、视频、音频、文档和压缩包</small><button type="button" className="text-button try-example" onClick={addExample}>添加本地测试文件，体验准备流程</button>
             </div>
-            <div className="device-footer"><label htmlFor="deviceName">本机显示名称</label><div className="rename"><input id="deviceName" defaultValue={deviceName} maxLength={40} onBlur={e => { const name = e.target.value.trim() || "我的浏览器"; e.target.value = name; if (name !== deviceName) { setDeviceName(name); persist(NAME_KEY, name); } }} onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); }} aria-label="本机设备名称"/><span>自动同步在线状态</span></div></div>
+            {queued.length>0&&<div className="queue">
+              <div className="queue-heading"><strong>待发送文件</strong><button type="button" className="text-button" onClick={clearFiles}>清空列表</button></div>
+              <div className="queue-tools">
+                <input type="search" aria-label="搜索待发送文件" placeholder="搜索文件名" value={query} onChange={event=>setQuery(event.target.value)}/>
+                <select aria-label="按文件类型筛选" value={kind} onChange={event=>setKind(event.target.value)}>
+                  <option value="all">全部类型</option><option value="image">图片</option><option value="video">视频</option><option value="audio">音频</option><option value="document">文档</option><option value="archive">压缩包</option>
+                </select>
+                <select aria-label="排序待发送文件" value={sort} onChange={event=>setSort(event.target.value)}>
+                  <option value="added">添加顺序</option><option value="name">文件名称</option><option value="size">大小降序</option>
+                </select>
+              </div>
+              <div className="queue-result-count">显示 {filtered.length} / {queued.length} 项</div>
+              {filtered.length===0?<div className="queue-no-matches">没有符合筛选条件的文件。更换关键词或选择“全部类型”即可恢复列表。</div>:<ul>{filtered.map(item=><li key={item.id}>
+                <label className="file-selection" title="选择本次发送的单个文件"><input type="radio" name="selected-send-file" aria-label={"选择发送 " + item.file.name} checked={(selected?.id??"")===item.id} onChange={()=>setSelectedId(item.id)}/></label><span className="file-icon"><FileGlyph name={item.file.name}/></span>
+                <span className="file-details"><strong title={item.file.name}>{item.file.name}</strong><small>{formatBytes(item.file.size)}{reviewed.oversizedIds.includes(item.id)?" · 超出候选容量限制":""}</small></span>
+                <div className="file-actions"><button type="button" className="secondary-button file-preview" aria-label={"预览 " + item.file.name} onClick={()=>setPreviewItem(item)}>预览</button>
+                <button type="button" className="icon-button" aria-label={"移除 " + item.file.name} onClick={()=>removeFile(item.id)}><X size={17}/></button></div>
+              </li>)}</ul>}
+              <div className="queue-total">共 {reviewed.count} 个 · {formatBytes(reviewed.bytes)}</div>
+              {(reviewed.oversizedIds.length>0||reviewed.excessCount>0)&&<p className="queue-warning" role="status">
+                当前联网候选限制：单文件不超过 {formatBytes(MAX_BROWSER_TRANSFER_BYTES)}，每次不超过 {MAX_BROWSER_TRANSFER_FILES} 项。
+                {reviewed.oversizedIds.length>0&&" 有 "+reviewed.oversizedIds.length+" 项超出单文件容量。"}
+                {reviewed.excessCount>0&&" 有 "+reviewed.excessCount+" 项超出数量限制。"}
+                本页只做本地检查，不会开始发送。
+              </p>}
+              <p className="queue-privacy">文件只在当前页面内存中；关闭或刷新将清空，不会扫描本机文件夹。</p>
+            </div>}
+            <div className="send-footer"><div><LockKeyhole size={17}/><span>{transfer.busy?"正在处理当前传输":"当前版本每次发送一个所选文件；文件不会自动上传"}</span></div>{transfer.busy?<button type="button" className="secondary-button send-button" onClick={transfer.cancel}>取消当前传输</button>:<button type="button" className="primary-button send-button" disabled={!canSend} title={!canSend?"需选择有效文件、目标设备并完成服务端身份验证":"发送给已选设备"} onClick={()=>void transfer.sendFile(selected?.file??null,targetId)}>发送文件 <ArrowUpRight size={17}/></button>}</div>
           </section>
-          <section className="panel transfer-panel-web"><div className="section-title"><div><div className="section-kicker">TRANSFER</div><h2>发送文件</h2></div><span className="limit">单个文件 · 最多 64 MB</span></div>
-            <div className={`drop-zone ${file ? "has-file" : ""}`} onDragOver={e => e.preventDefault()} onDrop={onDrop} onClick={() => !busy && fileInput.current?.click()} role="button" tabIndex={0} onKeyDown={e => { if ((e.key === "Enter" || e.key === " ") && !busy) { e.preventDefault(); fileInput.current?.click(); } }} aria-label="选择需要传输的文件">
-              <input ref={fileInput} type="file" hidden onChange={onInput}/>
-              {file ? <><div className="upload-icon"><File size={25}/></div><strong title={file.name}>{shortName(file.name)}</strong><p>{readable(file.size)} · 点击更换文件</p></> : <><div className="upload-icon"><UploadCloud size={25}/></div><strong>拖入文件，或点击选择</strong><p>图片、视频、文档、压缩包都可以</p></>}
-            </div>
-            <div className="send-bottom"><div className="target-info"><span>发送到</span><strong>{current ? current.name : "请先在左侧选择设备"}</strong></div><button className="primary-btn" onClick={() => void sendFile()} disabled={busy || connection !== "online" || !file || !current}><Send size={17}/>发送文件</button></div>
-            {busy && <button className="cancel-btn" onClick={cancel}><X size={14}/>取消当前传输</button>}
-            <div className="safety-note"><ShieldCheck size={15}/>仅向同账号设备发送；接收前需要对方确认</div>
+          <div className="secondary-stack">
+            <section className="side-card">
+              <div className="section-title"><h2>目标设备</h2><span className="offline-label">{connectionLabel}</span></div>
+              {transfer.connection==="online"&&transfer.devices.length>0
+                ?<div className="connected-devices">{transfer.devices.map(device=><button type="button" className={targetId===device.id?"connected-device selected":"connected-device"} key={device.id} disabled={transfer.busy} aria-pressed={targetId===device.id} onClick={()=>setTargetId(device.id)}><Laptop size={18}/><span><strong>{device.name}</strong><small>在线 · {device.id.slice(0,8)}</small></span>{targetId===device.id&&<Check size={16}/>}</button>)}</div>
+                :<EmptyState icon={Laptop} title={transfer.connection==="online"?"暂无其他在线设备":"尚未连接设备"} description={transfer.connection==="online"?"使用同一账号在另一台设备打开本服务，设备便会显示在这里。":"只有服务端完成身份验证后才显示真实设备。"}/>}
+              <button type="button" className="secondary-button wide" onClick={()=>setScreen("devices")}>管理设备连接 <ArrowUpRight size={16}/></button>
+            </section>
+            <section className="side-card receive-card"><div className="receive-icon"><ArrowDownToLine size={20}/></div><h2>从其他设备接收</h2>
+              {transfer.downloads.length===0?<p>{transfer.connection==="online"?"接到请求后由你确认，文件通过 SHA-256 校验后可手动保存。":"联网接收服务尚未就绪；不会自动读取或写入电脑文件。"}</p>
+              :<div className="saved-file-list">{transfer.downloads.map(d=><div className="saved-file" key={d.id}><span><CheckCircle2 size={15}/><strong title={d.name}>{d.name}</strong><small>{formatBytes(d.size)} · 已校验</small></span><a className="secondary-button" href={d.url} download={d.name}>保存</a></div>)}</div>}
+              <button type="button" className="secondary-button wide" onClick={()=>setScreen("activity")}>查看传输任务</button>
+            </section>
+          </div></div>
+        </>}
+        {screen==="devices"&&<>
+          <div className="page-heading"><div><div className="eyebrow">DEVICES</div><h1>我的设备</h1><p>查看已验证的同账号在线设备；首次连接仍需接收方同意。</p></div></div>
+          <section className="primary-card standalone connected-standalone">
+            <div className="connected-head"><strong>当前浏览器</strong><span className="offline-label">{connectionLabel}</span></div>
+            <label className="device-name-label">本机显示名称<input type="text" defaultValue={transfer.deviceName} maxLength={40} onBlur={e=>transfer.renameDevice(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}} aria-label="本机设备名称"/></label>
+            <p className="queue-privacy">本机 ID：{transfer.deviceId.slice(0,8)} · 显示名称不构成安全配对或设备信任证明</p>
+            <div className="connected-head"><strong>其他在线设备（{transfer.devices.length}）</strong><span className="offline-label">{transfer.identity?.email??"未验证账号"}</span></div>
+            {transfer.connection==="online"&&transfer.devices.length>0?<div className="connected-devices">{transfer.devices.map((device:Device)=><button key={device.id} type="button" className={targetId===device.id?"connected-device selected":"connected-device"} aria-pressed={targetId===device.id} onClick={()=>{setTargetId(device.id);setScreen("transfer");}}><Laptop size={18}/><span><strong>{device.name}</strong><small>在线 · {device.id.slice(0,8)}</small></span>{targetId===device.id&&<Check size={16}/>}</button>)}</div>
+            :<EmptyState icon={Smartphone} title={transfer.connection==="online"?"暂无其他在线设备":"设备连接尚未启用"} description="设备只由经过服务端验证的在线会话提供，不伪造在线列表。"/>}
+            <button type="button" className="secondary-button" onClick={()=>setScreen("transfer")}>返回文件互传</button>
           </section>
-          <section className="panel inbox-panel"><div className="section-title"><div><div className="section-kicker">RECEIVE</div><h2>接收文件 <span>{downloads.length}</span></h2></div><ArrowDownToLine size={20}/></div>
-            {downloads.length === 0 ? <div className="inbox-empty"><div className="inbox-symbol"><HardDriveDownload size={25}/></div><strong>接收区已准备好</strong><p>收到传输请求后，你可以选择接受或拒绝。验证通过的文件会显示在这里，等待你保存。</p></div> : <div className="download-list">{downloads.map(d => <div className="download-item" key={d.id}><div className="download-file"><CheckCircle2 size={18}/><div><strong title={d.name}>{shortName(d.name)}</strong><small>{readable(d.size)} · 已完成 SHA-256 校验</small></div></div><a href={d.url} download={d.name} className="download-btn"><ArrowDownToLine size={15}/>保存</a></div>)}</div>}
+        </>}
+        {screen==="activity"&&<>
+          <div className="page-heading"><div><div className="eyebrow">ACTIVITY</div><h1>传输记录</h1><p>真实会话状态仅在当前浏览器页面保留；并不等于已保存到磁盘。</p></div></div>
+          <section className="primary-card standalone connected-standalone">
+            {transfer.tasks.length===0?<EmptyState icon={FileText} title="还没有传输任务" description="等待真实文件邀请或发送任务后，这里会显示状态；不会凭空生成历史记录。"/>
+              :<ul className="network-tasks">{transfer.tasks.map(t=><li key={t.id}><div><strong title={t.name}>{t.name}</strong><small>{t.direction} · {t.status}</small></div><progress aria-label={"传输进度 " + t.name} value={Math.min(1,Math.max(0,t.fraction))} max={1}/></li>)}</ul>}
+            {transfer.downloads.length>0&&<div className="activity-downloads"><strong>待保存文件</strong>{transfer.downloads.map(d=><div className="saved-file" key={d.id}><span><CheckCircle2 size={16}/><strong title={d.name}>{d.name}</strong><small>{formatBytes(d.size)}</small></span><a className="secondary-button" download={d.name} href={d.url}>保存</a></div>)}</div>}
+            <button type="button" className="secondary-button" onClick={()=>setScreen("transfer")}>返回文件互传</button>
           </section>
-          <section className="panel history-panel"><div className="section-title"><div><div className="section-kicker">ACTIVITY</div><h2>传输记录</h2></div><FolderOpen size={20}/></div>
-            {tasks.length === 0 ? <div className="history-empty"><CircleHelp size={20}/><span>开始传输后，这里会显示任务进度和结果</span></div> : <div className="task-list">{tasks.map(task => <div className="task" key={task.id}><div className="task-heading"><span>{task.direction === "发送" ? <ArrowUpFromLine size={15}/> : <ArrowDownToLine size={15}/>}<strong title={task.name}>{shortName(task.name)}</strong></span><small>{task.direction}</small></div><div className="task-sub"><span>{task.status}</span><span>{Math.round(task.fraction * 100)}%</span></div><div className="task-track"><div style={{ width: `${task.fraction * 100}%` }}/></div></div>)}</div>}
-          </section>
-        </div>
-        {notice && <div className="toast" role="alert"><span>{notice}</span><button aria-label="关闭提醒" onClick={() => setNotice("")}><X size={16}/></button></div>}
-        {incoming && <dialog ref={requestDialog} className="dialog" aria-labelledby="requestTitle" onCancel={event => { event.preventDefault(); decide(false); }}><div className="request-icon"><ArrowDownToLine size={25}/></div><h2 id="requestTitle">收到文件请求</h2><p>设备 {devices.find(d => d.id === incoming.from)?.name || incoming.from.slice(0, 8)} 希望发送文件给你</p><div className="request-file"><File size={18}/><div><strong title={incoming.meta.name}>{shortName(incoming.meta.name)}</strong><small>{readable(incoming.meta.size)}</small></div></div><div className="dialog-actions"><button className="outline-btn" onClick={() => decide(false)}>拒绝</button><button className="primary-btn" onClick={() => decide(true)}>接受文件</button></div></dialog>}
+        </>}
       </main>
-      <footer className="footer"><div><ShieldCheck size={14}/>设备间加密连接 · 不提供默认云端存储 · 当前为测试候选</div><div className="theme-switch" aria-label="主题切换"><button aria-label="浅白主题" aria-pressed={theme === "light"} onClick={() => { setTheme("light"); persist(THEME_KEY, "light"); }}><Sun size={15}/></button><button aria-label="深蓝主题" aria-pressed={theme === "dark"} onClick={() => { setTheme("dark"); persist(THEME_KEY, "dark"); }}><Moon size={15}/></button><button aria-label="亮蓝主题" aria-pressed={theme === "blue"} onClick={() => { setTheme("blue"); persist(THEME_KEY, "blue"); }}><span className="theme-dot"/></button></div></footer>
     </div>
+    {previewItem&&<LocalFilePreview file={previewItem.file} onClose={()=>setPreviewItem(null)}/>}    {transfer.incoming&&<dialog ref={requestDialogRef} className="incoming-dialog" aria-labelledby="incoming-title" onCancel={event=>{event.preventDefault();transfer.decide(false);}}><div className="receive-icon"><ArrowDownToLine size={22}/></div><h2 id="incoming-title">收到文件请求</h2><p>来自 {transfer.devices.find(d=>d.id===transfer.incoming?.from)?.name||"另一台已验证设备"}，是否接收？</p><div className="incoming-file"><FileText size={19}/><strong title={transfer.incoming.meta.name}>{transfer.incoming.meta.name}</strong><small>{formatBytes(transfer.incoming.meta.size)}</small></div><p className="queue-privacy">接受后会校验 SHA-256；校验通过仍需你主动点击保存。</p><div className="incoming-actions"><button type="button" className="secondary-button" onClick={()=>transfer.decide(false)}>拒绝</button><button type="button" className="primary-button" onClick={()=>transfer.decide(true)}>接受文件</button></div></dialog>}    {transfer.notice&&<div className="queue-feedback floating-error" role="alert"><span>{transfer.notice}</span><button type="button" className="icon-button" aria-label="关闭网络错误" onClick={()=>transfer.setNotice("")}><X size={16}/></button></div>}
+    {showHelp&&<div className="modal-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)setShowHelp(false);}}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="help-title"><button className="icon-button modal-close" aria-label="关闭" onClick={()=>setShowHelp(false)}><X size={18}/></button><div className="receive-icon"><ShieldCheck size={23}/></div><h2 id="help-title">关于柠猫 Transfer 联网候选</h2><p>当前网页已实现响应式界面、三套主题、文件选择/拖入/粘贴、本地预览、去重、筛选、排序、移除与容量提示。文件仅保存在当前浏览器页面的内存中。</p><p>只有 Cloudflare Access 完成服务端身份验证且设备在线时才开放单文件发送。Windows 客户端双向传输与保存闭环尚未实机验收。关闭或刷新网页会清空未发送文件。</p><button className="primary-button wide" onClick={()=>setShowHelp(false)}>我知道了 <Check size={16}/></button></section></div>}
   </div>;
 }

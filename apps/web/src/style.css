@@ -41,3 +41,43 @@ body{background:var(--bg);color:var(--text)}button{color:inherit}button:focus-vi
 .preview-footer span{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:11px;line-height:1.6}
 @media(max-width:700px){.queue-tools{grid-template-columns:1fr 1fr}.queue-tools input{grid-column:1/-1}.local-preview{max-height:90vh}.preview-heading,.preview-footer{padding:15px}.preview-footer{flex-direction:column;align-items:stretch}.preview-footer button{width:100%}}
 @media(max-width:360px){.file-actions{gap:2px}.file-actions .file-preview{padding:0 7px;font-size:11px}.file-icon{width:34px;height:34px}.file-details strong{font-size:11px}}
+/* Unified W0 visual system + authenticated W2 workflow. */
+.connection-warning{margin:-12px 0 22px;display:flex;align-items:flex-start;gap:12px;padding:13px 15px;border:1px solid var(--border);border-radius:12px;background:var(--surface2);font-size:12px;line-height:1.7;color:var(--text)}
+.connection-warning>span{flex:1}.connection-warning small{display:block;color:var(--muted);font-size:11px;margin-top:3px}
+.connected-devices{display:grid;gap:8px;margin:14px 0 18px}
+.connected-device{width:100%;display:flex;align-items:center;text-align:left;gap:11px;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);color:var(--text)}
+.connected-device>span{min-width:0;flex:1;display:grid;gap:5px}
+.connected-device strong{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.connected-device small{color:var(--muted);font-size:11px}
+.connected-device.selected{border-color:var(--primary);background:var(--soft)}
+.connected-device:hover:not(:disabled){background:var(--surface3)}
+.file-selection{flex:none;display:grid;place-items:center;min-width:25px}
+.file-selection input{accent-color:var(--primary)}
+.connected-standalone{align-items:stretch;min-height:unset;gap:16px}
+.connected-head{display:flex;justify-content:space-between;align-items:center;width:100%;gap:14px}
+.connected-head strong{font-size:14px}
+.device-name-label{display:grid;gap:8px;font-size:12px;color:var(--muted)}
+.device-name-label input{width:min(320px,100%);height:40px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:9px;padding:0 12px}
+.network-tasks{width:100%;list-style:none;margin:0;padding:0;display:grid;gap:12px}
+.network-tasks li{padding:13px 14px;background:var(--surface2);border-radius:10px;display:grid;gap:9px}
+.network-tasks li div{display:grid;gap:5px}
+.network-tasks strong{font-size:12px;overflow-wrap:anywhere}
+.network-tasks small{font-size:11px;color:var(--muted)}
+.network-tasks progress{width:100%;height:8px;accent-color:var(--primary)}
+.activity-downloads{display:grid;gap:12px}
+.saved-file-list{display:grid;gap:8px;margin:14px 0}
+.saved-file{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+.saved-file>span{min-width:0;flex:1;display:grid;grid-template-columns:auto 1fr;column-gap:8px;align-items:center}
+.saved-file strong{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+.saved-file small{grid-column:2;font-size:11px;color:var(--muted)}
+.saved-file .secondary-button{flex:none}
+.incoming-dialog{width:min(460px,calc(100vw - 24px));max-height:90vh;padding:26px;border:1px solid var(--border);border-radius:18px;background:var(--surface);color:var(--text);box-shadow:var(--shadow)}
+.incoming-dialog::backdrop{background:rgba(0,7,22,.7)}
+.incoming-dialog h2{font-size:18px}
+.incoming-dialog p{line-height:1.6;font-size:12px;color:var(--muted)}
+.incoming-file{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px;background:var(--surface2);padding:15px;border-radius:12px}
+.incoming-file strong{overflow-wrap:anywhere;font-size:13px}
+.incoming-file small{grid-column:2;font-size:11px;color:var(--muted)}
+.incoming-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:25px}
+.floating-error{position:fixed;z-index:150;right:22px;bottom:20px;max-width:min(520px,calc(100vw - 32px));box-shadow:var(--shadow);background:var(--surface)}
+@media(max-width:500px){.connection-warning{flex-wrap:wrap}.connection-warning .secondary-button{margin-left:auto}}
