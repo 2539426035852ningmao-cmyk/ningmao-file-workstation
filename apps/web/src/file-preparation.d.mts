@@ -1,0 +1,10 @@
+export type QueuedFile = {id: string; file: File};
+export type QueueReview = {count: number; bytes: number; oversizedIds: string[]; excessCount: number};
+export type QueueChange = {items: QueuedFile[]; added: number; duplicates: number; invalid: number};
+export const MAX_BROWSER_TRANSFER_FILES: number;
+export const MAX_BROWSER_TRANSFER_BYTES: number;
+export function safeFileName(name: string): boolean;
+export function fileKey(file: File): string;
+export function addDistinct(current: QueuedFile[], incoming: File[], createId: () => string): QueueChange;
+export function queueReview(items: QueuedFile[]): QueueReview;
+export function visibleQueue(items: QueuedFile[], query?: string, kind?: string, sort?: string): QueuedFile[];
