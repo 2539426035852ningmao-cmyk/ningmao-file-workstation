@@ -37,6 +37,7 @@ export function App() {
   const [file, setFile] = useState<File | null>(null);
   const [destination, setDestination] = useState("");
   const [incoming, setIncoming] = useState<Incoming | null>(null);
+  const requestDialog = useRef<HTMLDialogElement>(null);
   const [downloads, setDownloads] = useState<Download[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [notice, setNotice] = useState("");
@@ -187,6 +188,13 @@ export function App() {
   useEffect(() => () => {
     for (const url of downloadUrls.current) URL.revokeObjectURL(url);
   }, []);
+  useEffect(() => {
+    if (!incoming) return;
+    const dialog = requestDialog.current;
+    if (!dialog) return;
+    dialog.showModal();
+    return () => { if (dialog.open) dialog.close(); };
+  }, [incoming]);
   const choose = (incomingFile?: File) => {
     if (!incomingFile) return;
     if (incomingFile.size > MAX_BYTES) {
@@ -252,7 +260,7 @@ export function App() {
         <div className="header-right"><span className={`connection-indicator ${connection}`}><span className="dot"/>{connection === "online" ? "已连接" : connection === "loading" ? "连接中" : "未连接"}</span><span className="account">{identity?.email || "未登录"}</span><a className="avatar" href="/cdn-cgi/access/logout" title="退出 Cloudflare Access">N</a></div>
       </header>
       <main className="workspace">
-        <section className="intro"><div><div className="eyebrow"><span className="tiny-dot"/> 柠猫 Web · 工作空间</div><h1>把文件发送到<br/><span>你需要的地方。</span></h1><p>打开网页，就能在自己的设备之间传递文件。不改变原件，无需先上传云盘。</p></div><div className="intro-symbol"><ArrowLeftRight size={68} strokeWidth={1}/></div></section>
+        <section className="intro"><div><div className="eyebrow"><span className="tiny-dot"/> 柠猫 Web · 工作空间</div><h1>文件，<span>传到你要用的地方。</span></h1><p>选择设备、拖入文件、确认接收。无需先上传云盘。</p></div></section>
         {connection !== "online" && <div className="warning" role="status"><LockKeyhole size={17}/><div><strong>{connection === "unauthorized" ? "尚未通过身份验证" : connection === "loading" ? "正在验证访问身份" : "连接服务暂不可用"}</strong><span>{connection === "unauthorized" ? "部署时需配置 Cloudflare Access 应用与 Worker 环境变量。此页面不会模拟登录成功。" : "请检查网络和服务部署状态，当前不能发送或接收文件。"}</span></div><button onClick={() => location.reload()}>重新尝试</button></div>}
         <div className="content-grid">
           <section className="panel devices-panel"><div className="section-title"><div><div className="section-kicker">DEVICES</div><h2>我的设备 <span>{devices.length}</span></h2></div><Monitor size={20}/></div>
@@ -280,7 +288,7 @@ export function App() {
           </section>
         </div>
         {notice && <div className="toast" role="alert"><span>{notice}</span><button aria-label="关闭提醒" onClick={() => setNotice("")}><X size={16}/></button></div>}
-        {incoming && <div className="dialog-backdrop"><section className="dialog" role="dialog" aria-modal="true" aria-labelledby="requestTitle"><div className="request-icon"><ArrowDownToLine size={25}/></div><h2 id="requestTitle">收到文件请求</h2><p>设备 {devices.find(d => d.id === incoming.from)?.name || incoming.from.slice(0, 8)} 希望发送文件给你</p><div className="request-file"><File size={18}/><div><strong title={incoming.meta.name}>{shortName(incoming.meta.name)}</strong><small>{readable(incoming.meta.size)}</small></div></div><div className="dialog-actions"><button className="outline-btn" onClick={() => decide(false)}>拒绝</button><button className="primary-btn" onClick={() => decide(true)}>接受文件</button></div></section></div>}
+        {incoming && <dialog ref={requestDialog} className="dialog" aria-labelledby="requestTitle" onCancel={event => { event.preventDefault(); decide(false); }}><div className="request-icon"><ArrowDownToLine size={25}/></div><h2 id="requestTitle">收到文件请求</h2><p>设备 {devices.find(d => d.id === incoming.from)?.name || incoming.from.slice(0, 8)} 希望发送文件给你</p><div className="request-file"><File size={18}/><div><strong title={incoming.meta.name}>{shortName(incoming.meta.name)}</strong><small>{readable(incoming.meta.size)}</small></div></div><div className="dialog-actions"><button className="outline-btn" onClick={() => decide(false)}>拒绝</button><button className="primary-btn" onClick={() => decide(true)}>接受文件</button></div></dialog>}
       </main>
       <footer className="footer"><div><ShieldCheck size={14}/>设备间加密连接 · 不提供默认云端存储 · 当前为测试候选</div><div className="theme-switch" aria-label="主题切换"><button aria-label="浅白主题" aria-pressed={theme === "light"} onClick={() => { setTheme("light"); persist(THEME_KEY, "light"); }}><Sun size={15}/></button><button aria-label="深蓝主题" aria-pressed={theme === "dark"} onClick={() => { setTheme("dark"); persist(THEME_KEY, "dark"); }}><Moon size={15}/></button><button aria-label="亮蓝主题" aria-pressed={theme === "blue"} onClick={() => { setTheme("blue"); persist(THEME_KEY, "blue"); }}><span className="theme-dot"/></button></div></footer>
     </div>
