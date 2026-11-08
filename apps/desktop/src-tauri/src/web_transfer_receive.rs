@@ -45,7 +45,6 @@ struct VerifiedSession {
     _temporary: tempfile::TempDir,
     path: PathBuf,
     shelf: i64,
-    job: i64,
 }
 #[derive(Serialize)]
 pub struct ReceiveStarted {
@@ -227,22 +226,27 @@ impl ReceiveSession {
             _temporary: self._temporary,
             path: self.path,
             shelf: self.shelf,
-            job: self.job,
         })
     }
+}
+struct StageRequest<'a> {
+    owner: &'a str,
+    scope: Option<i64>,
+    shelf: i64,
+    ticket: &'a str,
+    name: &'a str,
+    size: u64,
+    sha256: &'a str,
 }
 fn stage(
     control: &WebReceiveControl,
     store: &mut Store,
     root: &Path,
-    owner: &str,
-    scope: Option<i64>,
-    shelf: i64,
-    ticket: &str,
-    name: &str,
-    size: u64,
-    sha256: &str,
+    request: StageRequest<'_>,
 ) -> Result<ReceiveStarted> {
+    let StageRequest {
+        owner, scope, shelf, ticket, name, size, sha256,
+    } = request;
     scoped(scope, shelf)?;
     if !ticket_valid(ticket)
         || !safe_name(name)
@@ -416,13 +420,15 @@ pub async fn web_receive_prepare(
             &state.web_receives,
             &mut store,
             &state.data_root,
-            &owner,
-            scope,
-            shelf_id,
-            &ticket,
-            &name,
-            bytes,
-            &sha256,
+            StageRequest {
+                owner: &owner,
+                scope,
+                shelf: shelf_id,
+                ticket: &ticket,
+                name: &name,
+                size: bytes,
+                sha256: &sha256,
+            },
         )
     })
     .await
@@ -526,13 +532,15 @@ mod tests {
             &control,
             &mut store,
             root.path(),
-            "manager",
-            None,
-            shelf,
-            ticket,
-            "synthetic.txt",
-            expected.len() as u64,
-            &hash(expected),
+            StageRequest {
+                owner: "manager",
+                scope: None,
+                shelf,
+                ticket,
+                name: "synthetic.txt",
+                size: expected.len() as u64,
+                sha256: &hash(expected),
+            },
         )
         .unwrap();
         assert!(offer.job_id > 0);
@@ -582,17 +590,19 @@ mod tests {
         ] {
             assert!(
                 stage(
-                    &control,
-                    &mut store,
-                    root.path(),
-                    "manager",
-                    None,
-                    shelf,
-                    ticket,
-                    bad,
-                    5,
-                    &hash(b"hello")
-                )
+            &control,
+            &mut store,
+            root.path(),
+            StageRequest {
+                owner: "manager",
+                scope: None,
+                shelf,
+                ticket,
+                name: bad,
+                size: 5,
+                sha256: &hash(b"hello"),
+            },
+        )
                 .is_err()
             );
         }
@@ -600,13 +610,15 @@ mod tests {
             &control,
             &mut store,
             root.path(),
-            "shelf-1",
-            Some(shelf),
-            shelf,
-            ticket,
-            "safe.txt",
-            5,
-            &hash(b"other"),
+            StageRequest {
+                owner: "shelf-1",
+                scope: Some(shelf),
+                shelf,
+                ticket,
+                name: "safe.txt",
+                size: 5,
+                sha256: &hash(b"other"),
+            },
         )
         .unwrap();
         {
@@ -646,13 +658,15 @@ mod tests {
             &control,
             &mut store,
             root.path(),
-            "manager",
-            None,
-            shelf,
-            ticket,
-            "partial.bin",
-            5,
-            &hash(b"hello"),
+            StageRequest {
+                owner: "manager",
+                scope: None,
+                shelf,
+                ticket,
+                name: "partial.bin",
+                size: 5,
+                sha256: &hash(b"hello"),
+            },
         )
         .unwrap();
         {
