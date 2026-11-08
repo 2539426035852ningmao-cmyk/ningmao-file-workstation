@@ -111,15 +111,29 @@ fn desktop_window(window: &tauri::WebviewWindow) -> Result<()> {
 }
 /// IPC access to local files is allowed only from the bundled Tauri application,
 /// or from the exact dev-server origin in debug builds; not arbitrary localhost.
+fn trusted_native_url(
+    scheme: &str,
+    host: Option<&str>,
+    port: Option<u16>,
+    debug: bool,
+) -> bool {
+    let packaged = port.is_none()
+        && ((scheme == "http" && host == Some("tauri.localhost"))
+            || (scheme == "tauri" && host == Some("localhost")));
+    let local_dev = debug
+        && scheme == "http"
+        && matches!(host, Some("localhost" | "127.0.0.1"))
+        && port == Some(1431);
+    packaged || local_dev
+}
 fn trusted_native_origin(window: &tauri::WebviewWindow) -> Result<()> {
     let url = window.url().map_err(error)?;
-    let production = (url.scheme() == "http" && url.host_str() == Some("tauri.localhost"))
-        || (url.scheme() == "tauri" && url.host_str() == Some("localhost"));
-    let development = cfg!(debug_assertions)
-        && url.scheme() == "http"
-        && matches!(url.host_str(), Some("localhost" | "127.0.0.1"))
-        && url.port() == Some(1431);
-    if production || development {
+    if trusted_native_url(
+        url.scheme(),
+        url.host_str(),
+        url.port(),
+        cfg!(debug_assertions),
+    ) {
         Ok(())
     } else {
         Err("当前页面不是工作站内置界面，禁止操作本机文件。".into())
@@ -2302,6 +2316,25 @@ pub fn run() {
         ])
         .run(context)
         .expect("柠猫文件工作站启动失败；数据未自动清理");
+}
+
+#[cfg(test)]
+mod native_webview_origin_tests {
+    use super::trusted_native_url;
+
+    #[test]
+    fn file_ipc_rejects_untrusted_localhost_and_external_site() {
+        assert!(trusted_native_url("http", Some("tauri.localhost"), None, false));
+        assert!(trusted_native_url("tauri", Some("localhost"), None, false));
+        assert!(!trusted_native_url("http", Some("tauri.localhost"), Some(53323), false));
+        assert!(!trusted_native_url("https", Some("tauri.localhost"), None, false));
+        assert!(!trusted_native_url("http", Some("localhost"), Some(1431), false));
+        assert!(!trusted_native_url("http", Some("127.0.0.1"), Some(53323), true));
+        assert!(!trusted_native_url("http", Some("example.com"), Some(1431), true));
+        assert!(!trusted_native_url("https", Some("localhost"), Some(1431), true));
+        assert!(trusted_native_url("http", Some("localhost"), Some(1431), true));
+        assert!(trusted_native_url("http", Some("127.0.0.1"), Some(1431), true));
+    }
 }
 
 #[cfg(test)]
