@@ -17,6 +17,8 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
   const [mode,setMode]=useState(initialMode),[view,setView]=useState(empty),[error,setError]=useState("");
   const content=useRef<HTMLDivElement>(null);
   useEffect(()=>{if(open&&mode==="receive")content.current?.scrollTo(0,0);},[open,mode,view.receiving]);
+  // The fixed error band reduces the viewport; keep the correction field visible.
+  useEffect(()=>{if(error)content.current?.querySelector<HTMLElement>(":focus")?.scrollIntoView({block:"nearest"});},[error]);
   const [copied,setCopied]=useState("");
   const [connection,setConnection]=useState("");
   const [known,setKnown]=useState<string[]>([]);
@@ -50,6 +52,7 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
   return <Sheet open={open} onOpenChange={onOpenChange}><SheetContent className="transfer-panel" showCloseButton={false}>
     <SheetHeader><SheetTitle>文件互传</SheetTitle><SheetDescription>两台电脑连接同一 Wi-Fi 或局域网；原文件不会被移走</SheetDescription></SheetHeader>
     <Button className="transfer-close" variant="ghost" size="icon" aria-label="关闭文件互传" onClick={()=>onOpenChange(false)}><X size={16}/></Button>
+    {error&&<p className="transfer-error" role="alert">{error}</p>}
     <Tabs className="transfer-workspace" value={mode} onValueChange={value=>setMode(value as "send"|"receive")}>
     <TabsList className="transfer-tabs" aria-label="互传方向"><TabsTrigger value="send">发送文件</TabsTrigger><TabsTrigger value="receive">接收文件</TabsTrigger></TabsList>
     <TabsContent ref={content} value={mode} className="transfer-content">{mode==="send"?<>
@@ -88,6 +91,6 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
         <Button type="submit" disabled={working||!target}>{working?"正在开启…":"开启接收"}</Button>
       </form>}
       {view.pending&&<section className="transfer-request" aria-label="待确认接收"><h3>接收请求 · {view.pending.alias}</h3><ul className="transfer-files">{view.pending.files.map((file,index)=><li key={index}><span title={file.name}>{file.name}</span><small>{sizes(file.size)}</small></li>)}</ul><p>{view.pending.files.length}项 · {sizes(view.pending.total)}</p><div><Button variant="outline" disabled={working} onClick={()=>void action(()=>backend.decide(view.pending!.id,false))}>拒绝接收</Button><Button disabled={working} onClick={()=>void action(()=>backend.decide(view.pending!.id,true))}>接受文件</Button></div></section>}
-    </>}{error&&<p className="transfer-error" role="alert">{error}</p>}</TabsContent></Tabs>
+    </>}</TabsContent></Tabs>
   </SheetContent></Sheet>;
 }

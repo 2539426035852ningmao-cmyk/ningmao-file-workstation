@@ -372,7 +372,7 @@ Dock 负责多个文件架的收纳、切换、拆分/合并、贴边、隐藏�
 | primary / primary-foreground | #245fc8 / #fff | #6fa7ff / #102137 | #174da0 / #fff | 主动作、选中与焦点 |
 | muted-foreground | #616773 | #b3bfd2 | #35547e | 辅助说明，不使用整体透明度降低正文对比 |
 | destructive / destructive-foreground | #b8323e / #fff | 同白 | 同白 | 危险实色底与其文字；不是错误正文色 |
-| danger-text | #b8323e | #ff9ba8 | #b8323e | 错误文字、危险文字；当前三背景实测对比≥4.5 |
+| danger-text | #b8323e | #ff9ba8 | #9e2634 | 错误文字、危险文字；当前三背景实测对比≥4.5 |
 | danger-soft | danger-text与surface混合12% | 同算法 | 同算法 | 错误条/回收悬停，仍有明确文字，不能只靠红色 |
 
 Tailwind 的 destructive 桥接同名CSS变量，互传与AI错误共用 danger-text；窗口关闭悬停、Dock警告和胶囊关闭复用 destructive。保持引用/Copy、取消等待与错误恢复文字，不因配色替换语义。

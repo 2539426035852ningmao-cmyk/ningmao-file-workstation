@@ -1,5 +1,5 @@
 import {WindowControls} from "./components/WindowControls";
-import {GlobalSearch} from "./components/GlobalSearch";
+import {GlobalSearch,openGlobalSearch} from "./components/GlobalSearch";
 import type {TransferSelection} from "./components/TransferPanel";
 import {SystemRecycle} from "./components/SystemRecycle";
 import {RecycleDrawer} from "./components/RecycleDrawer";
@@ -128,7 +128,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   const [chatLoaded,setChatLoaded]=useState(false);
   const [transferLoaded,setTransferLoaded]=useState(false),[transfer,setTransfer]=useState<{open:boolean;mode:"send"|"receive";selection:TransferSelection}>({open:false,mode:"receive",selection:{shelf_id:0,files:[]}});
   const [revealItem,setRevealItem]=useState<number|null>(null);
-  const searchInput=useRef<HTMLInputElement>(null),searchButton=useRef<HTMLButtonElement>(null);
+  const searchInput=useRef<HTMLInputElement>(null),searchButton=useRef<HTMLButtonElement>(null),moreButton=useRef<HTMLButtonElement>(null);
   const restoreSearchFocus=useRef(false);
   const [feedback,setFeedback]=useState(false);
   const [query,setQuery]=useState("");
@@ -339,8 +339,9 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
       {!searchOpen&&<span className="titlebar-drag-space" aria-hidden="true"/>}
       <Button className="add-files" variant="ghost" size="icon" disabled={!native || loading || !shelf || busy || !!running} aria-label={bound?"添加并复制":"添加引用"} title={bound?"添加并复制，保留来源":"添加引用，保留原文件"} onClick={()=>void perform(async()=>receive(await backend.chooseFiles()))}><Plus size={18}/></Button>
       <Button className="shelf-collapse" variant="ghost" size="icon" aria-label="收起到悬浮入口" title="收起当前文件架" disabled={!native || loading || !shelf || busy || !!dragging || hover} onClick={()=>void perform(()=>backend.desktopCollapse(shelfId))}><ArrowDownToLine size={16}/></Button>
-      <ShelfMenu label="更多操作" trigger={<Button variant="ghost" size="icon" aria-label="更多操作" title="更多操作"><MoreHorizontal size={18}/></Button>}>
+      <ShelfMenu label="更多操作" trigger={<Button variant="ghost" size="icon" ref={moreButton} aria-label="更多操作" title="更多操作"><MoreHorizontal size={18}/></Button>}>
         <DropdownMenu.Item className="compact-command" onSelect={()=>setSearchOpen(true)}>搜索文件</DropdownMenu.Item>
+        <DropdownMenu.Item onSelect={()=>openGlobalSearch(moreButton.current)}><Search size={16}/><span>{detachedShelfId!==undefined?"搜索当前文件架":"跨文件架搜索"}</span><kbd aria-hidden="true">Ctrl+K</kbd></DropdownMenu.Item>
         <DropdownMenu.Item className="compact-command" disabled={!native || !shelf || busy || !!running} onSelect={()=>void perform(async()=>receive(await backend.chooseFiles()))}>添加文件</DropdownMenu.Item>
         <DropdownMenu.Item disabled={!native || loading || !shelf || busy} onSelect={()=>void perform(()=>backend.desktopCollapse(shelfId))}>收起到悬浮入口</DropdownMenu.Item>
         <DropdownMenu.Item disabled={!native || loading || !shelf || busy} onSelect={()=>void perform(()=>detachedShelfId===undefined?backend.desktopDetach(shelfId):backend.desktopMerge(shelfId))}>{detachedShelfId===undefined?"拆分为独立窗口":"合并回主窗口"}</DropdownMenu.Item>
