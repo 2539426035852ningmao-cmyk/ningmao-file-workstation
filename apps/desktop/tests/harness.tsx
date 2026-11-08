@@ -6,6 +6,7 @@ import Manager from "../src/Manager";
 import {mockIPC,clearMocks} from "@tauri-apps/api/mocks";
 import {nativeChat} from "../src/chatBackend";
 import {nativeTransfer,type TransferBackend,type TransferProgress,type TransferResult,type TransferView} from "../src/transferBackend";
+import {buildDesktopWebRTCOffer} from "../src/webTransferBackend";
 import type { Backend, DesktopView, Events, Item, Progress, Snapshot, TrashEntry, SearchHit } from "../src/backend";
 import "../src/style.css";
 const item=(id:number,name:string,shelf_id=1):Item=>({id,name,shelf_id,path:"SYNTHETIC/"+name,kind:"txt",bytes:200,modified:1,status:"normal",tags:[]});
@@ -171,3 +172,53 @@ window.testHarness={
 if(new URLSearchParams(location.search).has("desktop-entry")){const count=Math.max(1,Math.min(8,Number(new URLSearchParams(location.search).get("count")) || 7));state.shelves=state.shelves.slice(0,count);for(let id=3;id<=count;id++)state.shelves.push({id,name:`项目 ${id}`,kind:"persistent",root:null,available:true});desktop.layout.enabled=true;desktop.layout.collapsed=state.shelves.map(s=>s.id);publishDesktop();}
 if(new URLSearchParams(location.search).has("edge")){desktop.edge_hidden=true;desktop.layout.preferences={edge:"right",auto_hide:true,topmost:true};}
 createRoot(document.getElementById("root")!).render(new URLSearchParams(location.search).has("desktop-entry")?<DesktopEntry backend={backend}/>:new URLSearchParams(location.search).has("manager")?<Manager backend={backend}/>:<App backend={backend} native={true} detachedShelfId={ownShelf}/>);
+
+declare global { interface Window {
+  verifyDesktopWebSource: (mode: "valid" | "bad-hash" | "bad-chunk") => Promise<{
+    calls: string[];
+    content: string | null;
+    digest: string | null;
+    error: string | null;
+  }>;
+} }
+window.verifyDesktopWebSource = async mode => {
+  const content = "合成 W3 文件源 · Ningmao bridge";
+  const bytes = new TextEncoder().encode(content);
+  const digest = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)))
+    .map(v => v.toString(16).padStart(2, "0")).join("");
+  const encoded = btoa(Array.from(bytes, v => String.fromCharCode(v)).join(""));
+  const calls: string[] = [];
+  let ticket = "";
+  mockIPC((command, args) => {
+    calls.push(command);
+    if (command === "web_transfer_prepare") {
+      ticket = String((args as {ticket: string}).ticket);
+      return {
+        ticket, item_id: 5, name: "synthetic.txt",
+        bytes: bytes.length, sha256: mode === "bad-hash" ? "0".repeat(64) : digest,
+        mime: "application/octet-stream", expires_in_seconds: 600
+      };
+    }
+    if (command === "web_transfer_read_chunk") {
+      return {
+        offset: 0, bytes: mode === "bad-chunk" ? bytes.length + 1 : bytes.length,
+        data_base64: encoded, eof: true
+      };
+    }
+    if (command === "web_transfer_release") return null;
+    throw new Error("Unexpected IPC command: " + command);
+  });
+  try {
+    const offer = await buildDesktopWebRTCOffer(3, 5);
+    return {
+      calls,
+      content: new TextDecoder().decode(offer.bytes),
+      digest: offer.manifest.sha256,
+      error: null
+    };
+  } catch (error) {
+    return {calls, content: null, digest: null, error: String(error)};
+  } finally {
+    clearMocks();
+  }
+};
