@@ -4,6 +4,7 @@ import {classifyFile, formatBytes} from "./file-utils.mjs";
 import {safeFileName, addDistinct, queueReview, visibleQueue, MAX_BROWSER_TRANSFER_BYTES, MAX_BROWSER_TRANSFER_FILES} from "./file-preparation.mjs";
 import {LocalFilePreview} from "./LocalFilePreview";
 import {useTransferController, type Device} from "./useTransferController";
+import {WindowsDevicePairing} from "./WindowsDevicePairing";
 
 type Theme = "light" | "dark" | "blue";
 type Screen = "transfer" | "devices" | "activity";
@@ -194,6 +195,7 @@ export function App() {
             :<EmptyState icon={Smartphone} title={transfer.connection==="online"?"暂无其他在线设备":"设备连接尚未启用"} description="设备只由经过服务端验证的在线会话提供，不伪造在线列表。"/>}
             <button type="button" className="secondary-button" onClick={()=>setScreen("transfer")}>返回文件互传</button>
           </section>
+          <WindowsDevicePairing authenticated={transfer.identity!==null}/>
         </>}
         {screen==="activity"&&<>
           <div className="page-heading"><div><div className="eyebrow">ACTIVITY</div><h1>传输记录</h1><p>真实会话状态仅在当前浏览器页面保留；并不等于已保存到磁盘。</p></div></div>
