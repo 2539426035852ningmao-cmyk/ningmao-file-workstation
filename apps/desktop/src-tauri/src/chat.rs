@@ -22,7 +22,12 @@ pub fn endpoint(base: &str) -> Result<Url> {
             "服务地址仅支持 HTTPS，或明确配置的 localhost HTTP；不允许账号、查询和片段".into(),
         );
     }
-    let path = format!("{}/chat/completions", url.path().trim_end_matches('/'));
+    let resource = if host == "api.anthropic.com" {
+        "messages"
+    } else {
+        "chat/completions"
+    };
+    let path = format!("{}/{resource}", url.path().trim_end_matches('/'));
     url.set_path(&path);
     Ok(url)
 }
@@ -99,9 +104,22 @@ pub async fn stream_reply(
     messages: &[PromptMessage],
     cancel: &Notify,
     output: &mut String,
-    mut update: impl FnMut(&str) -> Result<()>,
+    update: impl FnMut(&str) -> Result<()>,
 ) -> Result<&'static str> {
     let url = endpoint(&config.base_url)?;
+    stream_at(config, key, messages, cancel, output, update, url).await
+}
+
+async fn stream_at(
+    config: &ChatConfig,
+    key: Option<&str>,
+    messages: &[PromptMessage],
+    cancel: &Notify,
+    output: &mut String,
+    mut update: impl FnMut(&str) -> Result<()>,
+    url: Url,
+) -> Result<&'static str> {
+    let anthropic = url.path().ends_with("/messages");
     let host = url.host_str().ok_or("模型地址无效")?;
     let local = matches!(host, "localhost" | "127.0.0.1" | "[::1]");
     let port = url.port_or_known_default().ok_or("模型地址端口无效")?;
@@ -129,11 +147,20 @@ pub async fn stream_reply(
         .resolve_to_addrs(host, &addresses)
         .build()
         .map_err(|_| "无法创建模型连接")?;
-    let mut request = client
-        .post(url)
-        .json(&json!({"model":config.model,"messages":messages,"stream":true}));
+    let mut body = json!({"model":config.model,"messages":messages,"stream":true});
+    if anthropic {
+        body["max_tokens"] = json!(4096);
+    }
+    let mut request = client.post(url).json(&body);
+    if anthropic {
+        request = request.header("anthropic-version", "2026-10-21");
+    }
     if let Some(key) = key {
-        request = request.bearer_auth(key);
+        request = if anthropic {
+            request.header("x-api-key", key)
+        } else {
+            request.bearer_auth(key)
+        };
     }
     let response = tokio::select! { _=cancel.notified()=>return Ok("stopped"),response=request.send()=>response.map_err(|_|"模型服务连接失败或超时，请检查地址、网络和配置")? };
     let code = response.status();
@@ -168,7 +195,7 @@ pub async fn stream_reply(
                 continue;
             };
             let data = data.trim();
-            if data == "[DONE]" {
+            if !anthropic && data == "[DONE]" {
                 done = true;
                 break;
             }
@@ -176,7 +203,21 @@ pub async fn stream_reply(
             if value.get("error").is_some() {
                 return Err("模型服务返回错误，请检查配置与额度".into());
             }
-            if let Some(content) = value["choices"][0]["delta"]["content"].as_str() {
+            if anthropic && value["type"] == "message_stop" {
+                done = true;
+                break;
+            }
+            let content = if anthropic {
+                if value["type"] == "content_block_delta" && value["delta"]["type"] == "text_delta"
+                {
+                    value["delta"]["text"].as_str()
+                } else {
+                    None
+                }
+            } else {
+                value["choices"][0]["delta"]["content"].as_str()
+            };
+            if let Some(content) = content {
                 output.push_str(content);
             }
         }
@@ -271,5 +312,120 @@ pub fn unprotect(bytes: &[u8]) -> Result<Vec<u8>> {
     {
         let _ = bytes;
         Err("此版本的密钥安全读取仅支持 Windows".into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::{Read, Write};
+
+    fn anthropic_server(
+        bodies: Vec<&'static str>,
+    ) -> (Url, std::thread::JoinHandle<Vec<(String, Value)>>) {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = Url::parse(&format!(
+            "http://{}/v1/messages",
+            listener.local_addr().unwrap()
+        ))
+        .unwrap();
+        let worker = std::thread::spawn(move || {
+            bodies.into_iter().map(|body| {
+            let (mut socket, _) = listener.accept().unwrap();
+            socket.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+            let mut header = Vec::new();
+            while !header.ends_with(b"\r\n\r\n") {
+                let mut byte = [0]; socket.read_exact(&mut byte).unwrap(); header.push(byte[0]);
+            }
+            let header = String::from_utf8(header).unwrap();
+            let length: usize = header.lines().find_map(|line|line.to_ascii_lowercase().strip_prefix("content-length:").map(|v|v.trim().parse().unwrap())).unwrap();
+            let mut bytes = vec![0; length]; socket.read_exact(&mut bytes).unwrap();
+            let request = serde_json::from_slice(&bytes).unwrap();
+            write!(socket,"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len()).unwrap();
+            (header, request)
+        }).collect()
+        });
+        (url, worker)
+    }
+
+    #[tokio::test]
+    async fn anthropic_http_stream_uses_messages_auth_and_three_round_history() {
+        let body = "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"合成回复\"}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n";
+        let (url, worker) = anthropic_server(vec![body; 3]);
+        let config = ChatConfig {
+            base_url: String::new(),
+            model: "synthetic".into(),
+            enabled: true,
+            has_key: true,
+        };
+        let mut messages = Vec::new();
+        for round in 0..3 {
+            messages.push(PromptMessage {
+                role: "user".into(),
+                content: format!("合成问题{round}"),
+            });
+            let mut output = String::new();
+            assert_eq!(
+                stream_at(
+                    &config,
+                    Some("synthetic-key"),
+                    &messages,
+                    &Notify::new(),
+                    &mut output,
+                    |_| Ok(()),
+                    url.clone()
+                )
+                .await
+                .unwrap(),
+                "completed"
+            );
+            assert_eq!(output, "合成回复");
+            messages.push(PromptMessage {
+                role: "assistant".into(),
+                content: output,
+            });
+        }
+        for (round, (header, request)) in worker.join().unwrap().iter().enumerate() {
+            assert!(header.starts_with("POST /v1/messages HTTP/1.1"));
+            assert!(header.contains("x-api-key: synthetic-key"));
+            assert!(header.contains("anthropic-version: 2026-10-21"));
+            assert!(!header.contains("authorization:"));
+            assert_eq!(request["messages"].as_array().unwrap().len(), round * 2 + 1);
+            assert_eq!(request["model"], "synthetic");
+            assert_eq!(request["max_tokens"], 4096);
+            assert_eq!(request["stream"], true);
+            assert!(request.get("tools").is_none());
+        }
+    }
+
+    #[tokio::test]
+    async fn anthropic_error_empty_and_incomplete_streams_are_not_success() {
+        let bodies = vec![
+            "data: {\"type\":\"error\",\"error\":{\"message\":\"synthetic-secret\"}}\n\n",
+            "data: {\"type\":\"message_stop\"}\n\n",
+            "data: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"partial\"}}\n\n",
+        ];
+        let (url, worker) = anthropic_server(bodies);
+        let config = ChatConfig {
+            base_url: String::new(),
+            model: "synthetic".into(),
+            enabled: true,
+            has_key: false,
+        };
+        for _ in 0..3 {
+            let error = stream_at(
+                &config,
+                None,
+                &[],
+                &Notify::new(),
+                &mut String::new(),
+                |_| Ok(()),
+                url.clone(),
+            )
+            .await
+            .unwrap_err();
+            assert!(!error.contains("synthetic-secret"));
+        }
+        worker.join().unwrap();
     }
 }

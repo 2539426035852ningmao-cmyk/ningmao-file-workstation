@@ -1,5 +1,25 @@
 use ningmao_desktop_lib::{chat, store::Store};
 
+#[test]
+fn official_anthropic_uses_messages_without_changing_compatible_endpoints() {
+    assert_eq!(
+        chat::endpoint("https://api.anthropic.com/v1")
+            .unwrap()
+            .path(),
+        "/v1/messages"
+    );
+    assert_eq!(
+        chat::endpoint("https://api.anthropic.com.example.org/v1")
+            .unwrap()
+            .path(),
+        "/v1/chat/completions"
+    );
+    assert_eq!(
+        chat::endpoint("http://localhost:1234/v1").unwrap().path(),
+        "/v1/chat/completions"
+    );
+}
+
 #[tokio::test]
 async fn connection_test_uses_short_prompt_and_requires_a_real_reply() {
     use std::{
