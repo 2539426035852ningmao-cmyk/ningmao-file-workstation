@@ -1,3 +1,13 @@
+# 当前交付状态 · 2026-11-08（优先于下方历史记录）
+
+当前唯一集成候选为 PR #77，分支 feat/capsule-recent-focus-20261108；应用基础提交 f7ff9c089e33d2fb628bbafcf1465574559ba9f8。#62 和 #68–#76 的完整 HEAD 均经 ancestry 检查已包含（返回0），不重复 cherry-pick，不重置现有工作区。#66 继续独立，首版采用现有受控窗口交接，不将连续形变探针冒称产品完成。#67 的执行合同从 dbfe15b7bd033288e9d158ef48b64e590216592f 原样纳入本分支，不吸收其业务代码或旧状态。唯一功能矩阵仍由 scripts/generate-delivery-matrix.mjs 生成，保留原43+44完整约束并拆出可调用基础能力及实际缺口。
+
+f7ff9c0 的 Desktop42484845046 / Preview42484845207 均 success，168界面/52相关Rust通过；本机 MSI 包已构建，但最近素材原生定位未验，不作为最终交付。当前批次修复真实蓝色胶囊小字对比3.8605<4.5（仅移除文字透明度）、更新快捷说明与集成候选窗口标题。完整界面首轮167PASS/1键盘排序FAIL，原样重复1PASS/2FAIL；等待关闭后仍2FAIL/3PASS，未掩盖记录。Trace显示分离focus/keyboard Enter后菜单仍open；改为目标项 locator.press(Enter)，保留菜单关闭/回焦点检查，连续5次PASS。最终完整168界面PASS（3.1m），仓库基础/diff/TypeScript测试构建和许可归集测试PASS；新包原生仍待结果。
+
+当前阻断：同一新EXE最近素材定位及添加→预览→搜索→复制→软回收→恢复→重启连续验收；文件架重命名、跨传输任务汇总、Anthropic薄协议适配、示范插件生命周期尚未完成。外部双Windows/手机/公网/真实模型、全DPI/多屏与正式许可独立保留，不能据CI自动放行。没有新网络监听、模型下载/调用、费用、安装、发布或合并。旧8d046f7可运行包与数据库保留；回滚完整退出、备份data/webview、换旧EXE，不迁移schema。下一步先完成本批测试/同版原生，再在同一集成候选补文件架重命名，避免微修继续叠PR。
+
+## 以下为历史证据（按各自 SHA 保留）
+
 # 当前交付状态 · 2026-11-07（优先于下方历史记录）
 2026-11-08最近素材定位提交前：feat/capsule-recent-focus-20261108承接#76/8d046f7；3个最近素材改独立24×32按钮，复用既有collect请求与focusSearchResult，Rust仅扩locate枚举及所属架校验，不增权限/Store/SQLite/Copy或窗口几何。长名省略但安全语义完整，亮蓝hover对比1.46真实问题已修复，三主题≥3。168全界面PASS3.1m，52相关RustPASS/3ignored，Clippy/fmt/仓库/diff/TypeScript/Vite及机械检查PASS。新包原生与CI待本批构建，旧8d包和原工作区保留，不合并/安装/发布/网络/模型。
 2026-11-08胶囊快捷收集最终交付：feat/capsule-collect-20261108/PR#76，源码8d046f71e6f91a45800a771755eb62c481077ff9。Desktop42453438741/Preview42453438744均success；原始日志确认163界面PASS、115RustPASS/7ignored，含本地因.codex保护路径失败的3回收测试在标准CI通过，未放宽保护。包MSI只读/便携PASS，ZIP D:/Ningmao-CapsuleCollect-8d046f7.zip SHA2563a269e586cbeca7f756b74df7aa1326750bdc602dce3f879a5d17c9f9ac667cf，EXE SHA2563b58f3a37d3309b81026d2f2f5a3ef6fea3c41ea92a28af150a4f236adead86b；408许可/1警告非清关，分发data/webview为空。同包Windows原生球→胶囊添加→系统选择器→合成文件加入1条PASS；再添加Esc取消仍5条/0任务PASS；Explorer复制另一合成文件→胶囊粘贴→正确架加入1条PASS。最终6条，原4条及6来源SHA保留，SQLite完整/jobs0，PID34872正常完整退出、TCP/UDP0，合成目录标签已关闭。UI工具缓存/隐藏窗口几何错误重新观察后恢复，未冒称当次动作成功；捕获小字及退出1412保留。新胶囊绑定Copy/冷独立窗/OLE/全DPI/多屏尚未原生验收；没有互传/AI/发现/接收器、费用、安装、发布或合并。PR#75补记已恢复同步，PR#76正文包含精确包/原生/CI/风险/回滚，无远端补记缺口。构建后两份补记随下一有效功能提交，避免纯状态push。旧202c4ad包/原工作区保留，回滚退出备份data/webview换旧EXE，无迁移。下一任务：按D05收束最近素材点击后的完整架定位（优先复用现有focus路径），先检查可复用权限边界，不造第二套预览或搜索。
