@@ -6,13 +6,36 @@
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
-    "run_worker_first": ["/api/*"]
+    "run_worker_first": [
+      "/api/*",
+      "/device-link/*"
+    ]
   },
   "durable_objects": {
-    "bindings": [{ "name": "ROOMS", "class_name": "DeviceRoom" }]
+    "bindings": [
+      {
+        "name": "ROOMS",
+        "class_name": "DeviceRoom"
+      },
+      {
+        "name": "REGISTRY",
+        "class_name": "DeviceRegistry"
+      }
+    ]
   },
   "migrations": [
-    { "tag": "v1", "new_sqlite_classes": ["DeviceRoom"] }
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "DeviceRoom"
+      ]
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": [
+        "DeviceRegistry"
+      ]
+    }
   ],
   "vars": {
     "CF_ACCESS_TEAM_DOMAIN": "CONFIGURE_YOUR_TEAM.cloudflareaccess.com",
