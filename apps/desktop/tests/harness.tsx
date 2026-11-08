@@ -7,6 +7,7 @@ import {mockIPC,clearMocks} from "@tauri-apps/api/mocks";
 import {nativeChat} from "../src/chatBackend";
 import {nativeTransfer,type TransferBackend,type TransferProgress,type TransferResult,type TransferView} from "../src/transferBackend";
 import {buildDesktopWebRTCOffer} from "../src/webTransferBackend";
+import {saveAcceptedWebFile} from "../src/webReceiveBackend";
 import type { Backend, DesktopView, Events, Item, Progress, Snapshot, TrashEntry, SearchHit } from "../src/backend";
 import "../src/style.css";
 const item=(id:number,name:string,shelf_id=1):Item=>({id,name,shelf_id,path:"SYNTHETIC/"+name,kind:"txt",bytes:200,modified:1,status:"normal",tags:[]});
@@ -221,4 +222,45 @@ window.verifyDesktopWebSource = async mode => {
   } finally {
     clearMocks();
   }
+};
+
+declare global {interface Window {
+  verifyDesktopWebReceive: (mode:"valid"|"bad-hash"|"bad-ack"|"cancel") => Promise<{
+    calls:string[];
+    receipt:string|null;
+    error:string|null;
+  }>;
+}}
+window.verifyDesktopWebReceive=async mode=>{
+  const content="安全保存测试：柠猫 Windows 本机绑定目录";
+  const bytes=new TextEncoder().encode(content).buffer;
+  const digest=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",bytes)))
+    .map(v=>v.toString(16).padStart(2,"0")).join("");
+  const calls:string[]=[];
+  const controller=new AbortController();
+  let ticket="";
+  mockIPC((cmd,args)=>{
+    calls.push(cmd);
+    if(cmd==="web_receive_prepare"){
+      ticket=String((args as {ticket:string}).ticket);
+      return {ticket,job_id:31,bytes:bytes.byteLength,expires_in_seconds:600};
+    }
+    if(cmd==="web_receive_append"){
+      if(mode==="cancel")controller.abort();
+      const raw=args as {offset:number;dataBase64:string};
+      const actual=atob(raw.dataBase64).length;
+      return {received:raw.offset+actual+(mode==="bad-ack"?1:0),total:bytes.byteLength};
+    }
+    if(cmd==="web_receive_finish")return {job_id:31,file_name:"synthetic.txt",bytes:bytes.byteLength,status:"completed"};
+    if(cmd==="web_receive_abort")return null;
+    throw new Error("Unexpected receive command "+cmd);
+  });
+  try{
+    const result=await saveAcceptedWebFile(2,{
+      manifest:{id:crypto.randomUUID(),name:"synthetic.txt",size:bytes.byteLength,
+        mime:"text/plain",sha256:mode==="bad-hash"?"0".repeat(64):digest},bytes
+    },controller.signal);
+    return {calls,receipt:result.status,error:null};
+  }catch(error){return {calls,receipt:null,error:String(error)};}
+  finally{clearMocks();}
 };
