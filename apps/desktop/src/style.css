@@ -417,3 +417,6 @@ html[data-file-window="true"],html[data-file-window="true"] body,html[data-file-
 .capsule-action:hover:not(:disabled),.capsule-recent > button:hover:not(:disabled) { background:color-mix(in srgb,currentColor 10%,transparent); }
 .capsule-action:focus-visible,.capsule-recent > button:focus-visible { outline:2px solid currentColor; outline-offset:-2px; }
 .capsule-action:disabled,.capsule-recent > button:disabled { opacity:.45; cursor:default; }
+
+/* The W3 digest must wrap within the 340px Windows floating panel. */
+.transfer-hash{overflow-wrap:anywhere;word-break:break-all}
