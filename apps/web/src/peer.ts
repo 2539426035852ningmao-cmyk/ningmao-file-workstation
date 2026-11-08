@@ -18,12 +18,13 @@ export class PeerLink {
   private length = 0;
   private pendingIce: RTCIceCandidateInit[] = [];
   private stopped = false;
+  private completed = false;
   constructor(private hooks: Hooks) {
     // No TURN in W0: some restrictive networks will require a later relay.
     this.pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
     this.pc.onicecandidate = event => {
       if (event.candidate && !this.stopped) this.hooks.signal({
-        type: "candidate", to: this.hooks.remote, payload: { candidate: event.candidate.toJSON() }
+        type: "candidate", to: this.hooks.remote, payload: { id: this.invite?.id ?? "", candidate: event.candidate.toJSON() }
       });
     };
     this.pc.onconnectionstatechange = () => {
@@ -41,7 +42,7 @@ export class PeerLink {
     channel.onerror = () => this.hooks.error("文件传输通道异常");
     const offer = await this.pc.createOffer();
     await this.pc.setLocalDescription(offer);
-    this.hooks.signal({ type: "description", to: this.hooks.remote, payload: { description: this.pc.localDescription!.toJSON() } });
+    this.hooks.signal({ type: "description", to: this.hooks.remote, payload: { id: meta.id, description: this.pc.localDescription!.toJSON() } });
   }
   prepareReceiver(meta: Invite) {
     this.invite = meta;
@@ -54,7 +55,7 @@ export class PeerLink {
     };
   }
   async handle(type: "description" | "candidate", payload: Record<string, unknown>) {
-    if (this.stopped) return;
+    if (this.stopped || payload.id !== this.invite?.id) return;
     if (type === "candidate") {
       const ice = payload.candidate as RTCIceCandidateInit | undefined;
       if (!ice || typeof ice.candidate !== "string") return;
@@ -69,7 +70,7 @@ export class PeerLink {
     if (desc.type === "offer") {
       const answer = await this.pc.createAnswer();
       await this.pc.setLocalDescription(answer);
-      this.hooks.signal({ type: "description", to: this.hooks.remote, payload: { description: this.pc.localDescription!.toJSON() } });
+      this.hooks.signal({ type: "description", to: this.hooks.remote, payload: { id: this.invite!.id, description: this.pc.localDescription!.toJSON() } });
     }
   }
   private async sendBytes(data: ArrayBuffer) {
@@ -102,12 +103,14 @@ export class PeerLink {
     });
   }
   private async receive(payload: unknown) {
-    if (this.stopped || !this.invite) return;
+    if (this.stopped || this.completed || !this.invite) return;
     if (payload === "DONE") {
       if (this.length !== this.invite.size) { this.hooks.error("接收字节数与文件大小不一致"); return; }
       const blob = new Blob(this.incoming, { type: this.invite.mime || "application/octet-stream" });
       const digest = hex(await crypto.subtle.digest("SHA-256", await blob.arrayBuffer()));
+      if (this.stopped || this.completed) return;
       if (digest !== this.invite.sha256.toLowerCase()) { this.hooks.error("文件哈希校验失败，已阻止保存"); return; }
+      this.completed = true;
       this.hooks.ready(blob, this.invite);
       return;
     }
