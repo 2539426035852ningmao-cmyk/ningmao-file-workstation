@@ -1,5 +1,6 @@
 import {invoke} from "@tauri-apps/api/core";
 import type {DesktopWebRTCOffer} from "./webTransferBackend";
+import {safeWebFileName, WEB_MAX_FILE_BYTES, WEB_CHUNK_BYTES} from "./webFileRules";
 
 /** W3: Only called after the Windows owner explicitly accepts a transfer.
  * This is NOT an authenticated network transport. File paths never come from peers.
@@ -12,16 +13,6 @@ export type WindowsWebReceipt = {
 };
 type Started = {ticket:string;job_id:number;bytes:number;expires_in_seconds:number};
 type ChunkAck = {received:number;total:number};
-const MAX_BYTES = 64 * 1024 * 1024;
-const CHUNK = 64 * 1024;
-const BAD_NAME = /[\\/:*?"<>|\x00-\x1f\x7f]/;
-function safeName(name:string) {
-  const stem=name.split(".")[0].toUpperCase();
-  return name.length>0 && new TextEncoder().encode(name).length<=200 &&
-    !!name.trim() && name!=="." && name!==".." &&
-    !name.endsWith(".") && !name.endsWith(" ") && !BAD_NAME.test(name) &&
-    !/^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/.test(stem);
-}
 function bytesToBase64(chunk:Uint8Array) {
   let raw="";
   for(let i=0;i<chunk.length;i++)raw+=String.fromCharCode(chunk[i]);
@@ -54,8 +45,8 @@ export async function saveAcceptedWebFile(
   const {manifest,bytes}=offer;
   if(!Number.isSafeInteger(shelfId) || shelfId<=0 ||
     !Number.isSafeInteger(manifest.size) || manifest.size<0 ||
-    manifest.size>MAX_BYTES || bytes.byteLength!==manifest.size ||
-    !safeName(manifest.name) || !/^[a-f0-9]{64}$/i.test(manifest.sha256)) {
+    manifest.size>WEB_MAX_FILE_BYTES || bytes.byteLength!==manifest.size ||
+    !safeWebFileName(manifest.name) || !/^[a-f0-9]{64}$/i.test(manifest.sha256)) {
     throw new Error("远端文件清单不安全，拒绝写入");
   }
   if(signal?.aborted)throw new Error("接收已取消");
@@ -70,9 +61,9 @@ export async function saveAcceptedWebFile(
     if(started.ticket!==ticket || started.bytes!==bytes.byteLength)
       throw new Error("本机接收票据或大小不一致");
     const view=new Uint8Array(bytes);
-    for(let offset=0;offset<view.length;offset+=CHUNK){
+    for(let offset=0;offset<view.length;offset+=WEB_CHUNK_BYTES){
       if(signal?.aborted)throw new Error("接收已取消");
-      const part=view.subarray(offset,Math.min(view.length,offset+CHUNK));
+      const part=view.subarray(offset,Math.min(view.length,offset+WEB_CHUNK_BYTES));
       const status=await nativeWebReceiver.append(ticket,offset,bytesToBase64(part));
       if(status.received!==offset+part.byteLength || status.total!==bytes.byteLength)
         throw new Error("本机分块接收状态异常");

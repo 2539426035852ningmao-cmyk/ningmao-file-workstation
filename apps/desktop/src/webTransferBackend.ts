@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import {safeWebFileName, WEB_MAX_FILE_BYTES, WEB_CHUNK_BYTES} from "./webFileRules";
 
 /** W3 strictly local source adapter: does not authenticate or transmit to a remote device. */
 export type PreparedWebFile = {
@@ -20,7 +21,7 @@ export type DesktopWebRTCOffer = {
   manifest: { id: string; name: string; size: number; mime: string; sha256: string };
   bytes: ArrayBuffer;
 };
-export const MAX_DESKTOP_WEB_BYTES = 64 * 1024 * 1024;
+export const MAX_DESKTOP_WEB_BYTES = WEB_MAX_FILE_BYTES;
 export const nativeWebTransferSource = {
   prepare(shelfId: number, itemId: number): Promise<PreparedWebFile> {
     // Local correlation ticket, never disclose it to a remote peer or URL.
@@ -47,12 +48,12 @@ export async function buildDesktopWebRTCOffer(
   const prepared = await nativeWebTransferSource.prepare(shelfId, itemId);
   try {
     if (!Number.isSafeInteger(prepared.bytes) || prepared.bytes < 0 || prepared.bytes > MAX_DESKTOP_WEB_BYTES ||
-        !/^[a-f0-9]{64}$/i.test(prepared.sha256) || !prepared.ticket) {
+        !safeWebFileName(prepared.name) || !/^[a-f0-9]{64}$/i.test(prepared.sha256) || !prepared.ticket) {
       throw new Error("源文件声明不符合 Web 传输安全要求");
     }
     const output = new ArrayBuffer(prepared.bytes);
     const view = new Uint8Array(output);
-    const CHUNK_SIZE = 64 * 1024;
+    const CHUNK_SIZE = WEB_CHUNK_BYTES;
     for (let offset = 0; offset < prepared.bytes;) {
       if (signal?.aborted) throw new Error("发送已取消");
       const chunk = await nativeWebTransferSource.readChunk(prepared.ticket, offset, CHUNK_SIZE);
