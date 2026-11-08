@@ -50,6 +50,10 @@ export function App() {
   const fileInput = useRef<HTMLInputElement>(null);
   const downloadUrls = useRef<string[]>([]);
   const handler = useRef<(msg: Message) => void>(() => {});
+  const outgoingDeadline = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const incomingDeadline = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearOutgoing = () => { if (outgoingDeadline.current) clearTimeout(outgoingDeadline.current); outgoingDeadline.current = null; };
+  const clearIncoming = () => { if (incomingDeadline.current) clearTimeout(incomingDeadline.current); incomingDeadline.current = null; };
 
   const updateTask = useCallback((id: string, patch: Partial<Task>) => {
     setTasks(old => old.map(task => task.id === id ? { ...task, ...patch } : task));
@@ -59,6 +63,10 @@ export function App() {
     socket.current.send(JSON.stringify(message));
   }, []);
   const fail = useCallback((text: string) => {
+    if (outgoingDeadline.current) clearTimeout(outgoingDeadline.current);
+    if (incomingDeadline.current) clearTimeout(incomingDeadline.current);
+    outgoingDeadline.current = null;
+    incomingDeadline.current = null;
     setNotice(text);
     if (active.current) {
       updateTask(active.current.id, { status: "失败：" + text });
@@ -78,9 +86,14 @@ export function App() {
       setDownloads(old => [{ id: meta.id, name: meta.name, size: meta.size, url }, ...old].slice(0, 8));
       updateTask(id, { fraction: 1, status: "已校验，可保存到设备" });
       try { sendSignal({ type: "receipt", to: remote, payload: { id, ok: true } }); } catch { /* receiver still has the verified file */ }
+      clearOutgoing(); clearIncoming();
       setBusy(false); active.current = null; inbound.current = null;
     },
-    transmitted: () => updateTask(id, { fraction: 1, status: "已发送，等待对方校验" }),
+    transmitted: () => {
+      updateTask(id, { fraction: 1, status: "已发送，等待对方校验" });
+      clearOutgoing();
+      outgoingDeadline.current = setTimeout(() => fail("接收方未在规定时间内确认校验"), 60_000);
+    },
     error: fail
   }), [sendSignal, updateTask, fail]);
 
@@ -100,32 +113,44 @@ export function App() {
       const request = { from, meta: payload };
       inbound.current = request;
       setIncoming(request);
+      clearIncoming();
+      incomingDeadline.current = setTimeout(() => {
+        if (inbound.current?.meta.id === request.meta.id) {
+          inbound.current = null;
+          setIncoming(null);
+          try { sendSignal({ type: "decision", to: request.from, payload: { id: request.meta.id, accepted: false } }); } catch { /* disconnected */ }
+        }
+      }, 60_000);
       return;
     }
     if (msg.type === "decision" && outbound.current && active.current?.to === from &&
         payload.id === outbound.current.meta.id) {
+      clearOutgoing();
       if (payload.accepted !== true) {
         updateTask(outbound.current.meta.id, { status: "对方已拒绝" });
         outbound.current = null; active.current = null; setBusy(false);
         return;
       }
       const { bytes, meta } = outbound.current;
+      outgoingDeadline.current = setTimeout(() => fail("建立传输连接超时"), 120_000);
       const rtc = makeLink(from, meta.id, "发送");
       link.current = rtc;
       void rtc.startSender(bytes, meta).catch(e => fail(String(e)));
       outbound.current = null;
       return;
     }
-    if ((msg.type === "description" || msg.type === "candidate") && active.current?.to === from && link.current) {
+    if ((msg.type === "description" || msg.type === "candidate") && active.current?.to === from && active.current.id === payload.id && link.current) {
       void link.current.handle(msg.type, payload).catch(e => fail(String(e)));
       return;
     }
     if (msg.type === "receipt" && active.current?.to === from && payload.id === active.current.id && payload.ok === true) {
+      clearOutgoing();
       updateTask(active.current.id, { status: "对方已校验（需自行保存）", fraction: 1 });
       active.current = null; link.current?.close(); link.current = null; setBusy(false);
       return;
     }
     if (msg.type === "cancel" && active.current?.to === from) {
+      clearOutgoing(); clearIncoming();
       updateTask(active.current.id, { status: "对方已取消" });
       link.current?.close(); link.current = null;
       active.current = null; outbound.current = null; inbound.current = null;
@@ -168,6 +193,8 @@ export function App() {
         if (disposed) return;
         setConnection("offline"); setDevices([]);
         link.current?.close(); link.current = null;
+        if (active.current) updateTask(active.current.id, { status: "网络中断，未确认完成" });
+        clearOutgoing(); clearIncoming();
         outbound.current = null; active.current = null; inbound.current = null;
         setBusy(false); setIncoming(null);
         retry = setTimeout(connect, 3500);
@@ -182,12 +209,18 @@ export function App() {
       ws?.close();
       if (socket.current === ws) socket.current = null;
       link.current?.close();
+      clearOutgoing(); clearIncoming();
     };
   }, [deviceName]);
 
   useEffect(() => () => {
     for (const url of downloadUrls.current) URL.revokeObjectURL(url);
   }, []);
+  useEffect(() => {
+    const activeUrls = new Set(downloads.map(d => d.url));
+    for (const url of downloadUrls.current) if (!activeUrls.has(url)) URL.revokeObjectURL(url);
+    downloadUrls.current = [...activeUrls];
+  }, [downloads]);
   useEffect(() => {
     if (!incoming) return;
     const dialog = requestDialog.current;
@@ -223,11 +256,14 @@ export function App() {
       outbound.current = { bytes, meta, to: destination };
       setTasks(old => [{ id: meta.id, name: meta.name, direction: "发送" as const, status: "等待接收确认", fraction: 0 }, ...old].slice(0, 20));
       sendSignal({ type: "invite", to: destination, payload: meta });
+      clearOutgoing();
+      outgoingDeadline.current = setTimeout(() => fail("接收方未在 60 秒内确认"), 60_000);
     } catch (e) { fail(e instanceof Error ? e.message : String(e)); }
   }
   function decide(accepted: boolean) {
     const request = inbound.current;
     if (!request) return;
+    clearIncoming();
     setIncoming(null);
     if (!accepted) {
       inbound.current = null;
@@ -240,12 +276,15 @@ export function App() {
     const rtc = makeLink(request.from, request.meta.id, "接收");
     link.current = rtc;
     rtc.prepareReceiver(request.meta);
+    clearOutgoing();
+    outgoingDeadline.current = setTimeout(() => fail("接收数据超时或网络无法直连"), 120_000);
     try { sendSignal({ type: "decision", to: request.from, payload: { id: request.meta.id, accepted: true } }); }
     catch (e) { fail(String(e)); }
   }
   function cancel() {
     if (!active.current) return;
     const { id, to } = active.current;
+    clearOutgoing(); clearIncoming();
     updateTask(id, { status: "已取消" });
     try { sendSignal({ type: "cancel", to, payload: { id } }); } catch { /* disconnected */ }
     link.current?.close(); link.current = null;
