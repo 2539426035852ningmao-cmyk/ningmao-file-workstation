@@ -56,6 +56,7 @@ test("统一界面：两独立浏览器合成登录→选择设备→确认→SH
     await dialog.getByRole("button",{name:"接受文件"}).click();
     const save=receiver.getByRole("link",{name:"保存"});
     await expect(save).toBeVisible({timeout:25_000});
+    await sender.getByRole("button",{name:"传输记录",exact:true}).click();
     await expect(sender.getByText("对方已校验（需自行保存）")).toBeVisible();
     const downloadPromise=receiver.waitForEvent("download");
     await save.click();
