@@ -1,3 +1,4 @@
+import {expandDisplayOptions} from "../menu";
 import { test,expect } from "@playwright/test";
 import { mkdirSync,writeFileSync } from "node:fs";
 import path from "node:path";
@@ -5,6 +6,7 @@ const evidence=process.env.COMPACT_EVIDENCE;
 if(evidence)mkdirSync(evidence,{recursive:true});
 async function more(page:import("@playwright/test").Page,name:string,radio=false){
   await page.getByRole("button",{name:"更多操作",exact:true}).click();
+  if(radio)await expandDisplayOptions(page);
   await page.getByRole(radio?"menuitemradio":"menuitem",{name,exact:true}).click();
 }
 async function capture(page:import("@playwright/test").Page,name:string){if(evidence)await page.screenshot({path:path.join(evidence,name+".png")});}
@@ -67,7 +69,7 @@ test("键盘搜索与文件架切换保持原位，列表和缩略图切换可�
   await more(page,"详细列表",true);await expect(page.locator(".asset-row").first()).toHaveCSS("height","44px");
   await scroll.evaluate(n=>n.scrollTop=n.scrollHeight);await expect(page.getByRole("button",{name:"选择 合成39.txt",exact:true})).toBeVisible();
   await more(page,"网格视图",true);
-  await page.getByRole("button",{name:"更多操作",exact:true}).click();await page.getByRole("menuitemradio",{name:"大缩略图",exact:true}).click();
+  await page.getByRole("button",{name:"更多操作",exact:true}).click();await expandDisplayOptions(page);await page.getByRole("menuitemradio",{name:"大缩略图",exact:true}).click();
   await scroll.evaluate(n=>n.scrollTop=n.scrollHeight);await expect(page.getByRole("button",{name:"选择 合成39.txt",exact:true})).toBeVisible();
   expect(await page.locator("[data-item-id]").count()).toBeLessThan(43);
 });

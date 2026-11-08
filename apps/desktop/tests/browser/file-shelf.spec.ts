@@ -1,3 +1,4 @@
+import {expandDisplayOptions} from "../menu";
 import { test,expect } from "@playwright/test";
 import path from "node:path";
 for(const status of ["failed","completed","cancelled"])test(`快速复制${status}终态早于启动响应时不被覆盖`,async({page})=>{
@@ -12,7 +13,7 @@ for(const status of ["failed","completed","cancelled"])test(`快速复制${statu
   expect(await page.evaluate(()=>JSON.parse(localStorage.getItem("test-state")!).jobs[0].status)).toBe(status);
 });
 const screenshots=process.env.M105_SCREENSHOTS;
-async function more(page:import("@playwright/test").Page,name:string,radio=false){await page.getByRole("button",{name:"更多操作",exact:true}).click();await page.getByRole(radio?"menuitemradio":"menuitem",{name,exact:true}).click();}
+async function more(page:import("@playwright/test").Page,name:string,radio=false){await page.getByRole("button",{name:"更多操作",exact:true}).click();if(radio)await expandDisplayOptions(page);await page.getByRole(radio?"menuitemradio":"menuitem",{name,exact:true}).click();}
 test("单击选中、空格预览、双击请求系统默认程序",async({page})=>{
   await page.goto("/tests/harness.html");
   const file=page.getByRole("button",{name:"选择 Alpha.txt",exact:true});

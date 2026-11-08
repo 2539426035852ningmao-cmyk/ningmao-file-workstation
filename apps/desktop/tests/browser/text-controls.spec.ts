@@ -1,3 +1,4 @@
+import {expandDisplayOptions} from "../menu";
 import {test,expect} from "@playwright/test";
 
 test("文件文字保留完整行高，长架名不挤占窗口控制和拖动区",async({page})=>{
@@ -19,7 +20,7 @@ test("文件文字保留完整行高，长架名不挤占窗口控制和拖动�
     await page.keyboard.press("Tab");await expect(page.getByRole("button",{name:"暂时关闭窗口",exact:true})).toBeFocused();
     for(const size of ["小缩略图","中缩略图","大缩略图"]){
       await page.getByRole("button",{name:"更多操作",exact:true}).click();
-      await page.getByRole("menuitemradio",{name:size,exact:true}).click();
+      await expandDisplayOptions(page);await page.getByRole("menuitemradio",{name:size,exact:true}).click();
       const text=await page.locator(".asset-name,.asset-meta").evaluateAll(nodes=>nodes.map(e=>({height:e.getBoundingClientRect().height,line:parseFloat(getComputedStyle(e).lineHeight)})));
       for(const row of text)expect(row.height).toBeGreaterThanOrEqual(row.line);
     }
