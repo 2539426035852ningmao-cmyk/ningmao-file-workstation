@@ -104,7 +104,8 @@ export function App() {
       return;
     }
     if (msg.type === "unavailable") {
-      if (active.current?.id === msg.id && active.current.to === msg.to) fail("接收设备已离线");
+      const current = active.current;
+      if (current?.id === msg.id && current.to === msg.to) fail("接收设备已离线");
       return;
     }
     const from = msg.from || "";
@@ -149,13 +150,13 @@ export function App() {
     }
     if (msg.type === "receipt" && sameSession(active.current, from, payload) && payload.ok === true) {
       clearOutgoing();
-      updateTask(active.current.id, { status: "对方已校验（需自行保存）", fraction: 1 });
+      updateTask(active.current!.id, { status: "对方已校验（需自行保存）", fraction: 1 });
       active.current = null; link.current?.close(); link.current = null; setBusy(false);
       return;
     }
     if (msg.type === "cancel" && sameSession(active.current, from, payload)) {
       clearOutgoing(); clearIncoming();
-      updateTask(active.current.id, { status: "对方已取消" });
+      updateTask(active.current!.id, { status: "对方已取消" });
       link.current?.close(); link.current = null;
       active.current = null; outbound.current = null; inbound.current = null;
       setIncoming(null); setBusy(false);
