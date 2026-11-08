@@ -14,7 +14,7 @@ export class PeerLink {
   private pc: RTCPeerConnection;
   private channel: RTCDataChannel | null = null;
   private invite: Invite | null = null;
-  private incoming: Uint8Array[] = [];
+  private incoming: ArrayBuffer[] = [];
   private length = 0;
   private pendingIce: RTCIceCandidateInit[] = [];
   private stopped = false;
@@ -116,7 +116,7 @@ export class PeerLink {
     if (this.length > this.invite.size || this.length > MAX_BYTES) {
       this.hooks.error("数据超过预期大小，已停止接收"); this.close(); return;
     }
-    this.incoming.push(new Uint8Array(payload));
+    this.incoming.push(payload);
     this.hooks.progress(this.length, this.invite.size);
   }
   private fail(error: unknown) { if (!this.stopped) this.hooks.error(error instanceof Error ? error.message : String(error)); }
