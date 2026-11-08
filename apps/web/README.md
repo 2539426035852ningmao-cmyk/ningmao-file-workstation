@@ -69,3 +69,9 @@ npm run build
 
 ### 在线设备与标签页
 浏览器在线会话 ID 存于本标签页的 `sessionStorage`（刷新保留、不同标签互不抢占）；这只是路由标识，**不是安全配对凭证**。账号仍由服务端验证的 Access JWT 所属 subject 确定。传输期间禁用改名，避免重新建立 WebSocket 时中断文件。
+
+## W4 禁止未经批准部署
+
+真实 Cloudflare Worker 发布入口已改为 `npm run deploy` → `npm run preflight:deploy` → build → Wrangler。没有明确 `NINGMAO_W4_DEPLOY_APPROVED=YES` 就会失败。这个变量**不等同于已经创建 Access 策略**；仍需要仓库所有者先确认独立测试域名、整个网站保护策略、Cloudflare 账单与额度、回滚路线及后端的 JWT 有效性。
+
+`npm run preflight:source`、`npx wrangler deploy --dry-run` 和 GitHub Pages W0 静态预览不需要这项部署授权。不得为了让 CI 变绿而伪造云端批准，真实 Access JWT 和云端令牌不能提交到公开仓库。

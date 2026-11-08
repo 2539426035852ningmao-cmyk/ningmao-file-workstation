@@ -18,6 +18,9 @@ if (!config.assets?.directory) fail("缺少静态网页构建产物路径");
 if (config.vars?.CF_ACCESS_TEAM_DOMAIN?.startsWith("CONFIGURE_") && mode === "--source") {
   console.log("SOURCE: Access 环境仍为占位；未授权部署时这是预期行为");
 }
+if (mode === "--deploy" && process.env.NINGMAO_W4_DEPLOY_APPROVED !== "YES") {
+  fail("缺少明确的公网部署审批：设置 NINGMAO_W4_DEPLOY_APPROVED=YES 前需确认 Access 策略、测试域名、额度和回滚方案");
+}
 if (mode === "--deploy" || mode === "--live") {
   const domain = config.vars?.CF_ACCESS_TEAM_DOMAIN || "";
   const aud = config.vars?.CF_ACCESS_AUD || "";
