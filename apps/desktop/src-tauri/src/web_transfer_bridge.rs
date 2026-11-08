@@ -4,6 +4,7 @@
 use crate::{Runtime, error, metadata_scope, store::Result};
 use base64::{Engine, engine::general_purpose::STANDARD};
 use serde::Serialize;
+use sha2::{Digest, Sha256};
 use std::{
     collections::HashMap,
     fs::{self, File},
@@ -38,6 +39,8 @@ pub struct PreparedWebFile {
     pub item_id: i64,
     pub name: String,
     pub bytes: u64,
+    pub sha256: String,
+    pub mime: String,
     pub expires_in_seconds: u64,
 }
 #[derive(Serialize)]
@@ -67,6 +70,28 @@ fn inspect(path: &Path) -> Result<(u64, Option<SystemTime>)> {
     }
     Ok((meta.len(), meta.modified().ok()))
 }
+fn checksum(path: &Path, expected_size: u64, expected_modified: Option<SystemTime>) -> Result<String> {
+    let mut file = File::open(path).map_err(|_| "无法校验选中的源文件")?;
+    let mut hasher = Sha256::new();
+    let mut bytes = 0_u64;
+    let mut buffer = [0_u8; 64 * 1024];
+    loop {
+        let count = file.read(&mut buffer).map_err(|_| "源文件读取失败")?;
+        if count == 0 {
+            break;
+        }
+        bytes += count as u64;
+        if bytes > MAX_FILE {
+            return Err("校验过程中文件容量超出限制".into());
+        }
+        hasher.update(&buffer[..count]);
+    }
+    let (size, modified) = inspect(path)?;
+    if bytes != expected_size || size != expected_size || modified != expected_modified {
+        return Err("源文件在准备期间改变，请重新选择".into());
+    }
+    Ok(format!("{:x}", hasher.finalize()))
+}
 fn native_origin(window: &tauri::WebviewWindow) -> Result<()> {
     let url = window.url().map_err(error)?;
     if matches!(
@@ -92,6 +117,7 @@ impl WebTransferBridge {
             return Err("本机发送请求身份无效".into());
         }
         let (size, modified) = inspect(&path)?;
+        let sha256 = checksum(&path, size, modified)?;
         let mut permits = self.permits.lock().map_err(error)?;
         permits.retain(|_, p| p.issued.elapsed() < PERMIT_TTL && p.owner != owner);
         if permits.len() >= 4 {
@@ -114,6 +140,8 @@ impl WebTransferBridge {
             item_id,
             name,
             bytes: size,
+            sha256,
+            mime: "application/octet-stream".into(),
             expires_in_seconds: PERMIT_TTL.as_secs(),
         })
     }
@@ -160,7 +188,7 @@ fn read_owned(permit: &Permit, offset: u64, size: u32) -> Result<WebFileChunk> {
 }
 /// Creates a permit for exactly one locally selected reference; no bytes leave this command.
 #[tauri::command]
-pub fn web_transfer_prepare(
+pub async fn web_transfer_prepare(
     app: tauri::AppHandle,
     window: tauri::WebviewWindow,
     shelf_id: i64,
@@ -172,20 +200,25 @@ pub fn web_transfer_prepare(
     if scope.is_some_and(|id| id != shelf_id) {
         return Err("只能从当前文件架选择发送文件".into());
     }
-    let state = app.state::<Runtime>();
-    let store = state.store.lock().map_err(error)?;
-    store.validate_item_scope(scope, &[item_id])?;
-    let item = store
-        .management_snapshot()?
-        .items
-        .into_iter()
-        .find(|r| r.id == item_id && r.shelf_id == shelf_id)
-        .ok_or("文件不属于指定文件架")?;
-    let path = store.opening_target(item_id)?;
-    drop(store);
-    state
-        .web_transfers
-        .issue(&ticket, window.label(), shelf_id, item_id, path, item.name)
+    let owner = window.label().to_owned();
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<Runtime>();
+        let store = state.store.lock().map_err(error)?;
+        store.validate_item_scope(Some(shelf_id), &[item_id])?;
+        let item = store
+            .management_snapshot()?
+            .items
+            .into_iter()
+            .find(|r| r.id == item_id && r.shelf_id == shelf_id)
+            .ok_or("文件不属于指定文件架")?;
+        let path = store.opening_target(item_id)?;
+        drop(store);
+        state
+            .web_transfers
+            .issue(&ticket, &owner, shelf_id, item_id, path, item.name)
+    })
+    .await
+    .map_err(error)?
 }
 #[tauri::command]
 pub async fn web_transfer_read_chunk(
@@ -204,7 +237,7 @@ pub async fn web_transfer_read_chunk(
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<Runtime>();
         let store = state.store.lock().map_err(error)?;
-        store.validate_item_scope(scope, &[permit.item_id])?;
+        store.validate_item_scope(Some(permit.shelf_id), &[permit.item_id])?;
         store.validate_opening_target(permit.item_id, &permit.path)?;
         drop(store);
         read_owned(&permit, offset, size)
@@ -244,6 +277,7 @@ mod tests {
         let chunk = read_owned(&permit, 0, MAX_CHUNK).unwrap();
         assert_eq!(chunk.bytes, 6);
         assert_eq!(chunk.data_base64, STANDARD.encode(b"abc123"));
+        assert_eq!(checksum(&permit.path, permit.size, permit.modified).unwrap(), format!("{:x}", Sha256::digest(b"abc123")));
         assert!(chunk.eof);
         assert!(read_owned(&permit, 8, 1).is_err());
         assert!(read_owned(&permit, 0, MAX_CHUNK + 1).is_err());
