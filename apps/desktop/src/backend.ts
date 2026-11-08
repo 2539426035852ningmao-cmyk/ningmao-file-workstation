@@ -11,6 +11,7 @@ export type Progress = { job_id: number; name: string; file_index: number; file_
 export type ImportResult = { added: number; job_id: number | null; errors: string[] };
 export type DesktopPreferences={edge:"free"|"left"|"right"|"top"|"bottom";auto_hide:boolean;topmost:boolean;flow?:"vertical"|"horizontal";startup?:"orb"|"full"};
 export type EntryPresentation={kind:"orb"|"capsule";shelf_id:number|null};
+export type CollectRequest={shelf_id:number;action:"add"|"paste"};
 export type EntrySlot={id:number;x:number;y:number;width:number;height:number};
 export type PeekData={shelf:CatalogShelf;total:number;items:{id:number;name:string;kind:string;status:string;thumbnail:string|null}[]};
 export type ManagedReference=Pick<Item,"id"|"shelf_id"|"path"|"name"|"kind"|"tags">;
@@ -26,7 +27,7 @@ export function detachedShelfFromLabel(label:string):number|undefined {
   const id=Number(label.slice(6));return Number.isSafeInteger(id)?id:undefined;
 }
 export type NearPointer={shelf_id:number|null;x:number;y:number};
-export type Events = {focus?:(location:{shelf_id:number;item_id:number})=>void;near?:(value:NearPointer)=>void; drop: (paths: string[]) => void; hover: (active: boolean) => void; progress: (p: Progress) => void; finished: (message: string) => void; drag: (message: string) => void; activate?:(id:number)=>void; changed?:()=>void; metadata?:()=>void; desktop?:(view:DesktopView)=>void; error?:(message:string)=>void };
+export type Events = {collect?:(request:CollectRequest)=>void;focus?:(location:{shelf_id:number;item_id:number})=>void;near?:(value:NearPointer)=>void; drop: (paths: string[]) => void; hover: (active: boolean) => void; progress: (p: Progress) => void; finished: (message: string) => void; drag: (message: string) => void; activate?:(id:number)=>void; changed?:()=>void; metadata?:()=>void; desktop?:(view:DesktopView)=>void; error?:(message:string)=>void };
 export type TrashEntry={id:number;entity:"item"|"shelf";name:string;shelf_id:number;shelf_name:string;shelf_kind:string;path:string|null;removed_at:number;children:number};
 export type SystemRecyclePreview={ticket:string;items:{id:number;name:string;path:string;other_references:number;shelf_kind:string}[]};
 export type SystemRecycleOutcome={id:number;status:string;message:string};
@@ -34,6 +35,7 @@ export type RecycleActivity={id:number;shelf_id:number;name:string;status:string
 export type WakeShortcutConfig={version:number;enabled:boolean;accelerator:string};
 export type WakeShortcutState={config:WakeShortcutConfig;active:boolean;paused:boolean;warning:string|null};
 export interface Backend {
+  desktopCollect?:(shelf:number,action:CollectRequest["action"])=>Promise<void>;
   chat?:ChatBackend;
   transfer?:TransferBackend;
   beginDuplicateScan?:()=>Promise<number>;
@@ -99,6 +101,7 @@ export interface Backend {
   subscribe(events: Events): Promise<() => void>;
 }
 export const nativeBackend: Backend = {
+  desktopCollect:(shelfId,action)=>invoke("desktop_collect",{shelfId,action}),
   chat:nativeChat,
   transfer:nativeTransfer,
   beginDuplicateScan:()=>invoke("begin_duplicate_scan"),
@@ -144,6 +147,11 @@ export const nativeBackend: Backend = {
         const focus=()=>{void invoke<{shelf_id:number;item_id:number}|null>("take_search_focus").then(value=>{if(value)events.focus?.(value);}).catch(()=>events.error?.("搜索结果已变化，请重新搜索。"));};
         cleanups.push(await getCurrentWebviewWindow().listen("search-focus",focus));
         focus();
+      }
+      if(events.collect){
+        const collect=()=>{void invoke<CollectRequest|null>("take_collect_request").then(value=>{if(value)events.collect?.(value);}).catch(error=>events.error?.(String(error)));};
+        cleanups.push(await getCurrentWebviewWindow().listen("collect-request",collect));
+        collect();
       }
       if(getCurrentWebviewWindow().label==="main" || detachedShelfFromLabel(getCurrentWebviewWindow().label)!==undefined)cleanups.push(await getCurrentWebviewWindow().onDragDropEvent(event => {
         const payload=event.payload;

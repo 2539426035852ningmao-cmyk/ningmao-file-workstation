@@ -4,6 +4,26 @@ use ningmao_desktop_lib::{
 };
 
 #[test]
+fn collect_request_requires_current_capsule_and_never_interrupts_native_drop() {
+    let mut layout = Layout::default();
+    layout.collapse(4);
+    let mut entry = EntryState::default();
+    assert!(entry.collect_target("desktop-entry", 4).is_err());
+    entry.present(&layout, 4, Kind::Capsule).unwrap();
+    assert!(entry.collect_target("desktop-entry", 4).is_ok());
+    assert!(entry.collect_target("manager", 4).is_err());
+    assert!(entry.collect_target("main", 4).is_err());
+    assert!(entry.collect_target("desktop-entry", 7).is_err());
+    entry.begin_drag(&layout, 32.0, 32.0, 1.0);
+    assert!(entry.collect_target("desktop-entry", 4).is_err());
+    entry.cancel_drag();
+    assert!(entry.collect_target("desktop-entry", 4).is_ok());
+    assert!(
+        serde_json::from_str::<ningmao_desktop_lib::entry::CollectAction>("\"delete\"").is_err()
+    );
+}
+
+#[test]
 fn presentation_and_native_drag_freeze_identity_and_geometry_until_cancel_or_drop() {
     let mut layout = Layout::default();
     layout.collapse(4);

@@ -123,6 +123,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   const [selection,setSelection]=useState<{ids:number[];anchor:number|null;focus:number|null}>({ids:[],anchor:null,focus:null});
   const selected=selection.focus;
   function setSelected(id:number|null){setSelection({ids:id===null?[]:[id],anchor:id,focus:id});}
+  const [collectRequest,setCollectRequest]=useState<import("./backend").CollectRequest|null>(null);
   const [searchOpen,setSearchOpen]=useState(false),[displayOptions,setDisplayOptions]=useState(false);
   const [chatOpen,setChatOpen]=useState(false);
   const [chatLoaded,setChatLoaded]=useState(false);
@@ -248,6 +249,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
       finished:message=>{copyFinished.current++;setMessage(message);setProgress(null);void refresh().catch(e=>setError(String(e)));},
       drag:message=>setMessage(`系统拖出结果：${message}；已请求复制。`),
       activate:activateShelf,changed:()=>{void refresh().catch(e=>setError(String(e)));},error:setError,
+      collect:setCollectRequest,
       focus:location=>{activateShelf(location.shelf_id);void backend.snapshot().then(value=>{if(!live||activeShelf.current!==location.shelf_id)return;setData(value);if(value.items.some(i=>i.id===location.item_id&&i.shelf_id===location.shelf_id)){setSelected(location.item_id);setRevealItem(location.item_id);}else setError("搜索结果已变化，请重新搜索。");}).catch(()=>{if(live)setError("暂时无法定位搜索结果。");});},
       metadata:()=>{void backend.managementSnapshot().then(value=>{const tags=new Map(value.items.map(i=>[i.id,i.tags]));setData(old=>({...old,items:old.items.map(i=>tags.has(i.id)?{...i,tags:tags.get(i.id)!}:i)}));}).catch(e=>setError(String(e)));},
       desktop:desktopChanged,
@@ -255,6 +257,18 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
     void Promise.all([refresh(),backend.desktopState()]).then(([,desktop])=>{if(live) {desktopChanged(desktop);setMessage("文件架已恢复。");setLoading(false);}}).catch(e=>{if(live) {setError(String(e));setLoading(false);}});
     return ()=>{live=false;cleanup?.();};
   },[backend]);
+  useEffect(()=>{
+    if(!collectRequest || loading)return;
+    const request=collectRequest;setCollectRequest(null);
+    if(busy || running || document.querySelector('[role="dialog"]')){setError("请先完成当前操作，再从胶囊添加文件。");return;}
+    activateShelf(request.shelf_id);
+    void perform(async()=>{
+      if(request.action==="paste"){await pasteFiles();return;}
+      const paths=await backend.chooseFiles();
+      if(activeShelf.current!==request.shelf_id)throw new Error("文件架已切换，请重新添加。");
+      await receive(paths);
+    });
+  },[collectRequest,loading,busy,running]);
   useEffect(()=>{applyTheme(theme);setThemeWarning(writeTheme(theme));},[theme]);
   useEffect(()=>observeTheme(setTheme),[]);
   function setView(patch:Partial<ShelfView>) {
