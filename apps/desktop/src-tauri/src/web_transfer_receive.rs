@@ -33,8 +33,8 @@ struct ReceiveSession {
     shelf: i64,
     job: i64,
     path: PathBuf,
-    _temporary: tempfile::TempDir,
     file: File,
+    _temporary: tempfile::TempDir,
     expected: u64,
     written: u64,
     sha256: String,
@@ -181,8 +181,8 @@ impl ReceiveSession {
             shelf,
             job,
             path,
-            _temporary: temporary,
             file,
+            _temporary: temporary,
             expected,
             written: 0,
             sha256: sha256.to_ascii_lowercase(),
@@ -555,6 +555,7 @@ mod tests {
         let new_file = bound.join(result.file_name);
         assert_ne!(new_file, bound.join("synthetic.txt"));
         assert_eq!(fs::read(new_file).unwrap(), expected);
+        assert_eq!(fs::read_dir(root.path().join("web-receive-staging")).unwrap().count(), 0);
         let jobs = store.snapshot().unwrap().jobs;
         assert!(
             jobs.iter()
@@ -613,6 +614,7 @@ mod tests {
         let item = control.sessions.lock().unwrap().remove(ticket).unwrap();
         assert!(publish(&mut store, item).is_err());
         assert!(!bound.join("safe.txt").exists());
+        assert_eq!(fs::read_dir(root.path().join("web-receive-staging")).unwrap().count(), 0);
         assert!(
             store
                 .snapshot()
@@ -652,5 +654,6 @@ mod tests {
         let item = control.sessions.lock().unwrap().remove(ticket).unwrap();
         assert!(publish(&mut store, item).is_err());
         assert!(!bound.join("partial.bin").exists());
+        assert_eq!(fs::read_dir(root.path().join("web-receive-staging")).unwrap().count(), 0);
     }
 }
