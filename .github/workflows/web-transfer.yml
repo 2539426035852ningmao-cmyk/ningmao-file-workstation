@@ -31,3 +31,8 @@ jobs:
         run: npm run preflight:source
       - name: Validate Cloudflare configuration
         run: npx wrangler deploy --dry-run --outdir /tmp/ningmao-web-worker
+      - name: Install test browser
+        run: npx playwright install --with-deps chromium
+      - name: WebRTC browser-level transport checks
+        run: npm run test:browser
+
