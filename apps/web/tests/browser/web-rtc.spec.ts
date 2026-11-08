@@ -4,7 +4,7 @@ test("real Chromium DataChannel transfers exact bytes with SHA-256", async ({ pa
   await page.goto("/");
   const result = await page.evaluate(async () => {
     const [{ PeerLink }, { hex }] = await Promise.all([
-      import("../../src/peer"), import("../../src/guards")
+      import("/src/peer.ts"), import("/src/guards.ts")
     ]);
     const content = "Ningmao W2 browser integration · 合成文件 \u0000\u0001 传输内容";
     const bytes = new TextEncoder().encode(content).buffer;
@@ -62,7 +62,7 @@ test("real Chromium DataChannel transfers exact bytes with SHA-256", async ({ pa
 test("invalid content checksum blocks verified receive", async ({ page }) => {
   await page.goto("/");
   const result = await page.evaluate(async () => {
-    const { PeerLink } = await import("../../src/peer");
+    const { PeerLink } = await import("/src/peer.ts");
     const bytes = new TextEncoder().encode("synthetic corrupt checksum").buffer;
     const meta = {
       id: crypto.randomUUID(), name: "bad-checksum.txt",
