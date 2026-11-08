@@ -73,6 +73,7 @@ struct Runtime {
     recycle_plans: Mutex<std::collections::HashMap<String, PlannedRecycle>>,
     recycling: Mutex<Option<(String, Arc<AtomicBool>)>>,
     search_focus: Mutex<std::collections::HashMap<String, SearchLocation>>,
+    collect_requests: Mutex<std::collections::HashMap<String, CollectRequest>>,
     search_control: search_control::SearchControl,
     _process_lock: File,
 }
@@ -1744,6 +1745,62 @@ struct SearchLocation {
     shelf_id: i64,
     item_id: i64,
 }
+#[derive(Clone, Serialize)]
+struct CollectRequest {
+    shelf_id: i64,
+    action: entry::CollectAction,
+}
+#[tauri::command]
+async fn desktop_collect(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    shelf_id: i64,
+    action: entry::CollectAction,
+) -> Result<()> {
+    app.state::<desktop_runtime::Desktop>()
+        .entry
+        .lock()
+        .map_err(error)?
+        .collect_target(window.label(), shelf_id)?;
+    desktop_runtime::require_idle(&app)?;
+    let label = shelf_windows::label_for(&app, shelf_id)?;
+    desktop_runtime::present(&app, shelf_id, entry::Kind::Orb)?;
+    // A cold file WebView consumes this once after installing its listener, as search focus does.
+    app.state::<Runtime>()
+        .collect_requests
+        .lock()
+        .map_err(error)?
+        .insert(label.clone(), CollectRequest { shelf_id, action });
+    if let Err(e) = desktop_runtime::open(&app, shelf_id, true) {
+        app.state::<Runtime>()
+            .collect_requests
+            .lock()
+            .map_err(error)?
+            .remove(&label);
+        return Err(e);
+    }
+    app.emit_to(label.as_str(), "collect-request", ())
+        .map_err(error)
+}
+#[tauri::command]
+fn take_collect_request(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+) -> Result<Option<CollectRequest>> {
+    let scope = shelf_windows::scope(&window)?;
+    let request = app
+        .state::<Runtime>()
+        .collect_requests
+        .lock()
+        .map_err(error)?
+        .remove(window.label());
+    if let Some(ref request) = request
+        && request.shelf_id != scope.unwrap_or(desktop_runtime::active_shelf(&app)?)
+    {
+        return Err("文件架已切换，请重新从胶囊添加。".into());
+    }
+    Ok(request)
+}
 #[tauri::command]
 async fn focus_search_result(
     app: tauri::AppHandle,
@@ -1978,6 +2035,7 @@ pub fn run() {
                 recycle_plans: Mutex::new(Default::default()),
                 recycling: Mutex::new(None),
                 search_focus: Mutex::new(Default::default()),
+                collect_requests: Mutex::new(Default::default()),
                 search_control: Default::default(),
                 _process_lock: lock,
             });
@@ -2163,6 +2221,8 @@ pub fn run() {
             desktop_peek,
             desktop_collapse,
             desktop_open,
+            desktop_collect,
+            take_collect_request,
             desktop_select,
             desktop_page,
             desktop_move,

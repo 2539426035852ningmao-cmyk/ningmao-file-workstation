@@ -10,6 +10,12 @@ pub enum Kind {
     #[serde(alias = "quick-peek")]
     Capsule,
 }
+#[derive(Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum CollectAction {
+    Add,
+    Paste,
+}
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Flow {
@@ -55,6 +61,16 @@ pub struct EntryState {
     drag: Option<Drag>,
 }
 impl EntryState {
+    pub fn collect_target(&self, label: &str, id: i64) -> Result<(), String> {
+        if label != "desktop-entry"
+            || self.busy()
+            || self.presentation.kind != Kind::Capsule
+            || self.presentation.shelf_id != Some(id)
+        {
+            return Err("请先完成投放，再从当前胶囊添加文件。".into());
+        }
+        Ok(())
+    }
     pub fn busy(&self) -> bool {
         self.drag.is_some()
     }
