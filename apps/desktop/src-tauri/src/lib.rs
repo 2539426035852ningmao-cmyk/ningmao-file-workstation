@@ -111,12 +111,7 @@ fn desktop_window(window: &tauri::WebviewWindow) -> Result<()> {
 }
 /// IPC access to local files is allowed only from the bundled Tauri application,
 /// or from the exact dev-server origin in debug builds; not arbitrary localhost.
-fn trusted_native_url(
-    scheme: &str,
-    host: Option<&str>,
-    port: Option<u16>,
-    debug: bool,
-) -> bool {
+fn trusted_native_url(scheme: &str, host: Option<&str>, port: Option<u16>, debug: bool) -> bool {
     let packaged = port.is_none()
         && ((scheme == "http" && host == Some("tauri.localhost"))
             || (scheme == "tauri" && host == Some("localhost")));
@@ -2320,20 +2315,20 @@ pub fn run() {
 
 #[cfg(test)]
 mod native_webview_origin_tests {
-    use super::trusted_native_url;
+    use super::trusted_native_url as check;
 
     #[test]
     fn file_ipc_rejects_untrusted_localhost_and_external_site() {
-        assert!(trusted_native_url("http", Some("tauri.localhost"), None, false));
-        assert!(trusted_native_url("tauri", Some("localhost"), None, false));
-        assert!(!trusted_native_url("http", Some("tauri.localhost"), Some(53323), false));
-        assert!(!trusted_native_url("https", Some("tauri.localhost"), None, false));
-        assert!(!trusted_native_url("http", Some("localhost"), Some(1431), false));
-        assert!(!trusted_native_url("http", Some("127.0.0.1"), Some(53323), true));
-        assert!(!trusted_native_url("http", Some("example.com"), Some(1431), true));
-        assert!(!trusted_native_url("https", Some("localhost"), Some(1431), true));
-        assert!(trusted_native_url("http", Some("localhost"), Some(1431), true));
-        assert!(trusted_native_url("http", Some("127.0.0.1"), Some(1431), true));
+        assert!(check("http", Some("tauri.localhost"), None, false));
+        assert!(check("tauri", Some("localhost"), None, false));
+        assert!(!check("http", Some("tauri.localhost"), Some(53323), false));
+        assert!(!check("https", Some("tauri.localhost"), None, false));
+        assert!(!check("http", Some("localhost"), Some(1431), false));
+        assert!(!check("http", Some("127.0.0.1"), Some(53323), true));
+        assert!(!check("http", Some("example.com"), Some(1431), true));
+        assert!(!check("https", Some("localhost"), Some(1431), true));
+        assert!(check("http", Some("localhost"), Some(1431), true));
+        assert!(check("http", Some("127.0.0.1"), Some(1431), true));
     }
 }
 
