@@ -1254,6 +1254,18 @@ async fn create_shelf(
     Ok(id)
 }
 #[tauri::command]
+async fn rename_shelf(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    id: i64,
+    name: String,
+) -> Result<()> {
+    main_only(&window)?;
+    database(app.clone(), move |s| s.rename_shelf(id, &name)).await?;
+    app.emit("workstation-changed", ()).map_err(error)?;
+    desktop_runtime::publish(&app)
+}
+#[tauri::command]
 async fn copy_references(
     app: tauri::AppHandle,
     window: tauri::WebviewWindow,
@@ -2229,6 +2241,7 @@ pub fn run() {
             toggle_topmost,
             quit,
             create_shelf,
+            rename_shelf,
             copy_references,
             file_window_action,
             file_window_state,

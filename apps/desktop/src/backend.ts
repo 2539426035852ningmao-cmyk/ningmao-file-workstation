@@ -79,6 +79,7 @@ export interface Backend {
   topmost(): Promise<boolean>;
   quit(): Promise<void>;
   createShelf(name:string,session:boolean):Promise<number>;
+  renameShelf?:(id:number,name:string)=>Promise<void>;
   copyReferences(target:number,ids:number[]):Promise<number>;
   desktopState():Promise<DesktopView>;
   desktopPresent(shelf:number,kind:EntryPresentation["kind"]):Promise<void>;
@@ -131,6 +132,7 @@ export const nativeBackend: Backend = {
   open: id => invoke("open_item", { id }),
   cancel: jobId => invoke("cancel_copy", { jobId }), topmost: () => invoke("toggle_topmost"), quit: () => invoke("quit"),
   createShelf:(name,session)=>invoke("create_shelf",{name,session}),
+  renameShelf:(id,name)=>invoke("rename_shelf",{id,name}),
   copyReferences:(target,ids)=>invoke("copy_references",{target,ids}),
   desktopPresent:(shelfId,kind)=>invoke("desktop_present",{shelfId,kind}),desktopPeek:shelfId=>invoke("desktop_peek",{shelfId}),
   desktopState:()=>invoke<DesktopView>("desktop_state").then(view=>{document.documentElement.dataset.alwaysScrollbars=String(view.always_scrollbars??false);return view;}),desktopCollapse:shelfId=>invoke("desktop_collapse",{shelfId}),desktopOpen:shelfId=>invoke("desktop_open",{shelfId}),

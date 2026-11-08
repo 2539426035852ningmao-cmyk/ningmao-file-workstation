@@ -1,6 +1,6 @@
 # 首版功能与验收矩阵
 
-生成时源码：f7ff9c089e33d2fb628bbafcf1465574559ba9f8。本文件由 scripts/generate-delivery-matrix.mjs 生成；结论仅针对下述范围，不自动继承旧 SHA 的 PASS。
+生成基线：5608c3776ac4530f3cd5bc55061893ee8434e898（工作树含本批修改）；最终构建提交以 build-manifest 为准。本文件由 scripts/generate-delivery-matrix.mjs 生成；结论仅针对下述范围，不自动继承旧 SHA 的 PASS。
 
 唯一当前执行状态仍在 [ACTIVE-DELIVERY](ACTIVE-DELIVERY.md)。IN_PROGRESS 表示该完整复合需求仍有缺口，并非其中每个子功能均未实现。没有逐条完整验收的项目不标 TESTED。基础与增强均保留，DEFERRED 仅用于总指令明确允许后置的视频关键帧/OCR/音频理解。
 
@@ -13,8 +13,8 @@
 |功能|实现状态与代码入口|用户入口|自动与原生证据|首版阻断与下一动作|
 |---|---|---|---|---|
 |引用、绑定、安全复制、同名编号|INTEGRATED · src-tauri/src/store.rs|添加/粘贴/拖入；绑定架显示复制语义|Rust/CI 安全回归；旧候选原生来源哈希记录见 ACTIVE|PARTIAL：统一新包连续文件流及原生 OLE 待验|
-|多架、拆合、网格/列表、多选、排序|INTEGRATED · App.tsx / desktop_runtime.rs|切架菜单、更多→显示与排序|现有选择/排序/窗口测试；旧原生逐项通过|PARTIAL：新包连续闭环；文件架重命名尚缺，需补齐|
-|预览、本地搜索与定位|INTEGRATED · App.tsx / components/GlobalSearch.tsx / store/search.rs|Space、Ctrl+F、Ctrl+K、胶囊最近项|f7ff9c0 168 界面通过；新最近项同版原生待验|首版需完成新包最近项→选中→Space，不以按钮存在代替|
+|多架、重命名、拆合、网格/列表、多选、排序|INTEGRATED · App.tsx / desktop_runtime.rs|切架菜单、更多→显示与排序|现有选择/排序/窗口测试；旧原生逐项通过|重命名已接入切架菜单并复用名称表单；新包连续闭环/原生重启待验|
+|预览、本地搜索与定位|INTEGRATED · App.tsx / components/GlobalSearch.tsx / store/search.rs|Space、Ctrl+F、Ctrl+K、胶囊最近项|5608c37 168 界面及双CI通过；同包原生中间最近项准确选中/搜索/详情通过，Space自动输入未触发|PARTIAL：原生Space及连续文件流仍需验证，不以按钮存在代替|
 |软回收、恢复、备份和 SQLite|INTEGRATED · store.rs / components/RecycleDrawer.tsx|柠猫回收站；管理中心→设置|标准 Windows CI 含回收保护；本机 .codex 路径限制保留|PARTIAL：新包回收恢复/重启与备份还原连续性待验|
 |三主题、球/胶囊/完整架、独立管理|INTEGRATED · orb/MorphCapsule.tsx / Manager.tsx / style.css|球→胶囊→完整架；更多→管理中心|三主题与窄窗回归；旧包原生主题/启动通过|PARTIAL：新包文字与原生闭环；#66 连续形变 NOT_INTEGRATED|
 |局域网互传与发现|INTEGRATED · TransferPanel.tsx / transfer_desktop.rs|选文件→发送到设备；更多→文件互传|既有合成回环/协议测试，历史专项许可不扩大|PARTIAL：独立 OS 双机、手机与防火墙边界未完整验收|
