@@ -14,6 +14,7 @@ pub mod store;
 use ningmao_transfer_client as loopback_transport;
 mod transfer_desktop;
 mod transfer_discovery;
+mod web_transfer_bridge;
 mod transfer_identity;
 pub mod transfer_runtime;
 pub mod transfer_sender;
@@ -62,6 +63,7 @@ struct RecycleOutcome {
 struct Runtime {
     browser_shares: browser_share_process::ShareControl,
     transfers: transfer_desktop::TransferControl,
+    web_transfers: web_transfer_bridge::WebTransferBridge,
     chat: chat::ChatControl,
     store: Mutex<Store>,
     active: Mutex<Option<(i64, Arc<AtomicBool>)>>,
@@ -2048,6 +2050,7 @@ pub fn run() {
             app.manage(Runtime {
                 browser_shares: Default::default(),
                 transfers: Default::default(),
+                web_transfers: Default::default(),
                 chat: Default::default(),
                 store: Mutex::new(
                     Store::open(&root.join("workstation.sqlite3"))
@@ -2198,6 +2201,9 @@ pub fn run() {
             transfer_desktop::transfer_decide,
             transfer_desktop::transfer_send,
             transfer_desktop::transfer_cancel_send,
+            web_transfer_bridge::web_transfer_prepare,
+            web_transfer_bridge::web_transfer_read_chunk,
+            web_transfer_bridge::web_transfer_release,
             chat_config,
             chat_test,
             chat_configure,
