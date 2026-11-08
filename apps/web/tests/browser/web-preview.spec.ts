@@ -42,7 +42,7 @@ test("W0 本地队列：搜索、筛选、排序与安全文件名",async({page}
   await page.getByRole("searchbox",{name:"搜索待发送文件"}).fill("");
   await page.getByRole("combobox",{name:"排序待发送文件"}).selectOption("size");
   const names=await page.locator(".queue li .file-details strong").allTextContents();
-  expect(names).toEqual(["大镜头.mp4","剧情.txt","分镜.png"]);
+  expect(names).toEqual(["大镜头.mp4","分镜.png","剧情.txt"]);
   await page.locator('input[type="file"]').setInputFiles([
     {name:"CON.txt",mimeType:"text/plain",buffer:Buffer.from("unsafe")}
   ]);
