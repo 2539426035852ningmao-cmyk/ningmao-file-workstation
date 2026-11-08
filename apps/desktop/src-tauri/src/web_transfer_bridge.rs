@@ -48,13 +48,14 @@ pub struct WebFileChunk {
     pub eof: bool,
 }
 fn valid_ticket(ticket: &str) -> bool {
-    ticket.len() == 36 && ticket.bytes().enumerate().all(|(i, b)| {
-        if [8, 13, 18, 23].contains(&i) {
-            b == b'-'
-        } else {
-            b.is_ascii_hexdigit()
-        }
-    })
+    ticket.len() == 36
+        && ticket.bytes().enumerate().all(|(i, b)| {
+            if [8, 13, 18, 23].contains(&i) {
+                b == b'-'
+            } else {
+                b.is_ascii_hexdigit()
+            }
+        })
 }
 fn inspect(path: &Path) -> Result<(u64, Option<SystemTime>)> {
     let meta = fs::symlink_metadata(path).map_err(|_| "源文件不存在或无法读取")?;
@@ -68,7 +69,10 @@ fn inspect(path: &Path) -> Result<(u64, Option<SystemTime>)> {
 }
 fn native_origin(window: &tauri::WebviewWindow) -> Result<()> {
     let url = window.url().map_err(error)?;
-    if matches!(url.host_str(), Some("tauri.localhost" | "localhost" | "127.0.0.1")) {
+    if matches!(
+        url.host_str(),
+        Some("tauri.localhost" | "localhost" | "127.0.0.1")
+    ) {
         Ok(())
     } else {
         Err("外部网页没有访问本机文件的权限".into())
@@ -116,7 +120,9 @@ impl WebTransferBridge {
     fn permit(&self, ticket: &str, owner: &str, scope: Option<i64>) -> Result<Permit> {
         let mut permits = self.permits.lock().map_err(error)?;
         permits.retain(|_, p| p.issued.elapsed() < PERMIT_TTL);
-        let item = permits.get(ticket).ok_or("发送授权已过期，请重新选择文件")?;
+        let item = permits
+            .get(ticket)
+            .ok_or("发送授权已过期，请重新选择文件")?;
         if item.owner != owner || scope.is_some_and(|id| id != item.shelf_id) {
             return Err("不能读取其他窗口或其他文件架的文件".into());
         }
@@ -143,7 +149,8 @@ fn read_owned(permit: &Permit, offset: u64, size: u32) -> Result<WebFileChunk> {
     let mut file = File::open(&permit.path).map_err(|_| "源文件无法打开")?;
     file.seek(SeekFrom::Start(offset)).map_err(error)?;
     let mut data = vec![0; length];
-    file.read_exact(&mut data).map_err(|_| "文件读取中断，未发送数据")?;
+    file.read_exact(&mut data)
+        .map_err(|_| "文件读取中断，未发送数据")?;
     Ok(WebFileChunk {
         offset,
         bytes: length,
@@ -176,7 +183,9 @@ pub fn web_transfer_prepare(
         .ok_or("文件不属于指定文件架")?;
     let path = store.opening_target(item_id)?;
     drop(store);
-    state.web_transfers.issue(&ticket, window.label(), shelf_id, item_id, path, item.name)
+    state
+        .web_transfers
+        .issue(&ticket, window.label(), shelf_id, item_id, path, item.name)
 }
 #[tauri::command]
 pub async fn web_transfer_read_chunk(
@@ -211,7 +220,9 @@ pub fn web_transfer_release(
 ) -> Result<()> {
     native_origin(&window)?;
     metadata_scope(&window)?;
-    app.state::<Runtime>().web_transfers.release(&ticket, window.label())
+    app.state::<Runtime>()
+        .web_transfers
+        .release(&ticket, window.label())
 }
 
 #[cfg(test)]
@@ -224,7 +235,9 @@ mod tests {
         let path = root.path().join("synthetic.txt");
         fs::write(&path, b"abc123").unwrap();
         let bridge = WebTransferBridge::default();
-        bridge.issue(TICKET, "file-1", 1, 7, path, "synthetic.txt".into()).unwrap();
+        bridge
+            .issue(TICKET, "file-1", 1, 7, path, "synthetic.txt".into())
+            .unwrap();
         assert!(bridge.permit(TICKET, "file-2", Some(1)).is_err());
         assert!(bridge.permit(TICKET, "file-1", Some(2)).is_err());
         let permit = bridge.permit(TICKET, "file-1", Some(1)).unwrap();
@@ -243,12 +256,22 @@ mod tests {
         let path = root.path().join("selected.dat");
         fs::write(&path, b"first").unwrap();
         let bridge = WebTransferBridge::default();
-        let permit = bridge.issue(TICKET, "manager", 1, 8, path.clone(), "selected.dat".into()).unwrap();
+        let permit = bridge
+            .issue(TICKET, "manager", 1, 8, path.clone(), "selected.dat".into())
+            .unwrap();
         assert_eq!(permit.bytes, 5);
         fs::write(&path, b"longer changed content").unwrap();
         let saved = bridge.permit(TICKET, "manager", None).unwrap();
         assert!(read_owned(&saved, 0, 10).is_err());
-        assert!(bridge.issue(TICKET, "manager", 1, 9, root.path().into(), "root".into()).is_err());
-        assert!(bridge.issue("invalid", "manager", 1, 9, path, "bad".into()).is_err());
+        assert!(
+            bridge
+                .issue(TICKET, "manager", 1, 9, root.path().into(), "root".into())
+                .is_err()
+        );
+        assert!(
+            bridge
+                .issue("invalid", "manager", 1, 9, path, "bad".into())
+                .is_err()
+        );
     }
 }

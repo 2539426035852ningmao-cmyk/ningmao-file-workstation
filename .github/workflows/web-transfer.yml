@@ -27,5 +27,7 @@ jobs:
         run: npm test
       - name: Build frontend
         run: npm run build
+      - name: Validate source deployment boundary
+        run: npm run preflight:source
       - name: Validate Cloudflare configuration
         run: npx wrangler deploy --dry-run --outdir /tmp/ningmao-web-worker

@@ -8,7 +8,10 @@
     "build": "tsc -p tsconfig.json && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "test": "vitest run",
-    "deploy": "npm run build && wrangler deploy"
+    "deploy": "npm run build && wrangler deploy",
+    "preflight:source": "node scripts/preflight.mjs --source",
+    "preflight:deploy": "node scripts/preflight.mjs --deploy",
+    "preflight:live": "node scripts/preflight.mjs --live"
   },
   "dependencies": {
     "jose": "^6.1.0",

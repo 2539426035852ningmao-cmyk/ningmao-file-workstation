@@ -46,6 +46,9 @@ export default {
     if (url.pathname === "/api/me" && request.method === "GET") {
       return json({ email: user.email, id: user.sub });
     }
+    if (url.pathname === "/api/capabilities" && request.method === "GET") {
+      return json({ protocol_version: 1, browser_webrtc: true, desktop_native_bridge: false, cloud_storage: false, max_file_bytes: 64 * 1024 * 1024 });
+    }
     if (url.pathname === "/api/connect" && request.method === "GET") {
       if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") return json({ error: "websocket_required" }, 426);
       const id = url.searchParams.get("device") || "";
