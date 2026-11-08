@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import { createRemoteJWKSet, jwtVerify } from "jose";
+import { verifyAccessJWT } from "../src/access";
 import { DEVICE_ID_RE, MAX_SIGNAL_BYTES, isClientSignal } from "../src/signaling";
 
 interface Env {
@@ -8,35 +8,18 @@ interface Env {
   CF_ACCESS_TEAM_DOMAIN: string;
   CF_ACCESS_AUD: string;
 }
-type Identity = { sub: string; email: string };
 type Attachment = { id: string; name: string; count: number; since: number };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" }
 });
-const cache = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
-
-async function identify(request: Request, env: Env): Promise<Identity | null> {
-  const domain = env.CF_ACCESS_TEAM_DOMAIN?.trim().replace(/^https?:\/\//, "").replace(/\/$/, "");
-  const aud = env.CF_ACCESS_AUD?.trim();
-  if (!domain || !domain.endsWith(".cloudflareaccess.com") || domain.startsWith("CONFIGURE_") ||
-      !aud || aud === "CONFIGURE_ACCESS_AUD") return null;
-  const jwt = request.headers.get("Cf-Access-Jwt-Assertion");
-  if (!jwt) return null;
-  try {
-    let jwks = cache.get(domain);
-    if (!jwks) {
-      jwks = createRemoteJWKSet(new URL(`https://${domain}/cdn-cgi/access/certs`));
-      cache.set(domain, jwks);
-    }
-    const { payload } = await jwtVerify(jwt, jwks, {
-      issuer: `https://${domain}`, audience: aud, algorithms: ["RS256"]
-    });
-    if (typeof payload.sub !== "string" || !payload.sub) return null;
-    return { sub: payload.sub, email: typeof payload.email === "string" ? payload.email : "已验证用户" };
-  } catch {
-    return null;
-  }
+async function identify(request: Request, env: Env) {
+  return verifyAccessJWT(
+    request.headers.get("Cf-Access-Jwt-Assertion"),
+    env.CF_ACCESS_TEAM_DOMAIN,
+    env.CF_ACCESS_AUD
+  );
 }
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
