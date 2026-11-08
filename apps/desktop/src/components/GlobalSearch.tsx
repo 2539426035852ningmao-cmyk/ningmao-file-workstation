@@ -7,19 +7,25 @@ import type {Backend,SearchHit,SearchResponse} from "../backend";
 
 const empty:SearchResponse={hits:[],truncated:false};
 const statuses:Record<string,string>={normal:"正常",missing:"引用失效",offline:"离线",unavailable:"无法读取"};
+const searchRequest="ningmao-open-search";
+export function openGlobalSearch(trigger:HTMLElement|null){window.dispatchEvent(new CustomEvent(searchRequest,{detail:trigger}));}
 export function GlobalSearch({backend,revision,scoped=false}:{backend:Backend;revision:unknown;scoped?:boolean}) {
   const [open,setOpen]=useState(false),[query,setQuery]=useState(""),[kind,setKind]=useState("all"),[source,setSource]=useState("all"),[status,setStatus]=useState("all");
   const [response,setResponse]=useState(empty),[loading,setLoading]=useState(false),[error,setError]=useState("");
   const [retry,setRetry]=useState(0),[active,setActive]=useState(0),[locating,setLocating]=useState(false);
   const navigating=useRef(false),list=useRef<HTMLDivElement>(null),live=useRef(true);
+  const origin=useRef<HTMLElement|null>(null);
   useEffect(()=>{live.current=true;return()=>{live.current=false;};},[]);
   useEffect(()=>{
+    const available=()=>open || !document.querySelector('[role="dialog"]');
+    const request=(e:Event)=>{if(available()){origin.current=(e as CustomEvent<HTMLElement|null>).detail;setOpen(true);}};
     const key=(e:KeyboardEvent)=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"&&!e.altKey&&!e.isComposing){
       // Keep the active panel's drafts and stop/confirmation flow intact.
-      if(!open && document.querySelector('[role="dialog"]'))return;
+      if(!available())return;
+      if(!open)origin.current=document.activeElement instanceof HTMLElement?document.activeElement:null;
       e.preventDefault();setOpen(value=>!value);
     }};
-    window.addEventListener("keydown",key);return()=>window.removeEventListener("keydown",key);
+    window.addEventListener("keydown",key);window.addEventListener(searchRequest,request);return()=>{window.removeEventListener("keydown",key);window.removeEventListener(searchRequest,request);};
   },[open]);
   useEffect(()=>{
     let current=true;
@@ -41,7 +47,7 @@ export function GlobalSearch({backend,revision,scoped=false}:{backend:Backend;re
     catch{if(live.current)setError("结果已变化或窗口暂不可用，请重新搜索。");}
     finally{if(live.current)setLocating(false);}
   }
-  return <Sheet open={open} onOpenChange={setOpen}><SheetContent side="top" className="global-search" showCloseButton={false} onCloseAutoFocus={e=>{if(navigating.current){e.preventDefault();navigating.current=false;}}}>
+  return <Sheet open={open} onOpenChange={setOpen}><SheetContent side="top" className="global-search" showCloseButton={false} onCloseAutoFocus={e=>{if(navigating.current){e.preventDefault();navigating.current=false;}else if(origin.current?.isConnected){e.preventDefault();origin.current.focus();}}}>
     <SheetHeader><SheetTitle>{scoped?"搜索当前文件架":"跨文件架搜索"}</SheetTitle><SheetDescription>检索已收录的名称与标签，不扫描其他目录。</SheetDescription></SheetHeader>
     <SheetClose asChild><Button variant="ghost" size="icon" className="global-search-close" aria-label="关闭搜索"><X size={16}/></Button></SheetClose>
     <div className="global-search-controls"><label className="global-search-input"><Search size={16}/><Input autoFocus aria-label="名称或标签" placeholder="名称或标签…" maxLength={160} value={query} onChange={e=>setQuery(e.target.value)} aria-controls="search-results" aria-activedescendant={response.hits.length?`search-hit-${active}`:undefined} onKeyDown={e=>{

@@ -1,5 +1,5 @@
 import {WakeShortcutSettings} from "./components/WakeShortcutSettings";
-import {GlobalSearch} from "./components/GlobalSearch";
+import {GlobalSearch,openGlobalSearch} from "./components/GlobalSearch";
 import {ScrollActivity} from "./components/ScrollActivity";
 import {useEffect,useMemo,useRef,useState} from "react";
 import {Archive,Check,Folder,Layers,Search,Settings,Tags,ListTodo,RefreshCw,X} from "lucide-react";
@@ -65,7 +65,7 @@ export default function Manager({backend}:{backend:Backend}) {
   })}</div>;
   return <div className="manager-shell">
     <aside className="manager-nav"><h1>管理中心</h1><nav aria-label="管理中心导航">{sections.map(([key,label,Icon])=><Button key={key} variant="ghost" className={primarySection===key?"active":""} aria-current={primarySection===key?"page":undefined} onClick={()=>setSection(key==="files"?"overview":key)}><Icon size={17}/><span>{label}</span></Button>)}</nav><p>柠猫文件工作站</p></aside>
-    <main className="manager-main"><ScrollActivity/><header><h2>{sections.find(([key])=>key===primarySection)?.[1]}</h2><Button variant="ghost" size="sm" disabled={loading || busy} onClick={()=>void act(async()=>{await refresh();setMessage("已刷新收集记录。");})}><RefreshCw size={15}/>刷新记录</Button></header>
+    <main className="manager-main"><ScrollActivity/><header><h2>{sections.find(([key])=>key===primarySection)?.[1]}</h2><div className="manager-heading-actions"><Button variant="ghost" size="sm" onClick={e=>openGlobalSearch(e.currentTarget)} title="跨文件架搜索 · Ctrl+K"><Search size={15}/>跨文件架搜索</Button><Button variant="ghost" size="sm" disabled={loading || busy} onClick={()=>void act(async()=>{await refresh();setMessage("已刷新收集记录。");})}><RefreshCw size={15}/>刷新记录</Button></div></header>
     {fileSection&&<nav className="manager-file-sections" aria-label="文件与素材分类">{fileSections.map(([key,label])=><Button key={key} variant="ghost" aria-current={section===key?"page":undefined} onClick={()=>setSection(key)}>{label}</Button>)}</nav>}
     {error && <div className="error-bar" role="alert"><span>{error}</span><Button variant="ghost" size="icon" aria-label="关闭管理错误" onClick={()=>setError("")}><X size={15}/></Button></div>}
     {desktop?.warning && <p className="manager-warning" role="alert">{desktop.warning}</p>}
