@@ -18,6 +18,7 @@ export class PeerLink {
   private length = 0;
   private pendingIce: RTCIceCandidateInit[] = [];
   private stopped = false;
+  private completed = false;
   constructor(private hooks: Hooks) {
     // No TURN in W0: some restrictive networks will require a later relay.
     this.pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
@@ -102,12 +103,14 @@ export class PeerLink {
     });
   }
   private async receive(payload: unknown) {
-    if (this.stopped || !this.invite) return;
+    if (this.stopped || this.completed || !this.invite) return;
     if (payload === "DONE") {
       if (this.length !== this.invite.size) { this.hooks.error("接收字节数与文件大小不一致"); return; }
       const blob = new Blob(this.incoming, { type: this.invite.mime || "application/octet-stream" });
       const digest = hex(await crypto.subtle.digest("SHA-256", await blob.arrayBuffer()));
+      if (this.stopped || this.completed) return;
       if (digest !== this.invite.sha256.toLowerCase()) { this.hooks.error("文件哈希校验失败，已阻止保存"); return; }
+      this.completed = true;
       this.hooks.ready(blob, this.invite);
       return;
     }

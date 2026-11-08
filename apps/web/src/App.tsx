@@ -2,11 +2,12 @@ import { useCallback, useEffect, useRef, useState, type ChangeEvent, type DragEv
 import { ArrowDownToLine, ArrowLeftRight, ArrowUpFromLine, CheckCircle2, CircleHelp, CloudOff, File, FolderOpen, HardDriveDownload, Laptop, LockKeyhole, Monitor, Moon, Send, ShieldCheck, Smartphone, Sun, UploadCloud, X } from "lucide-react";
 import { hex, MAX_BYTES, readable, shortName, validInvite, type Invite } from "./guards";
 import { PeerLink, type WireSignal } from "./peer";
+import { sameSession } from "./signaling";
 
 type Theme = "light" | "dark" | "blue";
 type Device = { id: string; name: string };
 type Task = { id: string; name: string; direction: "发送" | "接收"; status: string; fraction: number };
-type Message = { type: string; from?: string; to?: string; devices?: Device[]; payload?: Record<string, unknown> };
+type Message = { type: string; from?: string; to?: string; id?: string; devices?: Device[]; payload?: Record<string, unknown> };
 type Incoming = { from: string; meta: Invite };
 type Download = { id: string; name: string; size: number; url: string };
 const DEVICE_KEY = "ningmao-web-device-id";
@@ -102,7 +103,10 @@ export function App() {
       setDevices(msg.devices.filter(p => p.id !== deviceId));
       return;
     }
-    if (msg.type === "unavailable") { fail("接收设备已离线"); return; }
+    if (msg.type === "unavailable") {
+      if (active.current?.id === msg.id && active.current.to === msg.to) fail("接收设备已离线");
+      return;
+    }
     const from = msg.from || "";
     const payload = msg.payload || {};
     if (msg.type === "invite") {
@@ -139,17 +143,17 @@ export function App() {
       outbound.current = null;
       return;
     }
-    if ((msg.type === "description" || msg.type === "candidate") && active.current?.to === from && active.current.id === payload.id && link.current) {
+    if ((msg.type === "description" || msg.type === "candidate") && sameSession(active.current, from, payload) && link.current) {
       void link.current.handle(msg.type, payload).catch(e => fail(String(e)));
       return;
     }
-    if (msg.type === "receipt" && active.current?.to === from && payload.id === active.current.id && payload.ok === true) {
+    if (msg.type === "receipt" && sameSession(active.current, from, payload) && payload.ok === true) {
       clearOutgoing();
       updateTask(active.current.id, { status: "对方已校验（需自行保存）", fraction: 1 });
       active.current = null; link.current?.close(); link.current = null; setBusy(false);
       return;
     }
-    if (msg.type === "cancel" && active.current?.to === from) {
+    if (msg.type === "cancel" && sameSession(active.current, from, payload)) {
       clearOutgoing(); clearIncoming();
       updateTask(active.current.id, { status: "对方已取消" });
       link.current?.close(); link.current = null;

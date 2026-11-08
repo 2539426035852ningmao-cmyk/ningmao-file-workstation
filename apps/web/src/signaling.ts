@@ -47,3 +47,11 @@ export function isClientSignal(v: unknown): v is Ping | ClientSignal {
       return false;
   }
 }
+
+export function sameSession(
+  active: { id: string; to: string } | null,
+  from: string,
+  payload: unknown
+): boolean {
+  return !!active && active.to === from && isDict(payload) && payload.id === active.id;
+}

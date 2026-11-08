@@ -95,7 +95,7 @@ export class DeviceRoom extends DurableObject<Env> {
     if (msg.to === identity.id) return;
     const recipient = this.peers().find(peer => (peer.deserializeAttachment() as Attachment | null)?.id === msg.to);
     if (!recipient) {
-      ws.send(JSON.stringify({ type: "unavailable", to: msg.to }));
+      ws.send(JSON.stringify({ type: "unavailable", to: msg.to, id: msg.payload.id }));
       return;
     }
     recipient.send(JSON.stringify({ type: msg.type, from: identity.id, payload: msg.payload }));
