@@ -15,9 +15,10 @@ export function LocalFilePreview({file,onClose}:Props) {
     kind === "video" || kind === "audio";
   const textFile = TEXT_SUFFIX.test(file.name) || file.type.startsWith("text/");
   useEffect(() => {
+    // StrictMode replays effects in development; do not call close() from
+    // effect cleanup because its queued close event could dismiss a new modal.
     const node = ref.current;
-    node?.showModal();
-    return () => {if (node?.open) node.close();};
+    if (node && !node.open) node.showModal();
   },[]);
   useEffect(() => {
     let live = true;

@@ -60,7 +60,7 @@ test("W0 文件限制明确提示，不显示伪造完成或在线设备",async(
   await expect(page.getByText("设备连接尚未启用")).toBeVisible();
   await page.getByRole("button",{name:"传输记录"}).click();
   await expect(page.getByText("还没有传输任务")).toBeVisible();
-  await page.getByRole("button",{name:"文件互传"}).click();
+  await page.getByRole("button",{name:"文件互传",exact:true}).click();
   await expect(page.getByText("synthetic-large.bin")).toBeVisible();
   expect(large.buffer.byteLength).toBe(1);
 });
