@@ -260,9 +260,10 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   useEffect(()=>{
     if(!collectRequest || loading)return;
     const request=collectRequest;setCollectRequest(null);
-    if(busy || running || document.querySelector('[role="dialog"]')){setError("请先完成当前操作，再从胶囊添加文件。");return;}
+    if(busy || running || document.querySelector('[role="dialog"]')){setError("请先完成当前操作，再试一次。");return;}
     activateShelf(request.shelf_id);
     void perform(async()=>{
+      if(request.action==="locate"){await backend.focusSearchResult!(request.shelf_id,request.item_id);return;}
       if(request.action==="paste"){await pasteFiles();return;}
       const paths=await backend.chooseFiles();
       if(activeShelf.current!==request.shelf_id)throw new Error("文件架已切换，请重新添加。");

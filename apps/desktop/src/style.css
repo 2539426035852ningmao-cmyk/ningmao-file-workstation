@@ -308,14 +308,13 @@ select { padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; ba
 .shelf-header > .brand-eyes { margin-right:4px; }
 .shelf-switch { padding-inline:0; gap:4px; }
 .shelf-header [data-slot="button"][data-size="icon"],.shelf-collapse { width:32px; height:32px; flex-shrink:0; }
-.capsule-copy { display:flex; flex:1; min-width:0; flex-direction:column; align-items:flex-start; text-align:left; padding-right:6px; }
+.capsule-copy { display:flex; flex:1; min-width:0; flex-direction:column; align-items:flex-start; text-align:left; padding-right:2px; }
 .capsule-copy strong { font-size:13px; font-weight:600; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .capsule-copy small { max-width:100%; font-size:10px; opacity:.82; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
-.capsule-arrow { flex-shrink:0; margin-right:4px; }
 .orb-control[data-orb-mode="capsule"] { display:flex; align-items:center; border-radius:24px; background:var(--orb-fill); color:var(--orb-eye); }
 .orb-control[data-orb-mode="capsule"] > .orb-hit { flex:1; min-width:0; }
-.capsule-recent { display:flex; gap:2px; margin-right:4px; flex-shrink:0; }
-.capsule-recent > span { display:grid; place-items:center; width:20px; height:28px; border-radius:4px; overflow:hidden; }
+.capsule-recent { display:flex; gap:0; margin-right:0; flex-shrink:0; }
+.capsule-recent > button { overflow:hidden; }
 .capsule-recent img { width:100%; height:100%; object-fit:contain; }
 .capsule-switch { width:40px; height:32px; flex-shrink:0; padding:0; margin-right:2px; border:0; background:transparent; color:inherit; font-size:11px; }
 .capsule-switch option { background:var(--surface); color:var(--text); }
@@ -414,7 +413,7 @@ html[data-file-window="true"],html[data-file-window="true"] body,html[data-file-
 
 .transfer-experiment{margin:12px 0;color:var(--muted-foreground);font-size:12px}.transfer-experiment>summary{cursor:pointer;padding:8px 0}.transfer-experiment[open]>summary{margin-bottom:8px}.capability-hint>button{display:block;margin-top:8px}
 
-.capsule-action { display:grid; place-items:center; width:26px; height:32px; flex-shrink:0; padding:0; border:0; border-radius:8px; background:transparent; color:inherit; cursor:pointer; }
-.capsule-action:hover:not(:disabled) { background:var(--hover); }
-.capsule-action:focus-visible { outline:2px solid currentColor; outline-offset:-2px; }
-.capsule-action:disabled { opacity:.45; cursor:default; }
+.capsule-action,.capsule-recent > button { display:grid; place-items:center; width:24px; height:32px; flex-shrink:0; padding:0; border:0; border-radius:var(--radius-control); background:transparent; color:inherit; cursor:pointer; }
+.capsule-action:hover:not(:disabled),.capsule-recent > button:hover:not(:disabled) { background:color-mix(in srgb,currentColor 10%,transparent); }
+.capsule-action:focus-visible,.capsule-recent > button:focus-visible { outline:2px solid currentColor; outline-offset:-2px; }
+.capsule-action:disabled,.capsule-recent > button:disabled { opacity:.45; cursor:default; }

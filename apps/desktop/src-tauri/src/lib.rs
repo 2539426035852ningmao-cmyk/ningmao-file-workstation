@@ -1749,6 +1749,7 @@ struct SearchLocation {
 struct CollectRequest {
     shelf_id: i64,
     action: entry::CollectAction,
+    item_id: Option<i64>,
 }
 #[tauri::command]
 async fn desktop_collect(
@@ -1756,6 +1757,7 @@ async fn desktop_collect(
     window: tauri::WebviewWindow,
     shelf_id: i64,
     action: entry::CollectAction,
+    item_id: Option<i64>,
 ) -> Result<()> {
     app.state::<desktop_runtime::Desktop>()
         .entry
@@ -1763,6 +1765,13 @@ async fn desktop_collect(
         .map_err(error)?
         .collect_target(window.label(), shelf_id)?;
     desktop_runtime::require_idle(&app)?;
+    if matches!(action, entry::CollectAction::Locate) {
+        let id = item_id.ok_or("最近素材已变化，请重新展开胶囊。")?;
+        database(app.clone(), move |s| {
+            s.validate_search_location(Some(shelf_id), shelf_id, id)
+        })
+        .await?;
+    }
     let label = shelf_windows::label_for(&app, shelf_id)?;
     desktop_runtime::present(&app, shelf_id, entry::Kind::Orb)?;
     // A cold file WebView consumes this once after installing its listener, as search focus does.
@@ -1770,7 +1779,14 @@ async fn desktop_collect(
         .collect_requests
         .lock()
         .map_err(error)?
-        .insert(label.clone(), CollectRequest { shelf_id, action });
+        .insert(
+            label.clone(),
+            CollectRequest {
+                shelf_id,
+                action,
+                item_id,
+            },
+        );
     if let Err(e) = desktop_runtime::open(&app, shelf_id, true) {
         app.state::<Runtime>()
             .collect_requests
@@ -1797,7 +1813,7 @@ fn take_collect_request(
     if let Some(ref request) = request
         && request.shelf_id != scope.unwrap_or(desktop_runtime::active_shelf(&app)?)
     {
-        return Err("文件架已切换，请重新从胶囊添加。".into());
+        return Err("文件架已切换，请重新从胶囊选择。".into());
     }
     Ok(request)
 }
