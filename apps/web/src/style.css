@@ -8,3 +8,36 @@ body{background:var(--bg);color:var(--text)}button{color:inherit}button:focus-vi
 @media(max-width:760px){.sidebar{display:none}.topbar{padding:0 17px;height:63px}.mobile-menu{display:grid}.breadcrumb{margin-right:auto;margin-left:12px}.top-actions{gap:9px}.preview-status{display:none}.content{padding:34px 16px 48px}.page-heading{margin-bottom:23px}.page-heading h1{font-size:25px}.stage-tag{display:none}.transfer-layout{grid-template-columns:1fr}.primary-card{padding:18px}.side-card{padding:21px}.upload-zone{min-height:280px}.mobile-popover{display:grid;position:absolute;top:58px;left:15px;background:var(--surface);border:1px solid var(--border);border-radius:12px;z-index:10;box-shadow:var(--shadow);padding:7px}.mobile-popover button{border:0;background:transparent;text-align:left;padding:12px 23px;color:var(--text)}}
 @media(max-width:400px){.send-footer{flex-direction:column;align-items:stretch}.top-actions{gap:5px}.breadcrumb{font-size:11px}.page-heading p{line-height:1.6}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+/* Local-only preparation. Every theme continues to use shared semantic tokens. */
+.queue-feedback{margin:-13px 0 18px;padding:10px 13px;border:1px solid var(--border);background:var(--surface2);border-radius:11px;display:flex;gap:12px;align-items:center;justify-content:space-between;color:var(--text);font-size:12px;line-height:1.6}
+.queue-feedback .icon-button{flex:none}
+.try-example{margin-top:4px;color:var(--text);text-decoration:underline;text-underline-offset:4px}
+.queue-tools{display:grid;grid-template-columns:minmax(0,1fr) 112px 112px;gap:8px;margin-bottom:8px}
+.queue-tools input,.queue-tools select{width:100%;min-width:0;height:36px;padding:0 9px;color:var(--text);background:var(--surface2);border:1px solid var(--border);border-radius:8px;font:inherit;font-size:12px}
+.queue-tools input:focus-visible,.queue-tools select:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.queue-result-count{font-size:11px;color:var(--muted);margin-bottom:5px}
+.queue-no-matches{background:var(--surface2);border-radius:10px;padding:24px 15px;font-size:12px;text-align:center;color:var(--muted);line-height:1.7}
+.file-actions{display:flex;gap:4px;align-items:center}
+.file-actions .file-preview{min-height:32px;padding:0 10px}
+.file-actions .icon-button{min-width:34px;min-height:34px}
+.queue-warning{margin:14px 0 0;padding:11px 13px;border:1px solid var(--border);background:var(--soft);border-radius:10px;color:var(--text);font-size:12px;line-height:1.7}
+.queue-privacy{margin:10px 0 0;font-size:11px;line-height:1.65;color:var(--muted)}
+.local-preview{width:min(720px,calc(100% - 28px));max-height:min(86vh,900px);margin:auto;padding:0;color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:19px;box-shadow:var(--shadow);overflow:auto}
+.local-preview::backdrop{background:rgba(0,5,16,.75)}
+.preview-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;padding:22px 23px;border-bottom:1px solid var(--border)}
+.preview-heading>div{min-width:0}
+.preview-kicker{font-size:11px;letter-spacing:1px;color:var(--primary);font-weight:600}
+.preview-heading h2{font-size:17px;line-height:1.4;overflow-wrap:anywhere;margin:8px 0 5px}
+.preview-heading p{font-size:12px;color:var(--muted);margin:0}
+.preview-content{min-height:180px;max-height:55vh;overflow:auto;padding:22px;display:flex;align-items:center;justify-content:center;background:var(--surface2)}
+.preview-content img,.preview-content video{display:block;max-width:100%;max-height:48vh;border-radius:9px;object-fit:contain}
+.preview-content audio{width:min(100%,440px)}
+.text-preview{width:100%;min-height:120px}
+.text-preview pre{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.75 Consolas,"Microsoft YaHei",monospace;color:var(--text);margin:0}
+.text-preview small{display:block;margin-top:16px;color:var(--muted)}
+.preview-no-content{display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;padding:34px;color:var(--muted);font-size:12px;line-height:1.6}
+.preview-no-content strong{font-size:14px;color:var(--text)}
+.preview-footer{display:flex;justify-content:space-between;align-items:center;gap:18px;padding:17px 22px}
+.preview-footer span{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:11px;line-height:1.6}
+@media(max-width:700px){.queue-tools{grid-template-columns:1fr 1fr}.queue-tools input{grid-column:1/-1}.local-preview{max-height:90vh}.preview-heading,.preview-footer{padding:15px}.preview-footer{flex-direction:column;align-items:stretch}.preview-footer button{width:100%}}
+@media(max-width:360px){.file-actions{gap:2px}.file-actions .file-preview{padding:0 7px;font-size:11px}.file-icon{width:34px;height:34px}.file-details strong{font-size:11px}}
