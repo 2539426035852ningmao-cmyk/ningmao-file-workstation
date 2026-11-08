@@ -173,7 +173,7 @@ pub fn web_transfer_prepare(
         return Err("只能从当前文件架选择发送文件".into());
     }
     let state = app.state::<Runtime>();
-    let mut store = state.store.lock().map_err(error)?;
+    let store = state.store.lock().map_err(error)?;
     store.validate_item_scope(scope, &[item_id])?;
     let item = store
         .management_snapshot()?
