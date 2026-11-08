@@ -394,7 +394,7 @@ pub async fn web_receive_prepare(
         confirmation_app
             .dialog()
             .message(format!(
-                "是否接收网页传来的文件？\\n\\n名称：{prompt_name}\\n大小：{bytes} 字节\\n保存位置：当前工作站绑定文件架（编号 {shelf_id}）\\n\\n文件会先进行 SHA-256 校验，保存时不会覆盖已有文件。"
+                "是否接收网页传来的文件？\n\n名称：{prompt_name}\n大小：{bytes} 字节\n保存位置：当前工作站绑定文件架（编号 {shelf_id}）\n\n文件会先进行 SHA-256 校验，保存时不会覆盖已有文件。"
             ))
             .title("确认接收网页文件")
             .parent(&confirmation_window)
