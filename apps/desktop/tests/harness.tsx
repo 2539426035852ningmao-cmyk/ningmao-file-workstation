@@ -109,7 +109,7 @@ const backend:Backend={
   async desktopPage(delta){desktop.layout.page+=delta;publishDesktop();},async desktopMove(){calls.push("move-entry");},async desktopDisable(){calls.push("disable-entry");},
   async snapshot(){if(snapshotFailure){const message=snapshotFailure;snapshotFailure="";throw new Error(message);}syncState();const shelves=state.shelves.filter(s=>ownShelf?s.id===ownShelf:!desktop.layout.detached?.some(w=>w.shelf_id===s.id)),allowed=new Set(shelves.map(s=>s.id));return structuredClone({shelves,items:state.items.filter(i=>allowed.has(i.shelf_id)),jobs:state.jobs.filter(j=>!ownShelf || j.shelf_id===ownShelf)});},
   async saveClipboardImage(){calls.push("clipboard-image");return "SYNTHETIC/粘贴图片.png";},
-  async clipboardFiles(){calls.push("clipboard-files");return ["SYNTHETIC/剪贴板文件.txt"];},
+  async clipboardFiles(){calls.push("clipboard-files");return new URLSearchParams(location.search).has("clipboard-empty")?[]:["SYNTHETIC/剪贴板文件.txt"];},
   async chooseFiles(){return ["SYNTHETIC/新增文件.txt"];},
   async exportDataBackup(){calls.push("backup-export");return !new URLSearchParams(location.search).has("cancel-backup");},
   async scheduleDataRestore(){calls.push("backup-restore-scheduled");return true;},
