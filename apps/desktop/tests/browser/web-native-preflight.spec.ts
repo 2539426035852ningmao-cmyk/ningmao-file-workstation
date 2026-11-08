@@ -44,4 +44,3 @@ test("W3 SHA-256 摘要在 340px Windows 窄面板中不产生横向溢出",asyn
   expect(await digest.evaluate(el=>el.getBoundingClientRect().width<=el.parentElement!.clientWidth)).toBe(true);
   expect(await panel.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
 });
-
