@@ -1,3 +1,4 @@
+import {expandDisplayOptions} from "../menu";
 import { test,expect,type Page } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
@@ -15,7 +16,7 @@ test("Ctrl切换、Shift范围、整组卡片拖出与普通单击遵守桌面�
   await file(page,"Alpha.txt").click();await file(page,"Gamma.txt").click({modifiers:["Control"]});await expect(selected(page)).toHaveCount(2);
   await file(page,"Gamma.txt").click({modifiers:["Control"]});await expect(selected(page)).toHaveCount(1);
   await file(page,"Alpha.txt").click();await file(page,"Gamma.txt").click({modifiers:["Shift"]});await expect(selected(page)).toHaveCount(3);
-  await page.setViewportSize({width:340,height:320});await page.getByRole("button",{name:"更多操作",exact:true}).click();await page.getByRole("menuitemradio",{name:"白色主题",exact:true}).click();await expect(page.getByRole("button",{name:"拖出复制",exact:true})).toBeEnabled();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await capture(page,"group-340-light");await page.setViewportSize({width:420,height:520});
+  await page.setViewportSize({width:340,height:320});await page.getByRole("button",{name:"更多操作",exact:true}).click();await expandDisplayOptions(page);await page.getByRole("menuitemradio",{name:"白色主题",exact:true}).click();await expect(page.getByRole("button",{name:"拖出复制",exact:true})).toBeEnabled();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await capture(page,"group-340-light");await page.setViewportSize({width:420,height:520});
   const box=await file(page,"Alpha.txt").boundingBox();if(!box)throw Error("missing card");await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();await page.mouse.move(box.x+box.width/2+20,box.y+box.height/2,{steps:5});
   await expect.poll(()=>page.evaluate(()=>window.testHarness.calls())).toEqual(["drag:1,2,3"]);await page.mouse.up();await expect(selected(page)).toHaveCount(3);
   await file(page,"中文 文件.txt").click();await expect(selected(page)).toHaveCount(1);await expect(file(page,"中文 文件.txt")).toHaveAttribute("aria-pressed","true");
@@ -30,7 +31,7 @@ test("从空白框选持续高亮、取消还原且不会触发原生拖出",asy
 });
 test("多选汇总与移除只作用于可见引用，搜索输入的Ctrl+A不改变选择",async({page})=>{
   await setup(page);await file(page,"Alpha.txt").click();await file(page,"Gamma.txt").click({modifiers:["Control"]});
-  await page.setViewportSize({width:640,height:720});await page.getByRole("button",{name:"更多操作",exact:true}).click();await page.getByRole("menuitemradio",{name:"白色主题",exact:true}).click();
+  await page.setViewportSize({width:640,height:720});await page.getByRole("button",{name:"更多操作",exact:true}).click();await expandDisplayOptions(page);await page.getByRole("menuitemradio",{name:"白色主题",exact:true}).click();
   await page.getByRole("button",{name:"详情",exact:true}).click();await expect(page.getByRole("dialog")).toContainText("已选 2 项");await expect(page.getByRole("dialog")).toContainText("400 B");await page.keyboard.press("Escape");
   await page.getByRole("button",{name:"搜索文件",exact:true}).focus();await page.keyboard.press("Delete");expect(await page.evaluate(()=>window.testHarness.calls())).toEqual([]);
   await file(page,"Gamma.txt").focus();await page.keyboard.press("Delete");await expect(page.locator('[data-item-id]')).toHaveCount(1);expect(await page.evaluate(()=>window.testHarness.calls())).toEqual(["remove:1","remove:3"]);
@@ -48,7 +49,7 @@ test("搜索隐藏的选中项不会被批量拖出或Delete，Shift按当前显
   await setup(page);await file(page,"Alpha.txt").click();await file(page,"Gamma.txt").click({modifiers:["Control"]});
   await page.keyboard.press("Control+f");await page.getByRole("textbox",{name:"搜索文件",exact:true}).fill("Alpha");await file(page,"Alpha.txt").focus();await page.keyboard.press("Delete");
   expect(await page.evaluate(()=>window.testHarness.calls())).toEqual(["remove:1"]);expect(await page.evaluate(()=>JSON.parse(localStorage.getItem("test-state")!).items.map((i:{id:number})=>i.id))).toEqual([2,3]);
-  await page.getByRole("textbox",{name:"搜索文件",exact:true}).press("Escape");await page.getByRole("button",{name:"更多操作",exact:true}).click();await page.getByRole("menuitemradio",{name:"名称排序",exact:true}).click();
+  await page.getByRole("textbox",{name:"搜索文件",exact:true}).press("Escape");await page.getByRole("button",{name:"更多操作",exact:true}).click();await expandDisplayOptions(page);await page.getByRole("menuitemradio",{name:"名称排序",exact:true}).click();
   await file(page,"Gamma.txt").click();await file(page,"中文 文件.txt").click({modifiers:["Shift"]});await expect(selected(page)).toHaveCount(2);
   const card=await file(page,"Gamma.txt").boundingBox();if(!card)throw Error("missing card");await page.mouse.move(card.x+30,card.y+30);await page.mouse.down();await page.mouse.move(card.x+50,card.y+30,{steps:5});await page.mouse.up();
   expect(await page.evaluate(()=>window.testHarness.calls())).toEqual(["remove:1","drag:2,3"]);

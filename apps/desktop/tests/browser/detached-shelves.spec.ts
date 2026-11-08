@@ -1,3 +1,4 @@
+import {expandDisplayOptions} from "../menu";
 import {test,expect} from "@playwright/test";
 import {mkdirSync} from "node:fs";
 import path from "node:path";
@@ -53,8 +54,8 @@ test("全部拆出后空主窗仍可新建，拆合失败不丢引用或改变�
 test("独立窗仅显示自己的文件，可跨架复制引用，各窗视图不会互相覆盖",async({page,context})=>{
   await page.goto("/tests/harness.html");await more(page,"拆分为独立窗口");
   const own=await context.newPage();await own.goto("/tests/harness.html?shelf=1");
-  await own.getByRole("button",{name:"更多操作",exact:true}).click();await own.getByRole("menuitemradio",{name:"详细列表",exact:true}).click();
-  await page.getByRole("button",{name:"更多操作",exact:true}).click();await page.getByRole("menuitemradio",{name:"大缩略图",exact:true}).click();
+  await own.getByRole("button",{name:"更多操作",exact:true}).click();await expandDisplayOptions(own);await own.getByRole("menuitemradio",{name:"详细列表",exact:true}).click();
+  await page.getByRole("button",{name:"更多操作",exact:true}).click();await expandDisplayOptions(page);await page.getByRole("menuitemradio",{name:"大缩略图",exact:true}).click();
   const prefs=await page.evaluate(()=>JSON.parse(localStorage.getItem("ningmao-shelf-views")!).shelves);
   expect(prefs["1"].list).toBe(true);expect(prefs["2"].size).toBe(120);
   await own.getByRole("button",{name:"选择 Alpha.txt",exact:true}).click();await more(own,"复制选中引用到其他架");

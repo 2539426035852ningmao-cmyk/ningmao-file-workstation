@@ -1,12 +1,13 @@
+import {expandDisplayOptions} from "../menu";
 import { test,expect,type Page } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 const key="ningmao-shelf-views";
 const evidence=process.env.VIEW_MEMORY_EVIDENCE;
 async function capture(page:Page,name:string){if(evidence){mkdirSync(evidence,{recursive:true});await page.screenshot({path:path.join(evidence,name+".png")});}}
-async function choose(page:Page,name:string){await page.getByRole("button",{name:"更多操作",exact:true}).click();await page.getByRole("menuitemradio",{name,exact:true}).click();}
+async function choose(page:Page,name:string){await page.getByRole("button",{name:"更多操作",exact:true}).click();await expandDisplayOptions(page);await page.getByRole("menuitemradio",{name,exact:true}).click();}
 async function shelf(page:Page,name:string){await page.getByRole("button",{name:"切换文件架",exact:true}).click();await page.getByRole("menuitemradio",{name,exact:true}).click();}
-async function checked(page:Page,names:string[],shot?:string){await page.getByRole("button",{name:"更多操作",exact:true}).click();for(const name of names)await expect(page.getByRole("menuitemradio",{name,exact:true})).toHaveAttribute("aria-checked","true");if(shot)await capture(page,shot);await page.keyboard.press("Escape");}
+async function checked(page:Page,names:string[],shot?:string){await page.getByRole("button",{name:"更多操作",exact:true}).click();await expandDisplayOptions(page);for(const name of names)await expect(page.getByRole("menuitemradio",{name,exact:true})).toHaveAttribute("aria-checked","true");if(shot)await capture(page,shot);await page.keyboard.press("Escape");}
 
 test("每架独立记住视图、缩略图和排序，重载后手动顺序不丢失",async({page})=>{
   await page.setViewportSize({width:420,height:520});
@@ -67,7 +68,7 @@ test("设置存储读写被禁用时不白屏，显示和主题仍可临时切�
   await expect(page.getByRole("alert")).toContainText("已使用默认");
   await choose(page,"详细列表");await expect(page.locator(".asset-row").first()).toBeVisible();await expect(page.getByRole("alert")).toContainText("无法保存设置");
   await page.evaluate(()=>window.dispatchEvent(new Event("focus")));await expect(page.locator(".asset-row").first()).toBeVisible();
-  await page.getByRole("button",{name:"更多操作",exact:true}).click();await page.getByRole("menuitemradio",{name:"白色主题",exact:true}).click();
+  await page.getByRole("button",{name:"更多操作",exact:true}).click();await expandDisplayOptions(page);await page.getByRole("menuitemradio",{name:"白色主题",exact:true}).click();
   await expect(page.locator("html")).toHaveClass("light");
   await expect(page.getByRole("alert")).toContainText("主题已切换，但无法保存设置");
   expect(await page.evaluate(()=>window.testHarness.calls())).toEqual([]);expect(errors).toEqual([]);

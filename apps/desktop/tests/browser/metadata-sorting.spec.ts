@@ -1,3 +1,4 @@
+import {expandDisplayOptions} from "../menu";
 import { test,expect,type Page } from "@playwright/test";
 import type { Item } from "../../src/backend";
 import { mkdirSync } from "node:fs";
@@ -13,7 +14,7 @@ async function setup(page:Page){
   },{items,key});
   await page.goto("/tests/harness.html");await expect(page.locator("[data-item-id]")).toHaveCount(8);
 }
-async function choose(page:Page,name:string){await page.getByRole("button",{name:"更多操作",exact:true}).click();await expect(page.getByRole("menuitemradio",{name,exact:true})).toBeVisible({timeout:3000});await page.getByRole("menuitemradio",{name,exact:true}).click();}
+async function choose(page:Page,name:string){await page.getByRole("button",{name:"更多操作",exact:true}).click();await expandDisplayOptions(page);await expect(page.getByRole("menuitemradio",{name,exact:true})).toBeVisible({timeout:3000});await page.getByRole("menuitemradio",{name,exact:true}).click();}
 async function order(page:Page){return page.locator("[data-item-id]").evaluateAll(nodes=>nodes.map(n=>Number(n.getAttribute("data-item-id"))));}
 async function capture(page:Page,name:string){const evidence=process.env.SORT_EVIDENCE;if(evidence){mkdirSync(evidence,{recursive:true});await page.screenshot({path:path.join(evidence,name+".png")});}}
 
@@ -24,7 +25,7 @@ test("时间、大小、类型和自然名称排序只改变显示，失效元�
   await expect(page.locator(".drag-handle:enabled")).toHaveCount(0);
   await choose(page,"大小从大到小");expect(await order(page)).toEqual([45,46,41,42,48,43,47,44]);
   await page.setViewportSize({width:420,height:520});
-  await page.getByRole("button",{name:"更多操作",exact:true}).click();await page.getByRole("menuitemradio",{name:"大小从大到小",exact:true}).focus();await capture(page,"sort-420-dark");await page.keyboard.press("Escape");
+  await page.getByRole("button",{name:"更多操作",exact:true}).click();await expandDisplayOptions(page);await page.getByRole("menuitemradio",{name:"大小从大到小",exact:true}).focus();await capture(page,"sort-420-dark");await page.keyboard.press("Escape");
   await page.setViewportSize({width:420,height:720});
   await choose(page,"类型排序");expect((await order(page)).slice(0,2)).toEqual([45,42]);expect(new Set((await order(page)).slice(-2))).toEqual(new Set([44,47]));
   await choose(page,"名称排序");expect((await order(page)).filter(id=>[41,42,46].includes(id))).toEqual([46,42,41]);
@@ -40,12 +41,12 @@ test("旧v1设置不在启动覆盖，修改后升到v2，切架和重载分别�
   const saved=await page.evaluate(key=>JSON.parse(localStorage.getItem(key)!),key);
   expect(saved).toEqual({version:2,shelves:{"1":{list:true,sort:"modified",size:60},"2":{list:false,sort:"name",size:120}}});
   await page.getByRole("button",{name:"切换文件架",exact:true}).click();await page.getByRole("menuitemradio",{name:"本次中转",exact:true}).click();
-  await page.getByRole("button",{name:"更多操作",exact:true}).click();await expect(page.getByRole("menuitemradio",{name:"名称排序",exact:true})).toHaveAttribute("aria-checked","true");await page.keyboard.press("Escape");
+  await page.getByRole("button",{name:"更多操作",exact:true}).click();await expandDisplayOptions(page);await expect(page.getByRole("menuitemradio",{name:"名称排序",exact:true})).toHaveAttribute("aria-checked","true");await page.keyboard.press("Escape");
   await choose(page,"类型排序");await page.reload();
-  await page.getByRole("button",{name:"更多操作",exact:true}).click();await expect(page.getByRole("menuitemradio",{name:"类型排序",exact:true})).toHaveAttribute("aria-checked","true");await page.keyboard.press("Escape");
+  await page.getByRole("button",{name:"更多操作",exact:true}).click();await expandDisplayOptions(page);await expect(page.getByRole("menuitemradio",{name:"类型排序",exact:true})).toHaveAttribute("aria-checked","true");await page.keyboard.press("Escape");
   await page.getByRole("button",{name:"切换文件架",exact:true}).click();await page.getByRole("menuitemradio",{name:"灵感收集",exact:true}).click();
   await expect.poll(async()=>(await order(page)).slice(0,5)).toEqual([45,43,42,46,41]);
-  await page.getByRole("button",{name:"更多操作",exact:true}).click();await expect(page.getByRole("menuitemradio",{name:"最近修改",exact:true})).toHaveAttribute("aria-checked","true");await page.keyboard.press("Escape");
+  await page.getByRole("button",{name:"更多操作",exact:true}).click();await expandDisplayOptions(page);await expect(page.getByRole("menuitemradio",{name:"最近修改",exact:true})).toHaveAttribute("aria-checked","true");await page.keyboard.press("Escape");
   expect((await page.evaluate(key=>JSON.parse(localStorage.getItem(key)!),key)).shelves["2"].sort).toBe("type");
   expect(await page.evaluate(()=>window.testHarness.calls())).toEqual([]);
 });
@@ -64,10 +65,10 @@ test("自动排序与搜索、刷新兼容，相同值按名称及稳定ID排序
 });
 
 test("窄窗新增排序可用键盘选中且菜单末项仍可到达",async({page})=>{
-  await setup(page);await page.getByRole("button",{name:"更多操作",exact:true}).click();await page.getByRole("menuitemradio",{name:"白色主题",exact:true}).click();await page.setViewportSize({width:340,height:320});
-  await page.getByRole("button",{name:"更多操作",exact:true}).press("Enter");
+  await setup(page);await page.getByRole("button",{name:"更多操作",exact:true}).click();await expandDisplayOptions(page);await page.getByRole("menuitemradio",{name:"白色主题",exact:true}).click();await page.setViewportSize({width:340,height:320});
+  await page.getByRole("button",{name:"更多操作",exact:true}).press("Enter");await expandDisplayOptions(page);
   const option=page.getByRole("menuitemradio",{name:"大小从大到小",exact:true});await option.focus();await page.keyboard.press("Enter");
-  await page.getByRole("button",{name:"更多操作",exact:true}).click();await expect(option).toHaveAttribute("aria-checked","true");
+  await page.getByRole("button",{name:"更多操作",exact:true}).click();await expandDisplayOptions(page);await expect(option).toHaveAttribute("aria-checked","true");
   await option.focus();await capture(page,"sort-340-light");
   const menu=page.getByRole("menu",{name:"更多操作",exact:true});await menu.press("End");await expect(page.getByRole("menuitem",{name:"完整退出",exact:true})).toBeFocused();
   await page.keyboard.press("Escape");expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
