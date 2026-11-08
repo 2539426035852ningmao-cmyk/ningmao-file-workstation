@@ -1,0 +1,21 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "ningmao-web-transfer",
+  "main": "./worker/index.ts",
+  "compatibility_date": "2026-11-09",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "ROOMS", "class_name": "DeviceRoom" }]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["DeviceRoom"] }
+  ],
+  "vars": {
+    "CF_ACCESS_TEAM_DOMAIN": "CONFIGURE_YOUR_TEAM.cloudflareaccess.com",
+    "CF_ACCESS_AUD": "CONFIGURE_ACCESS_AUD"
+  }
+}
