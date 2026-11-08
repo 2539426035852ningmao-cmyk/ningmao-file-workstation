@@ -105,7 +105,7 @@ export function App() {
     }
     if (msg.type === "unavailable") {
       const current = active.current;
-      if (current?.id === msg.id && current.to === msg.to) fail("接收设备已离线");
+      if (current && current.id === msg.id && current.to === msg.to) fail("接收设备已离线");
       return;
     }
     const from = msg.from || "";
