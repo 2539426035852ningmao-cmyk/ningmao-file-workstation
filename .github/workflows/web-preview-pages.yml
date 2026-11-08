@@ -1,0 +1,57 @@
+name: Web W0 · publish static preview
+
+on:
+  push:
+    branches:
+      - feat/web-transfer-foundation-20261109
+    paths:
+      - "apps/web/**"
+      - ".github/workflows/web-preview-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ningmao-web-w0-pages-preview
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    name: Build and publish static UI to gh-pages
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install W0 dependencies
+        working-directory: apps/web
+        run: npm install --no-audit --no-fund
+      - name: Run W0 unit tests
+        working-directory: apps/web
+        run: npm test
+      - name: Build Pages static assets
+        working-directory: apps/web
+        run: npm run build
+      - name: Verify project-site asset paths and preview safety
+        run: |
+          test -s apps/web/dist/index.html
+          test -d apps/web/dist/assets
+          grep -q '/ningmao-file-workstation/assets/' apps/web/dist/index.html
+          grep -q 'noindex' apps/web/dist/index.html
+          if grep -R -E 'Cf-Access-Jwt-Assertion|ningmao-local-preview|BEGIN (PRIVATE|RSA) KEY' apps/web/dist; then
+            echo "Security: sensitive marker found in published artifact" >&2
+            exit 1
+          fi
+          touch apps/web/dist/.nojekyll
+      - name: Publish W0-only site files to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./apps/web/dist
+          publish_branch: gh-pages
+          keep_files: false
+          enable_jekyll: false
+          commit_message: "build(pages): refresh W0 UI from ${{ github.sha }}"

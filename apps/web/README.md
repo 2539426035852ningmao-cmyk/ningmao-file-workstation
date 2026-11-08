@@ -37,3 +37,13 @@ npm run dev
 ## 验收
 
 W0 需要在 Chrome/Edge 和至少一个手机尺寸验证：主题切换、刷新偏好、文件拖入/选择/去重/删除、键盘焦点、文字可读性；还需记录实际 npm 构建和测试。此提交仅提供可运行源码与 Node 单测，CI/浏览器/实际联网结果分别报告，不将代码提交视作全部验收通过。
+
+## 公开 UI 预览发布（GitHub Pages）
+
+- 源码与自动构建：`feat/web-transfer-foundation-20261109`（PR #79），**与 W1–W4 的 PR #80 分离**。
+- 仅发布 `apps/web/dist` 到独立 `gh-pages` 分支；不包含 Rust、SQLite、源素材或服务器密钥。
+- Actions：`.github/workflows/web-preview-pages.yml` 在 W0 分支推送时构建与更新预览，不自动合并进 `main`。
+- 仓库所有者首次需要打开 [Settings → Pages](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/settings/pages)；选 `Deploy from a branch`，Branch = `gh-pages`、Folder = `/(root)`，保存。
+- **预期地址**：`https://2539426035852ningmao-cmyk.github.io/ningmao-file-workstation/`。只有实际出现 Pages 成功部署且地址返回完整网页后才能称其“上线”；Pages 没启用时此地址可能 404。
+- 页面能够拖入/选择/移除文件、切换三套完整主题和显示空态；未对接服务器的发送、接收、在线设备按钮明确禁用。静态预览**不会上传用户文件，也不会允许公网登录/传输**。
+- 回滚：在仓库 Settings → Pages 将 Source 设为 Disable 或停止发布，保留 `gh-pages` 历史以便回退；不要修改正式 Windows 安装包。

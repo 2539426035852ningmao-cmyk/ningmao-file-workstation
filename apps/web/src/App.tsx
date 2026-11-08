@@ -48,7 +48,7 @@ export function App() {
 
   return <div className="app-shell">
     <aside className="sidebar" aria-label="主导航">
-      <a className="brand" href="/" aria-label="柠猫 Transfer 首页"><span className="brand-icon"><ArrowLeftRight size={21}/></span><span className="brand-name">柠猫 <b>Transfer</b><small>轻松连接每一台设备</small></span></a>
+      <a className="brand" href={import.meta.env.BASE_URL} aria-label="柠猫 Transfer 首页"><span className="brand-icon"><ArrowLeftRight size={21}/></span><span className="brand-name">柠猫 <b>Transfer</b><small>轻松连接每一台设备</small></span></a>
       <div className="sidebar-section">工作空间</div>
       <nav className="nav">
         <button className={screen==="transfer"?"nav-link selected":"nav-link"} onClick={()=>setScreen("transfer")}><ArrowLeftRight size={18}/>文件互传</button>
@@ -58,7 +58,7 @@ export function App() {
       <div className="sidebar-bottom"><div className="privacy-note"><ShieldCheck size={18}/><span>隐私优先设计<small>未连接服务时，文件只保留在本机浏览器内存中</small></span></div><div className="sidebar-foot">Ningmao Web · W0 预览</div></div>
     </aside>
     <div className="main-column">
-      <header className="topbar"><button className="mobile-menu icon-button" aria-label="打开导航" aria-expanded={mobileMenu} onClick={()=>setMobileMenu(v=>!v)}><Menu size={20}/></button><span className="breadcrumb">工作空间 <span>/</span> {screen==="transfer"?"文件互传":screen==="devices"?"我的设备":"传输记录"}</span><div className="top-actions"><span className="preview-status"><span className="dot"/>本地预览</span><div className="theme-switch" aria-label="主题切换">{themes.map(item=><button key={item.value} type="button" className={theme===item.value?"theme-dot active "+item.value:"theme-dot "+item.value} aria-label={item.label} aria-pressed={theme===item.value} title={item.label} onClick={()=>setTheme(item.value)} />)}</div><button className="icon-button" aria-label="关于当前预览" onClick={()=>setShowHelp(true)}><CircleHelp size={19}/></button></div></header>
+      <header className="topbar"><button className="mobile-menu icon-button" aria-label="打开导航" aria-expanded={mobileMenu} onClick={()=>setMobileMenu(v=>!v)}><Menu size={20}/></button><span className="breadcrumb">工作空间 <span>/</span> {screen==="transfer"?"文件互传":screen==="devices"?"我的设备":"传输记录"}</span><div className="top-actions"><span className="preview-status"><span className="dot"/>界面预览</span><div className="theme-switch" aria-label="主题切换">{themes.map(item=><button key={item.value} type="button" className={theme===item.value?"theme-dot active "+item.value:"theme-dot "+item.value} aria-label={item.label} aria-pressed={theme===item.value} title={item.label} onClick={()=>setTheme(item.value)} />)}</div><button className="icon-button" aria-label="关于当前预览" onClick={()=>setShowHelp(true)}><CircleHelp size={19}/></button></div></header>
       {mobileMenu&&<div className="mobile-popover"><button onClick={()=>{setScreen("transfer");setMobileMenu(false)}}>文件互传</button><button onClick={()=>{setScreen("devices");setMobileMenu(false)}}>我的设备</button><button onClick={()=>{setScreen("activity");setMobileMenu(false)}}>传输记录</button></div>}
       <main className="content">
         {screen==="transfer"&&<>
