@@ -20,6 +20,7 @@ pub mod transfer_sender;
 pub mod transfer_tasks;
 mod wake_shortcut;
 mod web_transfer_bridge;
+mod web_transfer_receive;
 pub mod window_surface;
 pub mod windows_recycle;
 use serde::Serialize;
@@ -64,6 +65,7 @@ struct Runtime {
     browser_shares: browser_share_process::ShareControl,
     transfers: transfer_desktop::TransferControl,
     web_transfers: web_transfer_bridge::WebTransferBridge,
+    web_receives: web_transfer_receive::WebReceiveControl,
     chat: chat::ChatControl,
     store: Mutex<Store>,
     active: Mutex<Option<(i64, Arc<AtomicBool>)>>,
@@ -2051,6 +2053,7 @@ pub fn run() {
                 browser_shares: Default::default(),
                 transfers: Default::default(),
                 web_transfers: Default::default(),
+                web_receives: Default::default(),
                 chat: Default::default(),
                 store: Mutex::new(
                     Store::open(&root.join("workstation.sqlite3"))
@@ -2204,6 +2207,10 @@ pub fn run() {
             web_transfer_bridge::web_transfer_prepare,
             web_transfer_bridge::web_transfer_read_chunk,
             web_transfer_bridge::web_transfer_release,
+            web_transfer_receive::web_receive_prepare,
+            web_transfer_receive::web_receive_append,
+            web_transfer_receive::web_receive_finish,
+            web_transfer_receive::web_receive_abort,
             chat_config,
             chat_test,
             chat_configure,
