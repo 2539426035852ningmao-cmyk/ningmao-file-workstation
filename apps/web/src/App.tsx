@@ -213,7 +213,7 @@ export function App() {
       const meta: Invite = { id: crypto.randomUUID(), name: file.name.slice(0, 200), size: bytes.byteLength, mime: file.type.slice(0, 100), sha256 };
       active.current = { id: meta.id, to: destination };
       outbound.current = { bytes, meta, to: destination };
-      setTasks(old => [{ id: meta.id, name: meta.name, direction: "发送", status: "等待接收确认", fraction: 0 }, ...old].slice(0, 20));
+      setTasks(old => [{ id: meta.id, name: meta.name, direction: "发送" as const, status: "等待接收确认", fraction: 0 }, ...old].slice(0, 20));
       sendSignal({ type: "invite", to: destination, payload: meta });
     } catch (e) { fail(e instanceof Error ? e.message : String(e)); }
   }
@@ -228,7 +228,7 @@ export function App() {
     }
     active.current = { id: request.meta.id, to: request.from };
     setBusy(true);
-    setTasks(old => [{ id: request.meta.id, name: request.meta.name, direction: "接收", status: "正在建立连接", fraction: 0 }, ...old].slice(0, 20));
+    setTasks(old => [{ id: request.meta.id, name: request.meta.name, direction: "接收" as const, status: "正在建立连接", fraction: 0 }, ...old].slice(0, 20));
     const rtc = makeLink(request.from, request.meta.id, "接收");
     link.current = rtc;
     rtc.prepareReceiver(request.meta);
@@ -261,7 +261,7 @@ export function App() {
               {devices.map(device => { const Icon = deviceIcon(device.name); return <button key={device.id} className={`device select-device ${destination === device.id ? "selected" : ""}`} onClick={() => setDestination(device.id)} disabled={busy} aria-pressed={destination === device.id}><div className="device-icon"><Icon size={20}/></div><div className="device-text"><strong title={device.name}>{shortName(device.name)}</strong><small>在线 · {device.id.slice(0, 8)}</small></div><span className="device-online"/></button>; })}
               {devices.length === 0 && <div className="empty-device"><CloudOff size={24}/><strong>暂无其他在线设备</strong><span>在另一台设备使用同一账号打开本网站，就会显示在这里。</span></div>}
             </div>
-            <div className="device-footer"><label htmlFor="deviceName">本机显示名称</label><div className="rename"><input id="deviceName" value={deviceName} maxLength={40} onChange={e => { setDeviceName(e.target.value); persist(NAME_KEY, e.target.value); }} aria-label="本机设备名称"/><span>自动同步在线状态</span></div></div>
+            <div className="device-footer"><label htmlFor="deviceName">本机显示名称</label><div className="rename"><input id="deviceName" defaultValue={deviceName} maxLength={40} onBlur={e => { const name = e.target.value.trim() || "我的浏览器"; e.target.value = name; if (name !== deviceName) { setDeviceName(name); persist(NAME_KEY, name); } }} onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); }} aria-label="本机设备名称"/><span>自动同步在线状态</span></div></div>
           </section>
           <section className="panel transfer-panel-web"><div className="section-title"><div><div className="section-kicker">TRANSFER</div><h2>发送文件</h2></div><span className="limit">单个文件 · 最多 64 MB</span></div>
             <div className={`drop-zone ${file ? "has-file" : ""}`} onDragOver={e => e.preventDefault()} onDrop={onDrop} onClick={() => !busy && fileInput.current?.click()} role="button" tabIndex={0} onKeyDown={e => { if ((e.key === "Enter" || e.key === " ") && !busy) { e.preventDefault(); fileInput.current?.click(); } }} aria-label="选择需要传输的文件">
