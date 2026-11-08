@@ -25,7 +25,7 @@ const lines=['# 首版功能与验收矩阵','',`生成基线：${sha}${dirty?"�
  ['局域网互传与发现','INTEGRATED · TransferPanel.tsx / transfer_desktop.rs','选文件→发送到设备；更多→文件互传','既有合成回环/协议测试，历史专项许可不扩大','PARTIAL：独立 OS 双机、手机与防火墙边界未完整验收'],
  ['浏览器分享与随包组件','INTEGRATED · browser_share_desktop.rs / experiments/p3-browser','互传→浏览器分享（组件可用时）','相对路径、哈希、组件许可清单与本机字节证据见 #68','PARTIAL：许可仍有警告；正式发行未批准，公网/手机待验'],
  ['AI 会话与建议','INTEGRATED · ChatPanel.tsx / src-tauri/src/chat.rs','AI 面板配置兼容端点后对话','Anthropic专用HTTP/SSE三轮与错误/空流/断流MOCK_PASS，兼容路线原6回归PASS；用户批准单次本地GGUF HTTP返回OK（3token），非应用整链或Anthropic LIVE','PARTIAL：官方Anthropic文本适配已实现，不支持自定义Anthropic网关；厂商LIVE/应用本地模型整链/Agent工具与规则生命周期待验；云端未调用'],
- ['本地规则标签、插件及工作流','PARTIAL · localTagSuggestions.ts / Manager.tsx','管理中心→标签建议→确认写内部标签','已有规则/确认写入实现，无后台文件修改','首版阻断：低权限示范生命周期与可恢复工作流未完成；不造市场'],
+ ['本地规则标签、插件及工作流','PARTIAL · localTagSuggestions.ts / Manager.tsx','管理中心→标签建议→确认写内部标签','内置示范复用规则：只传ID/名称/类型/已有标签；启停记忆、明确确认、单次撤销及停用保留成果，19界面通过','PARTIAL：内置规则最小闭环已实现；第三方安装/卸载/升级/强隔离及可恢复通用工作流未实现，不冒称插件平台'],
 ].map(cells=>'|'+cells.join('|')+'|'), '',
 '## 冻结需求完整约束', '',
 '|需求|完整约束|状态|源码入口|用户入口|自动测试/证据|Windows原生|首版阻断/风险与下一步|','|---|---|---|---|---|---|---|---|'];
@@ -36,9 +36,9 @@ for(const [id,,text] of original){
 }
 for(const [id,,title,text] of p4){
  const n=+id,plugin=n>=29&&n<=39,advanced=[18,19,20].includes(n);
- const state=advanced?'DEFERRED':plugin?'NOT_STARTED':'IN_PROGRESS';
- const src=plugin?'示范基础可复用 apps/desktop/src/localTagSuggestions.ts；插件生命周期未实现':n>=40?sources[2]:n===28?sources[5]:'apps/desktop/src-tauri/src/store/search.rs；apps/desktop/src/Manager.tsx';
- lines.push(`|P4-${id}|${title}：${text}|${state}|${src}|${plugin?'管理中心规则建议已有，插件管理入口尚缺':n===28?'AI对话/配置':'搜索/管理中心；完整闭环待补'}|已有局部测试，完整需求未验收|NOT_TESTED（完整条目）|${advanced?'总指令允许后置高级理解，元数据基础仍需验收':plugin?'阻断：复用规则引擎补安装/启停/权限/卸载，用户标签保留':'需补齐完整闭环；模型/设备依赖单列，不静默延期'}|`);
+ const state=advanced?'DEFERRED':plugin&&!([31,35,37,39].includes(n))?'NOT_STARTED':'IN_PROGRESS';
+ const src=plugin?'apps/desktop/src/localTagSuggestions.ts；Manager.tsx；内置示范启停/单次撤销已有，第三方生命周期未实现':n>=40?sources[2]:n===28?sources[5]:'apps/desktop/src-tauri/src/store/search.rs；apps/desktop/src/Manager.tsx';
+ lines.push(`|P4-${id}|${title}：${text}|${state}|${src}|${plugin?'管理中心→素材→本地规则建议；第三方插件管理入口尚缺':n===28?'AI对话/配置':'搜索/管理中心；完整闭环待补'}|已有局部测试，完整需求未验收|NOT_TESTED（完整条目）|${advanced?'总指令允许后置高级理解，元数据基础仍需验收':plugin?'内置示范启停/结果保留/确认撤销已做；外部插件安装/权限/卸载/升级仍缺，不将内置开关冒称完整安装器':'需补齐完整闭环；模型/设备依赖单列，不静默延期'}|`);
 }
 for(const [id,text,src,entry,next] of [
  ['D05-1','Orb→Capsule→Full，移除独立QuickPeek','apps/desktop/src/orb/MorphCapsule.tsx；src-tauri/src/entry.rs','球→含最近3项/数量/添加/粘贴的胶囊→完整架；最近项定位；Esc收回球','添加/粘贴和双启动已实现并有旧包原生证据，最近项待同版原生；#66连续形变独立，不阻塞受控交接候选'],

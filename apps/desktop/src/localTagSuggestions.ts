@@ -1,6 +1,7 @@
 import type {ManagedReference} from "./backend";
 
 export type LocalTagSuggestion={tag:string;reason:string;ids:number[]};
+type RuleMetadata=Pick<ManagedReference,"id"|"name"|"kind"|"tags">;
 
 const typeTags:Record<string,string>={
   png:"图片",jpg:"图片",jpeg:"图片",webp:"图片",gif:"图片",bmp:"图片",tif:"图片",tiff:"图片",avif:"图片",heic:"图片",svg:"图片",
@@ -16,9 +17,9 @@ const nameRules=[
   {tag:"图标",words:["图标","icon"]},
 ] as const;
 
-export function localTagSuggestions(items:ManagedReference[]):LocalTagSuggestion[]{
+export function localTagSuggestions(items:RuleMetadata[]):LocalTagSuggestion[]{
   const grouped=new Map<string,{ids:number[];reasons:Set<string>}>();
-  const add=(item:ManagedReference,tag:string,reason:string)=>{
+  const add=(item:RuleMetadata,tag:string,reason:string)=>{
     if(item.tags.includes(tag))return;
     const value=grouped.get(tag)??{ids:[],reasons:new Set<string>()};
     value.ids.push(item.id);value.reasons.add(reason);grouped.set(tag,value);
