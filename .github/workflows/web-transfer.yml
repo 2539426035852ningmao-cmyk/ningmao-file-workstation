@@ -35,4 +35,3 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: WebRTC browser-level transport checks
         run: npm run test:browser
-
