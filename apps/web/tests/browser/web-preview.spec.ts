@@ -8,7 +8,7 @@ test("W0 合成文件：新增→防重→本机预览→关闭→移除→清�
   await add.click();
   await expect(page.getByText("Ningmao-本地测试.txt",{exact:true})).toBeVisible();
   await add.click();
-  await expect(page.getByRole("status").first()).toContainText("重复");
+  await expect(page.locator(".queue-feedback")).toContainText("重复");
   await expect(page.getByText("显示 1 / 1 项")).toBeVisible();
   await page.getByRole("button",{name:"预览 Ningmao-本地测试.txt"}).click();
   const preview=page.getByRole("dialog",{name:"Ningmao-本地测试.txt"});
@@ -46,7 +46,7 @@ test("W0 本地队列：搜索、筛选、排序与安全文件名",async({page}
   await page.locator('input[type="file"]').setInputFiles([
     {name:"CON.txt",mimeType:"text/plain",buffer:Buffer.from("unsafe")}
   ]);
-  await expect(page.getByRole("status").first()).toContainText("不安全文件名");
+  await expect(page.locator(".queue-feedback")).toContainText("不安全文件名");
   await expect(page.getByText("显示 3 / 3 项")).toBeVisible();
 });
 
@@ -55,7 +55,7 @@ test("W0 文件限制明确提示，不显示伪造完成或在线设备",async(
   const large={name:"synthetic-large.bin",mimeType:"application/octet-stream",buffer:Buffer.alloc(1)};
   await page.locator('input[type="file"]').setInputFiles(large);
   await expect(page.getByRole("button",{name:/发送文件/})).toBeDisabled();
-  await expect(page.getByText("暂无已连接的设备")).toBeVisible();
+  await expect(page.getByText("尚未连接设备")).toBeVisible();
   await page.getByRole("button",{name:"我的设备"}).click();
   await expect(page.getByText("设备连接尚未启用")).toBeVisible();
   await page.getByRole("button",{name:"传输记录"}).click();
