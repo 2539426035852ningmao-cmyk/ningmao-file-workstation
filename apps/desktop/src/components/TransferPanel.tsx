@@ -5,7 +5,7 @@ import {Input} from "./ui/input";
 import {Tabs,TabsList,TabsTrigger,TabsContent} from "./ui/tabs";
 import {Sheet,SheetContent,SheetDescription,SheetHeader,SheetTitle} from "./ui/sheet";
 import type {Shelf} from "../backend";
-import type {NearbyDevice,TransferBackend,TransferProgress,TransferResult,TransferView} from "../transferBackend";
+import type {NearbyDevice,TransferBackend,TransferProgress,TransferResult,TransferView,WebSourceInfo} from "../transferBackend";
 
 const empty:TransferView={receiving:false,address:null,fingerprint:null,shelf_id:null,pending:null,sending:false};
 const sizes=(n:number)=>n>=1024*1024?`${(n/1024/1024).toFixed(1)} MB`:n>=1024?`${(n/1024).toFixed(1)} KB`:`${n} B`;
@@ -34,6 +34,16 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
       setAddress(addr);setFingerprint(pin);
     }catch{setAddress("");setFingerprint("");setError("这条连接信息不完整，请对方重新复制。也可以展开手动连接。");}
   }
+  const [webSource,setWebSource]=useState<WebSourceInfo|null>(null),[webChecking,setWebChecking]=useState(false);
+  const choiceKey=`${selection.shelf_id}:${selection.files.map(f=>f.id).join(",")}`;
+  useEffect(()=>setWebSource(null),[choiceKey,open]);
+  async function checkWebSource(){
+    if(webChecking||!backend.webSourceInfo||selection.files.length!==1||!selection.shelf_id)return;
+    setWebChecking(true);setError("");setWebSource(null);
+    try{const value=await backend.webSourceInfo(selection.shelf_id,selection.files[0].id);setWebSource(value);}
+    catch(e){setError(`Web 文件源预检失败：${String(e)}`);}
+    finally{setWebChecking(false);}
+  }
   const [browserReady,setBrowserReady]=useState(false),[browserBusy,setBrowserBusy]=useState(false),[browserCode,setBrowserCode]=useState(""),[browserStatus,setBrowserStatus]=useState("");
   useEffect(()=>{if(!open||!backend.browserAvailable)return;let live=true;void backend.browserAvailable().then(value=>{if(live)setBrowserReady(value);}).catch(()=>{if(live)setBrowserReady(false);});return()=>{live=false;};},[backend,open]);
   async function browserShare(){if(browserBusy||!backend.browserSend)return;const code=crypto.randomUUID();setBrowserCode(code);setBrowserBusy(true);setBrowserStatus("等待浏览器接收；60秒后自动停止");setError("");try{const result=await backend.browserSend(selection.shelf_id,selection.files.map(file=>file.id),code);setBrowserStatus(result.status==="completed"?"对方已确认内容校验":result.status==="cancelled"?"已停止，来源保留":"未确认完成，请核对接收结果");}catch(e){setError(String(e));setBrowserCode("");}finally{setBrowserBusy(false);}}
@@ -59,6 +69,14 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
       <strong>1. 选择文件</strong><p className="transfer-note">已选 {selection.files.length} 项{selection.files.length>16?"，一次最多发送16项":""}</p>
       {!selection.files.length&&<p className="capability-hint">先在文件架选择文件，再使用“发送到设备”。<Button variant="outline" onClick={()=>onOpenChange(false)}>返回文件架选文件</Button></p>}
       {!!selection.files.length&&<ul className="transfer-files" aria-label="待发送文件">{selection.files.map(file=><li key={file.id} title={file.name}>{file.name}</li>)}</ul>}
+      {backend.webSourceInfo&&<details className="transfer-experiment"><summary>网页 / 手机互传 · W3 本机准备检查</summary>
+        <section className="connection-fields" aria-label="W3 网页发送文件源预检">
+          <strong>文件架 → WebRTC 发送源</strong>
+          <p className="muted">选中 1 个普通文件，验证 Windows 文件引用与 SHA-256，并立即释放临时读取授权。本检查不会联网发送或打开网页服务。</p>
+          <Button type="button" variant="outline" disabled={webChecking||activeSend||selection.files.length!==1||!selection.shelf_id} onClick={()=>void checkWebSource()}>{webChecking?"正在校验本机文件…":"校验选中文件（本机）"}</Button>
+          {webSource&&<div role="status" className="transfer-status"><strong>本机文件已校验 · 尚未发送</strong><p>{webSource.name} · {sizes(webSource.bytes)}</p><p>SHA-256：<code className="transfer-hash">{webSource.sha256}</code></p><p className="muted">此验证仅证明本机文件可读。Windows 设备登录、跨网配对和网页接收仍需 W1–W4 后续服务端验收。</p></div>}
+        </section>
+      </details>}
       {browserReady&&<details className="transfer-experiment"><summary>浏览器分享测试（仅本机）</summary><section className="connection-fields" aria-label="浏览器本机验证"><strong>浏览器分享 · 本机验证</strong><p className="muted">仅当前电脑可用，尚不支持跨设备。接收页：http://127.0.0.1:53323</p>{browserCode&&<><Input aria-label="浏览器分享代码" readOnly value={browserCode}/><Button variant="outline" onClick={()=>void copy(browserCode,"分享代码")}>复制分享代码</Button></>}<p role="status">{browserStatus}</p>{browserBusy?<Button variant="outline" onClick={()=>void backend.browserCancel?.().catch(e=>setError(String(e)))}>停止浏览器分享</Button>:<Button disabled={activeSend||!selection.files.length||selection.files.length>16} onClick={()=>void browserShare()}>创建浏览器分享</Button>}</section></details>}
       <form className="transfer-form" onSubmit={e=>{e.preventDefault();void send();}}>
         <fieldset className="connection-fields"><legend>2. 选择接收设备</legend>

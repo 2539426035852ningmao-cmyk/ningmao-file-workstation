@@ -43,6 +43,13 @@ const backend:Backend={
     async pair(name,address,fingerprint){transferCalls.push(`pair:${address}`);localStorage.setItem("test-transfer-peers",JSON.stringify([{name,fingerprint}]));},
     async devices(){return new URLSearchParams(location.search).has("nearby")?[{name:"合成接收电脑",address:"127.0.0.1:53317",fingerprint:"a".repeat(64)}]:[];},
     async browserAvailable(){return new URLSearchParams(location.search).has("browser-share");},
+    async webSourceInfo(shelf,itemId){
+      transferCalls.push(`web-preflight:${shelf}:${itemId}`);
+      if(new URLSearchParams(location.search).has("web-preflight-error"))throw new Error("文件引用已变化");
+      const found=state.items.find(item=>item.id===itemId&&item.shelf_id===shelf);
+      if(!found)throw new Error("无法验证当前文件引用");
+      return {item_id:itemId,name:found.name,bytes:found.bytes,sha256:"a".repeat(64)};
+    },
     async browserSend(shelf,ids,code){transferCalls.push(`browser:${shelf}:${ids.join(",")}:${code.length}`);return new Promise(resolve=>{browserFinish=resolve;});},
     async browserCancel(){transferCalls.push("browser-cancel");browserFinish?.({job_id:18,status:"cancelled"});},
     async view(){return structuredClone(transferView);},
