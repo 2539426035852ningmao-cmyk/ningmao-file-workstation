@@ -8,13 +8,18 @@ export type Task = {id:string;name:string;direction:"发送"|"接收";status:str
 export type Incoming = {from:string;meta:Invite};
 export type Download = {id:string;name:string;size:number;url:string};
 type Message = {type:string;from?:string;to?:string;id?:string;devices?:Device[];payload?:Record<string,unknown>};
-const DEVICE_KEY="ningmao-web-device-id", NAME_KEY="ningmao-web-device-name";
+const DEVICE_KEY="ningmao-web-session-id", NAME_KEY="ningmao-web-device-name";
 function stored(key:string,fallback:string) {try{return localStorage.getItem(key)||fallback;}catch{return fallback;}}
 function persist(key:string,value:string) {try{localStorage.setItem(key,value);}catch{/* privacy mode */}}
 function initialDevice(){
-  const existing=stored(DEVICE_KEY,"");
+  // Device presence is an online *tab session*, not a trusted persistent identity.
+  // localStorage is shared by tabs and would cause the newer tab to kick off the first.
+  let existing="";
+  try {existing=sessionStorage.getItem(DEVICE_KEY)||"";} catch { /* private window */ }
   if(/^[\da-f]{8}(-[\da-f]{4}){3}-[\da-f]{12}$/i.test(existing))return existing;
-  const id=crypto.randomUUID(); persist(DEVICE_KEY,id); return id;
+  const id=crypto.randomUUID();
+  try {sessionStorage.setItem(DEVICE_KEY,id);} catch { /* transient session */ }
+  return id;
 }
 const deviceId=initialDevice();
 /** Authenticated Web Worker + WebRTC controller, separated from the W0 design system.

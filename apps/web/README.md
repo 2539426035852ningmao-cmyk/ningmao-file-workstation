@@ -66,3 +66,6 @@ npm run build
 - 本分支尚未进行真实 Access 登录、两台设备/跨公网/Windows 接收落盘验收；GitHub Pages 持续只承载独立 W0 静态预览，**没有上线这个未验收的联网候选**。
 - Windows Native Source Bridge、DPAPI 配对、受控接收及 jobs、W4 公网费用/身份审批继续沿 PR #80 Gate，独立验收与合并。
 
+
+### 在线设备与标签页
+浏览器在线会话 ID 存于本标签页的 `sessionStorage`（刷新保留、不同标签互不抢占）；这只是路由标识，**不是安全配对凭证**。账号仍由服务端验证的 Access JWT 所属 subject 确定。传输期间禁用改名，避免重新建立 WebSocket 时中断文件。
