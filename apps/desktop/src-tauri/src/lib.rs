@@ -20,6 +20,7 @@ pub mod transfer_sender;
 pub mod transfer_tasks;
 mod wake_shortcut;
 mod web_transfer_bridge;
+mod web_transfer_receive;
 pub mod window_surface;
 pub mod windows_recycle;
 use serde::Serialize;
@@ -64,6 +65,7 @@ struct Runtime {
     browser_shares: browser_share_process::ShareControl,
     transfers: transfer_desktop::TransferControl,
     web_transfers: web_transfer_bridge::WebTransferBridge,
+    web_receives: web_transfer_receive::WebReceiveControl,
     chat: chat::ChatControl,
     store: Mutex<Store>,
     active: Mutex<Option<(i64, Arc<AtomicBool>)>>,
@@ -105,6 +107,31 @@ fn desktop_window(window: &tauri::WebviewWindow) -> Result<()> {
         Ok(())
     } else {
         Err("未知桌面窗口。".into())
+    }
+}
+/// IPC access to local files is allowed only from the bundled Tauri application,
+/// or from the exact dev-server origin in debug builds; not arbitrary localhost.
+fn trusted_native_url(scheme: &str, host: Option<&str>, port: Option<u16>, debug: bool) -> bool {
+    let packaged = port.is_none()
+        && ((scheme == "http" && host == Some("tauri.localhost"))
+            || (scheme == "tauri" && host == Some("localhost")));
+    let local_dev = debug
+        && scheme == "http"
+        && matches!(host, Some("localhost" | "127.0.0.1"))
+        && port == Some(1431);
+    packaged || local_dev
+}
+fn trusted_native_origin(window: &tauri::WebviewWindow) -> Result<()> {
+    let url = window.url().map_err(error)?;
+    if trusted_native_url(
+        url.scheme(),
+        url.host_str(),
+        url.port(),
+        cfg!(debug_assertions),
+    ) {
+        Ok(())
+    } else {
+        Err("当前页面不是工作站内置界面，禁止操作本机文件。".into())
     }
 }
 fn metadata_scope(window: &tauri::WebviewWindow) -> Result<Option<i64>> {
@@ -2051,6 +2078,7 @@ pub fn run() {
                 browser_shares: Default::default(),
                 transfers: Default::default(),
                 web_transfers: Default::default(),
+                web_receives: Default::default(),
                 chat: Default::default(),
                 store: Mutex::new(
                     Store::open(&root.join("workstation.sqlite3"))
@@ -2204,6 +2232,10 @@ pub fn run() {
             web_transfer_bridge::web_transfer_prepare,
             web_transfer_bridge::web_transfer_read_chunk,
             web_transfer_bridge::web_transfer_release,
+            web_transfer_receive::web_receive_prepare,
+            web_transfer_receive::web_receive_append,
+            web_transfer_receive::web_receive_finish,
+            web_transfer_receive::web_receive_abort,
             chat_config,
             chat_test,
             chat_configure,
@@ -2279,6 +2311,25 @@ pub fn run() {
         ])
         .run(context)
         .expect("柠猫文件工作站启动失败；数据未自动清理");
+}
+
+#[cfg(test)]
+mod native_webview_origin_tests {
+    use super::trusted_native_url as check;
+
+    #[test]
+    fn file_ipc_rejects_untrusted_localhost_and_external_site() {
+        assert!(check("http", Some("tauri.localhost"), None, false));
+        assert!(check("tauri", Some("localhost"), None, false));
+        assert!(!check("http", Some("tauri.localhost"), Some(53323), false));
+        assert!(!check("https", Some("tauri.localhost"), None, false));
+        assert!(!check("http", Some("localhost"), Some(1431), false));
+        assert!(!check("http", Some("127.0.0.1"), Some(53323), true));
+        assert!(!check("http", Some("example.com"), Some(1431), true));
+        assert!(!check("https", Some("localhost"), Some(1431), true));
+        assert!(check("http", Some("localhost"), Some(1431), true));
+        assert!(check("http", Some("127.0.0.1"), Some(1431), true));
+    }
 }
 
 #[cfg(test)]

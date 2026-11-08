@@ -20,5 +20,11 @@ describe("untrusted transfer metadata", () => {
     }
     expect(safeFileName("合成素材 01.mp4")).toBe(true);
   });
+  it("matches Windows UTF-8 filename and strict UUID rules", () => {
+    expect(safeFileName("中".repeat(66))).toBe(true);
+    expect(safeFileName("中".repeat(67))).toBe(false);
+    expect(validInvite({ ...good, name: "中".repeat(67) })).toBe(false);
+    expect(validInvite({ ...good, id: "-".repeat(36) })).toBe(false);
+  });
   it("formats bytes", () => expect(readable(1048576)).toBe("1.0 MB"));
 });

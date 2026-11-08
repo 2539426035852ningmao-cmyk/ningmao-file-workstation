@@ -7,7 +7,7 @@ const RESERVED_NAME = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i;
 
 // Incoming filenames are untrusted. Keep validation aligned with W2/Rust.
 export function safeFileName(name) {
-  return typeof name === "string" && name.length > 0 && name.length <= 200 &&
+  return typeof name === "string" && name.length > 0 && new TextEncoder().encode(name).length <= 200 &&
     name.trim().length > 0 && name !== "." && name !== ".." &&
     !name.endsWith(".") && !name.endsWith(" ") &&
     !BAD_NAME.test(name) && !RESERVED_NAME.test(name);

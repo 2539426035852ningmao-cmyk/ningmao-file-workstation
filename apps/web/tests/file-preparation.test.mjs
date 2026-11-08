@@ -9,6 +9,8 @@ test("accepted filenames exclude traversal, Windows devices and control characte
     assert.equal(safeFileName(name),false,name);
   }
   assert.equal(safeFileName("镜头 01.mov"),true);
+  assert.equal(safeFileName("中".repeat(66)),true);
+  assert.equal(safeFileName("中".repeat(67)),false);
 });
 test("duplicate additions are idempotent and reject invalid names", () => {
   const existing=[fake("合成.txt",12,"existing")];
