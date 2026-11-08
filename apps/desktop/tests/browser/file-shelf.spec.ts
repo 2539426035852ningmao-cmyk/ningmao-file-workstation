@@ -89,8 +89,8 @@ test("拖入路由、绑定目录、复制进度、取消与失败反馈",async(
   await expect(page.getByRole("button",{name:"拖出复制",exact:true})).toHaveCount(0);
   await page.getByRole("button",{name:"添加并复制",exact:true}).click();
   await expect(page.getByRole("progressbar",{name:"当前文件复制进度"})).toBeVisible();
-  await page.getByRole("button",{name:"查看复制任务",exact:true}).click();
-  await page.getByRole("button",{name:"取消复制",exact:true}).click();
+  await page.getByRole("button",{name:"查看任务",exact:true}).click();
+  await page.getByRole("button",{name:"取消任务",exact:true}).click();
   await expect(page.getByText("已取消",{exact:true})).toBeVisible();
   await page.keyboard.press("Escape");
   await page.getByRole("button",{name:"添加并复制",exact:true}).click();

@@ -79,14 +79,14 @@ test("最小窗口复制只显示短进度，取消、失败、离线和历史�
   await page.getByRole("button",{name:"切换文件架",exact:true}).click();await page.getByRole("menuitem",{name:"绑定文件夹",exact:true}).click();
   await more(page,"添加文件");
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.getByRole("button",{name:"查看复制任务",exact:true})).toHaveCSS("height","28px");
+  await expect(page.getByRole("button",{name:"查看任务",exact:true})).toHaveCSS("height","28px");
   await expect(page.locator(".status-toast")).toHaveCount(0,{timeout:500});
   await page.evaluate(()=>window.testHarness.hover(true));await expect(page.getByText("释放以复制 · 保留来源",{exact:true})).toBeVisible();
   await capture(page,"copy-340");await page.evaluate(()=>window.testHarness.hover(false));
-  await page.getByRole("button",{name:"查看复制任务",exact:true}).click();await expect(page.getByRole("dialog")).toContainText("来源保留");
-  await page.getByRole("button",{name:"取消复制",exact:true}).click();await expect(page.getByRole("dialog")).toContainText("已取消");
+  await page.getByRole("button",{name:"查看任务",exact:true}).click();await expect(page.getByRole("dialog")).toContainText("来源保留");
+  await page.getByRole("button",{name:"取消任务",exact:true}).click();await expect(page.getByRole("dialog")).toContainText("已取消");
   await capture(page,"tasks-340");await page.keyboard.press("Escape");
-  await expect(page.getByRole("button",{name:"查看复制任务",exact:true})).toHaveCount(0);
+  await expect(page.getByRole("button",{name:"查看任务",exact:true})).toHaveCount(0);
   await page.evaluate(()=>window.testHarness.fail("合成权限错误：来源与已有目标均保留，请检查访问权限后重试"));
   await more(page,"添加文件");await expect(page.getByRole("alert")).toContainText("来源与已有目标均保留");
   await expect(page.locator(".status-toast")).toHaveCount(0,{timeout:500});
@@ -94,5 +94,5 @@ test("最小窗口复制只显示短进度，取消、失败、离线和历史�
   await page.evaluate(()=>window.testHarness.offline(3));await more(page,"刷新文件状态");
   await expect(page.getByText("目录离线，记录已保留 · 恢复目录后刷新",{exact:true})).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await capture(page,"offline-error-340");
-  await more(page,"复制任务");await expect(page.getByRole("dialog")).toContainText("已取消");
+  await more(page,"任务记录");await expect(page.getByRole("dialog")).toContainText("已取消");
 });
