@@ -149,7 +149,10 @@ pub async fn web_device_claim(
         _token: body.token,
         expires_at: body.expires_at,
     });
-    state.web_device.status()?.ok_or_else(|| "设备授权过期".into())
+    state
+        .web_device
+        .status()?
+        .ok_or_else(|| "设备授权过期".into())
 }
 #[tauri::command]
 pub fn web_device_status(
@@ -163,10 +166,7 @@ pub fn web_device_status(
         .status()
 }
 #[tauri::command]
-pub fn web_device_disconnect(
-    app: tauri::AppHandle,
-    window: tauri::WebviewWindow,
-) -> Result<()> {
+pub fn web_device_disconnect(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<()> {
     guard(&window)?;
     *app.try_state::<Runtime>()
         .ok_or("工作站未初始化")?
@@ -183,10 +183,16 @@ mod tests {
     #[test]
     fn deny_local_private_and_unstructured_endpoints() {
         for bad in [
-            "http://example.com", "https://127.0.0.1", "https://localhost",
-            "https://192.168.1.1", "https://example.local", "https://example.com:8443",
-            "https://user:password@example.com", "https://example.com/other",
-            "https://example.com/?x=1", "https://example.com/#secret",
+            "http://example.com",
+            "https://127.0.0.1",
+            "https://localhost",
+            "https://192.168.1.1",
+            "https://example.local",
+            "https://example.com:8443",
+            "https://user:password@example.com",
+            "https://example.com/other",
+            "https://example.com/?x=1",
+            "https://example.com/#secret",
         ] {
             assert!(validated_endpoint(bad).is_err(), "{bad}");
         }
