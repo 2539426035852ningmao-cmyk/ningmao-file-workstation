@@ -17,6 +17,7 @@ use std::{
     time::{Duration, Instant},
 };
 use tauri::{Emitter, Manager};
+use tauri_plugin_dialog::DialogExt;
 
 const MAX_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_CHUNK: usize = 64 * 1024;
@@ -152,6 +153,20 @@ impl ReceiveSession {
             return Err("文件名、容量或 SHA-256 清单无效。".into());
         }
         fs::create_dir_all(staging_root).map_err(error)?;
+        // Reject a pre-planted staging junction/symlink escaping the application data root.
+        let canonical_root = fs::canonicalize(
+            staging_root.parent().ok_or("暂存目录缺少可信父目录")?,
+        )
+        .map_err(error)?;
+        let canonical_staging = fs::canonicalize(staging_root).map_err(error)?;
+        if canonical_staging.parent() != Some(canonical_root.as_path())
+            || fs::symlink_metadata(staging_root)
+                .map_err(error)?
+                .file_type()
+                .is_symlink()
+        {
+            return Err("暂存目录已被重定向，拒绝写入".into());
+        }
         let temporary = tempfile::Builder::new()
             .prefix(".ningmao-web-incoming-")
             .tempdir_in(staging_root)
@@ -362,6 +377,38 @@ pub async fn web_receive_prepare(
     native_origin(&window)?;
     let scope = metadata_scope(&window)?;
     scoped(scope, shelf_id)?;
+    if !ticket_valid(&ticket)
+        || !safe_name(&name)
+        || bytes > MAX_BYTES
+        || sha256.len() != 64
+        || !sha256.bytes().all(|b| b.is_ascii_hexdigit())
+    {
+        return Err("文件接收请求不安全，未进入确认步骤".into());
+    }
+    // A trusted renderer cannot silently save a remote file: Windows owner
+    // must actively approve via the native dialog before any staging/job writes.
+    let confirmation_app = app.clone();
+    let confirmation_window = window.clone();
+    let prompt_name = name.clone();
+    let approved = tauri::async_runtime::spawn_blocking(move || {
+        confirmation_app
+            .dialog()
+            .message(format!(
+                "是否接收网页传来的文件？\\n\\n名称：{prompt_name}\\n大小：{bytes} 字节\\n保存位置：当前工作站绑定文件架（编号 {shelf_id}）\\n\\n文件会先进行 SHA-256 校验，保存时不会覆盖已有文件。"
+            ))
+            .title("确认接收网页文件")
+            .parent(&confirmation_window)
+            .buttons(tauri_plugin_dialog::MessageDialogButtons::OkCancelCustom(
+                "确认接收".into(),
+                "拒绝".into(),
+            ))
+            .blocking_show()
+    })
+    .await
+    .map_err(error)?;
+    if !approved {
+        return Err("已拒绝接收，未创建本机文件".into());
+    }
     let owner = window.label().to_owned();
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<Runtime>();
