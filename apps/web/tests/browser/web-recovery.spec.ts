@@ -42,8 +42,8 @@ test("服务端临时 503 会自动重新验证，不需刷新或假造设备",a
   await page.route("**/api/me",route=>{
     attempts++;
     return route.fulfill({
-      status:attempts===1?503:200,contentType:"application/json",
-      body:attempts===1?"{}":JSON.stringify({email:"synthetic-only@example.test"})
+      status:attempts<=2?503:200,contentType:"application/json",
+      body:attempts<=2?"{}":JSON.stringify({email:"synthetic-only@example.test"})
     });
   });
   await page.routeWebSocket(/\/api\/connect\?/,ws=>{
@@ -64,6 +64,9 @@ test("401 失效身份不会无限自动重试",async({page})=>{
   });
   await page.goto("/");
   await expect(page.locator(".connection-warning")).toContainText("尚未通过 Cloudflare Access");
+  // React StrictMode mounts effects twice in dev; neither denied request
+  // should trigger a third attempt after the retry interval.
+  const initialAttempts=attempts;
   await page.waitForTimeout(4000);
-  expect(attempts).toBe(1);
+  expect(attempts).toBe(initialAttempts);
 });
