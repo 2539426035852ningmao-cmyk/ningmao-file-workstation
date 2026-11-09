@@ -48,3 +48,6 @@ Rust `browser_share_tasks.rs` 将本机受控发送子进程事件映射到现�
 Rust再执行 `cargo test --manifest-path experiments/p3-loopback/Cargo.toml --test browser_share` 验证常规规则。实际journal项显式ignored，不在缺少浏览器实验时冒充通过；设置 `NINGMAO_BROWSER_EVENTS` 指向专用克隆的sender-events.jsonl，`NINGMAO_BROWSER_CANCEL_EVENTS`指向sender-cancel-events.jsonl，再使用 `-- --ignored --exact real_browser_verified_events_persist_in_existing_store` 单独运行。
 
 下一关是主程序持有授权文件的进程监督器与临时分享入口：文件来源权限/执行文件固定/退出收尾、可撤销链接与现有任务中心显示。该关通过前不增加可用按钮，不让浏览器获得任意磁盘路径。不把本阶段任务落库证明扩大为实时UI接入、公开HTTPS、跨网、手机、反向接收或同名保护。回滚：不合入该内部模块/实验PR，r5和原数据不变。
+# 原生接收链接回归（2026-11-09）
+
+`native-receive.spec.ts` 使用进程环境 `NINGMAO_NATIVE_RECEIVE_URL` 和 `NINGMAO_NATIVE_SOURCE`。前者来自正在运行的隔离 Windows 候选界面，只在内存传递，不写 code 文件、日志或提交；后者只允许合成来源。测试直接访问链接，无需点击接收/手填代码，核对下载字节及来源未变。用无 webServer 的临时 Playwright 配置连接已运行的本机53323服务；不启动外部监听。结果不能扩大为手机/双设备验收。

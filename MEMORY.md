@@ -1,5 +1,9 @@
 # 2026-11-09 接续优先
 
+最新原生整链：2d81216新开发候选带相对路径/固定SHA的新浏览器组件，独立合成库。Windows实际选English→创建分享→原生字段链接交真实Chromium→下载正文/SHA一致→桌面确认校验/隐藏链接→菜单退出PASS2.8s。12引用不变/全部来源副本SHA不变/仅新增completed任务总3/DB完整，PID33936和53318–53323监听0。开发ZIP D:/Ningmao-BrowserLink-2d81216-dev.zip，完整哈希及EXE见ACTIVE；不是发行包，distributionApproved=false。复制按钮已点但未读剪贴板，不冒称载荷通过。邀请只在进程内，无code文件。首次测试因process缺失/空用户目录找不到缓存，已复用已知现有浏览器成功，不重装。
+
+2d81216远端Preview42611256494与P342611256621成功，Desktop42611256471真实失败：172UI PASS/1旧分享测试仍找“分享代码”，Windows job成功。现只更新旧断言接收链接，11专项PASS24.2s，等修正提交完整CI；不可篡改旧失败或把新HEAD当旧包来源。后续仍沿#77，许可/跨设备未放行。
+
 接续桌面网页衔接：ab6ee2f三CI全success（42548386212/42548386267/42548386230）。同#77把开发分享区改为完整?code=接收链接，复用上游自动接收，只在browserBusy时显示/终态隐藏，保持仅本机和临时凭证提示。14互传界面PASS29.2s；真实Chromium直接URL接收、不再手填代码，SHA/来源保护/接收确认/取消2项PASS13.3s。未新建Windows包或验原生全链，旧93包不含此UI。下一步隔离集成新组件与UI，仍不清关发行或放开跨设备网络，完整当前证据见ACTIVE顶部。
 
 本轮后续已重建浏览器组件至D:/Ningmao-Browser-Components-20261109-live-only，补采EFF README后70项/无缺失正文；字体5.3.0 LICENSE确认含SIL OFL。新web.exe哈希1d758565f383109900c163ecb3282cd64b103f549e9b11fdc9444a5958c1fd9c，与实际回环EXE相同；两项真实Chromium/Go中文下载SHA/来源保留/接收核验/取消PASS11.3s，六端口已释放。详细报告docs/research/P3-browser-live-entry-license-20261109.md；图标/旧NOTICE映射及底层SSH/WASM/端点仍未清关，不加入标准包。此后源码补记不能冒称桌面EXE来源，新桌面实际包仍93d14cc。

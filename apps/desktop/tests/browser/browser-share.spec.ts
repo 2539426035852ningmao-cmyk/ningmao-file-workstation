@@ -7,7 +7,7 @@ test('浏览器分享仅在组件可用时出现，按素材ID创建且可停止
   await page.getByRole('tab',{name:'发送文件',exact:true}).click();
   await page.getByText('浏览器分享测试（仅本机）',{exact:true}).click();
   await page.getByRole('button',{name:'创建浏览器分享',exact:true}).click();
-  await expect(page.getByLabel('浏览器分享代码')).toHaveValue(/^[a-f0-9-]{36}$/);
+  await expect(page.getByLabel('浏览器接收链接')).toHaveValue(/^http:\/\/127\.0\.0\.1:53323\/\?code=[a-f0-9-]{36}$/);
   expect(await page.evaluate(()=>window.transferHarness.calls())).toContain('browser:1:1:36');
   await page.getByRole('button',{name:'停止浏览器分享',exact:true}).click();
   await expect(page.getByText('已停止，来源保留',{exact:true})).toBeVisible();
