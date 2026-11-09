@@ -29,6 +29,15 @@ pub fn validated_outgoing(value: &Value, own_id: &str) -> Option<String> {
     let payload=object.get("payload")?;
     let id=payload.get("id")?.as_str()?;
     if !valid_id(id) {return None;}
+    let keys=payload.as_object()?;
+    let allowed:&[&str]=match kind{
+        "description"=>&["id","description"],
+        "candidate"=>&["id","candidate"],
+        "cancel"=>&["id"],
+        "decision"=>&["id","accepted"],
+        _=>return None
+    };
+    if keys.len()!=allowed.len() || !keys.keys().all(|k|allowed.contains(&k.as_str())) {return None;}
     let valid=match kind {
         "description"=>valid_description(payload),
         "candidate"=>valid_candidate(payload),
@@ -51,6 +60,16 @@ pub fn validated_incoming(value:&Value,own_id:&str)->Option<Value>{
     let payload=object.get("payload")?;
     let id=payload.get("id")?.as_str()?;
     if !valid_id(id){return None;}
+    let keys=payload.as_object()?;
+    let allowed:&[&str]=match kind{
+        "description"=>&["id","description"],
+        "candidate"=>&["id","candidate"],
+        "cancel"=>&["id"],
+        "decision"=>&["id","accepted"],
+        "receipt"=>&["id","ok"],
+        _=>return None
+    };
+    if keys.len()!=allowed.len() || !keys.keys().all(|k|allowed.contains(&k.as_str())) {return None;}
     let valid=match kind{
         "description"=>valid_description(payload),
         "candidate"=>valid_candidate(payload),
