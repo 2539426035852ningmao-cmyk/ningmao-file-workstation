@@ -2242,6 +2242,7 @@ pub fn run() {
             web_device::web_device_claim,
             web_device::web_device_status,
             web_device::web_device_disconnect,
+            web_device::web_device_connect,
             chat_config,
             chat_test,
             chat_configure,
