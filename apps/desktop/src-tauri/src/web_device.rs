@@ -2,6 +2,7 @@
 //! HTTPS request; no Access cookie/JWT and no file ticket is sent to the cloud.
 //! Until DPAPI persistence and WSS integration are reviewed, the credential
 //! remains in memory and is lost when the desktop exits.
+use crate::web_signal_protocol::{validated_incoming, validated_outgoing};
 use crate::{Runtime, error, store::Result};
 use futures_util::{SinkExt, StreamExt};
 use reqwest::{Url, redirect::Policy};
@@ -17,6 +18,7 @@ use std::{
 };
 use tauri::Emitter;
 use tauri::Manager;
+use tokio::sync::mpsc;
 use tokio_tungstenite::{
     connect_async,
     tungstenite::{Message, client::IntoClientRequest},
@@ -24,8 +26,9 @@ use tokio_tungstenite::{
 
 #[derive(Default)]
 pub struct WebDeviceControl {
-    session: Mutex<Option<DeviceSession>>,
+    session: Arc<Mutex<Option<DeviceSession>>>,
     socket: Mutex<Option<SignalRunner>>,
+    outbound: Mutex<Option<mpsc::Sender<String>>>,
     generation: Arc<AtomicU64>,
     online: Arc<AtomicBool>,
     peers: Arc<Mutex<Vec<OnlinePeer>>>,
@@ -171,7 +174,10 @@ impl WebDeviceControl {
         self.generation.fetch_add(1, Ordering::SeqCst);
         self.online.store(false, Ordering::SeqCst);
         self.peers.lock().map_err(error)?.clear();
+        // Match the installation order (socket then outbound) to prevent
+        // connect/disconnect lock inversion during a concurrent WSS handshake.
         self.socket.lock().map_err(error)?.take();
+        self.outbound.lock().map_err(error)?.take();
         Ok(())
     }
     fn status(&self) -> Result<Option<WebDeviceStatus>> {
@@ -330,18 +336,27 @@ pub async fn web_device_connect(
     }
     state.web_device.online.store(true, Ordering::SeqCst);
     let (mut sink, mut source) = connection.0.split();
+    let (sender, mut receiver) = mpsc::channel::<String>(32);
     let online = state.web_device.online.clone();
     let peers = state.web_device.peers.clone();
     let current_gen = state.web_device.generation.clone();
     let app2 = app.clone();
     let self_id = device_id.clone();
+    let session_state = state.web_device.session.clone();
+    let session_device_id = device_id.clone();
+    let session_token = token.clone();
     let task = tokio::spawn(async move {
         let mut heart = tokio::time::interval(Duration::from_secs(25));
+        let mut server_revoked = false;
         loop {
             if current_gen.load(Ordering::SeqCst) != generation {
                 break;
             }
             tokio::select! {
+                to_send=receiver.recv()=>{
+                    let Some(payload)=to_send else {break;};
+                    if sink.send(Message::Text(payload.into())).await.is_err(){break;}
+                }
                 _=heart.tick()=>{
                     if now_ms().unwrap_or(u64::MAX)>=expires_at{break;}
                     if sink.send(Message::Text(r#"{"type":"ping"}"#.into())).await.is_err(){break;}
@@ -353,7 +368,11 @@ pub async fn web_device_connect(
                             if sink.send(Message::Pong(payload)).await.is_err(){break;}
                             continue;
                         }
-                        Some(Ok(Message::Close(_)))|None|Some(Err(_))=>break,
+                        Some(Ok(Message::Close(frame)))=>{
+                            server_revoked=frame.is_some_and(|f|u16::from(f.code)==4003);
+                            break;
+                        }
+                        None|Some(Err(_))=>break,
                         Some(Ok(_))=>continue,
                     };
                     let Ok(value)=serde_json::from_str::<Value>(&raw) else {continue;};
@@ -361,6 +380,8 @@ pub async fn web_device_connect(
                         let devices = safe_online_peers(&value, &self_id);
                         if let Ok(mut current)=peers.lock(){*current=devices.clone();}
                         let _=app2.emit("web-device-presence",&devices);
+                    }else if let Some(signal)=validated_incoming(&value,&self_id){
+                        let _=app2.emit("web-device-signal",signal);
                     }else if value.get("type").and_then(Value::as_str)==Some("invite"){
                         // W2 is not yet connected: do not leave the other sender hanging.
                         let sender=value.get("from").and_then(Value::as_str);
@@ -377,6 +398,16 @@ pub async fn web_device_connect(
             }
         }
         if current_gen.load(Ordering::SeqCst) == generation {
+            if server_revoked {
+                if let Ok(mut stored) = session_state.lock() {
+                    if stored.as_ref().is_some_and(|existing| {
+                        existing.device_id == session_device_id && existing.token == session_token
+                    }) {
+                        *stored = None;
+                    }
+                }
+                let _ = app2.emit("web-device-auth-revoked", ());
+            }
             online.store(false, Ordering::SeqCst);
             if let Ok(mut list) = peers.lock() {
                 list.clear();
@@ -385,12 +416,38 @@ pub async fn web_device_connect(
         }
     });
     *socket_slot = Some(SignalRunner(task));
+    *state.web_device.outbound.lock().map_err(error)? = Some(sender);
     drop(socket_slot);
     let _ = app.emit("web-device-connection", json!({"connected":true}));
     state
         .web_device
         .status()?
         .ok_or_else(|| "设备授权已失效".into())
+}
+
+/// Metadata-only W2 signaling from a trusted main Tauri window. Cannot send
+/// invites, positive decisions, receipts, local file paths or file bytes.
+#[tauri::command]
+pub fn web_device_send_signal(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    signal: Value,
+) -> Result<()> {
+    guard(&window)?;
+    let state = app.try_state::<Runtime>().ok_or("工作站未初始化")?;
+    let status = state
+        .web_device
+        .status()?
+        .ok_or("请先完成 Windows 设备授权")?;
+    if !status.signal_online {
+        return Err("Windows 信令尚未连接".into());
+    }
+    let serialized =
+        validated_outgoing(&signal, &status.device_id).ok_or("信令消息超出安全协议范围")?;
+    let outbound = state.web_device.outbound.lock().map_err(error)?;
+    let tx = outbound.as_ref().ok_or("Windows 信令连接已停止")?;
+    tx.try_send(serialized)
+        .map_err(|_| "Windows 信令发送队列繁忙或已经断线".into())
 }
 
 #[cfg(test)]

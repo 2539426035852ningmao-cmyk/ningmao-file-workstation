@@ -1,6 +1,7 @@
 import {invoke} from "@tauri-apps/api/core";
 import {listen} from "@tauri-apps/api/event";
 import {nativeWebTransferSource} from "./webTransferBackend";
+import {nativeWebSignal,type WebSignalInbound,type WebSignalOutbound} from "./webSignalBackend";
 
 export type PendingTransfer={id:string;alias:string;files:{name:string;size:number}[];total:number};
 export type TransferView={receiving:boolean;address:string|null;fingerprint:string|null;shelf_id:number|null;pending:PendingTransfer|null;sending:boolean};
@@ -19,6 +20,8 @@ export interface TransferBackend{
   webDeviceStatus?():Promise<WebDeviceStatus|null>;
   webDeviceDisconnect?():Promise<void>;
   webDeviceConnect?():Promise<WebDeviceStatus>;
+  webSignalSend?(signal:WebSignalOutbound):Promise<void>;
+  webSignalSubscribe?(handler:(signal:WebSignalInbound)=>void):Promise<()=>void>;
   browserSend?(shelf:number,ids:number[],code:string):Promise<{job_id:number;status:string}>;
   browserCancel?():Promise<void>;
   view():Promise<TransferView>;
@@ -38,6 +41,8 @@ export const nativeTransfer:TransferBackend={
   webDeviceStatus:()=>invoke("web_device_status"),
   webDeviceDisconnect:()=>invoke("web_device_disconnect"),
   webDeviceConnect:()=>invoke("web_device_connect"),
+  webSignalSend:(signal)=>nativeWebSignal.send(signal),
+  webSignalSubscribe:(handler)=>nativeWebSignal.subscribe(handler),
   async webSourceInfo(shelf,item){
     const prepared=await nativeWebTransferSource.prepare(shelf,item);
     try{return {item_id:prepared.item_id,name:prepared.name,bytes:prepared.bytes,sha256:prepared.sha256};}
