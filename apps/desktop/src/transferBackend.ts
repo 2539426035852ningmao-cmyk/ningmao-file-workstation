@@ -1,6 +1,6 @@
 import {invoke} from "@tauri-apps/api/core";
 import {listen} from "@tauri-apps/api/event";
-import {nativeWebTransferSource} from "./webTransferBackend";
+import {buildDesktopWebRTCOffer,nativeWebTransferSource,type DesktopWebRTCOffer} from "./webTransferBackend";
 
 export type PendingTransfer={id:string;alias:string;files:{name:string;size:number}[];total:number};
 export type TransferView={receiving:boolean;address:string|null;fingerprint:string|null;shelf_id:number|null;pending:PendingTransfer|null;sending:boolean};
@@ -17,6 +17,7 @@ export interface TransferBackend{
   pair?(name:string,address:string,fingerprint:string):Promise<void>;
   browserAvailable?():Promise<boolean>;
   webSourceInfo?(shelf:number,item:number):Promise<WebSourceInfo>;
+  webOffer?(shelf:number,item:number,signal?:AbortSignal):Promise<DesktopWebRTCOffer>;
   webDeviceClaim?(baseUrl:string,code:string):Promise<WebDeviceStatus>;
   webDeviceStatus?():Promise<WebDeviceStatus|null>;
   webDeviceDisconnect?():Promise<void>;
@@ -48,6 +49,7 @@ export const nativeTransfer:TransferBackend={
   async subscribeWebSignals(callback){
     return listen<DesktopWebSignal>("web-device-signal",event=>callback(event.payload));
   },
+  webOffer:(shelf,item,signal)=>buildDesktopWebRTCOffer(shelf,item,signal),
   async webSourceInfo(shelf,item){
     const prepared=await nativeWebTransferSource.prepare(shelf,item);
     try{return {item_id:prepared.item_id,name:prepared.name,bytes:prepared.bytes,sha256:prepared.sha256};}
