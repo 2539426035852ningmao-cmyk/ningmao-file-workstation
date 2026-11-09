@@ -2243,6 +2243,8 @@ pub fn run() {
             web_device::web_device_status,
             web_device::web_device_disconnect,
             web_device::web_device_connect,
+            web_device::web_device_signal,
+            web_device::web_device_set_receiving,
             chat_config,
             chat_test,
             chat_configure,
