@@ -12,13 +12,13 @@ fn valid_candidate(payload: &Value) -> bool {
         return false;
     };
     let allowed = ["candidate", "sdpMid", "sdpMLineIndex", "usernameFragment"];
-    if candidate.len() > allowed.len()
-        || !candidate.keys().all(|k| allowed.contains(&k.as_str())) {
+    if candidate.len() > allowed.len() || !candidate.keys().all(|k| allowed.contains(&k.as_str())) {
         return false;
     }
     if candidate
         .get("usernameFragment")
-        .is_some_and(|v| !v.is_string() || v.as_str().is_some_and(|name| name.len() > 256)) {
+        .is_some_and(|v| !v.is_string() || v.as_str().is_some_and(|name| name.len() > 256))
+    {
         return false;
     }
     if candidate
@@ -47,7 +47,10 @@ fn valid_description(payload: &Value) -> bool {
         return false;
     };
     if description.len() != 2
-        || !description.keys().all(|k| ["type", "sdp"].contains(&k.as_str())) {
+        || !description
+            .keys()
+            .all(|k| ["type", "sdp"].contains(&k.as_str()))
+    {
         return false;
     }
     matches!(
