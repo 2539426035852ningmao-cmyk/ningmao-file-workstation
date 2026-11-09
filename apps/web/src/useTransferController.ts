@@ -103,7 +103,18 @@ export function useTransferController() {
 
   handler.current = (msg: Message) => {
     if (msg.type === "presence" && Array.isArray(msg.devices)) {
-      setDevices(msg.devices.filter(p => p.id !== deviceId));
+      const online = msg.devices.filter(p => p.id !== deviceId);
+      setDevices(online);
+      // Presence is authoritative for signaling availability. Do not keep a
+      // pending receipt/decision alive after its peer has gone offline.
+      if (active.current && !online.some(device => device.id === active.current?.to)) {
+        fail("对端设备已离线");
+      } else if (inbound.current && !online.some(device => device.id === inbound.current?.from)) {
+        clearIncoming();
+        inbound.current = null;
+        setIncoming(null);
+        setNotice("发起设备已离线，接收请求已关闭");
+      }
       return;
     }
     if (msg.type === "unavailable") {
