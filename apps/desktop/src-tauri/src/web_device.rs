@@ -413,7 +413,7 @@ mod tests {
             {"id":"../../../bad","name":"bad"},
             {"id":peer,"name":"手机"},
             {"id":peer,"name":"重复设备"},
-            {"id":"b72ff401-e3a8-41d0-a510-bb57b83c1641","name":"Bad\\nName"}
+            {"id":"b72ff401-e3a8-41d0-a510-bb57b83c1641","name":"Bad\nName"}
         ]});
         let peers=safe_online_peers(&input,mine);
         assert_eq!(peers.len(),1);
