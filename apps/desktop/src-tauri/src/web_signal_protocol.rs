@@ -11,6 +11,16 @@ fn valid_candidate(payload: &Value) -> bool {
     let Some(candidate) = payload.get("candidate").and_then(Value::as_object) else {
         return false;
     };
+    let allowed = ["candidate", "sdpMid", "sdpMLineIndex", "usernameFragment"];
+    if candidate.len() > allowed.len()
+        || !candidate.keys().all(|k| allowed.contains(&k.as_str())) {
+        return false;
+    }
+    if candidate
+        .get("usernameFragment")
+        .is_some_and(|v| !v.is_string() || v.as_str().is_some_and(|name| name.len() > 256)) {
+        return false;
+    }
     if candidate
         .get("candidate")
         .and_then(Value::as_str)
@@ -36,6 +46,10 @@ fn valid_description(payload: &Value) -> bool {
     let Some(description) = payload.get("description").and_then(Value::as_object) else {
         return false;
     };
+    if description.len() != 2
+        || !description.keys().all(|k| ["type", "sdp"].contains(&k.as_str())) {
+        return false;
+    }
     matches!(
         description.get("type").and_then(Value::as_str),
         Some("offer" | "answer")
@@ -141,6 +155,10 @@ mod tests {
         }
         let bad = json!({"type":"decision","to":PEER,"payload":{"id":TASK,"accepted":true}});
         assert!(validated_outgoing(&bad, ME).is_none());
+        let nested_secret = json!({"type":"candidate","to":PEER,"payload":{"id":TASK,"candidate":{"candidate":"a","token":"secret"}}});
+        assert!(validated_outgoing(&nested_secret, ME).is_none());
+        let nested_path = json!({"type":"description","to":PEER,"payload":{"id":TASK,"description":{"type":"offer","sdp":"v=0","path":"C:/secret"}}});
+        assert!(validated_outgoing(&nested_path, ME).is_none());
         let with_secret = json!({"type":"cancel","to":PEER,"payload":{"id":TASK},"token":"secret"});
         assert!(validated_outgoing(&with_secret, ME).is_none());
         assert!(
