@@ -185,7 +185,7 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
         {webPairNotice&&<p role="status" className="transfer-note">{webPairNotice}</p>}
       </section>
     </details>}
-    {webDevice?.signal_online&&backend.webDeviceSignal&&backend.subscribeWebSignals&&backend.webDeviceSetReceiving&&
+    {mode==="receive"&&webDevice?.signal_online&&backend.webDeviceSignal&&backend.subscribeWebSignals&&backend.webDeviceSetReceiving&&
       <DesktopWebInbox backend={backend} open={open} online={webDevice.signal_online}
         peers={webDevice.online_devices} shelves={bound}/>}
 </TabsContent></Tabs>
