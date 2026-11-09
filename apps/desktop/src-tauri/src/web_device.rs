@@ -2,6 +2,7 @@
 //! HTTPS request; no Access cookie/JWT and no file ticket is sent to the cloud.
 //! Until DPAPI persistence and WSS integration are reviewed, the credential
 //! remains in memory and is lost when the desktop exits.
+use crate::web_signal_protocol::{validated_incoming, validated_outgoing};
 use crate::{Runtime, error, store::Result};
 use futures_util::{SinkExt, StreamExt};
 use reqwest::{Url, redirect::Policy};
@@ -18,7 +19,6 @@ use std::{
 use tauri::Emitter;
 use tauri::Manager;
 use tokio::sync::mpsc;
-use crate::web_signal_protocol::{validated_incoming,validated_outgoing};
 use tokio_tungstenite::{
     connect_async,
     tungstenite::{Message, client::IntoClientRequest},
@@ -414,16 +414,20 @@ pub fn web_device_send_signal(
     signal: Value,
 ) -> Result<()> {
     guard(&window)?;
-    let state=app.try_state::<Runtime>().ok_or("工作站未初始化")?;
-    let status=state.web_device.status()?.ok_or("请先完成 Windows 设备授权")?;
+    let state = app.try_state::<Runtime>().ok_or("工作站未初始化")?;
+    let status = state
+        .web_device
+        .status()?
+        .ok_or("请先完成 Windows 设备授权")?;
     if !status.signal_online {
         return Err("Windows 信令尚未连接".into());
     }
-    let serialized=validated_outgoing(&signal,&status.device_id)
-        .ok_or("信令消息超出安全协议范围")?;
-    let outbound=state.web_device.outbound.lock().map_err(error)?;
-    let tx=outbound.as_ref().ok_or("Windows 信令连接已停止")?;
-    tx.try_send(serialized).map_err(|_| "Windows 信令发送队列繁忙或已经断线".into())
+    let serialized =
+        validated_outgoing(&signal, &status.device_id).ok_or("信令消息超出安全协议范围")?;
+    let outbound = state.web_device.outbound.lock().map_err(error)?;
+    let tx = outbound.as_ref().ok_or("Windows 信令连接已停止")?;
+    tx.try_send(serialized)
+        .map_err(|_| "Windows 信令发送队列繁忙或已经断线".into())
 }
 
 #[cfg(test)]
