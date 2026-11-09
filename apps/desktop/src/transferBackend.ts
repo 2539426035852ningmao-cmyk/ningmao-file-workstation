@@ -10,7 +10,7 @@ export type NearbyDevice={name:string;address:string;fingerprint:string};
 export type WebSourceInfo={item_id:number;name:string;bytes:number;sha256:string};
 export type WebDeviceStatus={device_id:string;name:string;endpoint:string;expires_at:number;authorized:boolean;signal_online:boolean;online_devices:{id:string;name:string}[]};
 export type DesktopWebSignal={type:string;from?:string;to?:string;id?:string;payload?:Record<string,unknown>;};
-export type DesktopWebMessage={type:"invite"|"decision"|"description"|"candidate"|"receipt"|"cancel";to:string;payload:Record<string,unknown>&{id:string};};
+export type DesktopWebMessage={type:"invite"|"decision"|"description"|"candidate"|"receipt"|"cancel";to:string;payload:Record<string,unknown>;};
 export interface TransferBackend{
   devices?():Promise<NearbyDevice[]>;
   peers?():Promise<{name:string;fingerprint:string}[]>;
