@@ -277,6 +277,14 @@ pub async fn web_device_connect(
     {
         return Err("Windows 设备授权已更新，丢弃过期连接".into());
     }
+    // Hold the socket slot while installing this connection. Disconnect/re-pair
+    // advances the generation before taking the same lock, so no stale task
+    // may be published as online after a local revocation.
+    let mut socket_slot = state.web_device.socket.lock().map_err(error)?;
+    if state.web_device.generation.load(Ordering::SeqCst) != generation {
+        return Err("Windows 设备已断开，未启动过期信令连接".into());
+    }
+    state.web_device.online.store(true, Ordering::SeqCst);
     let (mut sink, mut source) = connection.0.split();
     let online = state.web_device.online.clone();
     let peers = state.web_device.peers.clone();
@@ -339,8 +347,8 @@ pub async fn web_device_connect(
             let _ = app2.emit("web-device-connection", json!({"connected":false}));
         }
     });
-    *state.web_device.socket.lock().map_err(error)? = Some(SignalRunner(task));
-    state.web_device.online.store(true, Ordering::SeqCst);
+    *socket_slot = Some(SignalRunner(task));
+    drop(socket_slot);
     let _ = app.emit("web-device-connection", json!({"connected":true}));
     state
         .web_device
