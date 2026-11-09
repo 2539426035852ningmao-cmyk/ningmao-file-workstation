@@ -1,0 +1,28 @@
+name: Temporary W2 signal rustfmt
+on:
+  push:
+    branches: [feat/web-w2-desktop-signaling-20261109]
+    paths: [.github/workflows/w2-signal-format-once.yml]
+permissions:
+  contents: write
+jobs:
+  fmt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/web-w2-desktop-signaling-20261109
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml
+      - name: Commit only changed W2 signal Rust sources
+        run: |
+          git add apps/desktop/src-tauri/src/web_device.rs apps/desktop/src-tauri/src/web_signal_protocol.rs
+          if git diff --cached --quiet; then echo "Already formatted"; else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "style(w2): normalize Rust signal protocol"
+            git push origin HEAD:refs/heads/feat/web-w2-desktop-signaling-20261109
+          fi
