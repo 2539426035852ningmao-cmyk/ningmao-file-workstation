@@ -89,6 +89,21 @@ const backend:Backend={
     async webDeviceSetReceiving(enabled){transferCalls.push("web-rtc-enabled:"+String(enabled));},
     async webDeviceSignal(message){transferCalls.push("web-rtc-signal:"+message.type+":"+String(message.payload.id)+":"+String(message.payload.accepted??""));webOutboundHandler?.(message);},
     async subscribeWebSignals(callback){webSignalHandler=callback;return()=>{if(webSignalHandler===callback)webSignalHandler=undefined;};},
+    async webOffer(shelf,itemId,signal){
+      transferCalls.push(`web-rtc-source:${shelf}:${itemId}`);
+      if(signal?.aborted)throw Error("文件准备已取消");
+      syncState();
+      const file=state.items.find(item=>item.shelf_id===shelf&&item.id===itemId);
+      if(!file)throw Error("文件引用已失效，无法准备发送");
+      if(new URLSearchParams(location.search).has("web-outbox-source-error"))
+        throw Error("合成文件源校验失败");
+      const bytes=new TextEncoder().encode("Ningmao Windows to browser synthetic source").buffer;
+      const sha256=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",bytes)))
+        .map(x=>x.toString(16).padStart(2,"0")).join("");
+      if(signal?.aborted)throw Error("文件准备已取消");
+      return {manifest:{id:crypto.randomUUID(),name:file.name,size:bytes.byteLength,
+        mime:"text/plain",sha256},bytes};
+    },
     async webSourceInfo(shelf,itemId){
       transferCalls.push(`web-preflight:${shelf}:${itemId}`);
       if(new URLSearchParams(location.search).has("web-preflight-error"))throw new Error("文件引用已变化");
