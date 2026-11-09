@@ -26,7 +26,7 @@ use tokio_tungstenite::{
 
 #[derive(Default)]
 pub struct WebDeviceControl {
-    session: Mutex<Option<DeviceSession>>,
+    session: Arc<Mutex<Option<DeviceSession>>>,
     socket: Mutex<Option<SignalRunner>>,
     outbound: Mutex<Option<mpsc::Sender<String>>>,
     generation: Arc<AtomicU64>,
@@ -342,8 +342,12 @@ pub async fn web_device_connect(
     let current_gen = state.web_device.generation.clone();
     let app2 = app.clone();
     let self_id = device_id.clone();
+    let session_state = state.web_device.session.clone();
+    let session_device_id = device_id.clone();
+    let session_token = token.clone();
     let task = tokio::spawn(async move {
         let mut heart = tokio::time::interval(Duration::from_secs(25));
+        let mut server_revoked = false;
         loop {
             if current_gen.load(Ordering::SeqCst) != generation {
                 break;
@@ -364,7 +368,11 @@ pub async fn web_device_connect(
                             if sink.send(Message::Pong(payload)).await.is_err(){break;}
                             continue;
                         }
-                        Some(Ok(Message::Close(_)))|None|Some(Err(_))=>break,
+                        Some(Ok(Message::Close(frame)))=>{
+                            server_revoked=frame.is_some_and(|f|u16::from(f.code)==4003);
+                            break;
+                        }
+                        None|Some(Err(_))=>break,
                         Some(Ok(_))=>continue,
                     };
                     let Ok(value)=serde_json::from_str::<Value>(&raw) else {continue;};
@@ -390,6 +398,14 @@ pub async fn web_device_connect(
             }
         }
         if current_gen.load(Ordering::SeqCst) == generation {
+            if server_revoked {
+                if let Ok(mut stored)=session_state.lock() {
+                    if stored.as_ref().is_some_and(|existing|{
+                        existing.device_id==session_device_id && existing.token==session_token
+                    }) { *stored=None; }
+                }
+                let _=app2.emit("web-device-auth-revoked",());
+            }
             online.store(false, Ordering::SeqCst);
             if let Ok(mut list) = peers.lock() {
                 list.clear();
