@@ -41,6 +41,8 @@ export function DesktopWebOutbox({backend,open,online,peers,selection}:{
     if(!session)return;
     const wasInvited=session.phase!=="preparing";
     clearSession(session);
+    // Release the in-memory source bytes on reject/error/timeout, too.
+    prepared.current=null;
     setStatus(message);
     if(failed)setError(message);
     if(notify && wasInvited)void send({type:"cancel",to:session.to,payload:{id:session.id}}).catch(()=>{});
