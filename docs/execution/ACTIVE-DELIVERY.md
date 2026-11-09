@@ -2,6 +2,8 @@
 
 ## Space 新包闭环与浏览器分享入口裁剪
 
+接续实际结果：已从采集器源头补入 EFF README，并重建全新浏览器组件；70 项/无缺失正文，字体 5.3.0 的 SIL OFL 正文核实。新 web.exe `1d758565f383109900c163ecb3282cd64b103f549e9b11fdc9444a5958c1fd9c` 与实际回环用 EXE 相同，两项中文文件 SHA/接收核验/取消测试 PASS（11.3s），六个回环端口已释放。新目录 `D:/Ningmao-Browser-Components-20261109-live-only`，旧产物保留。完整产物、署名、未决和回滚见 [20261109 浏览器组件报告](../research/P3-browser-live-entry-license-20261109.md)。没有新的桌面组件随包验收，distributionApproved=false 和标准包不携带的限制保持。下方“尚未重建/采集器未收README”是上一提交时状态，本补记已推进这两项，其他门槛不继承为通过。
+
 仍为同分支 PR #77，应用/EXE 精确源码 **93d14ccb3b45e6903e4aefad84f03a69c7558aea**。Desktop [42546713423](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/actions/runs/42546713423)、Preview [42546713434](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/actions/runs/42546713434)、P3 回环 [42546713469](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/actions/runs/42546713469) 全部 success；没有取消正在构建的批次。
 
 Space 修复仅将物理 `event.code` 判断改为语义 `event.key`，保留输入框、输入法、菜单、模态和拖柄排除。Renderer 新测试先红后绿；24 项受影响界面通过。首次测试因未等预览关闭便搜索而失败，已仅修正测试等待及明确搜索入口。独立有界可视 Chromium 诊断因 `spawn UNKNOWN` 未启动，未捕获原生键事件字段，不将猜测当作根因证据。

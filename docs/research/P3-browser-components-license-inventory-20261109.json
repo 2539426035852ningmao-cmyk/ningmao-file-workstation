@@ -1,0 +1,902 @@
+{
+  "schema": 1,
+  "upstreamCommit": "4fc5ac0c8463a3de2b0396205c69a38109863583",
+  "scope": "Pinned Windows CLI/relay, web server, sender and embedded SSH WASM module graph; non-dev npm packages, vendored licenses and Go runtime. Text inventory is not distribution approval.",
+  "missing": [],
+  "reviewRequired": [
+    "Embedded SSH/Store UI and endpoints remain outside the workstation file-sharing scope.",
+    "Review font, EFF wordlist, image/icon and source attribution before bundling.",
+    "Root upstream notices mention older Tailcat/gVisor versions; actual module versions below take precedence."
+  ],
+  "packages": [
+    {
+      "ecosystem": "go",
+      "name": "filippo.io/edwards25519",
+      "version": "v1.2.0",
+      "source": "https://filippo.io/edwards25519",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "github.com/anmitsu/go-shlex",
+      "version": "v0.0.0-20200514113438-38f4b401e2be",
+      "source": "https://github.com/anmitsu/go-shlex",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "8ff2b7cdb75693173319e65a691da7b9a065cf3fd643264fe8b6ec9e362627f4"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "github.com/cespare/xxhash/v2",
+      "version": "v2.3.0",
+      "source": "https://github.com/cespare/xxhash/v2",
+      "files": [
+        {
+          "path": "LICENSE.txt",
+          "sha256": "f566a9f97bacdaf00d9f21dd991e81dc11201c4e016c86b470799429a1c9a79c"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "github.com/coder/websocket",
+      "version": "v1.8.15",
+      "source": "https://github.com/coder/websocket",
+      "files": [
+        {
+          "path": "LICENSE.txt",
+          "sha256": "cc0975a5f6305145bdd7b41ce9479632fdac3870e6ac4281f28017f18c767c4e"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "github.com/creachadair/msync",
+      "version": "v0.10.1",
+      "source": "https://github.com/creachadair/msync",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "1d45f7789b678c742a045d7a6923c2762f667dc2523b9b4c01fe240d24c83083"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "github.com/dblohm7/wingoes",
+      "version": "v0.0.0-20260526185140-fb298caac7ca",
+      "source": "https://github.com/dblohm7/wingoes",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "d92e8b4d5e41d2effe12a1df45143765c2256bb915553a4515a16ffd9603c06a"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "github.com/denisbrodbeck/machineid",
+      "version": "v1.0.1",
+      "source": "https://github.com/denisbrodbeck/machineid",
+      "files": [
+        {
+          "path": "LICENSE.md",
+          "sha256": "1b5036318126618111b864b7707db0bd80cbb6be4fb43b846b4454edf7d0e939"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "github.com/fxamacker/cbor/v2",
+      "version": "v2.10.0",
+      "source": "https://github.com/fxamacker/cbor/v2",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "78cad457d5ea7318230f3d969d4cdf29cef45524a1fc8ca3a97646da1ad7a841"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "github.com/gaissmai/bart",
+      "version": "v0.30.0",
+      "source": "https://github.com/gaissmai/bart",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "8fc2dc86e3a004c34bf613d4f72365ca4c16a35d26fbc4ce1d8deac83c6eae15"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "github.com/go-json-experiment/json",
+      "version": "v0.0.0-20260820222146-c27c302e5fc3",
+      "source": "https://github.com/go-json-experiment/json",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "14a34c4db2d21bf9cf80d028b802cd22fed9bf597a6c2db7ce30ee6ffd04967a"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "github.com/golang/groupcache",
+      "version": "v0.0.0-20241129210726-2c02b8208cf8",
+      "source": "https://github.com/golang/groupcache",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "73ba74dfaa520b49a401b5d21459a8523a146f3b7518a833eea5efa85130bf68"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "github.com/google/btree",
+      "version": "v1.1.3",
+      "source": "https://github.com/google/btree",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "github.com/hdevalence/ed25519consensus",
+      "version": "v0.2.0",
+      "source": "https://github.com/hdevalence/ed25519consensus",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "789be8b214a1871d8d1a5ab157f8f4ad74cd889087762bd5cced07ed589b6bc7"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "github.com/kalafut/imohash",
+      "version": "v1.1.1",
+      "source": "https://github.com/kalafut/imohash",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "a2754a08a079c22429351eb34798e4d24859a1d1a21c5a3291b1235dbbbddf18"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "github.com/klauspost/compress",
+      "version": "v1.20.3",
+      "source": "https://github.com/klauspost/compress",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "0d9e582ee4bff57bf1189c9e514e6da7ce277f9cd3bc2d488b22fbb39a6d87cf"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "github.com/magisterquis/connectproxy",
+      "version": "v0.0.0-20200725203833-3582e84f0c9b",
+      "source": "https://github.com/magisterquis/connectproxy",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "6650a5a078489c63fc8d1b35e79a7b1ab78693d53dc540c5497e1aeddc69b3eb"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "github.com/mattn/go-colorable",
+      "version": "v0.1.16",
+      "source": "https://github.com/mattn/go-colorable",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "88a2379b3ca34bf5c57127aff9dcb802bbb60ece0805cdbda65b3bd115f971d9"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "github.com/mattn/go-isatty",
+      "version": "v0.0.24",
+      "source": "https://github.com/mattn/go-isatty",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "08eab1118c80885fa1fa6a6dd7303f65a379fcb3733e063d20d1bbc2c76e6fa1"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "github.com/minio/highwayhash",
+      "version": "v1.0.4",
+      "source": "https://github.com/minio/highwayhash",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "github.com/mitchellh/colorstring",
+      "version": "v0.0.0-20190213212951-d06e56a500db",
+      "source": "https://github.com/mitchellh/colorstring",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "3c377fad2e5ae1d7081c7c2f16da867a87cca1d1f5f1aa7ed0b8a16bb553142a"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "github.com/mitchellh/go-ps",
+      "version": "v1.0.0",
+      "source": "https://github.com/mitchellh/go-ps",
+      "files": [
+        {
+          "path": "LICENSE.md",
+          "sha256": "3c377fad2e5ae1d7081c7c2f16da867a87cca1d1f5f1aa7ed0b8a16bb553142a"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "github.com/pires/go-proxyproto",
+      "version": "v0.16.0",
+      "source": "https://github.com/pires/go-proxyproto",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "666f1951be1d543e744818d232bb311a4a310fd1d344288642c796fca39af3c7"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "github.com/rivo/uniseg",
+      "version": "v0.4.7",
+      "source": "https://github.com/rivo/uniseg",
+      "files": [
+        {
+          "path": "LICENSE.txt",
+          "sha256": "a59885f5f0f3b3c07cf9444db5fe399b6f0791eac82055f7b85cc65500551039"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "github.com/sabhiram/go-gitignore",
+      "version": "v0.0.0-20210923224102-525f6e181f06",
+      "source": "https://github.com/sabhiram/go-gitignore",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "55bff76239ca79b99d2e6b986d67c17e125cf7afa2d4d22eda54c02b791460a1"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "github.com/schollz/croc/v11",
+      "version": "4fc5ac0c8463a3de2b0396205c69a38109863583",
+      "source": "https://github.com/schollz/croc/v11",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "0de8a5845e8f6b92e1d27461d164466f39557ccbc986b07d906571a3c4e851b6"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "github.com/schollz/pake/v3",
+      "version": "v3.2.0",
+      "source": "https://github.com/schollz/pake/v3",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "212186b36a3918811ed69d8df18254c8e468f11dd68c690e231f55ff9bd98dc1"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "github.com/schollz/peerdiscovery",
+      "version": "v1.7.6",
+      "source": "https://github.com/schollz/peerdiscovery",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "212186b36a3918811ed69d8df18254c8e468f11dd68c690e231f55ff9bd98dc1"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "github.com/schollz/progressbar/v3",
+      "version": "v3.19.1",
+      "source": "https://github.com/schollz/progressbar/v3",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "0c27314bc4294775c1c7768690fa90b1884a3e27b72b92376ee505963f916e8a"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "github.com/skip2/go-qrcode",
+      "version": "v0.0.0-20200617195104-da1b6568686e",
+      "source": "https://github.com/skip2/go-qrcode",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "4cdab772de606bdf53e174b2f5d6a2c398156380ca1f763122198cece531d02c"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "github.com/tailscale/certstore",
+      "version": "v0.1.1-0.20260409135935-3638fb84b77d",
+      "source": "https://github.com/tailscale/certstore",
+      "files": [
+        {
+          "path": "LICENSE.md",
+          "sha256": "e4a0c3d87230b78d441e4666fba1ab95211fd1e9be76bf445d664685ae0a9e48"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "github.com/tailscale/gliderssh",
+      "version": "v0.3.4-0.20261026144310-31f7cf365d3a",
+      "source": "https://github.com/tailscale/gliderssh",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "ac32cbd9c0f04259c839d9ae01f039c1ee777a8add1a89fdafc6006237f66650"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "github.com/tailscale/go-winio",
+      "version": "v0.0.0-20231025203758-c4f33415bf55",
+      "source": "https://github.com/tailscale/go-winio",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "cf248820bf1178370bb4f1670a59f8748d46bc96d0f64080cd631511c6046409"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "github.com/tailscale/hujson",
+      "version": "v0.0.0-20260727124030-b80ff77dac4f",
+      "source": "https://github.com/tailscale/hujson",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "a125b6c2721809b6c2a8761771932611833008ed8697d752b3e35d36e4bbd83e"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "github.com/tailscale/web-client-prebuilt",
+      "version": "v0.0.0-20260917222731-e0ed2d0d0fea",
+      "source": "https://github.com/tailscale/web-client-prebuilt",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "d1ee1c7947d4b2c1963ea214d5324f1d4c89f2f1d0f0224889b4dfb868dad725"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "github.com/tailscale/wireguard-go",
+      "version": "v0.0.0-20260928213032-417aef361226",
+      "source": "https://github.com/tailscale/wireguard-go",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "91276db973f25602d1aa43491f59cbc84cb88e6f151e1d0cc82a755563ce0195"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "github.com/tscholl2/siec",
+      "version": "v0.0.0-20240310163802-c2c6f6198406",
+      "source": "https://github.com/tscholl2/siec",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "eadbbed003b10d61a34b01f66c8e8563334a069982329ec58c0e71d64105ca1a"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "github.com/twmb/murmur3",
+      "version": "v1.2.2",
+      "source": "https://github.com/twmb/murmur3",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "4228ef1819124b490d2e6a88e8c5e1348bedf32ff05b8fb5deed49921600e503"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "github.com/x448/float16",
+      "version": "v0.8.4",
+      "source": "https://github.com/x448/float16",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "a555f1194fdac34da70fb416968f7e2217b02352c26c1eac2fa45fcb4290ae8d"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "go4.org/mem",
+      "version": "v0.0.0-20240501181205-ae6ca9944745",
+      "source": "https://go4.org/mem",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "c6596eb7be8581c18be736c846fb9173b69eccf6ef94c5135893ec56bd92ba08"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "go4.org/netipx",
+      "version": "v0.0.0-20260823151212-3075585bcbeb",
+      "source": "https://go4.org/netipx",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "1bfc4f32f4ec8ca8fce54bd2d97784f003786753a69a78ca74ffae1574037fb9"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "golang.org/x/crypto",
+      "version": "v0.58.0",
+      "source": "https://golang.org/x/crypto",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "golang.org/x/exp",
+      "version": "v0.0.0-20261014143641-f0251eb4aa3e",
+      "source": "https://golang.org/x/exp",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "golang.org/x/net",
+      "version": "v0.62.0",
+      "source": "https://golang.org/x/net",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "golang.org/x/sync",
+      "version": "v0.24.0",
+      "source": "https://golang.org/x/sync",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "golang.org/x/sys",
+      "version": "v0.49.0",
+      "source": "https://golang.org/x/sys",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "golang.org/x/term",
+      "version": "v0.47.0",
+      "source": "https://golang.org/x/term",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "golang.org/x/text",
+      "version": "v0.43.0",
+      "source": "https://golang.org/x/text",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "golang.org/x/time",
+      "version": "v0.16.0",
+      "source": "https://golang.org/x/time",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "golang.zx2c4.com/wintun",
+      "version": "v0.0.0-20230126152724-0fa3db229ce2",
+      "source": "https://golang.zx2c4.com/wintun",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "91276db973f25602d1aa43491f59cbc84cb88e6f151e1d0cc82a755563ce0195"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "golang.zx2c4.com/wireguard/windows",
+      "version": "v1.1.1",
+      "source": "https://golang.zx2c4.com/wireguard/windows",
+      "files": [
+        {
+          "path": "COPYING",
+          "sha256": "fb2a821211c8d0022e3e630a126783b23b58c6dc21c1855154fc77c9c6452166"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "gvisor.dev/gvisor",
+      "version": "v0.0.0-20260926034703-66ed76bcb72f",
+      "source": "https://gvisor.dev/gvisor",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "0fbab5c58efbdf6d31e8085214f2dd821659c03d73cff3ed2b08e98826ea1cd9"
+        }
+      ]
+    },
+    {
+      "ecosystem": "go",
+      "name": "tailscale.com",
+      "version": "v1.104.4",
+      "source": "https://tailscale.com",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "a7ca6186a7963a0a60740f6047760eecd7a0234e8c38bd7e1e0bbcb324bda45b"
+        },
+        {
+          "path": "license_test.go",
+          "sha256": "6c10979d9859262305f3a9971502aca4a20d9531f71ad2fc5cf66c258d21fd1e"
+        },
+        {
+          "path": "licenses/README.md",
+          "sha256": "33f2d6e158876e2d606333bef6995bf8884d85002de98954ec8b9c02449e67cd"
+        },
+        {
+          "path": "licenses/android.md",
+          "sha256": "d7a13170630838eba8d661bbc85293cd1bd739454fb3fec0b6082837c2acaed8"
+        },
+        {
+          "path": "licenses/apple.md",
+          "sha256": "43b6132f40aa9fc8bb1e034db2ad481fb237fefc4f1f3779884b9621af85f0bc"
+        },
+        {
+          "path": "licenses/licenses.go",
+          "sha256": "7c3b3ec700df78e56eb955df2c5c9140ed79e2b736e03d272d27d585f3d40339"
+        },
+        {
+          "path": "licenses/tailscale.md",
+          "sha256": "fe5729149b37198fad6c6227f2923760f3fa1540ad99a7b8d1981cebb80d65d1"
+        },
+        {
+          "path": "licenses/windows.md",
+          "sha256": "6c8fb037cefa72cdf4712023c4d4f04a0d072708c23e419b82a64dde66d6b0f9"
+        }
+      ]
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@fontsource-variable/jetbrains-mono",
+      "version": "5.3.0",
+      "source": "https://registry.npmjs.org/@fontsource-variable/jetbrains-mono/-/jetbrains-mono-5.3.0.tgz",
+      "declaredLicense": "OFL-1.1",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "403581b69dac5cff4079205e01c6b467e56af449ecbd7247693ddb1baafa005b"
+        }
+      ]
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@noble/curves",
+      "version": "2.4.0",
+      "source": "https://registry.npmjs.org/@noble/curves/-/curves-2.4.0.tgz",
+      "declaredLicense": "MIT",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "4f221aee6e072336700c408c68ab3b96a3fc09f6aebe6f48f1bd99e5ef13faec"
+        }
+      ]
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@noble/hashes",
+      "version": "2.4.0",
+      "source": "https://registry.npmjs.org/@noble/hashes/-/hashes-2.4.0.tgz",
+      "declaredLicense": "MIT",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "4f221aee6e072336700c408c68ab3b96a3fc09f6aebe6f48f1bd99e5ef13faec"
+        }
+      ]
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@xterm/addon-fit",
+      "version": "0.11.0",
+      "source": "https://registry.npmjs.org/@xterm/addon-fit/-/addon-fit-0.11.0.tgz",
+      "declaredLicense": "MIT",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "e256f01188af527e4d06d21d06fbf785ae9c50d4b328bf03cbe0ba7f0aa4228f"
+        }
+      ]
+    },
+    {
+      "ecosystem": "npm",
+      "name": "@xterm/xterm",
+      "version": "6.0.0",
+      "source": "https://registry.npmjs.org/@xterm/xterm/-/xterm-6.0.0.tgz",
+      "declaredLicense": "MIT",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "b569f629d00f2626a8100df2a1798210535621e42164dfd426a6fe5aac7b0ccd"
+        }
+      ]
+    },
+    {
+      "ecosystem": "npm",
+      "name": "arrival-time",
+      "version": "1.0.6",
+      "source": "https://registry.npmjs.org/arrival-time/-/arrival-time-1.0.6.tgz",
+      "declaredLicense": "MIT",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "9990e6cf8eb72cf1109e778340f0c8d88e80c6bad8cd1a726c9d98eb382a3357"
+        }
+      ]
+    },
+    {
+      "ecosystem": "npm",
+      "name": "lossless-json",
+      "version": "4.3.3",
+      "source": "https://registry.npmjs.org/lossless-json/-/lossless-json-4.3.3.tgz",
+      "declaredLicense": "MIT",
+      "files": [
+        {
+          "path": "LICENSE.md",
+          "sha256": "c5075e9ebeac2efabaddeb7ff8f215ef180f76da7837a79e3107868271693114"
+        }
+      ]
+    },
+    {
+      "ecosystem": "npm",
+      "name": "lucide-react",
+      "version": "1.26.0",
+      "source": "https://registry.npmjs.org/lucide-react/-/lucide-react-1.26.0.tgz",
+      "declaredLicense": "ISC",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "b495047bd93a9b06913511076f504daba17d5bbeb3e0650f3bb53a4220329c57"
+        }
+      ]
+    },
+    {
+      "ecosystem": "npm",
+      "name": "qrcode.react",
+      "version": "4.2.0",
+      "source": "https://registry.npmjs.org/qrcode.react/-/qrcode.react-4.2.0.tgz",
+      "declaredLicense": "ISC",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "908a4454d01d77cd6a0ae1eea0bafaa74a2e3befdbc4b7b714de2499a22351ce"
+        }
+      ]
+    },
+    {
+      "ecosystem": "npm",
+      "name": "react",
+      "version": "19.2.8",
+      "source": "https://registry.npmjs.org/react/-/react-19.2.8.tgz",
+      "declaredLicense": "MIT",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93"
+        }
+      ]
+    },
+    {
+      "ecosystem": "npm",
+      "name": "react-dom",
+      "version": "19.2.8",
+      "source": "https://registry.npmjs.org/react-dom/-/react-dom-19.2.8.tgz",
+      "declaredLicense": "MIT",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93"
+        }
+      ]
+    },
+    {
+      "ecosystem": "npm",
+      "name": "react-icons",
+      "version": "5.7.0",
+      "source": "https://registry.npmjs.org/react-icons/-/react-icons-5.7.0.tgz",
+      "declaredLicense": "MIT",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "a0c1e5484fb4c79e2a683834253864e640e1ca57cb57b807bd5bddb72bbbf74f"
+        }
+      ]
+    },
+    {
+      "ecosystem": "npm",
+      "name": "scheduler",
+      "version": "0.27.0",
+      "source": "https://registry.npmjs.org/scheduler/-/scheduler-0.27.0.tgz",
+      "declaredLicense": "MIT",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93"
+        }
+      ]
+    },
+    {
+      "ecosystem": "toolchain",
+      "name": "Go standard library and wasm_exec.js",
+      "version": "go version go1.27.3 windows/amd64",
+      "source": "https://go.dev",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+        }
+      ]
+    },
+    {
+      "ecosystem": "vendored",
+      "name": "internal/cli",
+      "version": "4fc5ac0c8463a3de2b0396205c69a38109863583",
+      "source": "https://github.com/schollz/croc/tree/4fc5ac0c8463a3de2b0396205c69a38109863583/internal/cli",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "66a52994aa33d761e82814ef647fe43f32051f7631e51cf62c0dc34441d84d9d"
+        }
+      ]
+    },
+    {
+      "ecosystem": "vendored",
+      "name": "internal/tailcat",
+      "version": "4fc5ac0c8463a3de2b0396205c69a38109863583",
+      "source": "https://github.com/schollz/croc/tree/4fc5ac0c8463a3de2b0396205c69a38109863583/internal/tailcat",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "a7ec3a027e22a28126dc3ad95ffc301dbc46a92cb6d66af2e2635c1abf9bc863"
+        }
+      ]
+    },
+    {
+      "ecosystem": "vendored",
+      "name": "src/codephrase/wordlists",
+      "version": "4fc5ac0c8463a3de2b0396205c69a38109863583",
+      "source": "https://github.com/schollz/croc/tree/4fc5ac0c8463a3de2b0396205c69a38109863583/src/codephrase/wordlists",
+      "files": [
+        {
+          "path": "LICENSE.txt",
+          "sha256": "cbd5af318286b74656f145dff5091907cc23d6d8c9ad09e0291ec2497792ba41"
+        },
+        {
+          "path": "README.md",
+          "sha256": "06267b8687488adbf82ce4e8329e0fb41547a4bb9e3fb2a0b51b68565b8721e4"
+        }
+      ]
+    },
+    {
+      "ecosystem": "source",
+      "name": "croc upstream notices",
+      "version": "4fc5ac0c8463a3de2b0396205c69a38109863583",
+      "source": "https://github.com/schollz/croc/tree/4fc5ac0c8463a3de2b0396205c69a38109863583",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "0de8a5845e8f6b92e1d27461d164466f39557ccbc986b07d906571a3c4e851b6"
+        },
+        {
+          "path": "THIRD_PARTY_NOTICES.md",
+          "sha256": "ac8012cefcaf3e12f3f3ce8643cd4e6d1ebd80d6d919c610a884f79f266f3ea1"
+        }
+      ]
+    }
+  ]
+}

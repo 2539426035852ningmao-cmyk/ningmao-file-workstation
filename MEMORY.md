@@ -1,5 +1,7 @@
 # 2026-11-09 接续优先
 
+本轮后续已重建浏览器组件至D:/Ningmao-Browser-Components-20261109-live-only，补采EFF README后70项/无缺失正文；字体5.3.0 LICENSE确认含SIL OFL。新web.exe哈希1d758565f383109900c163ecb3282cd64b103f549e9b11fdc9444a5958c1fd9c，与实际回环EXE相同；两项真实Chromium/Go中文下载SHA/来源保留/接收核验/取消PASS11.3s，六端口已释放。详细报告docs/research/P3-browser-live-entry-license-20261109.md；图标/旧NOTICE映射及底层SSH/WASM/端点仍未清关，不加入标准包。此后源码补记不能冒称桌面EXE来源，新桌面实际包仍93d14cc。
+
 唯一 #77 / feat/capsule-recent-focus-20261108，工作区不切换。应用候选93d14ccb3b45e6903e4aefad84f03a69c7558aea三CI全success（Desktop42546713423/Preview42546713434/P342546713469），新包原生选English.txt→同原生Space成功预览→Esc关闭→完整退出PASS；12引用/2任务与旧edf库一致、全部来源副本SHA相同、DB完整，PID32772已退出。ZIP D:/Ningmao-Integrated-93d14cc.zip及精确哈希见ACTIVE。修复只用event.key替代event.code，24专项界面通过；未捕获原生事件字段，不猜根因。OLE/全DPI/多屏等仍未验，旧包保留。
 
 随后最小浏览器实验批移除Store入口并把#store深链接回首页，保留收发及原SSH回退；5实际组件/词表测试、TypeScript/补丁反向检查通过。尚未重建组件/新回环，不能继承旧web.exe。EFF词表CC BY4.0原README有来源和修改说明，但采集器未收README，下一步改源头再生成；字体/图标/旧NOTICE映射及SSH/WASM/端点范围仍未清关，普通包不携带，distributionApproved=false。沿#77整批提交/完整CI，不自动合并、安装、发布或模型/网络请求。完整当前状态优先ACTIVE顶部，旧记录按各自SHA留存。
