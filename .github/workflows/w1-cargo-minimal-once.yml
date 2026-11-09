@@ -16,7 +16,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Preserve original dependency pins while resolving only WSS additions
         run: |
-          git show 563f094a6935047a190fb09edd999ffb4e6d8c82:apps/desktop/src-tauri/Cargo.lock > apps/desktop/src-tauri/Cargo.lock
+          git fetch --depth=1 origin refs/heads/feat/web-w1-device-enrollment-20261109
+          git show FETCH_HEAD:apps/desktop/src-tauri/Cargo.lock > apps/desktop/src-tauri/Cargo.lock
           cargo metadata --manifest-path apps/desktop/src-tauri/Cargo.toml --format-version 1 > /dev/null
           cargo metadata --locked --manifest-path apps/desktop/src-tauri/Cargo.toml --no-deps --format-version 1 > /dev/null
           git diff --stat -- apps/desktop/src-tauri/Cargo.lock
