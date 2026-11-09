@@ -70,3 +70,56 @@ test("401 失效身份不会无限自动重试",async({page})=>{
   await page.waitForTimeout(4000);
   expect(attempts).toBe(initialAttempts);
 });
+
+test("等待确认期间对端离线，立即终止而不是一直等待超时",async({page})=>{
+  let transmit: ((data:string)=>void)|null=null;
+  let invites=0;
+  await page.route("**/api/me",route=>route.fulfill({
+    status:200,contentType:"application/json",
+    body:JSON.stringify({email:"synthetic-only@example.test"})
+  }));
+  await page.routeWebSocket(/\/api\/connect\?/,ws=>{
+    transmit=data=>ws.send(data);
+    ws.onMessage(raw=>{
+      const message=JSON.parse(String(raw)) as {type:string};
+      if(message.type==="invite") invites++;
+    });
+    ws.send(JSON.stringify({type:"presence",devices:[{id:remoteId,name:"测试接收设备"}]}));
+  });
+  await page.goto("/");
+  await expect(page.locator(".preview-status")).toContainText("已连接");
+  await page.getByRole("button",{name:"添加本地测试文件，体验准备流程"}).click();
+  await page.getByRole("button",{name:/测试接收设备/}).click();
+  await page.getByRole("button",{name:"发送文件",exact:true}).click();
+  await expect.poll(()=>invites).toBeGreaterThan(0);
+  expect(transmit).not.toBeNull();
+  (transmit as (data:string)=>void)(JSON.stringify({type:"presence",devices:[]}));
+  await page.getByRole("button",{name:"传输记录",exact:true}).click();
+  await expect(page.locator(".network-tasks")).toContainText("失败：对端设备已离线");
+  await expect(page.locator(".connected-device")).toHaveCount(0);
+});
+
+test("对端在用户决定前离线，撤下旧接收邀请",async({page})=>{
+  let transmit: ((data:string)=>void)|null=null;
+  await page.route("**/api/me",route=>route.fulfill({
+    status:200,contentType:"application/json",
+    body:JSON.stringify({email:"synthetic-only@example.test"})
+  }));
+  await page.routeWebSocket(/\/api\/connect\?/,ws=>{
+    transmit=data=>ws.send(data);
+    ws.send(JSON.stringify({type:"presence",devices:[{id:remoteId,name:"测试发送设备"}]}));
+  });
+  await page.goto("/");
+  await expect(page.locator(".preview-status")).toContainText("已连接");
+  expect(transmit).not.toBeNull();
+  (transmit as (data:string)=>void)(JSON.stringify({
+    type:"invite",from:remoteId,payload:{
+      id:"00000000-0000-4000-8000-000000000456",
+      name:"合成文件.txt",size:3,mime:"text/plain",sha256:"a".repeat(64)
+    }
+  }));
+  await expect(page.getByRole("dialog",{name:"收到文件请求"})).toBeVisible();
+  (transmit as (data:string)=>void)(JSON.stringify({type:"presence",devices:[]}));
+  await expect(page.getByRole("dialog",{name:"收到文件请求"})).toHaveCount(0);
+  await expect(page.getByRole("alert")).toContainText("发起设备已离线");
+});

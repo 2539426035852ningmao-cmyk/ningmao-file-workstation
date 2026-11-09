@@ -1,6 +1,7 @@
 import {useCallback,useEffect,useRef,useState} from "react";
 import {hex,MAX_BYTES,readable,validInvite,safeFileName,type Invite} from "./guards";
 import {PeerLink,type WireSignal} from "./peer";
+import {SocketHeartbeat} from "./socket-heartbeat";
 import {sameSession} from "./signaling";
 
 export type Device = {id:string;name:string};
@@ -102,7 +103,18 @@ export function useTransferController() {
 
   handler.current = (msg: Message) => {
     if (msg.type === "presence" && Array.isArray(msg.devices)) {
-      setDevices(msg.devices.filter(p => p.id !== deviceId));
+      const online = msg.devices.filter(p => p.id !== deviceId);
+      setDevices(online);
+      // Presence is authoritative for signaling availability. Do not keep a
+      // pending receipt/decision alive after its peer has gone offline.
+      if (active.current && !online.some(device => device.id === active.current?.to)) {
+        fail("对端设备已离线");
+      } else if (inbound.current && !online.some(device => device.id === inbound.current?.from)) {
+        clearIncoming();
+        inbound.current = null;
+        setIncoming(null);
+        setNotice("发起设备已离线，接收请求已关闭");
+      }
       return;
     }
     if (msg.type === "unavailable") {
@@ -174,7 +186,7 @@ export function useTransferController() {
     let disposed = false;
     let retry: ReturnType<typeof setTimeout> | null = null;
     let ws: WebSocket | null = null;
-    let ping: ReturnType<typeof setInterval> | null = null;
+    let heartbeat: SocketHeartbeat | null = null;
     const scheduleRetry = () => {
       if (disposed || retry) return;
       retry = setTimeout(() => {
@@ -214,21 +226,13 @@ export function useTransferController() {
       }
       const currentWs = ws;
       socket.current = currentWs;
-      currentWs.onopen = () => {
-        if (disposed) return;
-        setConnection("online");
-        ping = setInterval(() => {
-          if (currentWs.readyState === WebSocket.OPEN) currentWs.send(JSON.stringify({ type: "ping" }));
-        }, 30_000);
-      };
-      currentWs.onmessage = e => {
-        if (disposed) return;
-        try { handler.current(JSON.parse(e.data as string) as Message); } catch { /* reject malformed server message */ }
-      };
-      currentWs.onclose = () => {
-        if (ping) { clearInterval(ping); ping = null; }
-        if (socket.current === currentWs) socket.current = null;
-        if (disposed) return;
+      let disconnected = false;
+      const disconnect = () => {
+        // A stale socket must not clear a newer session or its heartbeat.
+        if (disposed || disconnected || socket.current !== currentWs) return;
+        disconnected = true;
+        heartbeat?.stop(); heartbeat = null;
+        socket.current = null;
         setConnection("offline"); setDevices([]);
         link.current?.close(); link.current = null;
         if (active.current) updateTask(active.current.id, { status: "网络中断，未确认完成" });
@@ -237,13 +241,34 @@ export function useTransferController() {
         setBusy(false); setIncoming(null);
         scheduleRetry();
       };
-      currentWs.onerror = () => { if (!disposed) setConnection("offline"); };
+      currentWs.onopen = () => {
+        if (disposed || disconnected || socket.current !== currentWs) return;
+        setConnection("online");
+        heartbeat = new SocketHeartbeat(
+          () => currentWs.send(JSON.stringify({ type: "ping" })),
+          () => { disconnect(); currentWs.close(); }
+        );
+        heartbeat.start();
+      };
+      currentWs.onmessage = e => {
+        if (disposed || disconnected || socket.current !== currentWs) return;
+        try {
+          const message = JSON.parse(e.data as string) as Message;
+          if (message.type === "pong") heartbeat?.pong();
+          else handler.current(message);
+        } catch { /* reject malformed server message */ }
+      };
+      currentWs.onclose = disconnect;
+      currentWs.onerror = () => {
+        disconnect();
+        currentWs.close();
+      };
     };
     void connect();
     return () => {
       disposed = true;
       if (retry) clearTimeout(retry);
-      if (ping) clearInterval(ping);
+      heartbeat?.stop();
       ws?.close();
       if (socket.current === ws) socket.current = null;
       link.current?.close();
