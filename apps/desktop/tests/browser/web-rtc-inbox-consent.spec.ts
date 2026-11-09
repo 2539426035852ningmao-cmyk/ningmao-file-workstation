@@ -74,3 +74,69 @@ test("W3 用户选定真实绑定文件架后才同意 WebRTC，取消不回报�
   expect(calls).toContain("web-rtc-signal:cancel:"+id+":");
   expect(calls.some(s=>s.startsWith("web-rtc-signal:receipt"))).toBe(false);
 });
+
+
+test("W2 本地真实 RTCDataChannel → W3 原生保存模拟，仅持久化完成后才回执",async({page})=>{
+  test.setTimeout(70_000);
+  await page.addInitScript(()=>{
+    localStorage.setItem("test-state",JSON.stringify({
+      shelves:[{id:1,name:"灵感收集",kind:"persistent",root:null,available:true},
+        {id:2,name:"本次中转",kind:"session",root:null,available:true},
+        {id:31,name:"我的接收文件夹",kind:"bound",root:"C:/Safe",available:true}],
+      items:[{id:1,name:"Alpha.txt",shelf_id:1,path:"SYNTHETIC/Alpha.txt",
+        kind:"txt",bytes:200,modified:1,status:"normal",tags:[]}],jobs:[]
+    }));
+  });
+  const panel=await connected(page);
+  await panel.getByRole("button",{name:"允许网页发送请求（仅当前面板）"}).click();
+  await page.evaluate(async({browser,id})=>{
+    const bytes=new TextEncoder().encode("柠猫 W2-WebRTC → W3-Windows Store synthetic");
+    const digest=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",bytes)))
+      .map(v=>v.toString(16).padStart(2,"0")).join("");
+    const pc=new RTCPeerConnection({iceServers:[]});
+    const channel=pc.createDataChannel("ningmao-transfer",{ordered:true});
+    const pending:RTCIceCandidateInit[]=[];
+    window.transferHarness.mockWebNativeSave();
+    pc.onicecandidate=e=>{
+      if(e.candidate)window.transferHarness.webSignal({type:"candidate",from:browser,
+        payload:{id,candidate:e.candidate.toJSON()}});
+    };
+    channel.onopen=()=>{
+      channel.send(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength));
+      channel.send("DONE");
+    };
+    window.transferHarness.onWebOutbound(message=>{
+      if(message.type==="decision"&&message.payload.accepted===true){
+        void (async()=>{
+          await pc.setLocalDescription(await pc.createOffer());
+          window.transferHarness.webSignal({type:"description",from:browser,
+            payload:{id,description:pc.localDescription!.toJSON()}});
+        })();
+      }else if(message.type==="description"){
+        void (async()=>{
+          await pc.setRemoteDescription(message.payload.description as RTCSessionDescriptionInit);
+          for(const candidate of pending.splice(0))await pc.addIceCandidate(candidate);
+        })();
+      }else if(message.type==="candidate"){
+        const ice=message.payload.candidate as RTCIceCandidateInit;
+        if(pc.remoteDescription)void pc.addIceCandidate(ice);
+        else pending.push(ice);
+      }
+      if(message.type==="receipt")void pc.close();
+    });
+    window.transferHarness.webSignal({type:"invite",from:browser,payload:{
+      id,name:"received-window-test.txt",size:bytes.byteLength,
+      mime:"text/plain",sha256:digest
+    }});
+  },{browser,id});
+  await expect(panel.getByText("received-window-test.txt",{exact:false})).toBeVisible();
+  await panel.getByLabel("网页文件保存架").selectOption("31");
+  await panel.getByRole("button",{name:"确认接收并保存"}).click();
+  await expect.poll(()=>page.evaluate(()=>window.transferHarness.nativeWebCalls()),{timeout:35_000})
+    .toContain("web_receive_finish");
+  const native=await page.evaluate(()=>window.transferHarness.nativeWebCalls());
+  expect(native).toEqual(["web_receive_prepare","web_receive_append","web_receive_finish"]);
+  const outgoing=await page.evaluate(()=>window.transferHarness.calls());
+  expect(outgoing).toContain("web-rtc-signal:receipt:"+id+":");
+  await expect(panel).toContainText("已保存到 Windows 文件架");
+});
