@@ -68,26 +68,36 @@ export function useTransferController() {
     active.current = null; outbound.current = null; inbound.current = null;
     setIncoming(null); setBusy(false);
   }, [sendSignal, updateTask]);
-  const makeLink = useCallback((remote: string, id: string, direction: "发送" | "接收") => new PeerLink({
-    remote,
-    signal: sendSignal,
-    progress: (done, total) => updateTask(id, { fraction: total ? done / total : 1, status: direction === "发送" ? "正在发送" : "正在接收" }),
-    ready: (blob, meta) => {
-      const url = URL.createObjectURL(blob);
-      downloadUrls.current.push(url);
-      setDownloads(old => [{ id: meta.id, name: meta.name, size: meta.size, url }, ...old].slice(0, 8));
-      updateTask(id, { fraction: 1, status: "已校验，可保存到设备" });
-      try { sendSignal({ type: "receipt", to: remote, payload: { id, ok: true } }); } catch { /* receiver still has the verified file */ }
-      clearOutgoing(); clearIncoming();
-      setBusy(false); active.current = null; inbound.current = null;
-    },
-    transmitted: () => {
-      updateTask(id, { fraction: 1, status: "已发送，等待对方校验" });
-      clearOutgoing();
-      outgoingDeadline.current = setTimeout(() => fail("接收方未在规定时间内确认校验"), 60_000);
-    },
-    error: fail
-  }), [sendSignal, updateTask, fail]);
+  const makeLink = useCallback((remote: string, id: string, direction: "发送" | "接收") => {
+    // Guard every asynchronous RTC callback by the original task identity.
+    // A late callback from a cancelled session must not corrupt a newer task.
+    const isCurrent = () => active.current?.id === id && active.current.to === remote;
+    return new PeerLink({
+      remote,
+      signal: sendSignal,
+      progress: (done, total) => {
+        if (isCurrent()) updateTask(id, { fraction: total ? done / total : 1, status: direction === "发送" ? "正在发送" : "正在接收" });
+      },
+      ready: (blob, meta) => {
+        if (!isCurrent() || meta.id !== id) return;
+        const url = URL.createObjectURL(blob);
+        downloadUrls.current.push(url);
+        setDownloads(old => [{ id: meta.id, name: meta.name, size: meta.size, url }, ...old].slice(0, 8));
+        updateTask(id, { fraction: 1, status: "已校验，可保存到设备" });
+        try { sendSignal({ type: "receipt", to: remote, payload: { id, ok: true } }); } catch { /* receiver still has the verified file */ }
+        clearOutgoing(); clearIncoming();
+        setBusy(false); active.current = null; inbound.current = null;
+        link.current?.close(); link.current = null;
+      },
+      transmitted: () => {
+        if (!isCurrent()) return;
+        updateTask(id, { fraction: 1, status: "已发送，等待对方校验" });
+        clearOutgoing();
+        outgoingDeadline.current = setTimeout(() => { if (isCurrent()) fail("接收方未在规定时间内确认校验"); }, 60_000);
+      },
+      error: message => { if (isCurrent()) fail(message); }
+    });
+  }, [sendSignal, updateTask, fail]);
 
   handler.current = (msg: Message) => {
     if (msg.type === "presence" && Array.isArray(msg.devices)) {
@@ -131,12 +141,16 @@ export function useTransferController() {
       outgoingDeadline.current = setTimeout(() => fail("建立传输连接超时"), 120_000);
       const rtc = makeLink(from, meta.id, "发送");
       link.current = rtc;
-      void rtc.startSender(bytes, meta).catch(e => fail(String(e)));
+      void rtc.startSender(bytes, meta).catch(e => { if (active.current?.id === meta.id && link.current === rtc) fail(String(e)); });
       outbound.current = null;
       return;
     }
     if ((msg.type === "description" || msg.type === "candidate") && sameSession(active.current, from, payload) && link.current) {
-      void link.current.handle(msg.type, payload).catch(e => fail(String(e)));
+      const rtc = link.current;
+      const taskId = active.current!.id;
+      void rtc.handle(msg.type, payload).catch(e => {
+        if (active.current?.id === taskId && link.current === rtc) fail(String(e));
+      });
       return;
     }
     if (msg.type === "receipt" && sameSession(active.current, from, payload) && payload.ok === true) {
