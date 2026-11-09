@@ -39,7 +39,7 @@ export class PeerLink {
     channel.binaryType = "arraybuffer";
     channel.bufferedAmountLowThreshold = 256 * 1024;
     channel.onopen = () => void this.sendBytes(bytes).catch(error => this.fail(error));
-    channel.onerror = () => this.hooks.error("文件传输通道异常");
+    channel.onerror = () => { if (!this.stopped) this.hooks.error("文件传输通道异常"); };
     const offer = await this.pc.createOffer();
     await this.pc.setLocalDescription(offer);
     this.hooks.signal({ type: "description", to: this.hooks.remote, payload: { id: meta.id, description: this.pc.localDescription!.toJSON() } });
@@ -51,7 +51,7 @@ export class PeerLink {
       this.channel = channel;
       channel.binaryType = "arraybuffer";
       channel.onmessage = e => void this.receive(e.data);
-      channel.onerror = () => this.hooks.error("接收通道发生错误");
+      channel.onerror = () => { if (!this.stopped) this.hooks.error("接收通道发生错误"); };
     };
   }
   async handle(type: "description" | "candidate", payload: Record<string, unknown>) {

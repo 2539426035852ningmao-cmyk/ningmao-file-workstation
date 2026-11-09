@@ -7,6 +7,8 @@ import {mockIPC,clearMocks} from "@tauri-apps/api/mocks";
 import {nativeChat} from "../src/chatBackend";
 import {nativeTransfer,type DesktopWebMessage,type DesktopWebSignal,type TransferBackend,type TransferProgress,type TransferResult,type TransferView} from "../src/transferBackend";
 import {buildDesktopWebRTCOffer} from "../src/webTransferBackend";
+import {PeerLink} from "../../web/src/peer";
+import type {Invite} from "../../web/src/guards";
 import {saveAcceptedWebFile} from "../src/webReceiveBackend";
 import type { Backend, DesktopView, Events, Item, Progress, Snapshot, TrashEntry, SearchHit } from "../src/backend";
 import "../src/style.css";
@@ -19,16 +21,55 @@ let transferEvents:Parameters<TransferBackend["subscribe"]>[0]|undefined,transfe
 const transferCalls:string[]=[];
 let webSignalHandler:((msg:DesktopWebSignal)=>void)|undefined;
 let webOutboundHandler:((msg:DesktopWebMessage)=>void)|undefined;
+let syntheticBrowserReceipt:string|null=null;
+const syntheticBrowserId="18aba838-246f-4d0e-af08-1a27b536932a";
 const webNativeCalls:string[]=[];
 let chatPending:(()=>void)|undefined;
 let browserFinish:((value:{job_id:number;status:string})=>void)|undefined;
 const chatCalls:string[]=[];
 declare global{interface Window{chatHarness:{calls:()=>string[]}}}
 window.chatHarness={calls:()=>chatCalls};
-declare global{interface Window{verifyTransferIPC:()=>Promise<{command:string;args:unknown}[]>;transferHarness:{calls:()=>string[];pending:()=>void;progress:(value:TransferProgress)=>void;finish:(status:string)=>void;webSignal:(message:DesktopWebSignal)=>void;onWebOutbound:(fn:(message:DesktopWebMessage)=>void)=>void;mockWebNativeSave:()=>void;nativeWebCalls:()=>string[]}}}
+declare global{interface Window{verifyTransferIPC:()=>Promise<{command:string;args:unknown}[]>;transferHarness:{calls:()=>string[];pending:()=>void;progress:(value:TransferProgress)=>void;finish:(status:string)=>void;webSignal:(message:DesktopWebSignal)=>void;onWebOutbound:(fn:(message:DesktopWebMessage)=>void)=>void;installSyntheticBrowserReceiver:()=>void;receivedBrowserFile:()=>string|null;mockWebNativeSave:()=>void;nativeWebCalls:()=>string[]}}}
 window.verifyTransferIPC=async()=>{const calls:{command:string;args:unknown}[]=[];mockIPC((command,args)=>{calls.push({command,args});return null;});try{await nativeTransfer.receive(3,"127.0.0.1:0");await nativeTransfer.decide("synthetic-batch",false);await nativeTransfer.send(1,[1,2],"127.0.0.1:53317","a".repeat(64));await nativeTransfer.cancelSend();return calls;}finally{clearMocks();}};
 window.transferHarness={calls:()=>transferCalls,webSignal:message=>webSignalHandler?.(message),
   onWebOutbound:fn=>{webOutboundHandler=fn;},
+  receivedBrowserFile:()=>syntheticBrowserReceipt,
+  installSyntheticBrowserReceiver:()=>{
+    syntheticBrowserReceipt=null;
+    let receiver:PeerLink|null=null;
+    const signal=(type:"description"|"candidate",payload:Record<string,unknown>)=>
+      webSignalHandler?.({type,from:syntheticBrowserId,payload});
+    webOutboundHandler=message=>{
+      if(message.type==="invite"){
+        const meta=message.payload as Invite;
+        receiver?.close();
+        receiver=new PeerLink({
+          remote:"synthetic-windows",
+          signal:msg=>signal(msg.type,msg.payload),
+          progress:()=>{},
+          ready:(blob,received)=>{
+            void blob.text().then(text=>{
+              syntheticBrowserReceipt=text;
+              webSignalHandler?.({type:"receipt",from:syntheticBrowserId,
+                payload:{id:received.id,ok:true}});
+              receiver?.close();receiver=null;
+            });
+          },
+          transmitted:()=>{},
+          error:message=>{syntheticBrowserReceipt="ERROR: "+message;}
+        });
+        receiver.prepareReceiver(meta);
+        // In this test only, the simulated browser explicitly approves.
+        webSignalHandler?.({type:"decision",from:syntheticBrowserId,
+          payload:{id:meta.id,accepted:true}});
+      }else if(message.type==="description"||message.type==="candidate"){
+        void receiver?.handle(message.type,message.payload).catch(e=>{
+          syntheticBrowserReceipt="ERROR: "+String(e);
+        });
+      }else if(message.type==="cancel"){receiver?.close();receiver=null;}
+    };
+  },
+
   nativeWebCalls:()=>webNativeCalls,
   mockWebNativeSave:()=>{
     webNativeCalls.length=0;
@@ -89,6 +130,21 @@ const backend:Backend={
     async webDeviceSetReceiving(enabled){transferCalls.push("web-rtc-enabled:"+String(enabled));},
     async webDeviceSignal(message){transferCalls.push("web-rtc-signal:"+message.type+":"+String(message.payload.id)+":"+String(message.payload.accepted??""));webOutboundHandler?.(message);},
     async subscribeWebSignals(callback){webSignalHandler=callback;return()=>{if(webSignalHandler===callback)webSignalHandler=undefined;};},
+    async webOffer(shelf,itemId,signal){
+      transferCalls.push(`web-rtc-source:${shelf}:${itemId}`);
+      if(signal?.aborted)throw Error("文件准备已取消");
+      syncState();
+      const file=state.items.find(item=>item.shelf_id===shelf&&item.id===itemId);
+      if(!file)throw Error("文件引用已失效，无法准备发送");
+      if(new URLSearchParams(location.search).has("web-outbox-source-error"))
+        throw Error("合成文件源校验失败");
+      const bytes=new TextEncoder().encode("Ningmao Windows to browser synthetic source").buffer;
+      const sha256=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",bytes)))
+        .map(x=>x.toString(16).padStart(2,"0")).join("");
+      if(signal?.aborted)throw Error("文件准备已取消");
+      return {manifest:{id:crypto.randomUUID(),name:file.name,size:bytes.byteLength,
+        mime:"text/plain",sha256},bytes};
+    },
     async webSourceInfo(shelf,itemId){
       transferCalls.push(`web-preflight:${shelf}:${itemId}`);
       if(new URLSearchParams(location.search).has("web-preflight-error"))throw new Error("文件引用已变化");

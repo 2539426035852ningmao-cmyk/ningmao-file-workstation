@@ -1,6 +1,7 @@
 import {useEffect,useRef,useState} from "react";
 import {X} from "lucide-react";
 import {DesktopWebInbox} from "./DesktopWebInbox";
+import {DesktopWebOutbox} from "./DesktopWebOutbox";
 import {Button} from "./ui/button";
 import {Input} from "./ui/input";
 import {Tabs,TabsList,TabsTrigger,TabsContent} from "./ui/tabs";
@@ -78,7 +79,7 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
     try{
       const status=await backend.webDeviceConnect();
       setWebDevice(status);
-      setWebPairNotice("Windows 原生 WSS 信令已连接。WebRTC 文件通道仍未完成。");
+      setWebPairNotice("Windows 原生 WSS 信令已连接。收发文件仍需双方确认并完成实际设备联调。");
     }catch(e){setError("Windows 信令连接失败："+String(e));}
     finally{setWebPairBusy(false);}
   }
@@ -118,6 +119,9 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
       <strong>1. 选择文件</strong><p className="transfer-note">已选 {selection.files.length} 项{selection.files.length>16?"，一次最多发送16项":""}</p>
       {!selection.files.length&&<p className="capability-hint">先在文件架选择文件，再使用“发送到设备”。<Button variant="outline" onClick={()=>onOpenChange(false)}>返回文件架选文件</Button></p>}
       {!!selection.files.length&&<ul className="transfer-files" aria-label="待发送文件">{selection.files.map(file=><li key={file.id} title={file.name}>{file.name}</li>)}</ul>}
+      {webDevice?.signal_online&&backend.webOffer&&backend.webDeviceSignal&&backend.subscribeWebSignals&&
+        <DesktopWebOutbox backend={backend} open={open} online={webDevice.signal_online}
+          peers={webDevice.online_devices} selection={selection}/>}
       {backend.webSourceInfo&&<details className="transfer-experiment"><summary>网页 / 手机互传 · W3 本机准备检查</summary>
         <section className="connection-fields" aria-label="W3 网页发送文件源预检">
           <strong>文件架 → WebRTC 发送源</strong>
@@ -181,7 +185,7 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
         {webPairNotice&&<p role="status" className="transfer-note">{webPairNotice}</p>}
       </section>
     </details>}
-    {webDevice?.signal_online&&backend.webDeviceSignal&&backend.subscribeWebSignals&&backend.webDeviceSetReceiving&&
+    {mode==="receive"&&webDevice?.signal_online&&backend.webDeviceSignal&&backend.subscribeWebSignals&&backend.webDeviceSetReceiving&&
       <DesktopWebInbox backend={backend} open={open} online={webDevice.signal_online}
         peers={webDevice.online_devices} shelves={bound}/>}
 </TabsContent></Tabs>
