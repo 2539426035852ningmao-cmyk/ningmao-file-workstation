@@ -44,10 +44,18 @@ const backend:Backend={
     async devices(){return new URLSearchParams(location.search).has("nearby")?[{name:"合成接收电脑",address:"127.0.0.1:53317",fingerprint:"a".repeat(64)}]:[];},
     async browserAvailable(){return new URLSearchParams(location.search).has("browser-share");},
     async webDeviceStatus(){return (window as unknown as {testW1Status?:unknown}).testW1Status as import("../src/transferBackend").WebDeviceStatus|null ?? null;},
+    async webDeviceConnect(){
+      transferCalls.push("web-device-connect");
+      if(new URLSearchParams(location.search).has("web-wss-error"))throw new Error("WSS 授权拒绝");
+      const saved=(window as unknown as {testW1Status?:import("../src/transferBackend").WebDeviceStatus}).testW1Status;
+      if(!saved)throw new Error("请先授权");
+      const next={...saved,signal_online:true,online_devices:[{id:"18aba838-246f-4d0e-af08-1a27b536932a",name:"Chrome 测试设备"}]};
+      (window as unknown as {testW1Status?:unknown}).testW1Status=next;return next;
+    },
     async webDeviceClaim(baseUrl,code){
       transferCalls.push("web-device-claim:"+baseUrl+":"+code.slice(0,5));
       if(new URLSearchParams(location.search).has("web-device-error"))throw new Error("服务端未开启或代码已过期");
-      const status={device_id:"28560890-e97d-4fab-83c8-937b816d10cd",name:"柠猫 Windows 工作站",endpoint:baseUrl,expires_at:Date.now()+86400000,authorized:true};
+      const status={device_id:"28560890-e97d-4fab-83c8-937b816d10cd",name:"柠猫 Windows 工作站",endpoint:baseUrl,expires_at:Date.now()+86400000,authorized:true,signal_online:false,online_devices:[]};
       (window as unknown as {testW1Status?:unknown}).testW1Status=status;
       return status;
     },
