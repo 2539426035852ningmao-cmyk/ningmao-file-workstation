@@ -68,26 +68,37 @@ export function useTransferController() {
     active.current = null; outbound.current = null; inbound.current = null;
     setIncoming(null); setBusy(false);
   }, [sendSignal, updateTask]);
-  const makeLink = useCallback((remote: string, id: string, direction: "发送" | "接收") => new PeerLink({
-    remote,
-    signal: sendSignal,
-    progress: (done, total) => updateTask(id, { fraction: total ? done / total : 1, status: direction === "发送" ? "正在发送" : "正在接收" }),
-    ready: (blob, meta) => {
-      const url = URL.createObjectURL(blob);
-      downloadUrls.current.push(url);
-      setDownloads(old => [{ id: meta.id, name: meta.name, size: meta.size, url }, ...old].slice(0, 8));
-      updateTask(id, { fraction: 1, status: "已校验，可保存到设备" });
-      try { sendSignal({ type: "receipt", to: remote, payload: { id, ok: true } }); } catch { /* receiver still has the verified file */ }
-      clearOutgoing(); clearIncoming();
-      setBusy(false); active.current = null; inbound.current = null;
-    },
-    transmitted: () => {
-      updateTask(id, { fraction: 1, status: "已发送，等待对方校验" });
-      clearOutgoing();
-      outgoingDeadline.current = setTimeout(() => fail("接收方未在规定时间内确认校验"), 60_000);
-    },
-    error: fail
-  }), [sendSignal, updateTask, fail]);
+  const makeLink = useCallback((remote: string, id: string, direction: "发送" | "接收") => {
+    // Guard every asynchronous RTC callback by the original task identity.
+    // A late callback from a cancelled session must not corrupt a newer task.
+    const isCurrent = () => active.current?.id === id && active.current.to === remote;
+    return new PeerLink({
+      remote,
+      signal: sendSignal,
+      progress: (done, total) => {
+        if (isCurrent()) updateTask(id, { fraction: total ? done / total : 1, status: direction === "发送" ? "正在发送" : "正在接收" });
+      },
+      ready: (blob, meta) => {
+        if (!isCurrent() || meta.id !== id) return;
+        const url = URL.createObjectURL(blob);
+        downloadUrls.current.push(url);
+        setDownloads(old => [{ id: meta.id, name: meta.name, size: meta.size, url }, ...old].slice(0, 8));
+        updateTask(id, { fraction: 1, status: "已校验，可保存到设备" });
+        try { sendSignal({ type: "receipt", to: remote, payload: { id, ok: true } }); } catch { /* receiver still has the verified file */ }
+        clearOutgoing(); clearIncoming();
+        // Keep the channel alive long enough for the sender to receive the
+        // verified receipt over signaling; replace/close it on the next task.
+        setBusy(false); active.current = null; inbound.current = null;
+      },
+      transmitted: () => {
+        if (!isCurrent()) return;
+        updateTask(id, { fraction: 1, status: "已发送，等待对方校验" });
+        clearOutgoing();
+        outgoingDeadline.current = setTimeout(() => { if (isCurrent()) fail("接收方未在规定时间内确认校验"); }, 60_000);
+      },
+      error: message => { if (isCurrent()) fail(message); }
+    });
+  }, [sendSignal, updateTask, fail]);
 
   handler.current = (msg: Message) => {
     if (msg.type === "presence" && Array.isArray(msg.devices)) {
@@ -130,13 +141,18 @@ export function useTransferController() {
       const { bytes, meta } = outbound.current;
       outgoingDeadline.current = setTimeout(() => fail("建立传输连接超时"), 120_000);
       const rtc = makeLink(from, meta.id, "发送");
+      link.current?.close();
       link.current = rtc;
-      void rtc.startSender(bytes, meta).catch(e => fail(String(e)));
+      void rtc.startSender(bytes, meta).catch(e => { if (active.current?.id === meta.id && link.current === rtc) fail(String(e)); });
       outbound.current = null;
       return;
     }
     if ((msg.type === "description" || msg.type === "candidate") && sameSession(active.current, from, payload) && link.current) {
-      void link.current.handle(msg.type, payload).catch(e => fail(String(e)));
+      const rtc = link.current;
+      const taskId = active.current!.id;
+      void rtc.handle(msg.type, payload).catch(e => {
+        if (active.current?.id === taskId && link.current === rtc) fail(String(e));
+      });
       return;
     }
     if (msg.type === "receipt" && sameSession(active.current, from, payload) && payload.ok === true) {
@@ -159,33 +175,59 @@ export function useTransferController() {
     let retry: ReturnType<typeof setTimeout> | null = null;
     let ws: WebSocket | null = null;
     let ping: ReturnType<typeof setInterval> | null = null;
+    const scheduleRetry = () => {
+      if (disposed || retry) return;
+      retry = setTimeout(() => {
+        retry = null;
+        void connect();
+      }, 3500);
+    };
     const connect = async () => {
-      setConnection("loading");
+      if (disposed) return;
       try {
         const response = await fetch("/api/me", { cache: "no-store", credentials: "same-origin" });
-        if (!response.ok) { if (!disposed) setConnection(response.status === 401 ? "unauthorized" : "offline"); return; }
+        if (!response.ok) {
+          if (!disposed) {
+            const denied = response.status === 401 || response.status === 403;
+            setConnection(denied ? "unauthorized" : "offline");
+            if (denied) setIdentity(null);
+            else scheduleRetry();
+          }
+          return;
+        }
         const me = await response.json() as { email: string };
         if (disposed) return;
         setIdentity(me);
-      } catch { if (!disposed) setConnection("offline"); return; }
+      } catch {
+        if (!disposed) { setConnection("offline"); scheduleRetry(); }
+        return;
+      }
       const wsUrl = new URL("/api/connect", location.href);
       wsUrl.protocol = location.protocol === "https:" ? "wss:" : "ws:";
       wsUrl.searchParams.set("device", deviceId);
       wsUrl.searchParams.set("name", deviceName);
-      ws = new WebSocket(wsUrl);
-      socket.current = ws;
-      ws.onopen = () => {
+      try {
+        ws = new WebSocket(wsUrl);
+      } catch {
+        if (!disposed) { setConnection("offline"); scheduleRetry(); }
+        return;
+      }
+      const currentWs = ws;
+      socket.current = currentWs;
+      currentWs.onopen = () => {
         if (disposed) return;
         setConnection("online");
         ping = setInterval(() => {
-          if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "ping" }));
+          if (currentWs.readyState === WebSocket.OPEN) currentWs.send(JSON.stringify({ type: "ping" }));
         }, 30_000);
       };
-      ws.onmessage = e => {
+      currentWs.onmessage = e => {
+        if (disposed) return;
         try { handler.current(JSON.parse(e.data as string) as Message); } catch { /* reject malformed server message */ }
       };
-      ws.onclose = () => {
-        if (ping) clearInterval(ping);
+      currentWs.onclose = () => {
+        if (ping) { clearInterval(ping); ping = null; }
+        if (socket.current === currentWs) socket.current = null;
         if (disposed) return;
         setConnection("offline"); setDevices([]);
         link.current?.close(); link.current = null;
@@ -193,9 +235,9 @@ export function useTransferController() {
         clearOutgoing(); clearIncoming();
         outbound.current = null; active.current = null; inbound.current = null;
         setBusy(false); setIncoming(null);
-        retry = setTimeout(connect, 3500);
+        scheduleRetry();
       };
-      ws.onerror = () => { if (!disposed) setConnection("offline"); };
+      currentWs.onerror = () => { if (!disposed) setConnection("offline"); };
     };
     void connect();
     return () => {
@@ -218,21 +260,30 @@ export function useTransferController() {
     downloadUrls.current = [...activeUrls];
   }, [downloads]);
   async function sendFile(file: File | null, destination: string) {
-    if (busy || connection !== "online" || !destination || !file) return;
+    // Register an active task before reading or hashing the file. This lets
+    // Cancel interrupt preparation and blocks simultaneous incoming invites.
+    if (busy || active.current || inbound.current || connection !== "online" || !destination || !file) return;
+    const id = crypto.randomUUID();
+    active.current = { id, to: destination };
     setBusy(true); setNotice("");
+    setTasks(old => [{ id, name: file.name, direction: "发送" as const, status: "正在准备文件", fraction: 0 }, ...old].slice(0, 20));
     try {
-      const bytes = await file.arrayBuffer();
-      if (bytes.byteLength > MAX_BYTES) throw new Error("文件超过首版容量限制");
-      const sha256 = hex(await crypto.subtle.digest("SHA-256", bytes));
       if (!safeFileName(file.name)) throw new Error("文件名不符合跨设备安全规则");
-      const meta: Invite = { id: crypto.randomUUID(), name: file.name, size: bytes.byteLength, mime: file.type.slice(0, 100), sha256 };
-      active.current = { id: meta.id, to: destination };
+      if (file.size > MAX_BYTES) throw new Error("文件超过首版容量限制");
+      const bytes = await file.arrayBuffer();
+      if (active.current?.id !== id) return; // cancelled or disconnected while reading
+      if (bytes.byteLength !== file.size || bytes.byteLength > MAX_BYTES) throw new Error("文件读取大小不一致");
+      const sha256 = hex(await crypto.subtle.digest("SHA-256", bytes));
+      if (active.current?.id !== id) return; // cancelled or disconnected while hashing
+      const meta: Invite = { id, name: file.name, size: bytes.byteLength, mime: file.type.slice(0, 100), sha256 };
       outbound.current = { bytes, meta, to: destination };
-      setTasks(old => [{ id: meta.id, name: meta.name, direction: "发送" as const, status: "等待接收确认", fraction: 0 }, ...old].slice(0, 20));
       sendSignal({ type: "invite", to: destination, payload: meta });
+      updateTask(id, { status: "等待接收确认" });
       clearOutgoing();
       outgoingDeadline.current = setTimeout(() => fail("接收方未在 60 秒内确认"), 60_000);
-    } catch (e) { fail(e instanceof Error ? e.message : String(e)); }
+    } catch (e) {
+      if (active.current?.id === id) fail(e instanceof Error ? e.message : String(e));
+    }
   }
   function decide(accepted: boolean) {
     const request = inbound.current;
@@ -248,6 +299,7 @@ export function useTransferController() {
     setBusy(true);
     setTasks(old => [{ id: request.meta.id, name: request.meta.name, direction: "接收" as const, status: "正在建立连接", fraction: 0 }, ...old].slice(0, 20));
     const rtc = makeLink(request.from, request.meta.id, "接收");
+    link.current?.close();
     link.current = rtc;
     rtc.prepareReceiver(request.meta);
     clearOutgoing();

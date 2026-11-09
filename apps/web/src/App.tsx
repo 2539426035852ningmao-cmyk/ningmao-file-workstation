@@ -132,7 +132,7 @@ export function App() {
       <main className="content">
         {screen==="transfer"&&<>
           <div className="page-heading"><div><div className="eyebrow">FILE TRANSFER</div><h1>文件互传</h1><p>准备文件，选择同账号在线设备，确认后加密传送。</p></div><span className="stage-tag">联网联调候选</span></div>
-          {transfer.connection!=="online" && <div className="connection-warning" role="status"><LockKeyhole size={17}/><span>{transfer.connection==="loading"?"正在验证身份与设备状态":transfer.connection==="unauthorized"?"尚未通过 Cloudflare Access 服务端验证":"连接服务离线。此环境不会模拟登录或在线设备。"}<small>公开 GitHub Pages 仍是独立的安全 UI 预览，联网功能需要受保护的 Worker 部署。</small></span><button type="button" className="secondary-button" onClick={()=>location.reload()}>重试</button></div>}
+          {transfer.connection!=="online" && <div className="connection-warning" role="status"><LockKeyhole size={17}/><span>{transfer.connection==="loading"?"正在验证身份与设备状态":transfer.connection==="unauthorized"?"尚未通过 Cloudflare Access 服务端验证":"连接服务离线，正在自动尝试恢复。已选择的本地文件会保留在页面中。"}<small>公开 GitHub Pages 仍是独立的安全 UI 预览，联网功能需要受保护的 Worker 部署。</small></span>{transfer.connection==="unauthorized"&&<button type="button" className="secondary-button" onClick={()=>location.reload()}>重新验证登录</button>}</div>}
           {feedback && <div className="queue-feedback" role="status" aria-live="polite"><span>{feedback}</span><button className="icon-button" type="button" aria-label="关闭提示" onClick={() => setFeedback("")}><X size={16}/></button></div>}
           <div className="transfer-layout"><section className="primary-card">
             <div className="card-heading"><div><h2>准备发送</h2><p>文件不会因为选择而自动上传</p></div><span className="count-chip">{queued.length} 个文件</span></div>
