@@ -103,6 +103,33 @@ fn valid_device_token(token: &str) -> bool {
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
 }
+
+fn native_signaling_request(
+    endpoint: &str,
+    device_id: &str,
+    token: &str,
+) -> Result<tokio_tungstenite::tungstenite::http::Request<()>> {
+    if uuid::Uuid::parse_str(device_id).is_err() || !valid_device_token(token) {
+        return Err("设备标识或短期凭据不合法".into());
+    }
+    let base = validated_endpoint(endpoint)?;
+    let mut url = base.join("device-link/connect").map_err(error)?;
+    url.set_scheme("wss").map_err(|_| "信令连接地址无效")?;
+    url.query_pairs_mut().append_pair("device", device_id);
+    let mut request = url
+        .as_str()
+        .into_client_request()
+        .map_err(|_| "无法创建安全信令请求")?;
+    // The bearer credential never enters the URL, renderer, log or query string.
+    request.headers_mut().insert(
+        "Authorization",
+        format!("Bearer {token}")
+            .parse()
+            .map_err(|_| "设备授权凭据格式无效")?,
+    );
+    Ok(request)
+}
+
 fn guard(window: &tauri::WebviewWindow) -> Result<()> {
     crate::trusted_native_origin(window)?;
     if !matches!(window.label(), "main" | "manager") {
@@ -245,19 +272,7 @@ pub async fn web_device_connect(
     if now_ms()? >= expires_at {
         return Err("Windows 授权已过期，请重新配对".into());
     }
-    let base = validated_endpoint(&endpoint)?;
-    let mut url = base.join("device-link/connect").map_err(error)?;
-    url.set_scheme("wss").map_err(|_| "信令连接地址无效")?;
-    url.query_pairs_mut().append_pair("device", &device_id);
-    let mut request = url
-        .as_str()
-        .into_client_request()
-        .map_err(|_| "无法创建安全信令请求")?;
-    let bearer = format!("Bearer {token}");
-    request.headers_mut().insert(
-        "Authorization",
-        bearer.parse().map_err(|_| "设备授权凭据格式无效")?,
-    );
+    let request = native_signaling_request(&endpoint, &device_id, &token)?;
     state.web_device.stop_socket()?;
     let generation = state.web_device.generation.load(Ordering::SeqCst);
     let connection = tokio::time::timeout(Duration::from_secs(15), connect_async(request))
@@ -376,6 +391,23 @@ mod tests {
             assert!(validated_endpoint(bad).is_err(), "{bad}");
         }
         assert!(validated_endpoint("https://example.workers.dev/").is_ok());
+    }
+    #[test]
+    fn wss_request_preserves_authorization_header_and_never_leaks_token_in_url() {
+        let id = "28560890-e97d-4fab-83c8-937b816d10cd";
+        let token = format!("nm1t_{}", "x".repeat(43));
+        let request = native_signaling_request("https://test.workers.dev/", id, &token).unwrap();
+        let uri = request.uri().to_string();
+        assert!(uri.starts_with("wss://test.workers.dev/device-link/connect?device="));
+        assert!(uri.contains(id));
+        assert!(!uri.contains(&token));
+        assert_eq!(
+            request.headers().get("Authorization").unwrap().to_str().unwrap(),
+            format!("Bearer {token}")
+        );
+        assert!(native_signaling_request("https://127.0.0.1/", id, &token).is_err());
+        assert!(native_signaling_request("https://test.workers.dev/", "../bad", &token).is_err());
+        assert!(native_signaling_request("https://test.workers.dev/", id, "bad").is_err());
     }
     #[test]
     fn pairing_code_and_token_never_accept_other_roles() {
