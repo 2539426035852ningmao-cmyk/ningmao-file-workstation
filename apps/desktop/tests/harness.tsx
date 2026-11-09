@@ -5,7 +5,7 @@ import DesktopEntry from "../src/DesktopEntry";
 import Manager from "../src/Manager";
 import {mockIPC,clearMocks} from "@tauri-apps/api/mocks";
 import {nativeChat} from "../src/chatBackend";
-import {nativeTransfer,type TransferBackend,type TransferProgress,type TransferResult,type TransferView} from "../src/transferBackend";
+import {nativeTransfer,type DesktopWebSignal,type TransferBackend,type TransferProgress,type TransferResult,type TransferView} from "../src/transferBackend";
 import {buildDesktopWebRTCOffer} from "../src/webTransferBackend";
 import {saveAcceptedWebFile} from "../src/webReceiveBackend";
 import type { Backend, DesktopView, Events, Item, Progress, Snapshot, TrashEntry, SearchHit } from "../src/backend";
@@ -17,14 +17,15 @@ window.verifyChatIPC=async()=>{const calls:{command:string;args:unknown}[]=[];mo
 let transferView:TransferView={receiving:false,address:null,fingerprint:null,shelf_id:null,pending:null,sending:false};
 let transferEvents:Parameters<TransferBackend["subscribe"]>[0]|undefined,transferFinish:((value:TransferResult)=>void)|undefined;
 const transferCalls:string[]=[];
+let webSignalHandler:((msg:DesktopWebSignal)=>void)|undefined;
 let chatPending:(()=>void)|undefined;
 let browserFinish:((value:{job_id:number;status:string})=>void)|undefined;
 const chatCalls:string[]=[];
 declare global{interface Window{chatHarness:{calls:()=>string[]}}}
 window.chatHarness={calls:()=>chatCalls};
-declare global{interface Window{verifyTransferIPC:()=>Promise<{command:string;args:unknown}[]>;transferHarness:{calls:()=>string[];pending:()=>void;progress:(value:TransferProgress)=>void;finish:(status:string)=>void}}}
+declare global{interface Window{verifyTransferIPC:()=>Promise<{command:string;args:unknown}[]>;transferHarness:{calls:()=>string[];pending:()=>void;progress:(value:TransferProgress)=>void;finish:(status:string)=>void;webSignal:(message:DesktopWebSignal)=>void}}}
 window.verifyTransferIPC=async()=>{const calls:{command:string;args:unknown}[]=[];mockIPC((command,args)=>{calls.push({command,args});return null;});try{await nativeTransfer.receive(3,"127.0.0.1:0");await nativeTransfer.decide("synthetic-batch",false);await nativeTransfer.send(1,[1,2],"127.0.0.1:53317","a".repeat(64));await nativeTransfer.cancelSend();return calls;}finally{clearMocks();}};
-window.transferHarness={calls:()=>transferCalls,pending:()=>{transferView.pending={id:"synthetic-batch",alias:"合成发送端",files:[{name:"中文 文件.txt",size:42}],total:42};transferEvents?.changed();},progress:value=>transferEvents?.progress(value),finish:status=>{transferView.sending=false;transferEvents?.changed();transferFinish?.({job_id:17,status,message:"受控接口终态",files:[{index:0,status:"completed",bytes:100},{index:1,status,bytes:64}]});transferFinish=undefined;}};
+window.transferHarness={calls:()=>transferCalls,webSignal:message=>webSignalHandler?.(message),pending:()=>{transferView.pending={id:"synthetic-batch",alias:"合成发送端",files:[{name:"中文 文件.txt",size:42}],total:42};transferEvents?.changed();},progress:value=>transferEvents?.progress(value),finish:status=>{transferView.sending=false;transferEvents?.changed();transferFinish?.({job_id:17,status,message:"受控接口终态",files:[{index:0,status:"completed",bytes:100},{index:1,status,bytes:64}]});transferFinish=undefined;}};
 let wakeConfig=JSON.parse(localStorage.getItem("test-wake-shortcut")||'{"version":1,"enabled":true,"accelerator":"Ctrl+Alt+Space"}'),wakePaused=false,wakeAvailable=true;
 let state:Snapshot=JSON.parse(localStorage.getItem("test-state") || JSON.stringify(initial));
 const ownShelf=Number(new URLSearchParams(location.search).get("shelf")) || undefined;
@@ -60,6 +61,9 @@ const backend:Backend={
       return status;
     },
     async webDeviceDisconnect(){transferCalls.push("web-device-disconnect");(window as unknown as {testW1Status?:unknown}).testW1Status=null;},
+    async webDeviceSetReceiving(enabled){transferCalls.push("web-rtc-enabled:"+String(enabled));},
+    async webDeviceSignal(message){transferCalls.push("web-rtc-signal:"+message.type+":"+String(message.payload.id)+":"+String(message.payload.accepted??""));},
+    async subscribeWebSignals(callback){webSignalHandler=callback;return()=>{if(webSignalHandler===callback)webSignalHandler=undefined;};},
     async webSourceInfo(shelf,itemId){
       transferCalls.push(`web-preflight:${shelf}:${itemId}`);
       if(new URLSearchParams(location.search).has("web-preflight-error"))throw new Error("文件引用已变化");
