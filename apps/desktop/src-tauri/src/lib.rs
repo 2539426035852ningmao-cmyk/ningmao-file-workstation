@@ -19,6 +19,7 @@ pub mod transfer_runtime;
 pub mod transfer_sender;
 pub mod transfer_tasks;
 mod wake_shortcut;
+mod web_device;
 mod web_transfer_bridge;
 mod web_transfer_receive;
 pub mod window_surface;
@@ -66,6 +67,7 @@ struct Runtime {
     transfers: transfer_desktop::TransferControl,
     web_transfers: web_transfer_bridge::WebTransferBridge,
     web_receives: web_transfer_receive::WebReceiveControl,
+    web_device: web_device::WebDeviceControl,
     chat: chat::ChatControl,
     store: Mutex<Store>,
     active: Mutex<Option<(i64, Arc<AtomicBool>)>>,
@@ -2079,6 +2081,7 @@ pub fn run() {
                 transfers: Default::default(),
                 web_transfers: Default::default(),
                 web_receives: Default::default(),
+                web_device: Default::default(),
                 chat: Default::default(),
                 store: Mutex::new(
                     Store::open(&root.join("workstation.sqlite3"))
@@ -2236,6 +2239,9 @@ pub fn run() {
             web_transfer_receive::web_receive_append,
             web_transfer_receive::web_receive_finish,
             web_transfer_receive::web_receive_abort,
+            web_device::web_device_claim,
+            web_device::web_device_status,
+            web_device::web_device_disconnect,
             chat_config,
             chat_test,
             chat_configure,

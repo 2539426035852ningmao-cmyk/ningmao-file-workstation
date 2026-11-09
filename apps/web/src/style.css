@@ -81,3 +81,19 @@ body{background:var(--bg);color:var(--text)}button{color:inherit}button:focus-vi
 .incoming-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:25px}
 .floating-error{position:fixed;z-index:150;right:22px;bottom:20px;max-width:min(520px,calc(100vw - 32px));box-shadow:var(--shadow);background:var(--surface)}
 @media(max-width:500px){.connection-warning{flex-wrap:wrap}.connection-warning .secondary-button{margin-left:auto}}
+/* W1: account-authorized Windows pairing uses the same surface/color tokens across all themes. */
+.web-enrollment{margin-top:16px}
+.web-enrollment .connected-head strong{display:inline-flex;align-items:center;gap:8px}
+.web-enrollment-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.web-enrollment-actions .secondary-button{display:inline-flex;gap:7px;align-items:center}
+.web-enrollment-code{display:grid;gap:9px;padding:14px;background:var(--surface2);border:1px solid var(--border);border-radius:11px}
+.web-enrollment-code code{font-size:12px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere;user-select:all;padding:10px;border-radius:7px;background:var(--surface);line-height:1.65}
+.web-enrollment-code small,.web-enrollment-meta{font-size:11px;color:var(--muted)}
+.web-enrollment-code .secondary-button{justify-self:start}
+.web-enrollment-list{padding:0;margin:0;list-style:none;display:grid;gap:9px;width:100%}
+.web-enrollment-list li{display:flex;justify-content:space-between;gap:14px;align-items:center;background:var(--surface2);border-radius:11px;padding:12px;flex-wrap:wrap}
+.web-enrollment-list li>div:first-child{display:flex;gap:10px;align-items:center;min-width:0;flex:1}
+.web-enrollment-list li span{min-width:0;display:grid;gap:4px}
+.web-enrollment-list li strong{font-size:12px;overflow-wrap:anywhere}
+.web-enrollment-list li small{font-size:11px;color:var(--muted);overflow-wrap:anywhere}
+@media(max-width:520px){.web-enrollment .connected-head{flex-wrap:wrap}.web-enrollment-actions .secondary-button{flex-grow:1;justify-content:center}}

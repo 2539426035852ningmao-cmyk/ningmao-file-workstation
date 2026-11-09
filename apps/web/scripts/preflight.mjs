@@ -15,6 +15,12 @@ if (!bindings.some(b => b.name === "ROOMS" && b.class_name === "DeviceRoom")) fa
 if (!config.migrations?.some(m => m.new_sqlite_classes?.includes("DeviceRoom"))) fail("应使用 SQLite Durable Objects");
 if (config.assets?.run_worker_first?.includes("/api/*") !== true) fail("API 需要 Worker 优先处理");
 if (!config.assets?.directory) fail("缺少静态网页构建产物路径");
+if (!bindings.some(b => b.name === "REGISTRY" && b.class_name === "DeviceRegistry"))
+  fail("W1 Windows 授权必须具有独立的可撤销设备登记对象");
+if (!config.migrations?.some(m => m.new_sqlite_classes?.includes("DeviceRegistry")))
+  fail("W1 Registry 必须启用 SQLite Durable Object 迁移");
+if (!config.assets?.run_worker_first?.includes("/device-link/*"))
+  fail("Windows 设备授权窄路径必须由 Worker 处理，不能回退到静态页面");
 if (config.vars?.CF_ACCESS_TEAM_DOMAIN?.startsWith("CONFIGURE_") && mode === "--source") {
   console.log("SOURCE: Access 环境仍为占位；未授权部署时这是预期行为");
 }

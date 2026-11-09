@@ -5,7 +5,7 @@ import {Input} from "./ui/input";
 import {Tabs,TabsList,TabsTrigger,TabsContent} from "./ui/tabs";
 import {Sheet,SheetContent,SheetDescription,SheetHeader,SheetTitle} from "./ui/sheet";
 import type {Shelf} from "../backend";
-import type {NearbyDevice,TransferBackend,TransferProgress,TransferResult,TransferView,WebSourceInfo} from "../transferBackend";
+import type {NearbyDevice,TransferBackend,TransferProgress,TransferResult,TransferView,WebDeviceStatus,WebSourceInfo} from "../transferBackend";
 
 const empty:TransferView={receiving:false,address:null,fingerprint:null,shelf_id:null,pending:null,sending:false};
 const sizes=(n:number)=>n>=1024*1024?`${(n/1024/1024).toFixed(1)} MB`:n>=1024?`${(n/1024).toFixed(1)} KB`:`${n} B`;
@@ -44,6 +44,36 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
     catch(e){setError(`Web 文件源预检失败：${String(e)}`);}
     finally{setWebChecking(false);}
   }
+  const [webEndpoint,setWebEndpoint]=useState(""),[webPairCode,setWebPairCode]=useState("");
+  const [webDevice,setWebDevice]=useState<WebDeviceStatus|null>(null);
+  const [webPairBusy,setWebPairBusy]=useState(false),[webPairNotice,setWebPairNotice]=useState("");
+  useEffect(()=>{
+    if(!open||!backend.webDeviceStatus)return;
+    let live=true;
+    void backend.webDeviceStatus().then(v=>{if(live)setWebDevice(v);})
+      .catch(e=>{if(live)setError(String(e));});
+    return()=>{live=false;};
+  },[backend,open]);
+  async function claimWebDevice(){
+    if(!backend.webDeviceClaim||webPairBusy)return;
+    setWebPairBusy(true);setWebPairNotice("");setError("");
+    try {
+      const status=await backend.webDeviceClaim(webEndpoint.trim(),webPairCode.trim());
+      setWebDevice(status);setWebPairCode("");
+      setWebPairNotice("已领取短期 Windows 授权。尚未建立公网传输连接。");
+    }catch(e){setError("网页设备配对失败："+String(e));}
+    finally{setWebPairBusy(false);}
+  }
+  async function disconnectWebDevice(){
+    if(!backend.webDeviceDisconnect||webPairBusy)return;
+    setWebPairBusy(true);setError("");
+    try {
+      await backend.webDeviceDisconnect();
+      setWebDevice(null);
+      setWebPairNotice("本机设备会话已清除；如需撤销服务端授权，请到网页「我的设备」操作。");
+    }catch(e){setError(String(e));}
+    finally{setWebPairBusy(false);}
+  }
   const [browserReady,setBrowserReady]=useState(false),[browserBusy,setBrowserBusy]=useState(false),[browserCode,setBrowserCode]=useState(""),[browserStatus,setBrowserStatus]=useState("");
   useEffect(()=>{if(!open||!backend.browserAvailable)return;let live=true;void backend.browserAvailable().then(value=>{if(live)setBrowserReady(value);}).catch(()=>{if(live)setBrowserReady(false);});return()=>{live=false;};},[backend,open]);
   async function browserShare(){if(browserBusy||!backend.browserSend)return;const code=crypto.randomUUID();setBrowserCode(code);setBrowserBusy(true);setBrowserStatus("等待浏览器接收；60秒后自动停止");setError("");try{const result=await backend.browserSend(selection.shelf_id,selection.files.map(file=>file.id),code);setBrowserStatus(result.status==="completed"?"对方已确认内容校验":result.status==="cancelled"?"已停止，来源保留":"未确认完成，请核对接收结果");}catch(e){setError(String(e));setBrowserCode("");}finally{setBrowserBusy(false);}}
@@ -65,7 +95,8 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
     {error&&<p className="transfer-error" role="alert">{error}</p>}
     <Tabs className="transfer-workspace" value={mode} onValueChange={value=>setMode(value as "send"|"receive")}>
     <TabsList className="transfer-tabs" aria-label="互传方向"><TabsTrigger value="send">发送文件</TabsTrigger><TabsTrigger value="receive">接收文件</TabsTrigger></TabsList>
-    <TabsContent ref={content} value={mode} className="transfer-content">{mode==="send"?<>
+    <TabsContent ref={content} value={mode} className="transfer-content">
+    {mode==="send"?<>
       <strong>1. 选择文件</strong><p className="transfer-note">已选 {selection.files.length} 项{selection.files.length>16?"，一次最多发送16项":""}</p>
       {!selection.files.length&&<p className="capability-hint">先在文件架选择文件，再使用“发送到设备”。<Button variant="outline" onClick={()=>onOpenChange(false)}>返回文件架选文件</Button></p>}
       {!!selection.files.length&&<ul className="transfer-files" aria-label="待发送文件">{selection.files.map(file=><li key={file.id} title={file.name}>{file.name}</li>)}</ul>}
@@ -109,6 +140,27 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
         <Button type="submit" disabled={working||!target}>{working?"正在开启…":"开启接收"}</Button>
       </form>}
       {view.pending&&<section className="transfer-request" aria-label="待确认接收"><h3>接收请求 · {view.pending.alias}</h3><ul className="transfer-files">{view.pending.files.map((file,index)=><li key={index}><span title={file.name}>{file.name}</span><small>{sizes(file.size)}</small></li>)}</ul><p>{view.pending.files.length}项 · {sizes(view.pending.total)}</p><div><Button variant="outline" disabled={working} onClick={()=>void action(()=>backend.decide(view.pending!.id,false))}>拒绝接收</Button><Button disabled={working} onClick={()=>void action(()=>backend.decide(view.pending!.id,true))}>接受文件</Button></div></section>}
-    </>}</TabsContent></Tabs>
+    </>}
+    {backend.webDeviceClaim&&<details className="transfer-experiment" data-testid="w1-device-pair">
+      <summary>连接网页 / 手机 · Windows 设备授权（W1）</summary>
+      <section className="connection-fields" aria-label="Windows 联网身份授权">
+        <strong>受保护网页 → Windows 应用</strong>
+        <p className="muted">先到已配置 Cloudflare Access 的柠猫网页「我的设备」生成一次性配对码，再在这里领取本机授权。默认不使用浏览器 Cookie 或 Access JWT。</p>
+        {webDevice?.authorized?<div className="transfer-status" role="status">
+          <strong>Windows 已获得临时设备授权 · 未联网传文件</strong>
+          <p>{webDevice.name} · {webDevice.device_id.slice(0,8)}</p>
+          <p>{webDevice.endpoint} · 有效期至 {new Date(webDevice.expires_at).toLocaleString()}</p>
+          <p className="muted">凭据仅留在本次软件内存，退出后需要重新授权；当前 WSS/WebRTC 仍未接线。</p>
+          <Button type="button" variant="outline" disabled={webPairBusy} onClick={()=>void disconnectWebDevice()}>断开本机授权</Button>
+        </div>:<>
+          <label>已验证的网页服务地址<Input aria-label="网页服务 HTTPS 地址" placeholder="https://your-worker.workers.dev/" value={webEndpoint} onChange={e=>setWebEndpoint(e.target.value)} disabled={webPairBusy}/></label>
+          <label>一次性设备配对码<Input aria-label="Windows 一次性配对码" value={webPairCode} onChange={e=>setWebPairCode(e.target.value)} disabled={webPairBusy} placeholder="nm1i_…" autoComplete="off"/></label>
+          <Button type="button" disabled={webPairBusy||!webEndpoint.trim()||!/^nm1i_[a-zA-Z0-9_-]{43}$/.test(webPairCode.trim())} onClick={()=>void claimWebDevice()}>{webPairBusy?"正在验证设备…":"绑定 Windows 设备"}</Button>
+          <p className="muted">只能连接自己确认的 HTTPS 服务，原生 Rust 将校验域名和配对码；不会把凭据暴露给网页界面。</p>
+        </>}
+        {webPairNotice&&<p role="status" className="transfer-note">{webPairNotice}</p>}
+      </section>
+    </details>}
+</TabsContent></Tabs>
   </SheetContent></Sheet>;
 }

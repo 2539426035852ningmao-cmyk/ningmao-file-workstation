@@ -43,6 +43,15 @@ const backend:Backend={
     async pair(name,address,fingerprint){transferCalls.push(`pair:${address}`);localStorage.setItem("test-transfer-peers",JSON.stringify([{name,fingerprint}]));},
     async devices(){return new URLSearchParams(location.search).has("nearby")?[{name:"合成接收电脑",address:"127.0.0.1:53317",fingerprint:"a".repeat(64)}]:[];},
     async browserAvailable(){return new URLSearchParams(location.search).has("browser-share");},
+    async webDeviceStatus(){return (window as unknown as {testW1Status?:unknown}).testW1Status as import("../src/transferBackend").WebDeviceStatus|null ?? null;},
+    async webDeviceClaim(baseUrl,code){
+      transferCalls.push("web-device-claim:"+baseUrl+":"+code.slice(0,5));
+      if(new URLSearchParams(location.search).has("web-device-error"))throw new Error("服务端未开启或代码已过期");
+      const status={device_id:"28560890-e97d-4fab-83c8-937b816d10cd",name:"柠猫 Windows 工作站",endpoint:baseUrl,expires_at:Date.now()+86400000,authorized:true};
+      (window as unknown as {testW1Status?:unknown}).testW1Status=status;
+      return status;
+    },
+    async webDeviceDisconnect(){transferCalls.push("web-device-disconnect");(window as unknown as {testW1Status?:unknown}).testW1Status=null;},
     async webSourceInfo(shelf,itemId){
       transferCalls.push(`web-preflight:${shelf}:${itemId}`);
       if(new URLSearchParams(location.search).has("web-preflight-error"))throw new Error("文件引用已变化");
