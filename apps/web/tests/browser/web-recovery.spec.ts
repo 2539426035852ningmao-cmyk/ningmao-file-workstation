@@ -1,7 +1,6 @@
 import {expect,test} from "@playwright/test";
 
 const remoteId = "00000000-0000-4000-8000-000000000123";
-const sampleName = "Ningmao-本地测试.txt";
 
 test("发送前的文件读取可取消，迟到的摘要不得再次发送邀请",async({page})=>{
   let invites=0;
@@ -18,7 +17,7 @@ test("发送前的文件读取可取消，迟到的摘要不得再次发送邀�
     status:200,contentType:"application/json",
     body:JSON.stringify({email:"synthetic-only@example.test"})
   }));
-  await page.routeWebSocket(/\\/api\\/connect\\?/,ws=>{
+  await page.routeWebSocket(/\/api\/connect\?/,ws=>{
     ws.onMessage(raw=>{
       const message=JSON.parse(String(raw)) as {type:string};
       if(message.type==="invite")invites++;
@@ -35,7 +34,7 @@ test("发送前的文件读取可取消，迟到的摘要不得再次发送邀�
   await page.waitForTimeout(1300);
   expect(invites).toBe(0);
   await page.getByRole("button",{name:"传输记录",exact:true}).click();
-  await expect(page.getByText("已取消",{exact:true})).toBeVisible();
+  await expect(page.locator(".network-tasks")).toContainText("已取消");
 });
 
 test("服务端临时 503 会自动重新验证，不需刷新或假造设备",async({page})=>{
@@ -47,7 +46,7 @@ test("服务端临时 503 会自动重新验证，不需刷新或假造设备",a
       body:attempts===1?"{}":JSON.stringify({email:"synthetic-only@example.test"})
     });
   });
-  await page.routeWebSocket(/\\/api\\/connect\\?/,ws=>{
+  await page.routeWebSocket(/\/api\/connect\?/,ws=>{
     ws.send(JSON.stringify({type:"presence",devices:[]}));
   });
   await page.goto("/");
