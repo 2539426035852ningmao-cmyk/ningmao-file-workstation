@@ -86,8 +86,9 @@ export function useTransferController() {
         updateTask(id, { fraction: 1, status: "已校验，可保存到设备" });
         try { sendSignal({ type: "receipt", to: remote, payload: { id, ok: true } }); } catch { /* receiver still has the verified file */ }
         clearOutgoing(); clearIncoming();
+        // Keep the channel alive long enough for the sender to receive the
+        // verified receipt over signaling; replace/close it on the next task.
         setBusy(false); active.current = null; inbound.current = null;
-        link.current?.close(); link.current = null;
       },
       transmitted: () => {
         if (!isCurrent()) return;
@@ -140,6 +141,7 @@ export function useTransferController() {
       const { bytes, meta } = outbound.current;
       outgoingDeadline.current = setTimeout(() => fail("建立传输连接超时"), 120_000);
       const rtc = makeLink(from, meta.id, "发送");
+      link.current?.close();
       link.current = rtc;
       void rtc.startSender(bytes, meta).catch(e => { if (active.current?.id === meta.id && link.current === rtc) fail(String(e)); });
       outbound.current = null;
@@ -297,6 +299,7 @@ export function useTransferController() {
     setBusy(true);
     setTasks(old => [{ id: request.meta.id, name: request.meta.name, direction: "接收" as const, status: "正在建立连接", fraction: 0 }, ...old].slice(0, 20));
     const rtc = makeLink(request.from, request.meta.id, "接收");
+    link.current?.close();
     link.current = rtc;
     rtc.prepareReceiver(request.meta);
     clearOutgoing();
