@@ -20,6 +20,7 @@ pub mod transfer_sender;
 pub mod transfer_tasks;
 mod wake_shortcut;
 mod web_device;
+mod web_signal_protocol;
 mod web_transfer_bridge;
 mod web_transfer_receive;
 pub mod window_surface;
@@ -2243,6 +2244,7 @@ pub fn run() {
             web_device::web_device_status,
             web_device::web_device_disconnect,
             web_device::web_device_connect,
+            web_device::web_device_send_signal,
             chat_config,
             chat_test,
             chat_configure,
