@@ -159,33 +159,59 @@ export function useTransferController() {
     let retry: ReturnType<typeof setTimeout> | null = null;
     let ws: WebSocket | null = null;
     let ping: ReturnType<typeof setInterval> | null = null;
+    const scheduleRetry = () => {
+      if (disposed || retry) return;
+      retry = setTimeout(() => {
+        retry = null;
+        void connect();
+      }, 3500);
+    };
     const connect = async () => {
-      setConnection("loading");
+      if (disposed) return;
       try {
         const response = await fetch("/api/me", { cache: "no-store", credentials: "same-origin" });
-        if (!response.ok) { if (!disposed) setConnection(response.status === 401 ? "unauthorized" : "offline"); return; }
+        if (!response.ok) {
+          if (!disposed) {
+            const denied = response.status === 401 || response.status === 403;
+            setConnection(denied ? "unauthorized" : "offline");
+            if (denied) setIdentity(null);
+            else scheduleRetry();
+          }
+          return;
+        }
         const me = await response.json() as { email: string };
         if (disposed) return;
         setIdentity(me);
-      } catch { if (!disposed) setConnection("offline"); return; }
+      } catch {
+        if (!disposed) { setConnection("offline"); scheduleRetry(); }
+        return;
+      }
       const wsUrl = new URL("/api/connect", location.href);
       wsUrl.protocol = location.protocol === "https:" ? "wss:" : "ws:";
       wsUrl.searchParams.set("device", deviceId);
       wsUrl.searchParams.set("name", deviceName);
-      ws = new WebSocket(wsUrl);
-      socket.current = ws;
-      ws.onopen = () => {
+      try {
+        ws = new WebSocket(wsUrl);
+      } catch {
+        if (!disposed) { setConnection("offline"); scheduleRetry(); }
+        return;
+      }
+      const currentWs = ws;
+      socket.current = currentWs;
+      currentWs.onopen = () => {
         if (disposed) return;
         setConnection("online");
         ping = setInterval(() => {
-          if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "ping" }));
+          if (currentWs.readyState === WebSocket.OPEN) currentWs.send(JSON.stringify({ type: "ping" }));
         }, 30_000);
       };
-      ws.onmessage = e => {
+      currentWs.onmessage = e => {
+        if (disposed) return;
         try { handler.current(JSON.parse(e.data as string) as Message); } catch { /* reject malformed server message */ }
       };
-      ws.onclose = () => {
-        if (ping) clearInterval(ping);
+      currentWs.onclose = () => {
+        if (ping) { clearInterval(ping); ping = null; }
+        if (socket.current === currentWs) socket.current = null;
         if (disposed) return;
         setConnection("offline"); setDevices([]);
         link.current?.close(); link.current = null;
@@ -193,9 +219,9 @@ export function useTransferController() {
         clearOutgoing(); clearIncoming();
         outbound.current = null; active.current = null; inbound.current = null;
         setBusy(false); setIncoming(null);
-        retry = setTimeout(connect, 3500);
+        scheduleRetry();
       };
-      ws.onerror = () => { if (!disposed) setConnection("offline"); };
+      currentWs.onerror = () => { if (!disposed) setConnection("offline"); };
     };
     void connect();
     return () => {
@@ -218,21 +244,30 @@ export function useTransferController() {
     downloadUrls.current = [...activeUrls];
   }, [downloads]);
   async function sendFile(file: File | null, destination: string) {
-    if (busy || connection !== "online" || !destination || !file) return;
+    // Register an active task before reading or hashing the file. This lets
+    // Cancel interrupt preparation and blocks simultaneous incoming invites.
+    if (busy || active.current || inbound.current || connection !== "online" || !destination || !file) return;
+    const id = crypto.randomUUID();
+    active.current = { id, to: destination };
     setBusy(true); setNotice("");
+    setTasks(old => [{ id, name: file.name, direction: "发送" as const, status: "正在准备文件", fraction: 0 }, ...old].slice(0, 20));
     try {
-      const bytes = await file.arrayBuffer();
-      if (bytes.byteLength > MAX_BYTES) throw new Error("文件超过首版容量限制");
-      const sha256 = hex(await crypto.subtle.digest("SHA-256", bytes));
       if (!safeFileName(file.name)) throw new Error("文件名不符合跨设备安全规则");
-      const meta: Invite = { id: crypto.randomUUID(), name: file.name, size: bytes.byteLength, mime: file.type.slice(0, 100), sha256 };
-      active.current = { id: meta.id, to: destination };
+      if (file.size > MAX_BYTES) throw new Error("文件超过首版容量限制");
+      const bytes = await file.arrayBuffer();
+      if (active.current?.id !== id) return; // cancelled or disconnected while reading
+      if (bytes.byteLength !== file.size || bytes.byteLength > MAX_BYTES) throw new Error("文件读取大小不一致");
+      const sha256 = hex(await crypto.subtle.digest("SHA-256", bytes));
+      if (active.current?.id !== id) return; // cancelled or disconnected while hashing
+      const meta: Invite = { id, name: file.name, size: bytes.byteLength, mime: file.type.slice(0, 100), sha256 };
       outbound.current = { bytes, meta, to: destination };
-      setTasks(old => [{ id: meta.id, name: meta.name, direction: "发送" as const, status: "等待接收确认", fraction: 0 }, ...old].slice(0, 20));
       sendSignal({ type: "invite", to: destination, payload: meta });
+      updateTask(id, { status: "等待接收确认" });
       clearOutgoing();
       outgoingDeadline.current = setTimeout(() => fail("接收方未在 60 秒内确认"), 60_000);
-    } catch (e) { fail(e instanceof Error ? e.message : String(e)); }
+    } catch (e) {
+      if (active.current?.id === id) fail(e instanceof Error ? e.message : String(e));
+    }
   }
   function decide(accepted: boolean) {
     const request = inbound.current;
