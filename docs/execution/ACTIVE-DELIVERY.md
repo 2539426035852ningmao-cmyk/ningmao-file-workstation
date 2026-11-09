@@ -1,4 +1,20 @@
-# 当前交付状态 · 2026-11-08（优先于下方历史记录）
+# 当前交付状态 · 2026-11-09（优先于下方历史记录）
+
+## Space 新包闭环与浏览器分享入口裁剪
+
+仍为同分支 PR #77，应用/EXE 精确源码 **93d14ccb3b45e6903e4aefad84f03a69c7558aea**。Desktop [42546713423](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/actions/runs/42546713423)、Preview [42546713434](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/actions/runs/42546713434)、P3 回环 [42546713469](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/actions/runs/42546713469) 全部 success；没有取消正在构建的批次。
+
+Space 修复仅将物理 `event.code` 判断改为语义 `event.key`，保留输入框、输入法、菜单、模态和拖柄排除。Renderer 新测试先红后绿；24 项受影响界面通过。首次测试因未等预览关闭便搜索而失败，已仅修正测试等待及明确搜索入口。独立有界可视 Chromium 诊断因 `spawn UNKNOWN` 未启动，未捕获原生键事件字段，不将猜测当作根因证据。
+
+Windows 同一新 EXE 原生实际通过：选中 English.txt → 原先失败的同种原生 Space 输入 → 快速预览显示正确文件/路径/类型/大小 → Esc 关闭 → 菜单完整退出。新隔离合成库 12 条引用、2 个任务与上一候选完全一致，所有来源/副本 SHA256 不变，SQLite integrity_check=ok，测试 PID32772 已退出。只放行该子集，不冒称 OLE、全 DPI、多屏或全部原生验收通过。
+
+Windows 编译、MSI 只读、便携核验通过。当前可测试 ZIP：`D:/Ningmao-Integrated-93d14cc.zip`；SHA256 `0e54e724d2ba816168904794887641087f69cad6b1f4aaff4504f7d61092819a`。EXE SHA256 `96d887276bf486bf3003fcb9ae86df252368a2c3aa1296fffb78b9c4b80e188b`。408 项许可/1 来源映射警告仍非正式发行清关；标准包不含未清关浏览器组件。旧 edf7204 包与数据均保留，回滚先完整退出、备份 data/webview、换回旧 EXE，无 schema 迁移。
+
+后续同批只收束已有浏览器实验补丁，不改桌面业务：固定 croc `4fc5ac0c8463a3de2b0396205c69a38109863583` 的文件分享入口，移除 Store 按钮（即使服务宣告启用）并让 `#store`/带参数深链接回首页，原 SSH 首页回退保留。新组件测试先复现 Store 按钮仍存在，再修正；5 项真实 Renderer/词表测试与上游 TypeScript 通过，补丁反向校验通过。尚未重建 web.exe 或执行新分享传输，旧组件二进制证据不继承为本补丁成功；没有修改上游远程仓库。
+
+许可证核对：EFF 词表 CC BY 4.0 正文存在，README 保留 EFF 来源与去除骰子编号的修改说明；现采集器仅收许可/NOTICE，尚需把该 README 署名说明纳入后续清单生成。字体及图片/图标资产来源、旧 Tailcat/gVisor NOTICE 映射、SSH/WASM 与服务端范围仍未清关；不手改旧生成清单，不标 distributionApproved=true。下一任务：从采集器源头补齐词表署名、核验字体/图标义务，再重建独立组件并按已有合成回环复测；保持同 #77，不新造协议或平台。桌面候选仍精确对应 93d14cc，后续补丁/文档 HEAD 不能冒充这个 EXE 的构建来源。
+
+未安装、发布、合并、下载模型、发出模型请求或新增 LAN/公网监听；无私人素材操作。
 
 唯一集成候选：PR #77 / feat/capsule-recent-focus-20261108。已包含#62及#68–#76完整HEAD，不重复cherry-pick，不重置或新开微PR；#66独立，#67固定dbfe15b7合同已纳入。最新已运行应用edf720484f7c9ae09cac327510c360f57d6e6d34，最终结果见紧接下方补记。唯一功能矩阵仍由原生成器维护完整43+44约束，原生/浏览器/协议/真实模型证据分开。
 

@@ -1,3 +1,9 @@
+# 2026-11-09 接续优先
+
+唯一 #77 / feat/capsule-recent-focus-20261108，工作区不切换。应用候选93d14ccb3b45e6903e4aefad84f03a69c7558aea三CI全success（Desktop42546713423/Preview42546713434/P342546713469），新包原生选English.txt→同原生Space成功预览→Esc关闭→完整退出PASS；12引用/2任务与旧edf库一致、全部来源副本SHA相同、DB完整，PID32772已退出。ZIP D:/Ningmao-Integrated-93d14cc.zip及精确哈希见ACTIVE。修复只用event.key替代event.code，24专项界面通过；未捕获原生事件字段，不猜根因。OLE/全DPI/多屏等仍未验，旧包保留。
+
+随后最小浏览器实验批移除Store入口并把#store深链接回首页，保留收发及原SSH回退；5实际组件/词表测试、TypeScript/补丁反向检查通过。尚未重建组件/新回环，不能继承旧web.exe。EFF词表CC BY4.0原README有来源和修改说明，但采集器未收README，下一步改源头再生成；字体/图标/旧NOTICE映射及SSH/WASM/端点范围仍未清关，普通包不携带，distributionApproved=false。沿#77整批提交/完整CI，不自动合并、安装、发布或模型/网络请求。完整当前状态优先ACTIVE顶部，旧记录按各自SHA留存。
+
 2026-11-09收束：应用edf720484f7c9ae09cac327510c360f57d6e6d34三CI成功，统一包已构建。原生元数据规则添加ID8文档→停用→完整退出/重启仍停用且成果保留，其他字段/12记录/2任务/全部SHA一致，DB完整，两个进程退出；原生标签撤销未做。ZIP/EXE全SHA见ACTIVE顶部；后续仅证据文档HEAD不冒称EXE来源。仍无正式发行/合并，浏览器标准包缺组件，Space/OLE/DPI/外部设备/真实云AI等未验保留。下一任务Space原生原因与浏览器许可交付，沿#77继续。
 
 2026-11-08 #77当前最小本地规则批次：688438d39f372cb26d4c0892ff5c00a2de965876薄Anthropic协议三CI成功，现有会话/DPAPI不迁移，8HTTP/Rust及7UI通过；仅一次获批本地GGUF HTTP返回OK/3token，实例已释放，不等于应用整链/Anthropic live。当前规则启停/单次撤销/停用成果保留、runtime只给四种元数据，19UI通过，无后端/权限变化。第三方安装器/强隔离/持久化工作流未实现；当前源码/CI/统一包原生待完成。所有旧包和失败夹具保留，唯一状态ACTIVE；仍无云/额外模型/下载/发布/安装/合并。
