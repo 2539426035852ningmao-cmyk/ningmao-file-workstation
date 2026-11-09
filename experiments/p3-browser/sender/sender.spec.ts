@@ -18,7 +18,8 @@ test('Ningmao sender waits for browser verification and preserves source',async(
   const code=randomUUID(),transfer=sender([path],code);
   try{
     await expect.poll(()=>transfer.events().map(e=>e.phase)).toEqual(['queued','waiting']);
-    await page.goto('/?'+new URLSearchParams({code}));
+    const requests:string[]=[];page.on('request',request=>requests.push(request.url()));
+    await page.goto('/#receive?'+new URLSearchParams({code}));
     const panel=page.locator('.receive-panel');
     await expect(panel.getByRole('button',{name:'Download files',exact:true})).toBeVisible();
     expect(transfer.events().map(e=>e.phase)).toEqual(['queued','waiting']);
@@ -34,6 +35,7 @@ test('Ningmao sender waits for browser verification and preserves source',async(
     expect(transfer.events().at(-1)).toEqual({version:1,phase:'verified',files:1,total:bytes.length});
     expect(transfer.output()).not.toContain('acid');expect(transfer.output()).not.toContain(path);
     expect(transfer.output()).not.toContain(code);
+    expect(requests.some(url=>url.includes(code))).toBe(false);
     await fs.writeFile(process.env.NINGMAO_EVENT_PROOF!,transfer.output());
   }finally{if(transfer.child.exitCode===null)transfer.child.kill();}
 });

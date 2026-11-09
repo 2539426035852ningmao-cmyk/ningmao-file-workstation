@@ -1,5 +1,11 @@
 # 2026-11-09 接续优先
 
+本批最终173全界面PASS3.2m（含旧CI失败排序用例），build:test/仓库/PowerShell语法/固定补丁反向检查通过；不因此抹掉66c7c9d远端失败。当前整批提交片段邀请、十分钟等待、专项公网复跑器及Android真实证据，无Rust/SQLite/schema/Copy变化，无新Windows主EXE，当前普通包仍93/开发包2d按其SHA保留。下轮继续同#77将真实公网链路接现有桌面选中文件/任务入口，再简化手机中文接收页；别再重做协议或误称全跨端完成。
+
+最终Android公网真实成功：session18002已wait完成，退出0，Sender verified；用户系统浏览器截图78/78B、全部接收并校验100%。香港时间20:25:11–20:33:33，来源SHA57bc029ba24925a42cef6f28a94a43f582fc25335feeaab5cf44a416f8fe6c08保留，进程/端口全清理。仅专项合成脚本Windows发送器→临时HTTPS/WSS→Android单向子集；完整桌面公网入口/反向/大文件/第二Windows未验，手机落盘SHA未独立读取。内嵌浏览器WSS失败原因未证实，不降安全校验。证据docs/research/P3-android-public-proof-20261109.md，不上传截图/临时域名/邀请码。公网许可已结束，后续新公开需遵守专项授权，不能把本轮成功变成常驻服务授权。
+
+最新Android公网联调：用户已专项批准最长15分钟/十分钟接收/仅合成TXT，经官方签名及发布哈希核验的cloudflared2026.10.7临时HTTPS/WSS，不改防火墙/账号/费用、不公开其他服务。旧轮20:15:54创建源、120s cancelled关闭，手机截图20:22报1033发生于窗口之后，非已证实手机兼容故障。新脚本记录无邀请的UTC起止终态，链接改fragment不入HTTP URL，2真实回环PASS8.1s；公网/Android下载仍待实际结果，不标成功。新运行目录D:/Ningmao-Android-Public-20261109-c；本轮shell session18002，最终必须wait核对phase及清理。所有临时链接/邀请码不入GitHub。片段/脚本/十分钟等待批次尚未集中提交，保留现场。
+
 最新原生整链：2d81216新开发候选带相对路径/固定SHA的新浏览器组件，独立合成库。Windows实际选English→创建分享→原生字段链接交真实Chromium→下载正文/SHA一致→桌面确认校验/隐藏链接→菜单退出PASS2.8s。12引用不变/全部来源副本SHA不变/仅新增completed任务总3/DB完整，PID33936和53318–53323监听0。开发ZIP D:/Ningmao-BrowserLink-2d81216-dev.zip，完整哈希及EXE见ACTIVE；不是发行包，distributionApproved=false。复制按钮已点但未读剪贴板，不冒称载荷通过。邀请只在进程内，无code文件。首次测试因process缺失/空用户目录找不到缓存，已复用已知现有浏览器成功，不重装。
 
 2d81216远端Preview42611256494与P342611256621成功，Desktop42611256471真实失败：172UI PASS/1旧分享测试仍找“分享代码”，Windows job成功。现只更新旧断言接收链接，11专项PASS24.2s，等修正提交完整CI；不可篡改旧失败或把新HEAD当旧包来源。后续仍沿#77，许可/跨设备未放行。

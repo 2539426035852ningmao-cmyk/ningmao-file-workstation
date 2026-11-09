@@ -10,7 +10,7 @@ const sources=['apps/desktop/src/App.tsx','apps/desktop/src/Manager.tsx','apps/d
 for(const source of sources)if(!existsSync(source))throw Error('Missing source '+source);
 const lines=['# 首版功能与验收矩阵','',`生成基线：${sha}${dirty?"（工作树含本批修改）":""}；最终构建提交以 build-manifest 为准。本文件由 scripts/generate-delivery-matrix.mjs 生成；结论仅针对下述范围，不自动继承旧 SHA 的 PASS。`, '',
 '唯一当前执行状态仍在 [ACTIVE-DELIVERY](ACTIVE-DELIVERY.md)。IN_PROGRESS 表示该完整复合需求仍有缺口，并非其中每个子功能均未实现。没有逐条完整验收的项目不标 TESTED。基础与增强均保留，DEFERRED 仅用于总指令明确允许后置的视频关键帧/OCR/音频理解。', '',
-'当前统一候选：PR #77 / feat/capsule-recent-focus-20261108。已用 git merge-base --is-ancestor 核实 #62 和 #68–#76 的完整 HEAD 均已包含，不重复 cherry-pick。#66 独立未吸收，首版采用现有受控窗口交接，不声称原生连续形变；#67 合同已按固定提交纳入执行依据。外部双设备/手机/公网/真实模型证据仍缺。精确运行包与最终测试见 ACTIVE-DELIVERY，不把生成时源码视为已验证二进制。', '',
+'当前统一候选：PR #77 / feat/capsule-recent-focus-20261108。已核实 #62 和 #68–#76 的完整 HEAD 均已包含，不重复 cherry-pick。#66 独立，#67 固定合同保留。Android 真实公网单向78B接收/协议校验已有证据；独立Windows双机、手机反向/大文件及完整应用真实厂商模型证据仍缺。精确范围与运行包见 ACTIVE-DELIVERY，不把生成时源码视为已验证二进制。', '',
 '## 基础能力实际落地情况', '',
 '下表拆开复合决定的基础子能力。INTEGRATED 仅表示已有可调用实现；PARTIAL 表示证据范围未覆盖完整原生闭环；NOT_STARTED 表示尚缺用户可用实现。', '',
 '|功能|实现状态与代码入口|用户入口|自动与原生证据|首版阻断与下一动作|',
@@ -23,7 +23,7 @@ const lines=['# 首版功能与验收矩阵','',`生成基线：${sha}${dirty?"�
  ['三主题、球/胶囊/完整架、独立管理','INTEGRATED · orb/MorphCapsule.tsx / Manager.tsx / style.css','球→胶囊→完整架；更多→管理中心','三主题与窄窗回归；旧包原生主题/启动通过','PARTIAL：新包文字与原生闭环；#66 连续形变 NOT_INTEGRATED'],
  ['任务记录与取消','INTEGRATED · Manager.tsx / App.tsx / store.rs','管理中心→任务中心；文件架→更多→任务记录','20b1c08：36本地定向/170远端全界面/三CI通过，原生独立管理→任务中心及2记录展示通过','保留最近20项、架/状态筛选和真实进度；不新建任务数据库'],
  ['局域网互传与发现','INTEGRATED · TransferPanel.tsx / transfer_desktop.rs','选文件→发送到设备；更多→文件互传','既有合成回环/协议测试，历史专项许可不扩大','PARTIAL：独立 OS 双机、手机与防火墙边界未完整验收'],
- ['浏览器分享与随包组件','INTEGRATED · browser_share_desktop.rs / experiments/p3-browser','互传→浏览器分享（组件可用时）','相对路径、哈希、组件许可清单与本机字节证据见 #68','PARTIAL：许可仍有警告；正式发行未批准，公网/手机待验'],
+ ['浏览器分享与随包组件','INTEGRATED · browser_share_desktop.rs / experiments/p3-browser','互传→浏览器分享（组件可用时）；公网暂由专项合成脚本验证','Android真实公网78B接收校验、发送verified/来源SHA保留及清理已验，见P3-android-public-proof-20261109','PARTIAL：公网未接回完整Windows UI；反向/大文件/第二Windows未验，许可和正式发行未批准'],
  ['AI 会话与建议','INTEGRATED · ChatPanel.tsx / src-tauri/src/chat.rs','AI 面板配置兼容端点后对话','Anthropic专用HTTP/SSE三轮与错误/空流/断流MOCK_PASS，兼容路线原6回归PASS；用户批准单次本地GGUF HTTP返回OK（3token），非应用整链或Anthropic LIVE','PARTIAL：官方Anthropic文本适配已实现，不支持自定义Anthropic网关；厂商LIVE/应用本地模型整链/Agent工具与规则生命周期待验；云端未调用'],
  ['本地规则标签、插件及工作流','PARTIAL · localTagSuggestions.ts / Manager.tsx','管理中心→标签建议→确认写内部标签','内置示范复用规则：只传ID/名称/类型/已有标签；启停记忆、明确确认、单次撤销及停用保留成果，19界面通过','PARTIAL：内置规则最小闭环已实现；第三方安装/卸载/升级/强隔离及可恢复通用工作流未实现，不冒称插件平台'],
 ].map(cells=>'|'+cells.join('|')+'|'), '',

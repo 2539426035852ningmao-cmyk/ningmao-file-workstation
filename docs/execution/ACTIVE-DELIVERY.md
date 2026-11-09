@@ -1,5 +1,19 @@
 # 当前交付状态 · 2026-11-09（优先于下方历史记录）
 
+## Android 公网接收子集通过（不代表整体发行放行）
+
+本批最终本地173全界面PASS3.2m（含旧远端失败排序用例）、前端构建/仓库/PowerShell语法/固定补丁反向检查PASS。没有再改无关排序代码，旧CI失败保留，新提交必须取自身终态。本批修改无Rust/SQLite/schema/文件Copy业务变化；含片段邀请的Go/web组件已构建并实测，但Windows主EXE尚未重建，不以旧2d81216 EXE冒充新源码包。
+
+最终结果：本轮用户Android系统浏览器截图为全部接收并校验、78/78B、100%；发送器退出0/终态verified。香港时间20:25:11启动、20:33:33关闭，来源SHA256 `57bc029ba24925a42cef6f28a94a43f582fc25335feeaab5cf44a416f8fe6c08`前后相同，所有测试进程退出/53318–53323监听0。完整范围、精确构建、失败与回滚见[Android公网真实证据](../research/P3-android-public-proof-20261109.md)。仅公开专项合成脚本→手机浏览器单向子集，不是桌面完整公网UI、反向上传或第二Windows已通过；手机系统下载目录SHA未独立读取，内嵌浏览器WSS仍未通过。下方“待结果/进行中”按历史阶段保留，以本段最终结论为准。
+
+用户批准最初约3分钟、随后于截图1033排障后明确批准最长15分钟临时公网合成TXT联调，十分钟接收窗口；不改防火墙/账号/收费，不暴露Tauri、SQLite、模型或原生TCP端口。只用官方cloudflared2026.10.7，发布SHA256 `2493dbc168923bb3e59e5e7716f71deced92992eea9acd6e9d74f84ac7751343`、Cloudflare Inc签名Valid，无全局安装/PATH修改。源网页/WSS均只在loopback，QuickTunnel只转发网页端口；每次随机中继口令、Store disabled预检和公网HTTPS健康检查，进程finally清理。
+
+最初用户未找到聊天链接；第二轮20:15:54创建合成目录，120秒等待后cancelled并关闭。用户截图访问时间20:22:00，已超过该轮批准窗口，1033与隧道关闭一致，不能据此判手机协议不兼容；未取得实际Android下载成功。接收等待现改十分钟、同步文案、附不含邀请码的UTC起止/终态记录。首轮公网成功不得虚构，邀请码/临时域名/手机截图不提交。
+
+本地已补片段邀请：新链接使用 #receive?code=，网页支持片段并兼容旧query；实际Chromium下载/取消2项PASS8.1s，HTTP请求URL不含邀请码，15互传/排序专项此前PASS28.5s。片段支持先红后绿，旧组件保留。当前新组件目录 D:/Ningmao-Browser-Components-20261109-mobile-window，distributionApproved=false。公网验证使用run-public-proof.ps1的固定合成源，不是Windows选择文件完整公网集成或反向上传，后者仍待完成。
+
+66c7c9d远端Desktop42612441262失败：172通过/1窄窗键盘排序菜单未关闭，Windows job与Preview42612441467/P342612441361成功。原日志保留，该排序测试本地通过，原因未证实，未为新分享改无关排序生产逻辑；不能宣称CI全绿。公网联调结果、GitHub同步与当前未提交片段/脚本批次待完成后集中收束，不覆盖原工作区。
+
 ## 桌面 → 网页接收链接衔接
 
 2026-11-09 原生整链补记：应用源码 `2d81216cc00c8fafd5e6a48f6be1bad07e7ec17b`，按新组件相对路径及固定SHA编译独立开发候选，Windows编译/MSI只读/便携通过。新EXE SHA256 `cb5794d3aee9f3ab4f8e08920a68e961c4ece2225e7c2db02f15ddb3a88b9cc7`，开发ZIP `D:/Ningmao-BrowserLink-2d81216-dev.zip` SHA256 `3c7bb9ddbcb5cb4f6c4999296bb321ae3fbf1e85cbe8871f20d903957208c001`。包含开发组件且distributionApproved=false，仅本机测试，不是普通标准包或发行批准；旧93包保留，分发data/webview为空，测试数据独立。

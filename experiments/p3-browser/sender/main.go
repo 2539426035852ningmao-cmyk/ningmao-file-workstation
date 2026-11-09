@@ -70,7 +70,7 @@ func run(input io.Reader, output io.Writer) error {
 	if err := emit("queued"); err != nil {
 		return err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 	go func() {
 		var command struct {

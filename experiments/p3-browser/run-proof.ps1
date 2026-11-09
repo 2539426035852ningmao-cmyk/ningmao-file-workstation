@@ -12,7 +12,7 @@ $pin = '4fc5ac0c8463a3de2b0396205c69a38109863583'
 $actual = & git -C $upstream rev-parse HEAD
 if ($LASTEXITCODE -ne 0 -or $actual -ne $pin) { throw 'Expected pinned croc checkout' }
 $patchPath = Join-Path $PSScriptRoot 'windows-e2e.patch'
-$diff = (& git -C $upstream diff --binary --unified=0 -- . ':!web/src/TaskLauncher.tsx') -join "`n"
+$diff = (& git -C $upstream diff --binary --unified=0 -- . ':!web/src/TaskLauncher.tsx' ':!web/src/App.tsx') -join "`n"
 if ($diff.TrimEnd() -eq '') {
     & git -C $upstream apply --unidiff-zero $patchPath
     if ($LASTEXITCODE -ne 0) { throw 'Windows E2E patch did not apply' }
@@ -20,7 +20,7 @@ if ($diff.TrimEnd() -eq '') {
     throw 'Upstream modifications differ from the recorded compatibility patch'
 }
 $scopePatch = Join-Path $PSScriptRoot 'file-scope-entry.patch'
-$scopeDiff = (& git -C $upstream diff --binary --unified=0 -- web/src/TaskLauncher.tsx) -join "`n"
+$scopeDiff = (& git -C $upstream diff --binary --unified=0 -- web/src/TaskLauncher.tsx web/src/App.tsx) -join "`n"
 if ($scopeDiff.TrimEnd() -eq '') {
     & git -C $upstream apply --unidiff-zero $scopePatch
     if ($LASTEXITCODE -ne 0) { throw 'File-sharing entry patch did not apply' }

@@ -1,5 +1,7 @@
 # 项目状态与功能总览
 
+2026-11-09增量：唯一集成候选已推进到[#77](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/77)，下方r7/#62保留为历史。当前[Android真实公网单向接收证据](research/P3-android-public-proof-20261109.md)已通过78B合成TXT浏览器接收/协议校验，发送verified、来源不变、服务清理完成；完整Windows公网UI、手机反向/大文件/另一Windows及正式发行仍未通过。最新精确SHA/CI和限制继续以[ACTIVE-DELIVERY](execution/ACTIVE-DELIVERY.md)为准。
+
 核验日期：2026-11-05（香港时间）。本页负责功能/问题/分支关系；**唯一当前执行记录是[ACTIVE-DELIVERY](execution/ACTIVE-DELIVERY.md)**。本次仅同步文档，不改变功能审批、冻结需求或发布状态。
 
 ## 当前版本与代码关系
