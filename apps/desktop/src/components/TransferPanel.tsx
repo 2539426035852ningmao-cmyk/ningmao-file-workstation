@@ -48,6 +48,13 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
   const [webDevice,setWebDevice]=useState<WebDeviceStatus|null>(null);
   const [webPairBusy,setWebPairBusy]=useState(false),[webPairNotice,setWebPairNotice]=useState("");
   useEffect(()=>{
+    if(!open||!webDevice?.authorized||!backend.webDeviceStatus)return;
+    const timer=setInterval(()=>{
+      void backend.webDeviceStatus?.().then(value=>setWebDevice(value)).catch(()=>{});
+    },4000);
+    return()=>clearInterval(timer);
+  },[open,backend,webDevice?.authorized]);
+  useEffect(()=>{
     if(!open||!backend.webDeviceStatus)return;
     let live=true;
     void backend.webDeviceStatus().then(v=>{if(live)setWebDevice(v);})
@@ -62,6 +69,16 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
       setWebDevice(status);setWebPairCode("");
       setWebPairNotice("已领取短期 Windows 授权。尚未建立公网传输连接。");
     }catch(e){setError("网页设备配对失败："+String(e));}
+    finally{setWebPairBusy(false);}
+  }
+  async function connectWebDevice(){
+    if(!backend.webDeviceConnect||webPairBusy||!webDevice?.authorized)return;
+    setWebPairBusy(true);setWebPairNotice("");setError("");
+    try{
+      const status=await backend.webDeviceConnect();
+      setWebDevice(status);
+      setWebPairNotice("Windows 原生 WSS 信令已连接。WebRTC 文件通道仍未完成。");
+    }catch(e){setError("Windows 信令连接失败："+String(e));}
     finally{setWebPairBusy(false);}
   }
   async function disconnectWebDevice(){
@@ -147,10 +164,12 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
         <strong>受保护网页 → Windows 应用</strong>
         <p className="muted">先到已配置 Cloudflare Access 的柠猫网页「我的设备」生成一次性配对码，再在这里领取本机授权。默认不使用浏览器 Cookie 或 Access JWT。</p>
         {webDevice?.authorized?<div className="transfer-status" role="status">
-          <strong>Windows 已获得临时设备授权 · 未联网传文件</strong>
+          <strong>{webDevice.signal_online?"Windows 原生信令已连接 · 文件互传尚未接线":"Windows 已获得临时设备授权 · 未联网传文件"}</strong>
           <p>{webDevice.name} · {webDevice.device_id.slice(0,8)}</p>
           <p>{webDevice.endpoint} · 有效期至 {new Date(webDevice.expires_at).toLocaleString()}</p>
-          <p className="muted">凭据仅留在本次软件内存，退出后需要重新授权；当前 WSS/WebRTC 仍未接线。</p>
+          <p className="muted">凭据只在本次软件内存；信令由 Rust 原生 WSS 建立，WebRTC 文件通道仍未接入。来自浏览器的文件邀请会明确拒绝。</p>
+          <p className="muted">其他在线设备：{webDevice.signal_online?webDevice.online_devices.length:0} 台（不是文件传输成功数）</p>
+          {!webDevice.signal_online&&backend.webDeviceConnect&&<Button type="button" disabled={webPairBusy} onClick={()=>void connectWebDevice()}>{webPairBusy?"正在连接信令…":"连接网页信令（W1）"}</Button>}
           <Button type="button" variant="outline" disabled={webPairBusy} onClick={()=>void disconnectWebDevice()}>断开本机授权</Button>
         </div>:<>
           <label>已验证的网页服务地址<Input aria-label="网页服务 HTTPS 地址" placeholder="https://your-worker.workers.dev/" value={webEndpoint} onChange={e=>setWebEndpoint(e.target.value)} disabled={webPairBusy}/></label>
