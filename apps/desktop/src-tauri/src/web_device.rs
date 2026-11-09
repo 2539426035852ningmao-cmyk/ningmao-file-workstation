@@ -7,7 +7,6 @@ use futures_util::{SinkExt, StreamExt};
 use reqwest::{Url, redirect::Policy};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use tokio::sync::mpsc;
 use std::{
     net::IpAddr,
     sync::{
@@ -18,6 +17,7 @@ use std::{
 };
 use tauri::Emitter;
 use tauri::Manager;
+use tokio::sync::mpsc;
 use tokio_tungstenite::{
     connect_async,
     tungstenite::{Message, client::IntoClientRequest},
@@ -415,38 +415,72 @@ pub async fn web_device_connect(
         .ok_or_else(|| "设备授权已失效".into())
 }
 
-
 const MAX_SIGNAL_BYTES: usize = 16_384;
 fn valid_outgoing_signal(message: &Value) -> bool {
-    let Some(ty)=message.get("type").and_then(Value::as_str) else {return false};
-    let Some(to)=message.get("to").and_then(Value::as_str) else {return false};
-    let Some(p)=message.get("payload") else {return false};
-    let Some(id)=p.get("id").and_then(Value::as_str) else {return false};
+    let Some(ty) = message.get("type").and_then(Value::as_str) else {
+        return false;
+    };
+    let Some(to) = message.get("to").and_then(Value::as_str) else {
+        return false;
+    };
+    let Some(p) = message.get("payload") else {
+        return false;
+    };
+    let Some(id) = p.get("id").and_then(Value::as_str) else {
+        return false;
+    };
     if uuid::Uuid::parse_str(to).is_err() || uuid::Uuid::parse_str(id).is_err() {
         return false;
     }
     match ty {
         "invite" => {
-            let Some(name)=p.get("name").and_then(Value::as_str) else {return false};
-            let Some(size)=p.get("size").and_then(Value::as_u64) else {return false};
-            let Some(sha)=p.get("sha256").and_then(Value::as_str) else {return false};
-            let Some(mime)=p.get("mime").and_then(Value::as_str) else {return false};
-            !name.is_empty() && name.len()<=200 && name.trim()==name.trim_end() &&
-                name!="." && name!=".." && !name.ends_with('.') && !name.ends_with(' ') &&
-                !name.chars().any(|c|c.is_control()||r#"\/:*?"<>|"#.contains(c)) &&
-                size<=64*1024*1024 && mime.len()<=100 &&
-                sha.len()==64 && sha.bytes().all(|b|b.is_ascii_hexdigit())
+            let Some(name) = p.get("name").and_then(Value::as_str) else {
+                return false;
+            };
+            let Some(size) = p.get("size").and_then(Value::as_u64) else {
+                return false;
+            };
+            let Some(sha) = p.get("sha256").and_then(Value::as_str) else {
+                return false;
+            };
+            let Some(mime) = p.get("mime").and_then(Value::as_str) else {
+                return false;
+            };
+            !name.is_empty()
+                && name.len() <= 200
+                && name.trim() == name.trim_end()
+                && name != "."
+                && name != ".."
+                && !name.ends_with('.')
+                && !name.ends_with(' ')
+                && !name
+                    .chars()
+                    .any(|c| c.is_control() || r#"\/:*?"<>|"#.contains(c))
+                && size <= 64 * 1024 * 1024
+                && mime.len() <= 100
+                && sha.len() == 64
+                && sha.bytes().all(|b| b.is_ascii_hexdigit())
         }
         "decision" => p.get("accepted").and_then(Value::as_bool).is_some(),
         "cancel" => true,
-        "receipt" => p.get("ok").and_then(Value::as_bool)==Some(true),
+        "receipt" => p.get("ok").and_then(Value::as_bool) == Some(true),
         "description" => {
-            let Some(d)=p.get("description") else {return false};
-            matches!(d.get("type").and_then(Value::as_str),Some("offer"|"answer")) &&
-            d.get("sdp").and_then(Value::as_str).is_some_and(|v|v.len()<=12_000)
+            let Some(d) = p.get("description") else {
+                return false;
+            };
+            matches!(
+                d.get("type").and_then(Value::as_str),
+                Some("offer" | "answer")
+            ) && d
+                .get("sdp")
+                .and_then(Value::as_str)
+                .is_some_and(|v| v.len() <= 12_000)
         }
-        "candidate" => p.get("candidate").and_then(|v|v.get("candidate"))
-            .and_then(Value::as_str).is_some_and(|v|v.len()<=4_000),
+        "candidate" => p
+            .get("candidate")
+            .and_then(|v| v.get("candidate"))
+            .and_then(Value::as_str)
+            .is_some_and(|v| v.len() <= 4_000),
         _ => false,
     }
 }
@@ -457,11 +491,11 @@ pub fn web_device_set_receiving(
     enabled: bool,
 ) -> Result<()> {
     guard(&window)?;
-    let state=app.try_state::<Runtime>().ok_or("工作站未初始化")?;
+    let state = app.try_state::<Runtime>().ok_or("工作站未初始化")?;
     if enabled && !state.web_device.online.load(Ordering::SeqCst) {
         return Err("需要先建立 Windows 设备的安全信令连接".into());
     }
-    state.web_device.accepting.store(enabled,Ordering::SeqCst);
+    state.web_device.accepting.store(enabled, Ordering::SeqCst);
     Ok(())
 }
 #[tauri::command]
@@ -471,25 +505,42 @@ pub fn web_device_signal(
     message: Value,
 ) -> Result<()> {
     guard(&window)?;
-    let state=app.try_state::<Runtime>().ok_or("工作站未初始化")?;
+    let state = app.try_state::<Runtime>().ok_or("工作站未初始化")?;
     // A bounded, validated channel. No remote path, shell command, file content or
     // local-read permit can enter the signaling server through this command.
-    if !valid_outgoing_signal(&message){return Err("信令结构不符合安全协议".into());}
-    let data=message.to_string();
-    if data.len()>MAX_SIGNAL_BYTES{return Err("信令内容过大".into());}
-    if !state.web_device.status()?.is_some_and(|v|v.signal_online) {
+    if !valid_outgoing_signal(&message) {
+        return Err("信令结构不符合安全协议".into());
+    }
+    let data = message.to_string();
+    if data.len() > MAX_SIGNAL_BYTES {
+        return Err("信令内容过大".into());
+    }
+    if !state.web_device.status()?.is_some_and(|v| v.signal_online) {
         return Err("Windows 设备信令尚未连接".into());
     }
-    let to=message.get("to").and_then(Value::as_str).unwrap_or("");
-    if !state.web_device.peers.lock().map_err(error)?.iter().any(|peer|peer.id==to) {
+    let to = message.get("to").and_then(Value::as_str).unwrap_or("");
+    if !state
+        .web_device
+        .peers
+        .lock()
+        .map_err(error)?
+        .iter()
+        .any(|peer| peer.id == to)
+    {
         return Err("目标设备已离线或不属于当前账号的在线会话".into());
     }
-    let channel=state.web_device.socket.lock().map_err(error)?
-        .as_ref().map(|runner|runner.outgoing.clone())
+    let channel = state
+        .web_device
+        .socket
+        .lock()
+        .map_err(error)?
+        .as_ref()
+        .map(|runner| runner.outgoing.clone())
         .ok_or("未找到活动信令通道")?;
-    channel.try_send(data).map_err(|_| "信令队列已满或连接已关闭".into())
+    channel
+        .try_send(data)
+        .map_err(|_| "信令队列已满或连接已关闭".into())
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -497,8 +548,8 @@ mod tests {
 
     #[test]
     fn native_outgoing_signal_allowlist_rejects_paths_and_invalid_messages() {
-        let to="28560890-e97d-4fab-83c8-937b816d10cd";
-        let id="18aba838-246f-4d0e-af08-1a27b536932a";
+        let to = "28560890-e97d-4fab-83c8-937b816d10cd";
+        let id = "18aba838-246f-4d0e-af08-1a27b536932a";
         assert!(valid_outgoing_signal(&json!({"type":"decision","to":to,
             "payload":{"id":id,"accepted":false}})));
         assert!(valid_outgoing_signal(&json!({"type":"candidate","to":to,
@@ -511,8 +562,10 @@ mod tests {
         assert!(!valid_outgoing_signal(&json!({"type":"invite","to":"bad",
             "payload":{"id":id,"name":"safe.txt","size":3,"mime":"text/plain",
                 "sha256":"a".repeat(64)}})));
-        assert!(!valid_outgoing_signal(&json!({"type":"description","to":to,
-            "payload":{"id":id,"description":{"type":"offer","sdp":"x".repeat(12_001)}}})));
+        assert!(!valid_outgoing_signal(
+            &json!({"type":"description","to":to,
+            "payload":{"id":id,"description":{"type":"offer","sdp":"x".repeat(12_001)}}})
+        ));
     }
     #[test]
     fn deny_local_private_and_unstructured_endpoints() {
