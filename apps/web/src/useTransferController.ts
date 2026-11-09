@@ -141,7 +141,7 @@ export function useTransferController() {
     }
     if (msg.type === "receipt" && sameSession(active.current, from, payload) && payload.ok === true) {
       clearOutgoing();
-      updateTask(active.current!.id, { status: "对方已校验（需自行保存）", fraction: 1 });
+      updateTask(active.current!.id, { status: payload.persisted === true ? "Windows 工作站已确认保存" : "对方已校验（需自行保存）", fraction: 1 });
       active.current = null; link.current?.close(); link.current = null; setBusy(false);
       return;
     }
