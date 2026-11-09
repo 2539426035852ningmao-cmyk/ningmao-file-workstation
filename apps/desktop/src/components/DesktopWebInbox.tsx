@@ -83,7 +83,11 @@ export function DesktopWebInbox({backend,open,online,peers,shelves}:{
     if(!msg.from || !UUID.test(msg.from))return;
     const p=msg.payload??{};
     if(msg.type==="invite"){
-      if(!validInvite(p))return;
+      if(!validInvite(p)){
+        if(typeof p.id==="string"&&UUID.test(p.id))
+          void send({type:"decision",to:msg.from,payload:{id:p.id,accepted:false}}).catch(()=>{});
+        return;
+      }
       const request={from:msg.from,meta:p};
       if(!canReceive.current||!peersRef.current.some(peer=>peer.id===msg.from)||
         active.current||incoming.current){
@@ -125,6 +129,12 @@ export function DesktopWebInbox({backend,open,online,peers,shelves}:{
     return()=>{
       stopped=true;unlisten?.();
       canReceive.current=false;
+      setEnabled(false);
+      if(incoming.current)void reject(incoming.current).catch(()=>{});
+      if(active.current){
+        const previous=active.current;
+        void send({type:"cancel",to:previous.from,payload:{id:previous.id}}).catch(()=>{});
+      }
       void backend.webDeviceSetReceiving?.(false).catch(()=>{});
       cleanup();
     };
