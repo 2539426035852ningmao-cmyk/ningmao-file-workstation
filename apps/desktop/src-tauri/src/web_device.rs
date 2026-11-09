@@ -130,6 +130,25 @@ fn native_signaling_request(
     Ok(request)
 }
 
+fn safe_online_peers(value: &Value, own_id: &str) -> Vec<OnlinePeer> {
+    let mut peers=Vec::new();
+    let Some(list)=value.get("devices").and_then(Value::as_array) else { return peers; };
+    for peer in list.iter().take(8) {
+        let (Some(id),Some(name))=(
+            peer.get("id").and_then(Value::as_str),
+            peer.get("name").and_then(Value::as_str),
+        ) else { continue; };
+        if id==own_id || uuid::Uuid::parse_str(id).is_err()
+            || name.is_empty() || name.len()>80
+            || name.chars().any(char::is_control)
+            || peers.iter().any(|known: &OnlinePeer| known.id==id) {
+            continue;
+        }
+        peers.push(OnlinePeer{id:id.to_owned(),name:name.to_owned()});
+    }
+    peers
+}
+
 fn guard(window: &tauri::WebviewWindow) -> Result<()> {
     crate::trusted_native_origin(window)?;
     if !matches!(window.label(), "main" | "manager") {
@@ -329,14 +348,7 @@ pub async fn web_device_connect(
                     };
                     let Ok(value)=serde_json::from_str::<Value>(&raw) else {continue;};
                     if value.get("type").and_then(Value::as_str)==Some("presence") {
-                        let devices=value.get("devices").and_then(Value::as_array)
-                            .map(|list|list.iter().take(8).filter_map(|peer|{
-                                let id=peer.get("id")?.as_str()?;
-                                let name=peer.get("name")?.as_str()?;
-                                if id==self_id || uuid::Uuid::parse_str(id).is_err()
-                                    || name.is_empty() || name.len()>80{return None;}
-                                Some(OnlinePeer{id:id.to_owned(),name:name.to_owned()})
-                            }).collect::<Vec<_>>()).unwrap_or_default();
+                        let devices = safe_online_peers(&value, &self_id);
                         if let Ok(mut current)=peers.lock(){*current=devices.clone();}
                         let _=app2.emit("web-device-presence",&devices);
                     }else if value.get("type").and_then(Value::as_str)==Some("invite"){
@@ -391,6 +403,22 @@ mod tests {
             assert!(validated_endpoint(bad).is_err(), "{bad}");
         }
         assert!(validated_endpoint("https://example.workers.dev/").is_ok());
+    }
+    #[test]
+    fn presence_rejects_self_invalid_duplicate_and_control_character_names() {
+        let mine="28560890-e97d-4fab-83c8-937b816d10cd";
+        let peer="18aba838-246f-4d0e-af08-1a27b536932a";
+        let input=json!({"devices":[
+            {"id":mine,"name":"我的电脑"},
+            {"id":"../../../bad","name":"bad"},
+            {"id":peer,"name":"手机"},
+            {"id":peer,"name":"重复设备"},
+            {"id":"b72ff401-e3a8-41d0-a510-bb57b83c1641","name":"Bad\\nName"}
+        ]});
+        let peers=safe_online_peers(&input,mine);
+        assert_eq!(peers.len(),1);
+        assert_eq!(peers[0].id,peer);
+        assert_eq!(peers[0].name,"手机");
     }
     #[test]
     fn wss_request_preserves_authorization_header_and_never_leaks_token_in_url() {
