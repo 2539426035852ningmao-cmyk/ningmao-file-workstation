@@ -11,7 +11,7 @@ test("W1 Windows 配对通过现有文件互传面板调用原生接口，不把
   await panel.getByLabel("Windows 一次性配对码").fill(code);
   await panel.getByRole("button",{name:"绑定 Windows 设备"}).click();
   await expect(panel.getByText("Windows 已获得临时设备授权 · 未联网传文件")).toBeVisible();
-  await expect(panel).toContainText("WebRTC 文件通道仍未接入");
+  await expect(panel).toContainText("尚未建立公网传输连接");
   expect(await page.evaluate(()=>window.transferHarness.calls())).toEqual(["web-device-claim:https://test.workers.dev/:nm1i_"]);
   await panel.getByRole("button",{name:"断开本机授权"}).click();
   await expect(panel.getByRole("button",{name:"绑定 Windows 设备"})).toBeDisabled();
