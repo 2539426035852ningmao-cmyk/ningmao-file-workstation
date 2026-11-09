@@ -174,8 +174,10 @@ impl WebDeviceControl {
         self.generation.fetch_add(1, Ordering::SeqCst);
         self.online.store(false, Ordering::SeqCst);
         self.peers.lock().map_err(error)?.clear();
-        self.outbound.lock().map_err(error)?.take();
+        // Match the installation order (socket then outbound) to prevent
+        // connect/disconnect lock inversion during a concurrent WSS handshake.
         self.socket.lock().map_err(error)?.take();
+        self.outbound.lock().map_err(error)?.take();
         Ok(())
     }
     fn status(&self) -> Result<Option<WebDeviceStatus>> {
