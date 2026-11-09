@@ -1,0 +1,30 @@
+name: Temporary W1 WSS rustfmt
+on:
+  push:
+    branches: [feat/web-w1-native-wss-20261109]
+    paths: [.github/workflows/w1-wss-format-once.yml]
+permissions:
+  contents: write
+jobs:
+  rustfmt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/web-w1-native-wss-20261109
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml
+      - name: Commit normalized W1 socket module only
+        run: |
+          git add apps/desktop/src-tauri/src/web_device.rs
+          if git diff --cached --quiet; then
+            echo "Already formatted"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "style(w1): rustfmt native WebSocket implementation"
+            git push origin HEAD:refs/heads/feat/web-w1-native-wss-20261109
+          fi
