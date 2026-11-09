@@ -3,7 +3,9 @@
 use serde_json::{Value, json};
 
 pub fn valid_id(value: &str) -> bool {
-    uuid::Uuid::parse_str(value).is_ok()
+    value.len() == 36
+        && uuid::Uuid::parse_str(value)
+            .is_ok_and(|id| id.hyphenated().to_string().eq_ignore_ascii_case(value))
 }
 fn valid_candidate(payload: &Value) -> bool {
     let Some(candidate) = payload.get("candidate").and_then(Value::as_object) else {
@@ -146,6 +148,13 @@ mod tests {
                 .is_none()
         );
         assert!(validated_outgoing(&json!({"type":"candidate","to":PEER,"payload":{"id":TASK,"candidate":{"candidate":"x".repeat(4001)}}}),ME).is_none());
+    }
+    #[test]
+    fn native_ids_match_worker_strict_hyphenated_uuid_rules() {
+        assert!(valid_id(ME));
+        assert!(!valid_id("28560890e97d4fab83c8937b816d10cd"));
+        assert!(!valid_id("../../bad"));
+        assert!(!valid_id("28560890-e97d-4fab-83c8-937b816d10c"));
     }
     #[test]
     fn metadata_only_rtc_exchange_is_supported() {
