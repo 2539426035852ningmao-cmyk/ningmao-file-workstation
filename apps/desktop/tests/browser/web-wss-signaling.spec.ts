@@ -15,7 +15,7 @@ test("W1 Windows 原生 WSS 状态与文件未联通状态严格分离",async({p
   await page.goto("/tests/harness.html");
   const panel=await pair(page);
   await panel.getByRole("button",{name:"连接网页信令（W1）"}).click();
-  await expect(panel.getByText("Windows 原生信令已连接 · 文件互传尚未接线")).toBeVisible();
+  await expect(panel.getByText("Windows 原生信令已连接 · 网页接收需手动确认")).toBeVisible();
   await expect(panel.getByText(/其他在线设备：1 台/)).toBeVisible();
   expect(await page.evaluate(()=>window.transferHarness.calls())).toEqual([
     "web-device-claim:https://test.workers.dev/:nm1i_","web-device-connect"
@@ -29,7 +29,7 @@ test("W1 WSS 拒绝时不伪造在线设备或文件成功",async({page})=>{
   const panel=await pair(page);
   await panel.getByRole("button",{name:"连接网页信令（W1）"}).click();
   await expect(panel.getByRole("alert")).toContainText("WSS 授权拒绝");
-  await expect(panel.getByText("Windows 原生信令已连接 · 文件互传尚未接线")).toHaveCount(0);
+  await expect(panel.getByText("Windows 原生信令已连接 · 网页接收需手动确认")).toHaveCount(0);
   await expect(panel.getByText("Windows 已获得临时设备授权 · 未联网传文件")).toBeVisible();
   await expect(panel.getByText(/其他在线设备：0 台/)).toBeVisible();
 });

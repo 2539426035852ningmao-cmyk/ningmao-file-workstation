@@ -13,7 +13,7 @@ async function connected(page:Page){
   await panel.getByLabel("Windows 一次性配对码").fill(code);
   await panel.getByRole("button",{name:"绑定 Windows 设备"}).click();
   await panel.getByRole("button",{name:"连接网页信令（W1）"}).click();
-  await expect(panel.getByText("Windows 原生信令已连接 · 文件互传尚未接线")).toBeVisible();
+  await expect(panel.getByText("Windows 原生信令已连接 · 网页接收需手动确认")).toBeVisible();
   const section=panel.getByText("网页 → Windows 文件安全接收（W2/W3）",{exact:true});
   await section.click();
   return panel;
