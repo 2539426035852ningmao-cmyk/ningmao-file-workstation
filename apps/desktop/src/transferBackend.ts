@@ -8,7 +8,7 @@ export type TransferProgress={job_id:number;phase:string;file_index:number;file_
 export type TransferResult={job_id:number;status:string;message:string;files:{index:number;status:string;bytes:number}[]};
 export type NearbyDevice={name:string;address:string;fingerprint:string};
 export type WebSourceInfo={item_id:number;name:string;bytes:number;sha256:string};
-export type WebDeviceStatus={device_id:string;name:string;endpoint:string;expires_at:number;authorized:boolean};
+export type WebDeviceStatus={device_id:string;name:string;endpoint:string;expires_at:number;authorized:boolean;signal_online:boolean;online_devices:{id:string;name:string}[]};
 export interface TransferBackend{
   devices?():Promise<NearbyDevice[]>;
   peers?():Promise<{name:string;fingerprint:string}[]>;
@@ -18,6 +18,7 @@ export interface TransferBackend{
   webDeviceClaim?(baseUrl:string,code:string):Promise<WebDeviceStatus>;
   webDeviceStatus?():Promise<WebDeviceStatus|null>;
   webDeviceDisconnect?():Promise<void>;
+  webDeviceConnect?():Promise<WebDeviceStatus>;
   browserSend?(shelf:number,ids:number[],code:string):Promise<{job_id:number;status:string}>;
   browserCancel?():Promise<void>;
   view():Promise<TransferView>;
@@ -36,6 +37,7 @@ export const nativeTransfer:TransferBackend={
   webDeviceClaim:(baseUrl,code)=>invoke("web_device_claim",{baseUrl,code}),
   webDeviceStatus:()=>invoke("web_device_status"),
   webDeviceDisconnect:()=>invoke("web_device_disconnect"),
+  webDeviceConnect:()=>invoke("web_device_connect"),
   async webSourceInfo(shelf,item){
     const prepared=await nativeWebTransferSource.prepare(shelf,item);
     try{return {item_id:prepared.item_id,name:prepared.name,bytes:prepared.bytes,sha256:prepared.sha256};}
