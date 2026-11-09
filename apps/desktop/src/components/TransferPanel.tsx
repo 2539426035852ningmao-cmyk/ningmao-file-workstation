@@ -96,26 +96,6 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
     <Tabs className="transfer-workspace" value={mode} onValueChange={value=>setMode(value as "send"|"receive")}>
     <TabsList className="transfer-tabs" aria-label="互传方向"><TabsTrigger value="send">发送文件</TabsTrigger><TabsTrigger value="receive">接收文件</TabsTrigger></TabsList>
     <TabsContent ref={content} value={mode} className="transfer-content">
-    {backend.webDeviceClaim&&<details className="transfer-experiment" data-testid="w1-device-pair">
-      <summary>连接网页 / 手机 · Windows 设备授权（W1）</summary>
-      <section className="connection-fields" aria-label="Windows 联网身份授权">
-        <strong>受保护网页 → Windows 应用</strong>
-        <p className="muted">先到已配置 Cloudflare Access 的柠猫网页「我的设备」生成一次性配对码，再在这里领取本机授权。默认不使用浏览器 Cookie 或 Access JWT。</p>
-        {webDevice?.authorized?<div className="transfer-status" role="status">
-          <strong>Windows 已获得临时设备授权 · 未联网传文件</strong>
-          <p>{webDevice.name} · {webDevice.device_id.slice(0,8)}</p>
-          <p>{webDevice.endpoint} · 有效期至 {new Date(webDevice.expires_at).toLocaleString()}</p>
-          <p className="muted">凭据仅留在本次软件内存，退出后需要重新授权；当前 WSS/WebRTC 仍未接线。</p>
-          <Button type="button" variant="outline" disabled={webPairBusy} onClick={()=>void disconnectWebDevice()}>断开本机授权</Button>
-        </div>:<>
-          <label>已验证的网页服务地址<Input aria-label="网页服务 HTTPS 地址" placeholder="https://your-worker.workers.dev/" value={webEndpoint} onChange={e=>setWebEndpoint(e.target.value)} disabled={webPairBusy}/></label>
-          <label>一次性设备配对码<Input aria-label="Windows 一次性配对码" value={webPairCode} onChange={e=>setWebPairCode(e.target.value)} disabled={webPairBusy} placeholder="nm1i_…" autoComplete="off"/></label>
-          <Button type="button" disabled={webPairBusy||!webEndpoint.trim()||!/^nm1i_[a-zA-Z0-9_-]{43}$/.test(webPairCode.trim())} onClick={()=>void claimWebDevice()}>{webPairBusy?"正在验证设备…":"绑定 Windows 设备"}</Button>
-          <p className="muted">只能连接自己确认的 HTTPS 服务，原生 Rust 将校验域名和配对码；不会把凭据暴露给网页界面。</p>
-        </>}
-        {webPairNotice&&<p role="status" className="transfer-note">{webPairNotice}</p>}
-      </section>
-    </details>}
     {mode==="send"?<>
       <strong>1. 选择文件</strong><p className="transfer-note">已选 {selection.files.length} 项{selection.files.length>16?"，一次最多发送16项":""}</p>
       {!selection.files.length&&<p className="capability-hint">先在文件架选择文件，再使用“发送到设备”。<Button variant="outline" onClick={()=>onOpenChange(false)}>返回文件架选文件</Button></p>}
@@ -160,6 +140,27 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
         <Button type="submit" disabled={working||!target}>{working?"正在开启…":"开启接收"}</Button>
       </form>}
       {view.pending&&<section className="transfer-request" aria-label="待确认接收"><h3>接收请求 · {view.pending.alias}</h3><ul className="transfer-files">{view.pending.files.map((file,index)=><li key={index}><span title={file.name}>{file.name}</span><small>{sizes(file.size)}</small></li>)}</ul><p>{view.pending.files.length}项 · {sizes(view.pending.total)}</p><div><Button variant="outline" disabled={working} onClick={()=>void action(()=>backend.decide(view.pending!.id,false))}>拒绝接收</Button><Button disabled={working} onClick={()=>void action(()=>backend.decide(view.pending!.id,true))}>接受文件</Button></div></section>}
-    </>}</TabsContent></Tabs>
+    </>}
+    {backend.webDeviceClaim&&<details className="transfer-experiment" data-testid="w1-device-pair">
+      <summary>连接网页 / 手机 · Windows 设备授权（W1）</summary>
+      <section className="connection-fields" aria-label="Windows 联网身份授权">
+        <strong>受保护网页 → Windows 应用</strong>
+        <p className="muted">先到已配置 Cloudflare Access 的柠猫网页「我的设备」生成一次性配对码，再在这里领取本机授权。默认不使用浏览器 Cookie 或 Access JWT。</p>
+        {webDevice?.authorized?<div className="transfer-status" role="status">
+          <strong>Windows 已获得临时设备授权 · 未联网传文件</strong>
+          <p>{webDevice.name} · {webDevice.device_id.slice(0,8)}</p>
+          <p>{webDevice.endpoint} · 有效期至 {new Date(webDevice.expires_at).toLocaleString()}</p>
+          <p className="muted">凭据仅留在本次软件内存，退出后需要重新授权；当前 WSS/WebRTC 仍未接线。</p>
+          <Button type="button" variant="outline" disabled={webPairBusy} onClick={()=>void disconnectWebDevice()}>断开本机授权</Button>
+        </div>:<>
+          <label>已验证的网页服务地址<Input aria-label="网页服务 HTTPS 地址" placeholder="https://your-worker.workers.dev/" value={webEndpoint} onChange={e=>setWebEndpoint(e.target.value)} disabled={webPairBusy}/></label>
+          <label>一次性设备配对码<Input aria-label="Windows 一次性配对码" value={webPairCode} onChange={e=>setWebPairCode(e.target.value)} disabled={webPairBusy} placeholder="nm1i_…" autoComplete="off"/></label>
+          <Button type="button" disabled={webPairBusy||!webEndpoint.trim()||!/^nm1i_[a-zA-Z0-9_-]{43}$/.test(webPairCode.trim())} onClick={()=>void claimWebDevice()}>{webPairBusy?"正在验证设备…":"绑定 Windows 设备"}</Button>
+          <p className="muted">只能连接自己确认的 HTTPS 服务，原生 Rust 将校验域名和配对码；不会把凭据暴露给网页界面。</p>
+        </>}
+        {webPairNotice&&<p role="status" className="transfer-note">{webPairNotice}</p>}
+      </section>
+    </details>}
+</TabsContent></Tabs>
   </SheetContent></Sheet>;
 }
