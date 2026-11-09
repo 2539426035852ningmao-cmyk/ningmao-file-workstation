@@ -8,7 +8,6 @@ type Selected={shelf_id:number;files:{id:number;name:string}[]};
 type Stage="preparing"|"waiting"|"connecting"|"transmitting"|"confirming";
 type Session={id:string;to:string;phase:Stage;controller:AbortController;rtc:PeerLink|null;deadline:ReturnType<typeof setTimeout>|null};
 const SIZE_LIMIT=64*1024*1024;
-const fmt=(n:number)=>n>=1048576?(n/1048576).toFixed(1)+" MB":n>=1024?(n/1024).toFixed(1)+" KB":n+" B";
 
 /** Windows -> browser only. Source bytes come from the native window-scoped
  * Store bridge; the remote peer never receives its local ticket or path.
