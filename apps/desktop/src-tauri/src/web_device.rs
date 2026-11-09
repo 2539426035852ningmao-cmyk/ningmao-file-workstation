@@ -399,12 +399,14 @@ pub async fn web_device_connect(
         }
         if current_gen.load(Ordering::SeqCst) == generation {
             if server_revoked {
-                if let Ok(mut stored)=session_state.lock() {
-                    if stored.as_ref().is_some_and(|existing|{
-                        existing.device_id==session_device_id && existing.token==session_token
-                    }) { *stored=None; }
+                if let Ok(mut stored) = session_state.lock() {
+                    if stored.as_ref().is_some_and(|existing| {
+                        existing.device_id == session_device_id && existing.token == session_token
+                    }) {
+                        *stored = None;
+                    }
                 }
-                let _=app2.emit("web-device-auth-revoked",());
+                let _ = app2.emit("web-device-auth-revoked", ());
             }
             online.store(false, Ordering::SeqCst);
             if let Ok(mut list) = peers.lock() {
