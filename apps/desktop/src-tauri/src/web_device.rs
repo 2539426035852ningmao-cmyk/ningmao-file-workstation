@@ -5,9 +5,13 @@
 use crate::{Runtime, error, store::Result};
 use reqwest::{Url, redirect::Policy};
 use serde::{Deserialize, Serialize};
+use futures_util::{SinkExt, StreamExt};
+use serde_json::{Value, json};
+use tokio_tungstenite::{connect_async, tungstenite::{client::IntoClientRequest, Message}};
+use tauri::Emitter;
 use std::{
     net::IpAddr,
-    sync::Mutex,
+    sync::{Arc, Mutex, atomic::{AtomicBool, AtomicU64, Ordering}},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 use tauri::Manager;
@@ -15,12 +19,26 @@ use tauri::Manager;
 #[derive(Default)]
 pub struct WebDeviceControl {
     session: Mutex<Option<DeviceSession>>,
+    socket: Mutex<Option<SignalRunner>>,
+    generation: Arc<AtomicU64>,
+    online: Arc<AtomicBool>,
+    peers: Arc<Mutex<Vec<OnlinePeer>>>,
 }
+struct SignalRunner(tokio::task::JoinHandle<()>);
+impl Drop for SignalRunner {
+    fn drop(&mut self) { self.0.abort(); }
+}
+#[derive(Clone, Serialize, Deserialize)]
+pub struct OnlinePeer {
+    id: String,
+    name: String,
+}
+
 struct DeviceSession {
     device_id: String,
     name: String,
     endpoint: String,
-    _token: String, // intentionally never returned to the renderer or written to disk
+    token: String, // never returned to the renderer or written to disk
     expires_at: u64,
 }
 #[derive(Serialize)]
@@ -30,6 +48,8 @@ pub struct WebDeviceStatus {
     endpoint: String,
     expires_at: u64,
     authorized: bool,
+    signal_online: bool,
+    online_devices: Vec<OnlinePeer>,
 }
 #[derive(Deserialize)]
 struct ClaimResult {
@@ -83,19 +103,35 @@ fn guard(window: &tauri::WebviewWindow) -> Result<()> {
     Ok(())
 }
 impl WebDeviceControl {
+    fn stop_socket(&self) -> Result<()> {
+        self.generation.fetch_add(1, Ordering::SeqCst);
+        self.online.store(false, Ordering::SeqCst);
+        self.peers.lock().map_err(error)?.clear();
+        self.socket.lock().map_err(error)?.take();
+        Ok(())
+    }
     fn status(&self) -> Result<Option<WebDeviceStatus>> {
         let current = now_ms()?;
         let mut stored = self.session.lock().map_err(error)?;
         if stored.as_ref().is_some_and(|v| v.expires_at <= current) {
             *stored = None;
+            self.stop_socket()?;
         }
+        let peers=self.peers.lock().map_err(error)?.clone();
         Ok(stored.as_ref().map(|v| WebDeviceStatus {
             device_id: v.device_id.clone(),
             name: v.name.clone(),
             endpoint: v.endpoint.clone(),
             expires_at: v.expires_at,
             authorized: true,
+            signal_online: self.online.load(Ordering::SeqCst),
+            online_devices: peers,
         }))
+    }
+}
+impl Drop for WebDeviceControl {
+    fn drop(&mut self) {
+        if let Ok(mut running)=self.socket.lock() { running.take(); }
     }
 }
 #[tauri::command]
@@ -142,11 +178,12 @@ pub async fn web_device_claim(
         return Err("服务端返回的设备会话格式或有效期不合法".into());
     }
     let state = app.try_state::<Runtime>().ok_or("工作站未初始化")?;
+    state.web_device.stop_socket()?;
     *state.web_device.session.lock().map_err(error)? = Some(DeviceSession {
         device_id,
         name,
         endpoint: endpoint.as_str().to_owned(),
-        _token: body.token,
+        token: body.token,
         expires_at: body.expires_at,
     });
     state
@@ -168,13 +205,113 @@ pub fn web_device_status(
 #[tauri::command]
 pub fn web_device_disconnect(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<()> {
     guard(&window)?;
-    *app.try_state::<Runtime>()
-        .ok_or("工作站未初始化")?
-        .web_device
-        .session
-        .lock()
-        .map_err(error)? = None;
+    let state=app.try_state::<Runtime>().ok_or("工作站未初始化")?;
+    state.web_device.stop_socket()?;
+    *state.web_device.session.lock().map_err(error)? = None;
+    let _=app.emit("web-device-connection", json!({"connected":false}));
     Ok(())
+}
+
+/// Windows-native signaling: only presence is reported to the renderer.
+ /// Until the W2 RTC layer is wired, all incoming file invites are explicitly
+ /// declined rather than accidentally accepted or silently left pending.
+#[tauri::command]
+pub async fn web_device_connect(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+) -> Result<WebDeviceStatus> {
+    guard(&window)?;
+    let state=app.try_state::<Runtime>().ok_or("工作站未初始化")?;
+    let (device_id, endpoint, token, expires_at)={
+        let stored=state.web_device.session.lock().map_err(error)?;
+        let session=stored.as_ref().ok_or("请先完成 Windows 设备授权")?;
+        (session.device_id.clone(),session.endpoint.clone(),session.token.clone(),session.expires_at)
+    };
+    if now_ms()? >= expires_at{return Err("Windows 授权已过期，请重新配对".into());}
+    let base=validated_endpoint(&endpoint)?;
+    let mut url=base.join("device-link/connect").map_err(error)?;
+    url.set_scheme("wss").map_err(|_| "信令连接地址无效")?;
+    url.query_pairs_mut().append_pair("device",&device_id);
+    let mut request=url.as_str().into_client_request().map_err(|_| "无法创建安全信令请求")?;
+    let bearer=format!("Bearer {token}");
+    request.headers_mut().insert(
+        "Authorization",bearer.parse().map_err(|_| "设备授权凭据格式无效")?
+    );
+    state.web_device.stop_socket()?;
+    let generation=state.web_device.generation.load(Ordering::SeqCst);
+    let connection=tokio::time::timeout(Duration::from_secs(15),connect_async(request))
+        .await
+        .map_err(|_| "信令连接超时")?
+        .map_err(|_| "信令连接失败，可能是 Access 配置、凭据或网络不可用")?;
+    // Cancellation or a newly issued code during the handshake must invalidate
+    // this socket, including if it authenticated successfully.
+    if state.web_device.generation.load(Ordering::SeqCst)!=generation ||
+        !state.web_device.session.lock().map_err(error)?.as_ref()
+        .is_some_and(|s| s.device_id==device_id && s.token==token) {
+        return Err("Windows 设备授权已更新，丢弃过期连接".into());
+    }
+    let (mut sink,mut source)=connection.0.split();
+    let online=state.web_device.online.clone();
+    let peers=state.web_device.peers.clone();
+    let current_gen=state.web_device.generation.clone();
+    let app2=app.clone();
+    let self_id=device_id.clone();
+    let task=tokio::spawn(async move {
+        let mut heart=tokio::time::interval(Duration::from_secs(25));
+        loop {
+            if current_gen.load(Ordering::SeqCst)!=generation {break;}
+            tokio::select! {
+                _=heart.tick()=>{
+                    if now_ms().unwrap_or(u64::MAX)>=expires_at{break;}
+                    if sink.send(Message::Text(r#"{"type":"ping"}"#.into())).await.is_err(){break;}
+                }
+                next=source.next()=>{
+                    let raw=match next {
+                        Some(Ok(Message::Text(raw))) if raw.len()<=16_384=>raw,
+                        Some(Ok(Message::Ping(payload)))=>{
+                            if sink.send(Message::Pong(payload)).await.is_err(){break;}
+                            continue;
+                        }
+                        Some(Ok(Message::Close(_)))|None|Some(Err(_))=>break,
+                        Some(Ok(_))=>continue,
+                    };
+                    let Ok(value)=serde_json::from_str::<Value>(&raw) else {continue;};
+                    if value.get("type").and_then(Value::as_str)==Some("presence") {
+                        let devices=value.get("devices").and_then(Value::as_array)
+                            .map(|list|list.iter().take(8).filter_map(|peer|{
+                                let id=peer.get("id")?.as_str()?;
+                                let name=peer.get("name")?.as_str()?;
+                                if id==self_id || uuid::Uuid::parse_str(id).is_err()
+                                    || name.is_empty() || name.len()>80{return None;}
+                                Some(OnlinePeer{id:id.to_owned(),name:name.to_owned()})
+                            }).collect::<Vec<_>>()).unwrap_or_default();
+                        if let Ok(mut current)=peers.lock(){*current=devices.clone();}
+                        let _=app2.emit("web-device-presence",&devices);
+                    }else if value.get("type").and_then(Value::as_str)==Some("invite"){
+                        // W2 is not yet connected: do not leave the other sender hanging.
+                        let sender=value.get("from").and_then(Value::as_str);
+                        let task_id=value.get("payload").and_then(|v|v.get("id")).and_then(Value::as_str);
+                        if let (Some(sender),Some(task_id))=(sender,task_id)
+                            && uuid::Uuid::parse_str(sender).is_ok()
+                            && uuid::Uuid::parse_str(task_id).is_ok() {
+                            let decline=json!({"type":"decision","to":sender,"payload":{"id":task_id,"accepted":false}});
+                            if sink.send(Message::Text(decline.to_string().into())).await.is_err(){break;}
+                            let _=app2.emit("web-device-invite-declined",());
+                        }
+                    }
+                }
+            }
+        }
+        if current_gen.load(Ordering::SeqCst)==generation {
+            online.store(false,Ordering::SeqCst);
+            if let Ok(mut list)=peers.lock(){list.clear();}
+            let _=app2.emit("web-device-connection",json!({"connected":false}));
+        }
+    });
+    *state.web_device.socket.lock().map_err(error)?=Some(SignalRunner(task));
+    state.web_device.online.store(true,Ordering::SeqCst);
+    let _=app.emit("web-device-connection",json!({"connected":true}));
+    state.web_device.status()?.ok_or_else(|| "设备授权已失效".into())
 }
 
 #[cfg(test)]
