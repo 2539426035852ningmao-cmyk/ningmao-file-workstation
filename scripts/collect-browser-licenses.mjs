@@ -31,7 +31,7 @@ for(const [path,pkg] of Object.entries(lock.packages)){
 }
 const goroot=run('go',['env','GOROOT']);
 record('toolchain','Go standard library and wasm_exec.js',run('go',['version']),'https://go.dev',goroot,'LICENSE');
-for(const path of ['internal/cli','internal/tailcat','src/codephrase/wordlists'])record('vendored',path,pin,'https://github.com/schollz/croc/tree/'+pin+'/'+path,join(upstream,path));
+for(const path of ['internal/cli','internal/tailcat','src/codephrase/wordlists'])record('vendored',path,pin,'https://github.com/schollz/croc/tree/'+pin+'/'+path,join(upstream,path),path==='src/codephrase/wordlists'?'README.md':undefined);
 record('source','croc upstream notices',pin,'https://github.com/schollz/croc/tree/'+pin,upstream,'THIRD_PARTY_NOTICES.md');
 const missing=records.filter(r=>!r.texts.length).map(r=>r.name);
 const scope='Pinned Windows CLI/relay, web server, sender and embedded SSH WASM module graph; non-dev npm packages, vendored licenses and Go runtime. Text inventory is not distribution approval.';
