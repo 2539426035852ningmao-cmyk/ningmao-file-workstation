@@ -57,3 +57,24 @@ TransferPanel只改本机分享的必要行，保留#92 Inbox/Outbox、接收授
 - 机械核对：Rust/Cargo、apps/web/src/worker、App、transferBackend、harness与#92完全相同；没有覆盖#91/#89/#88。实验原实现仍独立，没有增加正式产品入口。
 
 本候选可提交Draft代码审查，尚不能正式合main；待本提交CI终态、精确Windows构建与实机验收。后续包身份以build-manifest为准，旧#77原生证据只保留为原SHA证据。
+
+## 构建及 CI 终态
+
+Draft PR #93，基于#92分支。应用源码及实际候选：`6d59eb0a5c4e2e1cf9eb5c947b758a50b380ebc6`。后续本节/ACTIVE/MEMORY的文档提交不改变候选源码与包身份。
+
+- 同SHA Desktop [43256362087](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/actions/runs/43256362087)、Preview [43256362083](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/actions/runs/43256362083)、Web [43256361882](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/actions/runs/43256361882)全部SUCCESS。完整等待结束后才补本记录，没有中途推源码取消构建。
+- 本地Windows x64 debug EXE/MSI编译及MSI只读检查PASS；420条许可证记录，missing为空，warning一项。未安装MSI。
+- EXE SHA256：`dec7eb9022689709fdf8ca7e4580826a5003cd98e6ca9dad4a6098d27505c404`。
+- 便携ZIP SHA256：`50468d5b7b06a13e77259e46c97dd36dd49c1248c78c01f75f3a6cc31514ba99`。分发data/webview保持为空，原生测试使用另一个新建隔离目录。包未签名，依赖已有WebView2，仍为预览。
+- 许可证未关闭项：react-remove-scroll-bar 2.3.8声明MIT，附有补充MIT上游notice，但npm gitHead在声明的上游仓库不可获取，精确版本源码映射尚未核实；不标记正式发行批准。详情保留于包内license-manifest。
+- 本批标准包清除实验组件编译变量，没有捆绑未批准的croc分享组件；其实验入口按既有条件隐藏，不宣称其随此包完成公网验证。
+
+## 本候选 Windows 原生边界
+
+全新隔离数据，实际启动精确EXE；圆球→胶囊→完整空文件架、更多菜单→文件互传接收页、W1说明展开均可见。未选保存目录时“开启接收”禁用；未输入配对码，未申请授权，未开启接收/发现/公网。测试进程未发现TCP或UDP端点；未碰真实用户资料。
+
+Windows输入工具首次无截图几何导致两次点击未执行；补截图状态后成功，没有修改产品代码规避工具限制。后续窗口隐藏后工具不再返回可操作窗口；CloseMainWindow返回true但进程仍驻留托盘，最终仅停止本轮自己启动的隔离进程。正常菜单退出、重启恢复因此PARTIAL，不能声称通过。读取SQLite完整性的本机Python命令未执行成功，原生新库完整性不作通过声明；Rust安全测试与CI结果按各自范围保留。
+
+原生拖入拖出、Space、三主题、DPI/多屏、新包数据恢复、真实Access授权、Android/双Windows双向收发仍NOT_TESTED。界面启动成功、合成DataChannel和CI绿灯均不替代这些验收。
+
+下一项为W1–W3真实部署环境接续及同候选双向传输；真实账号/域名/Access配置目前是明确外部条件，尚未部署。其后复核原生文件回归。当前允许Draft审查，不允许正式合main/安装/发布。回滚保留#92、原#77、旧候选和隔离数据；退出应用后备份data/webview，再换回旧EXE；本轮无schema迁移。

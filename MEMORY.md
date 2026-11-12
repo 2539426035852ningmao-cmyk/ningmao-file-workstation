@@ -2,7 +2,7 @@
 
 当前独立分支integration/windows-web-closeout-20261112/工作区windows-web-closeout基于#92/65ab738a6；原#77/f041工作区不动。本轮核实#77/#88/#89/#90/#91/#92实时HEAD与各CIsuccess，#92不是完整合并#77。已逐行补#77片段邀请/准确最长等待及隔离实验，保留#92所有W1–W3、Rust/Cargo、App、backend/harness、64MiB/授权/Store/schema/排序修正。细矩阵docs/execution/WINDOWS-WEB-CLOSEOUT-AUDIT-20261113.md，ACTIVE顶部唯一当前状态，不再从旧#77重造传输。
 
-基线桌面195PASS3.9m；集成195PASS3.7m，Rust Web12PASS，Web29+9单元/15浏览器PASS22.5s，构建/源码预检/Worker dry-run PASS。首轮缺测试浏览器/正常dist已补，失败如实记；新本HEAD CI及Windows构建/原生仍待后续。Web CI只补TransferPanel/webFileRules触发。未部署、安装、合并、开放公网或触私人素材。下一步同SHA打包+CI，再实机；旧croc Android证据不充当WebRTC实机，真实Access仍占位。
+Draft PR #93候选源码6d59eb0a5c4e2e1cf9eb5c947b758a50b380ebc6；基线桌面195PASS3.9m；集成195PASS3.7m，Rust Web12PASS，Web29+9单元/15浏览器PASS22.5s，构建/预检/Worker dry-run PASS。同SHA Desktop43256362087/Preview43256362083/Web43256361882全SUCCESS。Windows EXE/MSI只读/便携核验完成；ZIP SHA256 50468d5b7b06a13e77259e46c97dd36dd49c1248c78c01f75f3a6cc31514ba99。原生新隔离球→胶囊→完整架/互传默认关闭/W1说明可见；工具丢失隐藏窗口后仅停止自建进程，退出恢复PARTIAL，拖放/Space/DPI/真实双向未验。420许可证/一项react-remove-scroll-bar版本源码映射警告，不能发行。无部署/安装/合并/公网或私人素材。下一项真实Access环境和同候选双向验收；旧croc证据不替代WebRTC。文档追加不改变候选源码身份，详ACTIVE/审计。
 
 ## 下方为历史
 
