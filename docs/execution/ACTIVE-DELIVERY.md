@@ -1,4 +1,12 @@
-# 当前交付状态 · 2026-11-08（优先于下方历史记录）
+# 当前交付状态 · Windows × Web 集成收束（2026-11-13）
+
+当前工作区/分支为integration/windows-web-closeout-20261112，基于#92精确65ab738a6；原#77/f041f36工作区和未提交状态未重置、未切换。六PR最新HEAD/base/CI和功能矩阵见[本轮审计](WINDOWS-WEB-CLOSEOUT-AUDIT-20261113.md)。#92只选择同步到旧#77，不冒充完整git历史合并；本批逐行补片段邀请/准确等待提示，隔离保留croc实验。W1–W3 WebRTC/WSS、64MiB、角色授权、Store/schema及#92排序菜单修正均保留。没有修改App、transferBackend、harness、Rust/Cargo、Web源码或Worker。
+
+基线桌面195PASS3.9m；集成后195PASS3.7m；Rust Web安全12PASS；Web29单元+9Node+15浏览器PASS22.5s；构建/源码预检/Worker dry-run通过。首次Web缺浏览器、Rust缺dist的前置失败保留，已补齐后运行，不谎称产品修复。Web CI触发路径补两项以确保本HEAD复核。当前提交前CI/新Windows包及原生仍待结果，不继承其他分支绿灯。
+
+W1–W3与croc是两条既有实现，不并列为两个正式公网入口；旧Android78B成功仅归croc，11月12日公网失败未消失。Access占位未部署，无真实账号/公网/手机/双Windows新验收。可进入Draft代码审查，不能正式合main、发布或安装。下一步按本SHA构建独立Windows候选、核验MSI/便携并取得本HEAD CI，然后集中实机；需要真实Access/公网另行确认环境与授权。回滚保留#92/#77和旧包，退出备份data/webview后换旧EXE，无数据库迁移。
+
+## 以下为旧#77按各自SHA保留的历史证据
 
 唯一集成候选：PR #77 / feat/capsule-recent-focus-20261108。已包含#62及#68–#76完整HEAD，不重复cherry-pick，不重置或新开微PR；#66独立，#67固定dbfe15b7合同已纳入。最新已运行应用20b1c08992041d691af3014aa21c795f2456d95b。唯一功能矩阵仍由原生成器维护完整43+44约束，原生/浏览器/协议/真实模型证据分开。
 

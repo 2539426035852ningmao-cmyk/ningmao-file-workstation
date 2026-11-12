@@ -1,3 +1,11 @@
+# 2026-11-13 Windows × Web 集成接续
+
+当前独立分支integration/windows-web-closeout-20261112/工作区windows-web-closeout基于#92/65ab738a6；原#77/f041工作区不动。本轮核实#77/#88/#89/#90/#91/#92实时HEAD与各CIsuccess，#92不是完整合并#77。已逐行补#77片段邀请/准确最长等待及隔离实验，保留#92所有W1–W3、Rust/Cargo、App、backend/harness、64MiB/授权/Store/schema/排序修正。细矩阵docs/execution/WINDOWS-WEB-CLOSEOUT-AUDIT-20261113.md，ACTIVE顶部唯一当前状态，不再从旧#77重造传输。
+
+基线桌面195PASS3.9m；集成195PASS3.7m，Rust Web12PASS，Web29+9单元/15浏览器PASS22.5s，构建/源码预检/Worker dry-run PASS。首轮缺测试浏览器/正常dist已补，失败如实记；新本HEAD CI及Windows构建/原生仍待后续。Web CI只补TransferPanel/webFileRules触发。未部署、安装、合并、开放公网或触私人素材。下一步同SHA打包+CI，再实机；旧croc Android证据不充当WebRTC实机，真实Access仍占位。
+
+## 下方为历史
+
 2026-11-08 #77当前最小本地规则批次：688438d39f372cb26d4c0892ff5c00a2de965876薄Anthropic协议三CI成功，现有会话/DPAPI不迁移，8HTTP/Rust及7UI通过；仅一次获批本地GGUF HTTP返回OK/3token，实例已释放，不等于应用整链/Anthropic live。当前规则启停/单次撤销/停用成果保留、runtime只给四种元数据，19UI通过，无后端/权限变化。第三方安装器/强隔离/持久化工作流未实现；当前源码/CI/统一包原生待完成。所有旧包和失败夹具保留，唯一状态ACTIVE；仍无云/额外模型/下载/发布/安装/合并。
 
 2026-11-08 #77同分支P4薄协议批次：稳定应用20b1c08992041d691af3014aa21c795f2456d95b三CI成功/170UI、同包管理中心任务记录原生通过，所有测试进程退出。当前官方Anthropic Messages原生文本协议：8真实HTTP/兼容回归及7UI/Clippy通过，无DB迁移/依赖/权限；仅官方host，其他自定义兼容服务不改。用户批准一次已有3.34GB本地GGUF测试，独立localhost HTTP返OK/3token/12.83s/max16，实例已释放，无云/下载/密钥；不是应用整链或Anthropic live。当前源码/包/CI待收束；之后最小标签规则插件启停撤销，不造新框架。仅ACTIVE为实时状态，矩阵改生成器。

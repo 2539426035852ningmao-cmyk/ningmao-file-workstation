@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - "apps/web/**"
+      - "apps/desktop/src/components/TransferPanel.tsx"
+      - "apps/desktop/src/webFileRules.ts"
       - ".github/workflows/web-transfer.yml"
   push:
     branches:

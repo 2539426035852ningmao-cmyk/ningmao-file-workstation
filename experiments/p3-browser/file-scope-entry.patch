@@ -1,3 +1,11 @@
+diff --git a/web/src/App.tsx b/web/src/App.tsx
+index 752dd21..d2be58f 100644
+--- a/web/src/App.tsx
++++ b/web/src/App.tsx
+@@ -110 +110,2 @@ const requestedReceiveCode =
+-  new URLSearchParams(window.location.search).get("code")?.trim() ?? "";
++  new URLSearchParams(window.location.hash.split("?", 2)[1] ?? "").get("code")?.trim()
++  ?? new URLSearchParams(window.location.search).get("code")?.trim() ?? "";
 diff --git a/web/src/TaskLauncher.tsx b/web/src/TaskLauncher.tsx
 index 8db0af6..0d688d9 100644
 --- a/web/src/TaskLauncher.tsx
