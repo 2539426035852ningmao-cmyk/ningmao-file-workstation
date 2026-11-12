@@ -16,9 +16,9 @@ const lines=['# 首版功能与验收矩阵','',`生成基线：${sha}${dirty?"�
 '|功能|实现状态与代码入口|用户入口|自动与原生证据|首版阻断与下一动作|',
 '|---|---|---|---|---|',
 ...[
- ['引用、绑定、安全复制、同名编号','INTEGRATED · src-tauri/src/store.rs','添加/粘贴/拖入；绑定架显示复制语义','10215e7 同EXE原生添加/正常绑定/编号复制/来源及旧目标SHA保护通过','PARTIAL：添加→复制→软回收/撤销→重启已验，Space/OLE新包仍未验'],
+ ['引用、绑定、安全复制、同名编号','INTEGRATED · src-tauri/src/store.rs','添加/粘贴/拖入；绑定架显示复制语义','10215e7 同EXE原生添加/正常绑定/编号复制/来源及旧目标SHA保护通过','PARTIAL：添加→复制→软回收/撤销→重启已验；93d14cc Space原生子集通过，OLE新包仍未验'],
  ['多架、重命名、拆合、网格/列表、多选、排序','INTEGRATED · App.tsx / desktop_runtime.rs','切架菜单、更多→显示与排序','现有选择/排序/窗口测试；旧原生逐项通过','10215e7 原生改名并同EXE重启保留，架ID及文件字节不变；全DPI/多屏另验'],
- ['预览、本地搜索与定位','INTEGRATED · App.tsx / components/GlobalSearch.tsx / store/search.rs','Space、Ctrl+F、Ctrl+K、胶囊最近项','5608c37 168 界面及双CI通过；同包原生中间最近项准确选中/搜索/详情通过，Space自动输入未触发','PARTIAL：原生Space及连续文件流仍需验证，不以按钮存在代替'],
+ ['预览、本地搜索与定位','INTEGRATED · App.tsx / components/GlobalSearch.tsx / store/search.rs','Space、Ctrl+F、Ctrl+K、胶囊最近项','5608c37原生最近项/搜索/详情通过；93d14cc三CI成功、24定向界面及新EXE原生Space打开English.txt/Esc关闭通过','PARTIAL：Space子集已验，完整连续文件流、全DPI和多屏仍待验'],
  ['软回收、恢复、备份和 SQLite','INTEGRATED · store.rs / components/RecycleDrawer.tsx','柠猫回收站；管理中心→设置','10215e7 经批准只软回收ID8后撤销，原生重启记录/哈希/任务完全一致；SQLite完整','PARTIAL：软回收/恢复/重启通过；原生备份还原和Windows回收站另验'],
  ['三主题、球/胶囊/完整架、独立管理','INTEGRATED · orb/MorphCapsule.tsx / Manager.tsx / style.css','球→胶囊→完整架；更多→管理中心','三主题与窄窗回归；旧包原生主题/启动通过','PARTIAL：新包文字与原生闭环；#66 连续形变 NOT_INTEGRATED'],
  ['任务记录与取消','INTEGRATED · Manager.tsx / App.tsx / store.rs','管理中心→任务中心；文件架→更多→任务记录','20b1c08：36本地定向/170远端全界面/三CI通过，原生独立管理→任务中心及2记录展示通过','保留最近20项、架/状态筛选和真实进度；不新建任务数据库'],
