@@ -18,11 +18,8 @@ test('Ningmao sender waits for browser verification and preserves source',async(
   const code=randomUUID(),transfer=sender([path],code);
   try{
     await expect.poll(()=>transfer.events().map(e=>e.phase)).toEqual(['queued','waiting']);
-    await page.goto('/');
-    await page.getByRole('button',{name:'Receive files',exact:true}).click();
+    await page.goto('/?'+new URLSearchParams({code}));
     const panel=page.locator('.receive-panel');
-    await panel.getByLabel('Croc code or stored link').fill(code);
-    await panel.getByLabel('Croc code or stored link').press('Enter');
     await expect(panel.getByRole('button',{name:'Download files',exact:true})).toBeVisible();
     expect(transfer.events().map(e=>e.phase)).toEqual(['queued','waiting']);
     await page.evaluate(()=>Object.defineProperty(window,'showDirectoryPicker',{configurable:true,value:undefined}));
