@@ -294,7 +294,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   useEffect(()=>{
     const fn=(e:KeyboardEvent)=>{
       if(e.defaultPrevented || e.isComposing || (e.target instanceof HTMLElement && e.target.closest("input,textarea,select,[contenteditable],.drag-handle,[role=dialog],[role=menu]"))) return;
-      if(e.code==="Space" && current) {e.preventDefault();setPreview(true);}
+      if(e.key===" " && current) {e.preventDefault();setPreview(true);}
       if((e.ctrlKey || e.metaKey) && e.key.toLowerCase()==="a" && e.target instanceof HTMLElement && e.target.closest('.file-scroll')){e.preventDefault();marquee(visible.map(i=>i.id));}
       if(e.key==="Escape") {if(!preview && !details)setSelected(null);setPreview(false);setDetails(false);}
       if(e.key==="Delete" && chosen.length && !e.repeat && e.target instanceof HTMLElement && e.target.closest('.file-scroll')){e.preventDefault();void perform(async()=>{try{const ids=chosen.map(i=>i.id);if(backend.removeReferences)await backend.removeReferences(ids);else for(const id of ids)await backend.remove(id);setUndo({entity:"item",id:ids[0],ids});}finally{await refresh();}setSelected(null);setMessage("选中项已移入柠猫回收站，原文件保留。");});}
