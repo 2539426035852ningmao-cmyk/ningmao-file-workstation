@@ -1,5 +1,8 @@
 # 当前批次：空发送页减法与隐藏状态查询（2026-11-13）
 
+构建后补记：PR #94应用源码f81e9def718dc2a784d16c7a7eee87f458865c28；EXE SHA2566895e9b918fe9e6495646a9633218c24deb31ac7ece132eb88bf7c0a23b4dda5，ZIP830e94fed2db88c1be0c44657cdf973eb26f9a9091293125ede83f78ebed9eea，解压9文件校验/空data-webview PASS。同EXE新隔离球→胶囊→空架→接收→空发送→返回、正常退出及重启CtrlEnter回架PASS，PID42568/40476均正常退出、端点0、SQLite完整2架0项0任务。仅空库子集，原生隐藏轮询/拖放/全主题/DPI/真实双向未验，1412日志保留。Web43264403366/Preview43264403271 SUCCESS；Desktop43264403485的Windows安全编译SUCCESS，Ubuntu198PASS/1旧排序测试FAIL。原样重复12次1失败，诊断16次3失败：Enter时焦点已回menu，未触发排序。仅测试移开鼠标再聚焦，20次连续PASS；无生产改动，不重打MSI。完整日志/最终后续CI见PR #94和专项报告。
+
+
 本批分支perf/transfer-progressive-idle-20261113，从干净#93/6ee04ea5f2012e1ce4adbe4997a38276642a8d06接续；旧集成/#77/6d59eb0包保留。范围、前后流程、测量及回滚见[第一批报告](TRANSFER-SIMPLIFY-PERFORMANCE-20261113.md)。仅桌面TransferPanel/相关测试：空发送页不查附近设备、不放连接/预检/分享表单，选中后原路径恢复；设备状态隐藏暂停、恢复刷新、慢请求串行。进行中取消与结果、接收逐次确认保留，Rust/SQLite/文件/窗口生命周期/权限/协议无改动。
 
 三项新检查先失败再通过；同测试构建空发现1→0、连接表单控件6→0、隐藏40秒查询10→0、9秒慢请求最大并发3→1；不冒称原生CPU/内存或启动提速。提交前已跑完整桌面199PASS（3.8分钟）、相关17PASS、Rust Web12PASS、Web29+9及15浏览器PASS。完整本批终态、精确Windows包SHA/同源码CI和原生范围由同批PR及build-manifest记录；本文件下方6d59eb0包仍仅为旧候选。未部署/安装/合并/发布，真实Access/Android/双Windows/原生拖放/DPI/许可证映射缺口保留。

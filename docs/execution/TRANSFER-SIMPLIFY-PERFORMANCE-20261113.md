@@ -45,3 +45,23 @@
 改动限桌面 TransferPanel 和相关测试/执行记录。Rust、SQLite/schema、文件I/O、窗口生命周期、传输权限、Web/Worker源码均不变。不迁移数据，不安装、部署、合并或正式发布。react-remove-scroll-bar2.3.8精确源码映射既有警告仍未关闭。
 
 代码回滚至 `6ee04ea5f2012e1ce4adbe4997a38276642a8d06` 或回退本批提交；可运行基线仍为6d59eb0旧候选。换包前完整退出并备份 data/webview；不覆盖旧包或删除用户数据。构建清单的sourceCommit标识新包实际源码，不把后续纯文档HEAD写成应用源码身份。
+
+## 精确构建与 Windows 子集
+
+Draft [PR #94](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/94)，base 为 #93 分支。应用源码与实际 EXE 的 sourceCommit：`f81e9def718dc2a784d16c7a7eee87f458865c28`。后续仅测试/记录修正不改变本包身份，不重打 MSI。
+
+- EXE SHA256：`6895e9b918fe9e6495646a9633218c24deb31ac7ece132eb88bf7c0a23b4dda5`。
+- 便携 ZIP SHA256：`830e94fed2db88c1be0c44657cdf973eb26f9a9091293125ede83f78ebed9eea`。ZIP 实际解压后9文件逐项校验通过，分发 data/webview 为空。
+- Windows x64 debug、未签名、依赖已有 WebView2；EXE/MSI 构建和 MSI只读载荷检查通过，420许可记录/1既有源码映射警告。未安装或正式发行。
+- 同包 EXE、新建隔离 data/webview：球→胶囊→420×520完整空架→互传接收页→空发送页→返回架，PASS。空发送页只有选择提示及收起的设备授权，连接/发现/预检表单未出现，开启接收默认禁用。
+- 首次 PID42568 与重启 PID40476 均经菜单完整退出，进程实际结束，TCP/UDP归零。重启恢复默认球，Ctrl+Enter可返回完整空架；只读SQLite检查 `integrity_check=ok`，2架/0项/0任务。只证明新隔离空库恢复，不证明历史用户数据迁移。
+- 退出均出现已有 WebView2 `Chrome_WidgetWin_0` 注销1412日志，未见进程残留或数据损坏；不宣布该旧日志问题修复。重启后右键曾出现 WebView2 默认菜单，Esc关闭，未操作其菜单项，不扩展为右键产品菜单验收。
+- 不含实际LAN发现/传输/Access授权、原生拖放、Space、三主题全状态、DPI/多屏或原生CPU/内存测量。
+
+## CI真实失败与测试同步修正
+
+f81e9de 的 [Web43264403366](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/actions/runs/43264403366)、[Preview43264403271](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/actions/runs/43264403271) SUCCESS。[Desktop43264403485](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/actions/runs/43264403485) 的 Windows安全/编译 SUCCESS，Ubuntu浏览器198 PASS/1 FAIL；失败是原 metadata-sorting.spec.ts 的窄窗键盘检查，三项新增性能检查均通过。没有重跑同一作业掩盖失败。
+
+未改代码本机重复12次得到11 PASS/1 FAIL；临时记录 focusin/keydown/click 后重复16次得到13 PASS/3 FAIL。失败事件明确是排序选项聚焦后回到 menu，Enter实际发给menu，排序偏好仍manual，没有触发排序click。对照已安装Radix Menu源码的pointer-leave会聚焦menu，不把此次未发出的键盘操作误判为本批生产排序回归。
+
+测试修正仅在该键盘段把鼠标移出菜单，再聚焦选项、断言焦点并按Enter。保留排序生效、菜单关闭/回焦、末项可达的全部原断言；删除临时诊断，不增加延迟/超时/重试，不改App或Radix。修正后20次连续PASS（37.6秒），新HEAD完整CI终态见PR最终描述；本地旧失败及原始CI日志保留。

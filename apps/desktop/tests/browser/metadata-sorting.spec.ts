@@ -67,7 +67,11 @@ test("自动排序与搜索、刷新兼容，相同值按名称及稳定ID排序
 test("窄窗新增排序可用键盘选中且菜单末项仍可到达",async({page})=>{
   await setup(page);await page.getByRole("button",{name:"更多操作",exact:true}).click();await expandDisplayOptions(page);await page.getByRole("menuitemradio",{name:"白色主题",exact:true}).click();await page.setViewportSize({width:340,height:320});
   await page.getByRole("button",{name:"更多操作",exact:true}).press("Enter");await expandDisplayOptions(page);
-  const option=page.getByRole("menuitemradio",{name:"大小从大到小",exact:true});await option.press("Enter");
+  // Scrolling a focused item under the pointer can make Radix's pointer-leave
+  // return focus to the menu before Enter. Keep this keyboard check pointer-free.
+  await page.mouse.move(0,0);
+  const option=page.getByRole("menuitemradio",{name:"大小从大到小",exact:true});
+  await option.focus();await expect(option).toBeFocused();await option.press("Enter");
   await expect(page.getByRole("menu",{name:"更多操作",exact:true})).toBeHidden();
   await expect(page.getByRole("button",{name:"更多操作",exact:true})).toBeFocused();
   await page.getByRole("button",{name:"更多操作",exact:true}).click();await expandDisplayOptions(page);await expect(option).toHaveAttribute("aria-checked","true");
