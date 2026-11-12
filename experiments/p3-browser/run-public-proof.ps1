@@ -24,6 +24,7 @@ $code=[guid]::NewGuid().ToString()
 $children=[Collections.Generic.List[Diagnostics.Process]]::new()
 $started=[DateTime]::UtcNow
 $phase='not_started'
+$tunnelLog=$null
 function Start-Component([string]$File,[string[]]$Arguments) {
     $info=[Diagnostics.ProcessStartInfo]::new($File)
     $info.UseShellExecute=$false;$info.CreateNoWindow=$true
@@ -56,27 +57,37 @@ try {
         $read=$tunnel.StandardError.ReadLineAsync()
     }
     if (!$origin) { throw 'Quick Tunnel did not return an HTTPS endpoint; nothing was sent' }
-    $null=$tunnel.StandardError.ReadToEndAsync()
+    $tunnelLog=$tunnel.StandardError.ReadToEndAsync()
     $online=[Diagnostics.Stopwatch]::StartNew()
-    while($online.Elapsed.TotalSeconds -lt 20) {
-        try { $null=Invoke-WebRequest ($origin+'/healthz') -TimeoutSec 5;break } catch { Start-Sleep -Milliseconds 500 }
+    $healthError=''
+    while($online.Elapsed.TotalSeconds -lt 40) {
+        $probe=& curl.exe --fail --silent --show-error --max-time 12 ($origin+'/healthz') 2>&1
+        if ($LASTEXITCODE -eq 0) { break }
+        $healthError=$probe -join ' ';Start-Sleep -Milliseconds 500
     }
-    if ($online.Elapsed.TotalSeconds -ge 20) { throw 'Public HTTPS health check failed; no file invitation was started' }
+    if ($online.Elapsed.TotalSeconds -ge 40) { throw "Public HTTPS health check failed; no file invitation was started: $healthError" }
+    $upgrade=& curl.exe --http1.1 --silent --show-error --dump-header - --output NUL --max-time 4 ($origin+'/ws?relay=0&port=53318') --header ('Origin: '+$origin) --header 'Connection: Upgrade' --header 'Upgrade: websocket' --header 'Sec-WebSocket-Version: 13' --header 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' 2>$null
+    if (($upgrade -join "`n") -notmatch 'HTTP/1\.1 101') { throw 'Public WebSocket upgrade failed; no file invitation was started' }
     Write-Output ('HTTPS gateway: '+$origin)
     Write-Output ('Synthetic source SHA256: '+(Get-FileHash $source -Algorithm SHA256).Hash.ToLowerInvariant())
     $sender=Start-Component (Join-Path $ComponentsDirectory 'components/share.exe') @()
     $request=@{relay='127.0.0.1:53318';password=$password;code=$code;paths=@($source)} | ConvertTo-Json -Compress
     $sender.StandardInput.WriteLine($request);$sender.StandardInput.Flush()
     $result=$sender.StandardOutput.ReadToEndAsync();$null=$sender.StandardError.ReadToEndAsync()
-    Write-Output ('Receive before '+[DateTime]::UtcNow.AddMinutes(10).ToString('o')+': '+$origin+'/#receive?code='+$code)
+    Write-Output ('Maximum receive deadline '+[DateTime]::UtcNow.AddMinutes(10).ToString('o')+' (disconnects can end the session earlier): '+$origin+'/#receive?code='+$code)
     if (!$sender.WaitForExit(605000)) { throw 'Sender deadline exceeded' }
     $events=$result.GetAwaiter().GetResult().Trim().Split("`n") | Where-Object {$_} | ForEach-Object {$_|ConvertFrom-Json}
     $phase=$events[-1].phase
     Write-Output ('Sender terminal: '+$phase)
+    Write-Output ('Sender exit code: '+$sender.ExitCode+' (3=timeout, 4=relay connection, 5=connection EOF, 1=other failure)')
     if ($sender.ExitCode -ne 0 -or $phase -ne 'verified') { throw 'Receiver verification did not complete; not a successful transfer' }
 } finally {
+    $exits=@($children | ForEach-Object { [ordered]@{program=[IO.Path]::GetFileName($_.StartInfo.FileName);exitedBeforeCleanup=$_.HasExited;exitCode=$(if($_.HasExited){$_.ExitCode}else{$null})} })
     foreach($p in $children) { if (!$p.HasExited) {$p.Kill()};$p.WaitForExit();$p.Dispose() }
-    [ordered]@{startedUtc=$started.ToString('o');stoppedUtc=[DateTime]::UtcNow.ToString('o');phase=$phase;sourceSha256=(Get-FileHash $source -Algorithm SHA256).Hash.ToLowerInvariant()} | ConvertTo-Json | Set-Content (Join-Path $SyntheticDirectory 'result.json')
+    if ($phase -eq 'not_started' -and $null -ne $tunnelLog) {
+        $tunnelLog.GetAwaiter().GetResult().Split("`n") | Where-Object {$_ -match 'ERR|WRN|Registered tunnel connection'} | Select-Object -Last 6 | ForEach-Object {$_ -replace '[a-f0-9]{8}-[a-f0-9-]{27,}', '[temporary-id]'}
+    }
+    [ordered]@{startedUtc=$started.ToString('o');stoppedUtc=[DateTime]::UtcNow.ToString('o');phase=$phase;components=$exits;sourceSha256=(Get-FileHash $source -Algorithm SHA256).Hash.ToLowerInvariant()} | ConvertTo-Json -Depth 4 | Set-Content (Join-Path $SyntheticDirectory 'result.json')
     $password=$null;$code=$null;$request=$null
     Write-Output 'Temporary gateway, relay and sender stopped; synthetic source retained.'
 }

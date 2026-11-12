@@ -1,5 +1,11 @@
 # 2026-11-09 接续优先
 
+2026-11-12本批收束：即时/150秒晚加入/取消3实际Chromium-Go PASS2.7m，不能把此前提前failed解释成必然2分钟超时。11互传UI PASS24.9s，Go安全分类测试通过；新诊断组件D:/Ningmao-Browser-Components-20261112-diagnostic已建，Windows主EXE未重建。新增HTTPS严格curl+WSS101门槛、退出分类/组件退出记录、最长十分钟文案。随后自动公网测试在文件邀请前被Schannel TLS握手错误拦截（连接器HTTP2已注册），未完成自动公网收发；没让用户再测，未关闭证书/Origin或改全局代理。旧2ce5208三CI全success，当前失败与旧11月9日成功并存。详见docs/research/P3-public-reliability-20261112.md，继续同#77解决实际公网阻塞，不说已修复，不做无关重构。
+
+2026-11-12续测失败待查：本轮用户要求简单快速复测，沿既有临时15分钟/合成范围。a/b .NET HTTPS健康探测超时，c隧道已Registered但探测SSL失败；脚本切换严格验证证书的curl后d健康通过并发邀请。d于香港23:28:26启动、23:30:47 sender failed并关闭，比告知用户23:38有效早；23:31:30 Edge截图WebSocket连接错误，故不能归因过期或内嵌浏览器。根因尚未证实，勿声称已修复/十分钟服务稳定。session20652已wait失败完结，无需再wait。全部源保留，不上传截图/邀请码/原始HTTP错误页。
+
+本地未提交诊断批：run-public-proof.ps1保留HTTPS错误、失败隧道摘要脱敏、严格curl健康探测；Go sender保留内部Send错误链但不输出原文，退出码3超时/4中继失败/5EOF/1其他，脚本打印码。新main/main_test已复制专用上游cmd/ningmao-share-proof并gofmt；此诊断版本尚未重建组件或执行完整回环，新主EXE也未构建。下轮先补提前退出/晚加入真实自动回归及安全错误分类证据，不再让用户盲点新链接，沿同工作区不重置。旧2ce5208源码/成功证据仍按原SHA保留。
+
 本批最终173全界面PASS3.2m（含旧CI失败排序用例），build:test/仓库/PowerShell语法/固定补丁反向检查通过；不因此抹掉66c7c9d远端失败。当前整批提交片段邀请、十分钟等待、专项公网复跑器及Android真实证据，无Rust/SQLite/schema/Copy变化，无新Windows主EXE，当前普通包仍93/开发包2d按其SHA保留。下轮继续同#77将真实公网链路接现有桌面选中文件/任务入口，再简化手机中文接收页；别再重做协议或误称全跨端完成。
 
 最终Android公网真实成功：session18002已wait完成，退出0，Sender verified；用户系统浏览器截图78/78B、全部接收并校验100%。香港时间20:25:11–20:33:33，来源SHA57bc029ba24925a42cef6f28a94a43f582fc25335feeaab5cf44a416f8fe6c08保留，进程/端口全清理。仅专项合成脚本Windows发送器→临时HTTPS/WSS→Android单向子集；完整桌面公网入口/反向/大文件/第二Windows未验，手机落盘SHA未独立读取。内嵌浏览器WSS失败原因未证实，不降安全校验。证据docs/research/P3-android-public-proof-20261109.md，不上传截图/临时域名/邀请码。公网许可已结束，后续新公开需遵守专项授权，不能把本轮成功变成常驻服务授权。
