@@ -10,6 +10,23 @@
 - **并行分支注意**：#86 基于 #84 开发部分相同的信令桥，**不是 #85 的直接祖先**。在最终合并上游时检查 #85 与 #86 的相同 Rust WSS/TS 信令功能，避免重复引入两个通道、两个状态源或错乱的锁顺序。
 - **W4 暂未授权**：Cloudflare Access 完整配置、实际受保护域名、用户账号验证、TURN、公众部署和费用仍是独立 Gate。未经明确批准不得部署、更改 DNS、向公网暴露本机端口或引入云端保存。
 
+## 2026-11-12 精确集成冲突检查（非猜测）
+
+本次直接核查 Windows 综合候选 #77 的 HEAD `66c7c9dd16efb5140f5a00a7bd50a75d68c15e46`，对比 #89/#91 的网页互传候选：
+
+| 具体文件/模块 | #77 原有状态 | #89/#91 增量 | 集成方法 |
+|---|---|---|---|
+| `apps/desktop/src/components/TransferPanel.tsx` | 已有完整局域网 / 本机浏览器分享面板 | 新增 W1 授权、W3 预检、双向网页 WebRTC | 语义三方合并，保持 LAN 主路径及现有三主题控件 |
+| `apps/desktop/src/transferBackend.ts` | LAN 传输后端接口、IPC 与订阅 | WSS 授权/设备状态、W2 Signal、`webOffer`、W3 原生 Source | 接口按项扩充，不替换旧后端 |
+| `apps/desktop/tests/harness.tsx` | 原有 LAN/其他功能模拟工装 | WSS、原生 Store 接收、WebRTC 测试注入 | 合并各自 mocks 并跑整套浏览器回归，避免测试工装互相覆盖 |
+| `apps/desktop/src-tauri/src/web_device.rs` | **在 #77 不存在** | Rust 设备授权/WSS 心跳、离线通知 | 完整纳入模块、Runtime、Tauri 注册与依赖；先确认内存令牌、授权撤销约束 |
+| `apps/web/src/peer.ts` 与 Worker | #77 不包含这套正式 W1–W3 Web 目录 | W0 三主题 + Worker/DO + Shared RTC | 按 #81 同一来源引入，不与 #79/#80 分别整目录覆盖 |
+| `apps/desktop/src-tauri/Cargo.lock` | 存在旧原生依赖锁定 | WSS 和收发桥新依赖 | 依赖审查后用 Cargo 生成完整 lockfile，不能文本拼接 |
+
+**新安全候选：** [#91 Windows WSS 假在线与通知修复](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/91) 直接叠放在 #89 后。最终集成时必须把 WSS pong 超时、掉线撤销接收授权、Worker 目标离线即时取消一同保留，避免退回只发送 ping 的旧实现。
+
+这份表格只确定了实际差异，不代表已经在 #77 上执行 merge，也不等于源码冲突已全部解决。文件安全、原生构建、双向传输真实性需对**最终集成分支 HEAD**分别验证。
+
 ## 可操作的集成路线（不自动执行 merge）
 
 1. **冻结真实基线**：核对 main、#77（现有桌面综合候选）、#81–#89 各自最新 SHA / CI，备份测试数据目录并保持原 Windows 稳定包可回退。先确认原有用户文件与 SQLite 是否仍是 schema2，且无未经授权的数据迁移。
