@@ -78,7 +78,8 @@ export function DesktopWebInbox({backend,open,online,peers,shelves}:{
   }
   const onSignal=(msg:DesktopWebSignal)=>{
     if(msg.type==="unavailable"){
-      if(active.current?.id===msg.id&&active.current.from===msg.to)
+      const session=active.current;
+      if(session&&session.id===msg.id&&session.from===msg.to)
         fail("目标设备已离线");
       return;
     }
