@@ -12,13 +12,20 @@ function sender(paths:string[],code='acid-acorn-acre'){
   return {child,done,events:()=>output.trim().split('\n').filter(Boolean).map(line=>JSON.parse(line)),output:()=>output};
 }
 
-test('Ningmao sender waits for browser verification and preserves source',async({page},info)=>{
+for(const delay of [0,150000])test(`Ningmao sender waits for browser verification and preserves source${delay?' after 150 seconds':''}`,async({page},info)=>{
+  test.setTimeout(delay+90000);
   const path=info.outputPath('中文 合成.txt'),bytes=Buffer.from('Ningmao structured browser sender\n'.repeat(5000));
   await fs.writeFile(path,bytes);
   const code=randomUUID(),transfer=sender([path],code);
   try{
     await expect.poll(()=>transfer.events().map(e=>e.phase)).toEqual(['queued','waiting']);
-    await page.goto('/?'+new URLSearchParams({code}));
+    if(delay){
+      let timer:ReturnType<typeof setTimeout>;
+      try{await Promise.race([new Promise(resolve=>{timer=setTimeout(resolve,delay);}),transfer.done.then(code=>{throw new Error(`Sender exited before receiver: code=${code}, phases=${transfer.events().map(e=>e.phase).join(',')}`);})]);}
+      finally{clearTimeout(timer!);}
+    }
+    const requests:string[]=[];page.on('request',request=>requests.push(request.url()));
+    await page.goto('/#receive?'+new URLSearchParams({code}));
     const panel=page.locator('.receive-panel');
     await expect(panel.getByRole('button',{name:'Download files',exact:true})).toBeVisible();
     expect(transfer.events().map(e=>e.phase)).toEqual(['queued','waiting']);
@@ -34,6 +41,7 @@ test('Ningmao sender waits for browser verification and preserves source',async(
     expect(transfer.events().at(-1)).toEqual({version:1,phase:'verified',files:1,total:bytes.length});
     expect(transfer.output()).not.toContain('acid');expect(transfer.output()).not.toContain(path);
     expect(transfer.output()).not.toContain(code);
+    expect(requests.some(url=>url.includes(code))).toBe(false);
     await fs.writeFile(process.env.NINGMAO_EVENT_PROOF!,transfer.output());
   }finally{if(transfer.child.exitCode===null)transfer.child.kill();}
 });

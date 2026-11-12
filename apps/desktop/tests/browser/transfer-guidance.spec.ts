@@ -10,7 +10,7 @@ test('浏览器分享提供直达接收链接，停止后移除失效链接',asy
  await expect(link).toBeVisible();
  const url=new URL(await link.inputValue());
  expect(url.origin).toBe('http://127.0.0.1:53323');
- expect(url.searchParams.get('code')).toMatch(/^[a-f0-9-]{36}$/);
+ expect(new URLSearchParams(url.hash.split('?')[1]).get('code')).toMatch(/^[a-f0-9-]{36}$/);
  await expect(page.getByRole('button',{name:'复制接收链接',exact:true})).toBeVisible();
  await page.getByRole('button',{name:'停止浏览器分享',exact:true}).click();
  await expect(link).toHaveCount(0);

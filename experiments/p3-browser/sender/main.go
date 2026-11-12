@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -70,7 +71,7 @@ func run(input io.Reader, output io.Writer) error {
 	if err := emit("queued"); err != nil {
 		return err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 	go func() {
 		var command struct {
@@ -102,9 +103,29 @@ func run(input io.Reader, output io.Writer) error {
 	}
 	if err != nil || !client.NingmaoTransferSucceeded() {
 		_ = emit("failed")
+		if err != nil {
+			return fmt.Errorf("receiver confirmation missing: %w", err)
+		}
 		return fmt.Errorf("receiver confirmation missing")
 	}
 	return emit("verified")
+}
+
+func failureExitCode(err error) int {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return 3
+	}
+	var timeout net.Error
+	if errors.As(err, &timeout) && timeout.Timeout() {
+		return 3
+	}
+	if errors.Is(err, croc.ErrRelayConnection) {
+		return 4
+	}
+	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+		return 5
+	}
+	return 1
 }
 
 func main() {
@@ -115,6 +136,6 @@ func main() {
 		defer sink.Close()
 	}
 	if err := run(os.Stdin, os.Stdout); err != nil {
-		os.Exit(1)
+		os.Exit(failureExitCode(err))
 	}
 }

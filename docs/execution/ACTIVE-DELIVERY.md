@@ -1,4 +1,16 @@
-# 当前交付状态 · 2026-11-08（优先于下方历史记录）
+# 当前交付状态 · Windows × Web 集成收束（2026-11-13）
+
+用户最新方向：以当前候选开始功能入口减法、性能与工具唤起优化，按需借助Figma/成熟交互参考。新Codex按[专项交接](../handoff/CODEX-SIMPLIFY-PERFORMANCE-FIGMA-20261113.md)接续；下述真实Access/原生缺口继续保留，不因此宣称已完成，也不抢先部署。db7e825的Desktop43258117150/Preview43258117101/Web43258117272已全部SUCCESS。
+
+当前工作区/分支为integration/windows-web-closeout-20261112，基于#92精确65ab738a6；原#77/f041f36工作区和未提交状态未重置、未切换。六PR最新HEAD/base/CI和功能矩阵见[本轮审计](WINDOWS-WEB-CLOSEOUT-AUDIT-20261113.md)。#92只选择同步到旧#77，不冒充完整git历史合并；本批逐行补片段邀请/准确等待提示，隔离保留croc实验。W1–W3 WebRTC/WSS、64MiB、角色授权、Store/schema及#92排序菜单修正均保留。没有修改App、transferBackend、harness、Rust/Cargo、Web源码或Worker。
+
+应用源码/候选精确SHA：6d59eb0a5c4e2e1cf9eb5c947b758a50b380ebc6，Draft PR #93。基线桌面195PASS3.9m；集成后195PASS3.7m；Rust Web安全12PASS；Web29单元+9Node+15浏览器PASS22.5s；构建/源码预检/Worker dry-run通过。同SHA Desktop43256362087、Preview43256362083、Web43256361882全部SUCCESS。首次Web缺浏览器、Rust缺dist的前置失败保留，已补齐后运行，不谎称产品修复。CI完整结束后再提交文档证据，不反复取消构建。
+
+Windows EXE/MSI编译、MSI只读检查、便携包核验完成；EXE SHA256 dec7eb9022689709fdf8ca7e4580826a5003cd98e6ca9dad4a6098d27505c404，ZIP SHA256 50468d5b7b06a13e77259e46c97dd36dd49c1248c78c01f75f3a6cc31514ba99。未签名debug预览，已有WebView2前提；420许可证记录/一项源码映射警告，不能正式发行。标准包不带未审实验croc组件。新隔离Windows原生球→胶囊→完整空架/互传默认关闭/W1说明可见；未启网络。窗口隐藏后工具无法继续，停止仅本轮自建进程，正常退出/恢复PARTIAL；拖放/Space/DPI/三主题/真实双向仍待验。完整边界及回滚见审计末节。
+
+W1–W3与croc是两条既有实现，不并列为两个正式公网入口；旧Android78B成功仅归croc，11月12日公网失败未消失。Access占位未部署，无真实账号/公网/手机/双Windows新验收。可进入Draft代码审查，不能正式合main、发布或安装。下一步接续真实Access部署环境与同候选双向验收；真实账号/域名配置为外部条件，需专项权限时再说明。回滚保留#92/#77和旧包，退出备份data/webview后换旧EXE，无数据库迁移。后续文档SHA不冒充上述二进制源码SHA。
+
+## 以下为旧#77按各自SHA保留的历史证据
 
 唯一集成候选：PR #77 / feat/capsule-recent-focus-20261108。已包含#62及#68–#76完整HEAD，不重复cherry-pick，不重置或新开微PR；#66独立，#67固定dbfe15b7合同已纳入。最新已运行应用20b1c08992041d691af3014aa21c795f2456d95b。唯一功能矩阵仍由原生成器维护完整43+44约束，原生/浏览器/协议/真实模型证据分开。
 
