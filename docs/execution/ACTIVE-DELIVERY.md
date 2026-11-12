@@ -1,5 +1,7 @@
 # 当前交付状态 · Windows × Web 集成收束（2026-11-13）
 
+用户最新方向：以当前候选开始功能入口减法、性能与工具唤起优化，按需借助Figma/成熟交互参考。新Codex按[专项交接](../handoff/CODEX-SIMPLIFY-PERFORMANCE-FIGMA-20261113.md)接续；下述真实Access/原生缺口继续保留，不因此宣称已完成，也不抢先部署。db7e825的Desktop43258117150/Preview43258117101/Web43258117272已全部SUCCESS。
+
 当前工作区/分支为integration/windows-web-closeout-20261112，基于#92精确65ab738a6；原#77/f041f36工作区和未提交状态未重置、未切换。六PR最新HEAD/base/CI和功能矩阵见[本轮审计](WINDOWS-WEB-CLOSEOUT-AUDIT-20261113.md)。#92只选择同步到旧#77，不冒充完整git历史合并；本批逐行补片段邀请/准确等待提示，隔离保留croc实验。W1–W3 WebRTC/WSS、64MiB、角色授权、Store/schema及#92排序菜单修正均保留。没有修改App、transferBackend、harness、Rust/Cargo、Web源码或Worker。
 
 应用源码/候选精确SHA：6d59eb0a5c4e2e1cf9eb5c947b758a50b380ebc6，Draft PR #93。基线桌面195PASS3.9m；集成后195PASS3.7m；Rust Web安全12PASS；Web29单元+9Node+15浏览器PASS22.5s；构建/源码预检/Worker dry-run通过。同SHA Desktop43256362087、Preview43256362083、Web43256361882全部SUCCESS。首次Web缺浏览器、Rust缺dist的前置失败保留，已补齐后运行，不谎称产品修复。CI完整结束后再提交文档证据，不反复取消构建。
