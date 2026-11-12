@@ -27,7 +27,8 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
   useEffect(()=>{if(open&&backend.peers)void backend.peers().then(peers=>setKnown(peers.map(peer=>peer.fingerprint))).catch(e=>setError(String(e)));},[backend,open]);
   const [devices,setDevices]=useState<NearbyDevice[]>([]),[finding,setFinding]=useState(false),[deviceName,setDeviceName]=useState("");
   async function findDevices(){if(!backend.devices||finding)return;setFinding(true);setError("");try{setDevices(await backend.devices());}catch(e){setError(String(e));}finally{setFinding(false);}}
-  useEffect(()=>{if(open&&mode==="send")void findDevices();},[open,mode]);
+  const hasFiles=selection.files.length>0;
+  useEffect(()=>{if(open&&mode==="send"&&hasFiles)void findDevices();},[open,mode,hasFiles]);
   function importConnection(text:string){
     setConnection(text);setDeviceName("");setError("");
     if(!text.trim())return;
@@ -49,20 +50,28 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
   const [webEndpoint,setWebEndpoint]=useState(""),[webPairCode,setWebPairCode]=useState("");
   const [webDevice,setWebDevice]=useState<WebDeviceStatus|null>(null);
   const [webPairBusy,setWebPairBusy]=useState(false),[webPairNotice,setWebPairNotice]=useState("");
-  useEffect(()=>{
-    if(!open||!webDevice?.authorized||!backend.webDeviceStatus)return;
-    const timer=setInterval(()=>{
-      void backend.webDeviceStatus?.().then(value=>setWebDevice(value)).catch(()=>{});
-    },4000);
-    return()=>clearInterval(timer);
-  },[open,backend,webDevice?.authorized]);
+  const statusReading=useRef(false);
   useEffect(()=>{
     if(!open||!backend.webDeviceStatus)return;
-    let live=true;
-    void backend.webDeviceStatus().then(v=>{if(live)setWebDevice(v);})
-      .catch(e=>{if(live)setError(String(e));});
-    return()=>{live=false;};
-  },[backend,open]);
+    let live=true,timer:ReturnType<typeof setTimeout>|undefined;
+    const refresh=async()=>{
+      if(!live||document.visibilityState!=="visible")return;
+      if(statusReading.current){timer=setTimeout(()=>void refresh(),4000);return;}
+      statusReading.current=true;
+      try{
+        const value=await backend.webDeviceStatus!();
+        if(!live)return;
+        setWebDevice(value);
+        clearTimeout(timer);
+        if(value?.authorized&&document.visibilityState==="visible")timer=setTimeout(()=>void refresh(),4000);
+      }catch(e){if(live){setError(String(e));clearTimeout(timer);if(document.visibilityState==="visible")timer=setTimeout(()=>void refresh(),4000);}}
+      finally{statusReading.current=false;}
+    };
+    const visible=()=>{clearTimeout(timer);if(document.visibilityState==="visible")void refresh();};
+    document.addEventListener("visibilitychange",visible);
+    void refresh();
+    return()=>{live=false;clearTimeout(timer);document.removeEventListener("visibilitychange",visible);};
+  },[backend,open,webDevice?.authorized]);
   async function claimWebDevice(){
     if(!backend.webDeviceClaim||webPairBusy)return;
     setWebPairBusy(true);setWebPairNotice("");setError("");
@@ -118,6 +127,7 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
     {mode==="send"?<>
       <strong>1. 选择文件</strong><p className="transfer-note">已选 {selection.files.length} 项{selection.files.length>16?"，一次最多发送16项":""}</p>
       {!selection.files.length&&<p className="capability-hint">先在文件架选择文件，再使用“发送到设备”。<Button variant="outline" onClick={()=>onOpenChange(false)}>返回文件架选文件</Button></p>}
+      {(hasFiles||activeSend||result)&&<>
       {!!selection.files.length&&<ul className="transfer-files" aria-label="待发送文件">{selection.files.map(file=><li key={file.id} title={file.name}>{file.name}</li>)}</ul>}
       {webDevice?.signal_online&&backend.webOffer&&backend.webDeviceSignal&&backend.subscribeWebSignals&&
         <DesktopWebOutbox backend={backend} open={open} online={webDevice.signal_online}
@@ -143,6 +153,7 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
         {activeSend?<Button type="button" variant="outline" disabled={cancelling} onClick={()=>{setCancelling(true);void backend.cancelSend().catch(e=>{setError(String(e));setCancelling(false);});}}>{cancelling?"正在取消…":"取消发送"}</Button>:<Button type="submit" disabled={!selection.files.length||selection.files.length>16||!address.trim()||!fingerprint.trim()||working}>{deviceName&&!known.includes(fingerprint)?"确认设备并发送":"发送文件"}</Button>}
       </form>
       <div className="transfer-status" role="status">{activeSend?<>{cancelling?"正在取消，等待安全结束":phases[progress?.phase??""]??"正在连接…"}{progress&&<><progress aria-label="发送进度" value={progress.bytes} max={progress.total||1}/><span>{sizes(progress.bytes)} / {sizes(progress.total)} · {progress.file_index+1}/{progress.file_count}项</span></>}</>:result?<><strong>{statuses[result.status]??result.status}</strong><p>{result.message}</p><ul>{result.files.map(file=><li key={file.index}>{selection.files[file.index]?.name??`文件 ${file.index+1}`} · {statuses[file.status]??file.status}</li>)}</ul></>:null}</div>
+      </>}
     </>:<>
       {view.receiving?<section className="transfer-listening">
         <strong>已准备好接收 · 设备码 {view.fingerprint?.slice(0,6).toUpperCase()}</strong>

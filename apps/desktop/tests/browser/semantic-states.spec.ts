@@ -4,8 +4,9 @@ for(const theme of ["light","dark","blue"])test(`错误语义色在 ${theme} 可
   await page.setViewportSize({width:340,height:320});
   await page.addInitScript(value=>localStorage.setItem("ningmao-theme",value),theme);
   await page.goto("/tests/harness.html");
+  await page.getByRole("button",{name:"选择 Alpha.txt",exact:true}).click();
   await page.getByRole("button",{name:"更多操作",exact:true}).click();
-  await page.getByRole("menuitem",{name:"文件互传",exact:true}).click();
+  await page.getByRole("menuitem",{name:"发送到设备",exact:true}).click();
   const panel=page.getByRole("dialog",{name:"文件互传",exact:true});
   await panel.getByRole("tab",{name:"发送文件",exact:true}).click();
   await panel.getByLabel("粘贴对方的连接信息").fill("not-a-connection");
