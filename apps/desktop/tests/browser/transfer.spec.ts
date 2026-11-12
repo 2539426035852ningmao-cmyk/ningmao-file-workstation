@@ -1,9 +1,9 @@
 import {expect,test} from "@playwright/test";
 
-for(const theme of ["light","dark"])test(`互传分区与键盘切换适配340×320 ${theme}`,async({page},info)=>{
+for(const theme of ["light","dark","blue"])test(`互传分区与键盘切换适配340×320 ${theme}`,async({page},info)=>{
   await page.setViewportSize({width:340,height:320});
+  await page.addInitScript(theme=>localStorage.setItem("ningmao-theme",theme),theme);
   await page.goto("/tests/harness.html");
-  await page.evaluate(theme=>document.documentElement.classList.toggle("dark",theme==="dark"),theme);
   await page.getByRole("button",{name:"更多操作",exact:true}).click();
   await page.getByRole("menuitem",{name:"文件互传",exact:true}).click();
   const panel=page.getByRole("dialog",{name:"文件互传",exact:true});
@@ -11,14 +11,13 @@ for(const theme of ["light","dark"])test(`互传分区与键盘切换适配340×
   await receive.focus();await page.keyboard.press("ArrowLeft");
   await expect(panel.getByRole("tab",{name:"发送文件",exact:true})).toHaveAttribute("aria-selected","true");
   await expect(panel.getByRole("tabpanel")).toContainText("先在文件架选择文件");
-  await panel.getByText("手动连接 / 查看设备信息",{exact:true}).click();
-  await panel.getByLabel("证书指纹",{exact:true}).fill("a".repeat(64));
-  await expect(panel.getByLabel("证书指纹",{exact:true})).toHaveValue("a".repeat(64));
-  const send=panel.getByRole("button",{name:"发送文件",exact:true});
-  await send.scrollIntoViewIfNeeded();await expect(send).toBeInViewport();await expect(send).toBeDisabled();
+  await expect(panel.getByRole("button",{name:"返回文件架选文件",exact:true})).toBeInViewport();
+  await expect(panel.getByRole("button",{name:"发送文件",exact:true})).toHaveCount(0);
+  await expect(panel.getByLabel("粘贴对方的连接信息",{exact:true})).toHaveCount(0);
   expect(await panel.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
   expect(await panel.getByRole("tabpanel").evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
-  await page.screenshot({path:info.outputPath(`transfer-${theme}.png`)});
+  await expect(panel).toBeInViewport({ratio:1});
+  await page.screenshot({path:info.outputPath(`transfer-${theme}.png`),animations:"disabled"});
   await panel.getByRole("tab",{name:"发送文件",exact:true}).focus();await page.keyboard.press("ArrowRight");
   await expect(receive).toHaveAttribute("aria-selected","true");
   await expect(panel.getByRole("button",{name:"开启接收",exact:true})).toBeDisabled();

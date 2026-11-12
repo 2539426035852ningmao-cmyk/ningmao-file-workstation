@@ -1,3 +1,10 @@
+# 2026-11-13 第一批精简与性能优化
+
+构建后补记：PR #94应用源码f81e9def718dc2a784d16c7a7eee87f458865c28；EXE SHA2566895e9b918fe9e6495646a9633218c24deb31ac7ece132eb88bf7c0a23b4dda5，ZIP830e94fed2db88c1be0c44657cdf973eb26f9a9091293125ede83f78ebed9eea，解压9文件校验/空data-webview PASS。同EXE新隔离球→胶囊→空架→接收→空发送→返回、正常退出及重启CtrlEnter回架PASS，PID42568/40476均正常退出、端点0、SQLite完整2架0项0任务。仅空库子集，原生隐藏轮询/拖放/全主题/DPI/真实双向未验，1412日志保留。Web43264403366/Preview43264403271 SUCCESS；Desktop43264403485的Windows安全编译SUCCESS，Ubuntu198PASS/1旧排序测试FAIL。原样重复12次1失败，诊断16次3失败：Enter时焦点已回menu，未触发排序。仅测试移开鼠标再聚焦，20次连续PASS；无生产改动，不重打MSI。完整日志/最终后续CI见PR #94和专项报告。
+
+
+已按专项交接从干净6ee04ea5f2012e1ce4adbe4997a38276642a8d06建立perf/transfer-progressive-idle-20261113，保留#93/#77和旧包。仅收起空发送页的连接/预检/实验及无效发现；选中后复用原路径，进行中取消/终态保留。设备状态隐藏暂停、可见恢复刷新、慢请求串行，无Rust/SQLite/权限/协议/原生生命周期改动。三项回归先红后绿：空发现1→0、表单控件6→0、隐藏40s查询10→0、9s延迟最大并发3→1；仅合成浏览器请求计数，不是原生CPU/内存收益。完整桌面199PASS（3.8分钟），提交前验证及范围见docs/execution/TRANSFER-SIMPLIFY-PERFORMANCE-20261113.md；同批PR/包清单承载精确源码与最终CI、原生范围。不得把新包继承旧原生证据或把真实Access/双向/许可证缺口关闭。
+
 # 2026-11-13 Windows × Web 集成接续
 
 用户最新决定：以当前集成版为主，下一阶段做减法、性能优化、工具打开调用简化，按需Figma和成熟UI/icon/动效参考。执行docs/handoff/CODEX-SIMPLIFY-PERFORMANCE-FIGMA-20261113.md，不重做需求、不撤销已确认能力、不把UI精简扩大为业务/数据库/权限重构。db7e825三CI已全SUCCESS；真实授权/跨设备与原生缺口继续保留。

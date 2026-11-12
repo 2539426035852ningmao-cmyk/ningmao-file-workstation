@@ -19,6 +19,7 @@ window.verifyChatIPC=async()=>{const calls:{command:string;args:unknown}[]=[];mo
 let transferView:TransferView={receiving:false,address:null,fingerprint:null,shelf_id:null,pending:null,sending:false};
 let transferEvents:Parameters<TransferBackend["subscribe"]>[0]|undefined,transferFinish:((value:TransferResult)=>void)|undefined;
 const transferCalls:string[]=[];
+const transferReads={devices:0,status:0,inFlight:0,maxInFlight:0};
 let webSignalHandler:((msg:DesktopWebSignal)=>void)|undefined;
 let webOutboundHandler:((msg:DesktopWebMessage)=>void)|undefined;
 let syntheticBrowserReceipt:string|null=null;
@@ -29,9 +30,9 @@ let browserFinish:((value:{job_id:number;status:string})=>void)|undefined;
 const chatCalls:string[]=[];
 declare global{interface Window{chatHarness:{calls:()=>string[]}}}
 window.chatHarness={calls:()=>chatCalls};
-declare global{interface Window{verifyTransferIPC:()=>Promise<{command:string;args:unknown}[]>;transferHarness:{calls:()=>string[];pending:()=>void;progress:(value:TransferProgress)=>void;finish:(status:string)=>void;webSignal:(message:DesktopWebSignal)=>void;onWebOutbound:(fn:(message:DesktopWebMessage)=>void)=>void;installSyntheticBrowserReceiver:()=>void;receivedBrowserFile:()=>string|null;mockWebNativeSave:()=>void;nativeWebCalls:()=>string[]}}}
+declare global{interface Window{verifyTransferIPC:()=>Promise<{command:string;args:unknown}[]>;transferHarness:{reads:()=>{devices:number;status:number;inFlight:number;maxInFlight:number};calls:()=>string[];pending:()=>void;progress:(value:TransferProgress)=>void;finish:(status:string)=>void;webSignal:(message:DesktopWebSignal)=>void;onWebOutbound:(fn:(message:DesktopWebMessage)=>void)=>void;installSyntheticBrowserReceiver:()=>void;receivedBrowserFile:()=>string|null;mockWebNativeSave:()=>void;nativeWebCalls:()=>string[]}}}
 window.verifyTransferIPC=async()=>{const calls:{command:string;args:unknown}[]=[];mockIPC((command,args)=>{calls.push({command,args});return null;});try{await nativeTransfer.receive(3,"127.0.0.1:0");await nativeTransfer.decide("synthetic-batch",false);await nativeTransfer.send(1,[1,2],"127.0.0.1:53317","a".repeat(64));await nativeTransfer.cancelSend();return calls;}finally{clearMocks();}};
-window.transferHarness={calls:()=>transferCalls,webSignal:message=>webSignalHandler?.(message),
+window.transferHarness={reads:()=>({...transferReads}),calls:()=>transferCalls,webSignal:message=>webSignalHandler?.(message),
   onWebOutbound:fn=>{webOutboundHandler=fn;},
   receivedBrowserFile:()=>syntheticBrowserReceipt,
   installSyntheticBrowserReceiver:()=>{
@@ -108,9 +109,17 @@ const backend:Backend={
   transfer:{
     async peers(){return JSON.parse(localStorage.getItem("test-transfer-peers")||"[]");},
     async pair(name,address,fingerprint){transferCalls.push(`pair:${address}`);localStorage.setItem("test-transfer-peers",JSON.stringify([{name,fingerprint}]));},
-    async devices(){return new URLSearchParams(location.search).has("nearby")?[{name:"合成接收电脑",address:"127.0.0.1:53317",fingerprint:"a".repeat(64)}]:[];},
+    async devices(){transferReads.devices++;return new URLSearchParams(location.search).has("nearby")?[{name:"合成接收电脑",address:"127.0.0.1:53317",fingerprint:"a".repeat(64)}]:[];},
     async browserAvailable(){return new URLSearchParams(location.search).has("browser-share");},
-    async webDeviceStatus(){return (window as unknown as {testW1Status?:unknown}).testW1Status as import("../src/transferBackend").WebDeviceStatus|null ?? null;},
+    async webDeviceStatus(){
+      transferReads.status++;transferReads.inFlight++;
+      transferReads.maxInFlight=Math.max(transferReads.maxInFlight,transferReads.inFlight);
+      try{
+        const delay=Number(new URLSearchParams(location.search).get("status-delay"));
+        if(delay)await new Promise(resolve=>setTimeout(resolve,delay));
+        return (window as unknown as {testW1Status?:unknown}).testW1Status as import("../src/transferBackend").WebDeviceStatus|null ?? null;
+      }finally{transferReads.inFlight--;}
+    },
     async webDeviceConnect(){
       transferCalls.push("web-device-connect");
       if(new URLSearchParams(location.search).has("web-wss-error"))throw new Error("WSS 授权拒绝");
