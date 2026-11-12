@@ -15,6 +15,7 @@ pub enum Kind {
 pub enum CollectAction {
     Add,
     Paste,
+    Locate,
 }
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]

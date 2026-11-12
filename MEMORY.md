@@ -1,4 +1,44 @@
+# 2026-11-09 接续优先
+
+2026-11-12本批收束：即时/150秒晚加入/取消3实际Chromium-Go PASS2.7m，不能把此前提前failed解释成必然2分钟超时。11互传UI PASS24.9s，Go安全分类测试通过；新诊断组件D:/Ningmao-Browser-Components-20261112-diagnostic已建，Windows主EXE未重建。新增HTTPS严格curl+WSS101门槛、退出分类/组件退出记录、最长十分钟文案。随后自动公网测试在文件邀请前被Schannel TLS握手错误拦截（连接器HTTP2已注册），未完成自动公网收发；没让用户再测，未关闭证书/Origin或改全局代理。旧2ce5208三CI全success，当前失败与旧11月9日成功并存。详见docs/research/P3-public-reliability-20261112.md，继续同#77解决实际公网阻塞，不说已修复，不做无关重构。
+
+2026-11-12续测失败待查：本轮用户要求简单快速复测，沿既有临时15分钟/合成范围。a/b .NET HTTPS健康探测超时，c隧道已Registered但探测SSL失败；脚本切换严格验证证书的curl后d健康通过并发邀请。d于香港23:28:26启动、23:30:47 sender failed并关闭，比告知用户23:38有效早；23:31:30 Edge截图WebSocket连接错误，故不能归因过期或内嵌浏览器。根因尚未证实，勿声称已修复/十分钟服务稳定。session20652已wait失败完结，无需再wait。全部源保留，不上传截图/邀请码/原始HTTP错误页。
+
+本地未提交诊断批：run-public-proof.ps1保留HTTPS错误、失败隧道摘要脱敏、严格curl健康探测；Go sender保留内部Send错误链但不输出原文，退出码3超时/4中继失败/5EOF/1其他，脚本打印码。新main/main_test已复制专用上游cmd/ningmao-share-proof并gofmt；此诊断版本尚未重建组件或执行完整回环，新主EXE也未构建。下轮先补提前退出/晚加入真实自动回归及安全错误分类证据，不再让用户盲点新链接，沿同工作区不重置。旧2ce5208源码/成功证据仍按原SHA保留。
+
+本批最终173全界面PASS3.2m（含旧CI失败排序用例），build:test/仓库/PowerShell语法/固定补丁反向检查通过；不因此抹掉66c7c9d远端失败。当前整批提交片段邀请、十分钟等待、专项公网复跑器及Android真实证据，无Rust/SQLite/schema/Copy变化，无新Windows主EXE，当前普通包仍93/开发包2d按其SHA保留。下轮继续同#77将真实公网链路接现有桌面选中文件/任务入口，再简化手机中文接收页；别再重做协议或误称全跨端完成。
+
+最终Android公网真实成功：session18002已wait完成，退出0，Sender verified；用户系统浏览器截图78/78B、全部接收并校验100%。香港时间20:25:11–20:33:33，来源SHA57bc029ba24925a42cef6f28a94a43f582fc25335feeaab5cf44a416f8fe6c08保留，进程/端口全清理。仅专项合成脚本Windows发送器→临时HTTPS/WSS→Android单向子集；完整桌面公网入口/反向/大文件/第二Windows未验，手机落盘SHA未独立读取。内嵌浏览器WSS失败原因未证实，不降安全校验。证据docs/research/P3-android-public-proof-20261109.md，不上传截图/临时域名/邀请码。公网许可已结束，后续新公开需遵守专项授权，不能把本轮成功变成常驻服务授权。
+
+最新Android公网联调：用户已专项批准最长15分钟/十分钟接收/仅合成TXT，经官方签名及发布哈希核验的cloudflared2026.10.7临时HTTPS/WSS，不改防火墙/账号/费用、不公开其他服务。旧轮20:15:54创建源、120s cancelled关闭，手机截图20:22报1033发生于窗口之后，非已证实手机兼容故障。新脚本记录无邀请的UTC起止终态，链接改fragment不入HTTP URL，2真实回环PASS8.1s；公网/Android下载仍待实际结果，不标成功。新运行目录D:/Ningmao-Android-Public-20261109-c；本轮shell session18002，最终必须wait核对phase及清理。所有临时链接/邀请码不入GitHub。片段/脚本/十分钟等待批次尚未集中提交，保留现场。
+
+最新原生整链：2d81216新开发候选带相对路径/固定SHA的新浏览器组件，独立合成库。Windows实际选English→创建分享→原生字段链接交真实Chromium→下载正文/SHA一致→桌面确认校验/隐藏链接→菜单退出PASS2.8s。12引用不变/全部来源副本SHA不变/仅新增completed任务总3/DB完整，PID33936和53318–53323监听0。开发ZIP D:/Ningmao-BrowserLink-2d81216-dev.zip，完整哈希及EXE见ACTIVE；不是发行包，distributionApproved=false。复制按钮已点但未读剪贴板，不冒称载荷通过。邀请只在进程内，无code文件。首次测试因process缺失/空用户目录找不到缓存，已复用已知现有浏览器成功，不重装。
+
+2d81216远端Preview42611256494与P342611256621成功，Desktop42611256471真实失败：172UI PASS/1旧分享测试仍找“分享代码”，Windows job成功。现只更新旧断言接收链接，11专项PASS24.2s，等修正提交完整CI；不可篡改旧失败或把新HEAD当旧包来源。后续仍沿#77，许可/跨设备未放行。
+
+接续桌面网页衔接：ab6ee2f三CI全success（42548386212/42548386267/42548386230）。同#77把开发分享区改为完整?code=接收链接，复用上游自动接收，只在browserBusy时显示/终态隐藏，保持仅本机和临时凭证提示。14互传界面PASS29.2s；真实Chromium直接URL接收、不再手填代码，SHA/来源保护/接收确认/取消2项PASS13.3s。未新建Windows包或验原生全链，旧93包不含此UI。下一步隔离集成新组件与UI，仍不清关发行或放开跨设备网络，完整当前证据见ACTIVE顶部。
+
+本轮后续已重建浏览器组件至D:/Ningmao-Browser-Components-20261109-live-only，补采EFF README后70项/无缺失正文；字体5.3.0 LICENSE确认含SIL OFL。新web.exe哈希1d758565f383109900c163ecb3282cd64b103f549e9b11fdc9444a5958c1fd9c，与实际回环EXE相同；两项真实Chromium/Go中文下载SHA/来源保留/接收核验/取消PASS11.3s，六端口已释放。详细报告docs/research/P3-browser-live-entry-license-20261109.md；图标/旧NOTICE映射及底层SSH/WASM/端点仍未清关，不加入标准包。此后源码补记不能冒称桌面EXE来源，新桌面实际包仍93d14cc。
+
+唯一 #77 / feat/capsule-recent-focus-20261108，工作区不切换。应用候选93d14ccb3b45e6903e4aefad84f03a69c7558aea三CI全success（Desktop42546713423/Preview42546713434/P342546713469），新包原生选English.txt→同原生Space成功预览→Esc关闭→完整退出PASS；12引用/2任务与旧edf库一致、全部来源副本SHA相同、DB完整，PID32772已退出。ZIP D:/Ningmao-Integrated-93d14cc.zip及精确哈希见ACTIVE。修复只用event.key替代event.code，24专项界面通过；未捕获原生事件字段，不猜根因。OLE/全DPI/多屏等仍未验，旧包保留。
+
+随后最小浏览器实验批移除Store入口并把#store深链接回首页，保留收发及原SSH回退；5实际组件/词表测试、TypeScript/补丁反向检查通过。尚未重建组件/新回环，不能继承旧web.exe。EFF词表CC BY4.0原README有来源和修改说明，但采集器未收README，下一步改源头再生成；字体/图标/旧NOTICE映射及SSH/WASM/端点范围仍未清关，普通包不携带，distributionApproved=false。沿#77整批提交/完整CI，不自动合并、安装、发布或模型/网络请求。完整当前状态优先ACTIVE顶部，旧记录按各自SHA留存。
+
+2026-11-09收束：应用edf720484f7c9ae09cac327510c360f57d6e6d34三CI成功，统一包已构建。原生元数据规则添加ID8文档→停用→完整退出/重启仍停用且成果保留，其他字段/12记录/2任务/全部SHA一致，DB完整，两个进程退出；原生标签撤销未做。ZIP/EXE全SHA见ACTIVE顶部；后续仅证据文档HEAD不冒称EXE来源。仍无正式发行/合并，浏览器标准包缺组件，Space/OLE/DPI/外部设备/真实云AI等未验保留。下一任务Space原生原因与浏览器许可交付，沿#77继续。
+
+2026-11-08 #77当前最小本地规则批次：688438d39f372cb26d4c0892ff5c00a2de965876薄Anthropic协议三CI成功，现有会话/DPAPI不迁移，8HTTP/Rust及7UI通过；仅一次获批本地GGUF HTTP返回OK/3token，实例已释放，不等于应用整链/Anthropic live。当前规则启停/单次撤销/停用成果保留、runtime只给四种元数据，19UI通过，无后端/权限变化。第三方安装器/强隔离/持久化工作流未实现；当前源码/CI/统一包原生待完成。所有旧包和失败夹具保留，唯一状态ACTIVE；仍无云/额外模型/下载/发布/安装/合并。
+
+2026-11-08 #77同分支P4薄协议批次：稳定应用20b1c08992041d691af3014aa21c795f2456d95b三CI成功/170UI、同包管理中心任务记录原生通过，所有测试进程退出。当前官方Anthropic Messages原生文本协议：8真实HTTP/兼容回归及7UI/Clippy通过，无DB迁移/依赖/权限；仅官方host，其他自定义兼容服务不改。用户批准一次已有3.34GB本地GGUF测试，独立localhost HTTP返OK/3token/12.83s/max16，实例已释放，无云/下载/密钥；不是应用整链或Anthropic live。当前源码/包/CI待收束；之后最小标签规则插件启停撤销，不造新框架。仅ACTIVE为实时状态，矩阵改生成器。
+
+2026-11-08统一#77继续任务中心：应用基线10215e7d318bc876b71b6238b80ba0eddaa8613d三CI成功，169UI/55Rust/Clippy通过；同EXE原生改名→添加→正常绑定安全复制→获批仅软回收ID8→撤销→完整退出/重启记录哈希全一致，两个PID已退出。手工ID3普通路径夹具产生重复卡片，真实绑定ID4规范路径不复现，原夹具保留不修生产；Space自动输入仍PARTIAL。当前任务中心只改误称复制的文案，已有jobs和cancel分派全部复用，无后端/权限/数据变化；本批最终检查/包待验。状态只见ACTIVE，下一步薄Provider和最小规则插件，不开微PR。
+
+2026-11-08同一#77继续P1：5608c3776ac4530f3cd5bc55061893ee8434e898双CI成功/同EXE最近项定位-搜索-详情原生通过；Space自动输入未触发留PARTIAL，6来源/引用/DB完整，PID20868正常退出。当前补文件架重命名：原切架菜单+创建表单复用，只改shelves.name/main_only，不改schema/目录/文件/权限/Copy。最终169全界面/55Rust（3ignored）/严格Clippy/fmt/仓库检查通过，绑定架目录字节保留与回收架拒绝改名PASS；新包原生待当前结果。唯一状态见ACTIVE，矩阵改生成器，不另开PR。
+
+2026-11-08总交接接续：唯一集成候选指定PR #77 / feat/capsule-recent-focus-20261108，已含#62及#68–#76完整HEAD，不重复合入；#66不吸收，受控窗口交接先可用；#67固定dbfe15b7合同已原样纳入。保留工作区/旧8d包/合成库。当前蓝色胶囊小字3.8605对比真实修复（移除opacity），键盘排序测试从分离focus/keypress改目标press并断言关闭/回焦，5次连续PASS，失败日志保留。唯一功能矩阵更新生成器保留43+44；下一步完成完整回归、同SHA新包与最近项原生，再同分支补文件架重命名，不增微PR。无联网/模型/费用/安装/发布/合并。最终结果只见ACTIVE-DELIVERY顶部。
+
 # 当前执行入口（2026-11-07，统一候选持续交付）
+2026-11-08最近素材定位提交前：feat/capsule-recent-focus-20261108承接#76/8d046f7；3个最近素材改独立24×32按钮，复用既有collect请求与focusSearchResult，Rust仅扩locate枚举及所属架校验，不增权限/Store/SQLite/Copy或窗口几何。长名省略但安全语义完整，亮蓝hover对比1.46真实问题已修复，三主题≥3。168全界面PASS3.1m，52相关RustPASS/3ignored，Clippy/fmt/仓库/diff/TypeScript/Vite及机械检查PASS。新包原生与CI待本批构建，旧8d包和原工作区保留，不合并/安装/发布/网络/模型。
+2026-11-08胶囊快捷收集最终交付：feat/capsule-collect-20261108/PR#76，源码8d046f71e6f91a45800a771755eb62c481077ff9。Desktop42453438741/Preview42453438744均success；原始日志确认163界面PASS、115RustPASS/7ignored，含本地因.codex保护路径失败的3回收测试在标准CI通过，未放宽保护。包MSI只读/便携PASS，ZIP D:/Ningmao-CapsuleCollect-8d046f7.zip SHA2563a269e586cbeca7f756b74df7aa1326750bdc602dce3f879a5d17c9f9ac667cf，EXE SHA2563b58f3a37d3309b81026d2f2f5a3ef6fea3c41ea92a28af150a4f236adead86b；408许可/1警告非清关，分发data/webview为空。同包Windows原生球→胶囊添加→系统选择器→合成文件加入1条PASS；再添加Esc取消仍5条/0任务PASS；Explorer复制另一合成文件→胶囊粘贴→正确架加入1条PASS。最终6条，原4条及6来源SHA保留，SQLite完整/jobs0，PID34872正常完整退出、TCP/UDP0，合成目录标签已关闭。UI工具缓存/隐藏窗口几何错误重新观察后恢复，未冒称当次动作成功；捕获小字及退出1412保留。新胶囊绑定Copy/冷独立窗/OLE/全DPI/多屏尚未原生验收；没有互传/AI/发现/接收器、费用、安装、发布或合并。PR#75补记已恢复同步，PR#76正文包含精确包/原生/CI/风险/回滚，无远端补记缺口。构建后两份补记随下一有效功能提交，避免纯状态push。旧202c4ad包/原工作区保留，回滚退出备份data/webview换旧EXE，无迁移。下一任务：按D05收束最近素材点击后的完整架定位（优先复用现有focus路径），先检查可复用权限边界，不造第二套预览或搜索。
 2026-11-08胶囊快捷收集开发：PR#75补记现已成功远端同步；当前feat/capsule-collect-20261108承接202c4ad。胶囊add/paste仅将目标及枚举交完整文件架，由既有chooseFiles/clipboardFiles/receive执行；不放开entry文件权限，不改Store/Copy/SQLite/网络协议。10专项PASS，112Rust/7ignored，3本地回收测试因.codex源码位置被保护路径拦截且未回收，完整CI另验；新EntryState边界测试PASS，Clippy修正单处样式后PASS。初轮162界面PASS/1反馈宽度FAIL，已最小修正胶囊内部间距/缩略图宽度，保持320×48及3最近素材。最终测试/源码/新包/原生待本批结果；保留202c4ad旧包，不合并/安装/发布/模型/监听。
 2026-11-08菜单收纳最终：源码202c4add48d76968e5352b0f4e7f6cde9e100770，feat/shelf-menu-groups-20261108/PR#75，160界面PASS3.2m。Windows MSI只读/便携PASS，ZIP D:/Ningmao-Menu-202c4ad.zip SHA256d597dc37eabadf014a94755f071cfa0b697b2f1d012a3ea894693c4c1abf932c，EXE SHA2561c8c70baf857c9f6efbf40e6e4733a25ccd68722063bb7e0a453cbc19064b6cf；408许可/1警告非清关，分发data/webview空。同包420×520深色原生菜单展开→方向键选列表→Enter生效；回焦Enter重开/显示组收纳/列表勾选/Esc关闭PASS，4记录/来源SHA及任务表前后相同，DB完整、PID19812正常退出、TCP/UDP0。未进入互传/AI，无安装/发布/合并。Desktop42449737284/Preview42449737332均success（公开REST API核实），未取消构建。原代理TLS失败，直连Git推送成功；没有改全局配置。GitHub连接器补写PR正文时连续传输失败，原生/打包/CI补记未成功远端写入，待同步正文保留D:/Ningmao-menu-pr75-update.md，下轮先恢复同步，不谎称完成。旧622包/原工作区保留。OLE/多屏/全DPI、小字捕获及退出1412仍未放行。下一具体任务：恢复本证据同步，按D05合同检查胶囊快速添加与主架入口之间最短现有安全路径，不扩大entry权限或重造导入服务。
 2026-11-08下一功能批：分支feat/shelf-menu-groups-20261108承接#74/622dbfa，仅将更多菜单的显示/排序/缩略图/主题原位收纳，复用Radix和原偏好；侧向子菜单在340px越界的初稿已废弃。3主题原位键盘专项PASS，初轮完整156PASS/4旧helper路径FAIL，补齐真实新路径后等待最终完整回归。无Rust/SQLite/文件/协议/权限或依赖变更，不进入互传/AI；新包原生待验，旧622候选保留。

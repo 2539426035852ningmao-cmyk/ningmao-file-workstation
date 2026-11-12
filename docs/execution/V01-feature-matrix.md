@@ -1,10 +1,29 @@
 # 首版功能与验收矩阵
 
-生成时源码：1950e758ed746009a58371afd84b7b98daee4b17。本文件由 scripts/generate-delivery-matrix.mjs 生成；结论仅针对下述范围，不自动继承旧 SHA 的 PASS。
+生成基线：66c7c9dd16efb5140f5a00a7bd50a75d68c15e46（工作树含本批修改）；最终构建提交以 build-manifest 为准。本文件由 scripts/generate-delivery-matrix.mjs 生成；结论仅针对下述范围，不自动继承旧 SHA 的 PASS。
 
 唯一当前执行状态仍在 [ACTIVE-DELIVERY](ACTIVE-DELIVERY.md)。IN_PROGRESS 表示该完整复合需求仍有缺口，并非其中每个子功能均未实现。没有逐条完整验收的项目不标 TESTED。基础与增强均保留，DEFERRED 仅用于总指令明确允许后置的视频关键帧/OCR/音频理解。
 
-当前统一候选：#68 继承 #62 ffb8bc8；#66 独立未吸收；#64 D05/#67 为实施依据。main fc8903d。普通 Windows 候选与浏览器组件开发包分清，外部双设备/手机/公网/真实模型证据尚缺。
+当前统一候选：PR #77 / feat/capsule-recent-focus-20261108。已核实 #62 和 #68–#76 的完整 HEAD 均已包含，不重复 cherry-pick。#66 独立，#67 固定合同保留。Android 真实公网单向78B接收/协议校验已有证据；独立Windows双机、手机反向/大文件及完整应用真实厂商模型证据仍缺。精确范围与运行包见 ACTIVE-DELIVERY，不把生成时源码视为已验证二进制。
+
+## 基础能力实际落地情况
+
+下表拆开复合决定的基础子能力。INTEGRATED 仅表示已有可调用实现；PARTIAL 表示证据范围未覆盖完整原生闭环；NOT_STARTED 表示尚缺用户可用实现。
+
+|功能|实现状态与代码入口|用户入口|自动与原生证据|首版阻断与下一动作|
+|---|---|---|---|---|
+|引用、绑定、安全复制、同名编号|INTEGRATED · src-tauri/src/store.rs|添加/粘贴/拖入；绑定架显示复制语义|10215e7 同EXE原生添加/正常绑定/编号复制/来源及旧目标SHA保护通过|PARTIAL：添加→复制→软回收/撤销→重启已验；93d14cc Space原生子集通过，OLE新包仍未验|
+|多架、重命名、拆合、网格/列表、多选、排序|INTEGRATED · App.tsx / desktop_runtime.rs|切架菜单、更多→显示与排序|现有选择/排序/窗口测试；旧原生逐项通过|10215e7 原生改名并同EXE重启保留，架ID及文件字节不变；全DPI/多屏另验|
+|预览、本地搜索与定位|INTEGRATED · App.tsx / components/GlobalSearch.tsx / store/search.rs|Space、Ctrl+F、Ctrl+K、胶囊最近项|5608c37原生最近项/搜索/详情通过；93d14cc三CI成功、24定向界面及新EXE原生Space打开English.txt/Esc关闭通过|PARTIAL：Space子集已验，完整连续文件流、全DPI和多屏仍待验|
+|软回收、恢复、备份和 SQLite|INTEGRATED · store.rs / components/RecycleDrawer.tsx|柠猫回收站；管理中心→设置|10215e7 经批准只软回收ID8后撤销，原生重启记录/哈希/任务完全一致；SQLite完整|PARTIAL：软回收/恢复/重启通过；原生备份还原和Windows回收站另验|
+|三主题、球/胶囊/完整架、独立管理|INTEGRATED · orb/MorphCapsule.tsx / Manager.tsx / style.css|球→胶囊→完整架；更多→管理中心|三主题与窄窗回归；旧包原生主题/启动通过|PARTIAL：新包文字与原生闭环；#66 连续形变 NOT_INTEGRATED|
+|任务记录与取消|INTEGRATED · Manager.tsx / App.tsx / store.rs|管理中心→任务中心；文件架→更多→任务记录|20b1c08：36本地定向/170远端全界面/三CI通过，原生独立管理→任务中心及2记录展示通过|保留最近20项、架/状态筛选和真实进度；不新建任务数据库|
+|局域网互传与发现|INTEGRATED · TransferPanel.tsx / transfer_desktop.rs|选文件→发送到设备；更多→文件互传|既有合成回环/协议测试，历史专项许可不扩大|PARTIAL：独立 OS 双机、手机与防火墙边界未完整验收|
+|浏览器分享与随包组件|INTEGRATED · browser_share_desktop.rs / experiments/p3-browser|互传→浏览器分享（组件可用时）；公网暂由专项合成脚本验证|Android真实公网78B接收校验、发送verified/来源SHA保留及清理已验，见P3-android-public-proof-20261109|PARTIAL：公网未接回完整Windows UI；反向/大文件/第二Windows未验，许可和正式发行未批准|
+|AI 会话与建议|INTEGRATED · ChatPanel.tsx / src-tauri/src/chat.rs|AI 面板配置兼容端点后对话|Anthropic专用HTTP/SSE三轮与错误/空流/断流MOCK_PASS，兼容路线原6回归PASS；用户批准单次本地GGUF HTTP返回OK（3token），非应用整链或Anthropic LIVE|PARTIAL：官方Anthropic文本适配已实现，不支持自定义Anthropic网关；厂商LIVE/应用本地模型整链/Agent工具与规则生命周期待验；云端未调用|
+|本地规则标签、插件及工作流|PARTIAL · localTagSuggestions.ts / Manager.tsx|管理中心→标签建议→确认写内部标签|内置示范复用规则：只传ID/名称/类型/已有标签；启停记忆、明确确认、单次撤销及停用保留成果，19界面通过|PARTIAL：内置规则最小闭环已实现；第三方安装/卸载/升级/强隔离及可恢复通用工作流未实现，不冒称插件平台|
+
+## 冻结需求完整约束
 
 |需求|完整约束|状态|源码入口|用户入口|自动测试/证据|Windows原生|首版阻断/风险与下一步|
 |---|---|---|---|---|---|---|---|
@@ -79,23 +98,23 @@
 |P4-26|近期搜索与主动收藏：默认本地短历史、可关闭与清空；保存搜索条件而不复制文件。|IN_PROGRESS|apps/desktop/src-tauri/src/store/search.rs；apps/desktop/src/Manager.tsx|搜索/管理中心；完整闭环待补|已有局部测试，完整需求未验收|NOT_TESTED（完整条目）|需补齐完整闭环；模型/设备依赖单列，不静默延期|
 |P4-27|分层备份与智能重建：备份文件架引用、确认标签、虚拟名称、收藏等用户成果；大型衍生缓存重建，跨机器权限不继承。|IN_PROGRESS|apps/desktop/src-tauri/src/store/search.rs；apps/desktop/src/Manager.tsx|搜索/管理中心；完整闭环待补|已有局部测试，完整需求未验收|NOT_TESTED（完整条目）|需补齐完整闭环；模型/设备依赖单列，不静默延期|
 |P4-28|本地优先与云端独立授权：默认不上传、不调用收费 API；主动启用时明确展示服务商、发送范围、费用风险、限制及撤销。会员≠免费 API。|IN_PROGRESS|apps/desktop/src-tauri/src/chat.rs|AI对话/配置|已有局部测试，完整需求未验收|NOT_TESTED（完整条目）|需补齐完整闭环；模型/设备依赖单列，不静默延期|
-|P4-29|分层插件与按需授权：主文件管理独立于插件；统一扩展接口、按需加载、隔离权限，真实文件操作独立授权。|NOT_STARTED|示范基础可复用 apps/desktop/src/localTagSuggestions.ts；插件生命周期未实现|管理中心规则建议已有，插件管理入口尚缺|已有局部测试，完整需求未验收|NOT_TESTED（完整条目）|阻断：复用规则引擎补安装/启停/权限/卸载，用户标签保留|
-|P4-30|分阶段开放与统一管理：先官方示范插件跑通安装/启停/卸载与故障隔离，再开放本地第三方；商店后置。|NOT_STARTED|示范基础可复用 apps/desktop/src/localTagSuggestions.ts；插件生命周期未实现|管理中心规则建议已有，插件管理入口尚缺|已有局部测试，完整需求未验收|NOT_TESTED（完整条目）|阻断：复用规则引擎补安装/启停/权限/卸载，用户标签保留|
-|P4-31|轻量安全示范插件：首个官方插件只分析经授权的文件名/类型等元数据，提出批量标签建议；用户确认后写内部标签，无模型和网络依赖。|NOT_STARTED|示范基础可复用 apps/desktop/src/localTagSuggestions.ts；插件生命周期未实现|管理中心规则建议已有，插件管理入口尚缺|已有局部测试，完整需求未验收|NOT_TESTED（完整条目）|阻断：复用规则引擎补安装/启停/权限/卸载，用户标签保留|
-|P4-32|分级授权与范围记忆：默认当前任务最小权限；可记忆指定范围低风险授权并可撤销，高风险写盘、联网需另外确认。|NOT_STARTED|示范基础可复用 apps/desktop/src/localTagSuggestions.ts；插件生命周期未实现|管理中心规则建议已有，插件管理入口尚缺|已有局部测试，完整需求未验收|NOT_TESTED（完整条目）|阻断：复用规则引擎补安装/启停/权限/卸载，用户标签保留|
-|P4-33|智能资源保护与故障隔离：插件异常先限速/暂停、持续故障安全停止并保留记录；不误杀正常高负载任务，不拖垮主程序。|NOT_STARTED|示范基础可复用 apps/desktop/src/localTagSuggestions.ts；插件生命周期未实现|管理中心规则建议已有，插件管理入口尚缺|已有局部测试，完整需求未验收|NOT_TESTED（完整条目）|阻断：复用规则引擎补安装/启停/权限/卸载，用户标签保留|
-|P4-34|兼容验证与更新回滚：低频检查更新；验证包完整性、兼容性及权限变化，高风险明确确认，保留旧版恢复。|NOT_STARTED|示范基础可复用 apps/desktop/src/localTagSuggestions.ts；插件生命周期未实现|管理中心规则建议已有，插件管理入口尚缺|已有局部测试，完整需求未验收|NOT_TESTED（完整条目）|阻断：复用规则引擎补安装/启停/权限/卸载，用户标签保留|
-|P4-35|情境式功能融合：能力随选中素材和任务出现在现有菜单；管理中心承载复杂操作，不由插件常驻堆按钮。|NOT_STARTED|示范基础可复用 apps/desktop/src/localTagSuggestions.ts；插件生命周期未实现|管理中心规则建议已有，插件管理入口尚缺|已有局部测试，完整需求未验收|NOT_TESTED（完整条目）|阻断：复用规则引擎补安装/启停/权限/卸载，用户标签保留|
-|P4-36|统一能力入口与优先级：重复能力只显示一个入口，用户默认提供器优先；否则本地/免费/已授权/兼容优先，不能自动收费。|NOT_STARTED|示范基础可复用 apps/desktop/src/localTagSuggestions.ts；插件生命周期未实现|管理中心规则建议已有，插件管理入口尚缺|已有局部测试，完整需求未验收|NOT_TESTED（完整条目）|阻断：复用规则引擎补安装/启停/权限/卸载，用户标签保留|
-|P4-37|用户成果独立保留：卸载插件撤销权限、停后台、清理无用缓存；确认的标签、虚拟名称、文件架成果仍由柠猫保留。|NOT_STARTED|示范基础可复用 apps/desktop/src/localTagSuggestions.ts；插件生命周期未实现|管理中心规则建议已有，插件管理入口尚缺|已有局部测试，完整需求未验收|NOT_TESTED（完整条目）|阻断：复用规则引擎补安装/启停/权限/卸载，用户标签保留|
-|P4-38|分级来源与安全安装：区分官方、已验证、自行导入；校验来源完整性及所需权限，未知来源风险提示并限制权限；来源可信不等于无限权限。|NOT_STARTED|示范基础可复用 apps/desktop/src/localTagSuggestions.ts；插件生命周期未实现|管理中心规则建议已有，插件管理入口尚缺|已有局部测试，完整需求未验收|NOT_TESTED（完整条目）|阻断：复用规则引擎补安装/启停/权限/卸载，用户标签保留|
-|P4-39|主程序协调安全工作流：素材引用、任务、结果通过主程序接口按需交换；插件互不继承权限，不允许绕过写盘审核。|NOT_STARTED|示范基础可复用 apps/desktop/src/localTagSuggestions.ts；插件生命周期未实现|管理中心规则建议已有，插件管理入口尚缺|已有局部测试，完整需求未验收|NOT_TESTED（完整条目）|阻断：复用规则引擎补安装/启停/权限/卸载，用户标签保留|
+|P4-29|分层插件与按需授权：主文件管理独立于插件；统一扩展接口、按需加载、隔离权限，真实文件操作独立授权。|NOT_STARTED|apps/desktop/src/localTagSuggestions.ts；Manager.tsx；内置示范启停/单次撤销已有，第三方生命周期未实现|管理中心→素材→本地规则建议；第三方插件管理入口尚缺|已有局部测试，完整需求未验收|NOT_TESTED（完整条目）|内置示范启停/结果保留/确认撤销已做；外部插件安装/权限/卸载/升级仍缺，不将内置开关冒称完整安装器|
+|P4-30|分阶段开放与统一管理：先官方示范插件跑通安装/启停/卸载与故障隔离，再开放本地第三方；商店后置。|NOT_STARTED|apps/desktop/src/localTagSuggestions.ts；Manager.tsx；内置示范启停/单次撤销已有，第三方生命周期未实现|管理中心→素材→本地规则建议；第三方插件管理入口尚缺|已有局部测试，完整需求未验收|NOT_TESTED（完整条目）|内置示范启停/结果保留/确认撤销已做；外部插件安装/权限/卸载/升级仍缺，不将内置开关冒称完整安装器|
+|P4-31|轻量安全示范插件：首个官方插件只分析经授权的文件名/类型等元数据，提出批量标签建议；用户确认后写内部标签，无模型和网络依赖。|IN_PROGRESS|apps/desktop/src/localTagSuggestions.ts；Manager.tsx；内置示范启停/单次撤销已有，第三方生命周期未实现|管理中心→素材→本地规则建议；第三方插件管理入口尚缺|已有局部测试，完整需求未验收|NOT_TESTED（完整条目）|内置示范启停/结果保留/确认撤销已做；外部插件安装/权限/卸载/升级仍缺，不将内置开关冒称完整安装器|
+|P4-32|分级授权与范围记忆：默认当前任务最小权限；可记忆指定范围低风险授权并可撤销，高风险写盘、联网需另外确认。|NOT_STARTED|apps/desktop/src/localTagSuggestions.ts；Manager.tsx；内置示范启停/单次撤销已有，第三方生命周期未实现|管理中心→素材→本地规则建议；第三方插件管理入口尚缺|已有局部测试，完整需求未验收|NOT_TESTED（完整条目）|内置示范启停/结果保留/确认撤销已做；外部插件安装/权限/卸载/升级仍缺，不将内置开关冒称完整安装器|
+|P4-33|智能资源保护与故障隔离：插件异常先限速/暂停、持续故障安全停止并保留记录；不误杀正常高负载任务，不拖垮主程序。|NOT_STARTED|apps/desktop/src/localTagSuggestions.ts；Manager.tsx；内置示范启停/单次撤销已有，第三方生命周期未实现|管理中心→素材→本地规则建议；第三方插件管理入口尚缺|已有局部测试，完整需求未验收|NOT_TESTED（完整条目）|内置示范启停/结果保留/确认撤销已做；外部插件安装/权限/卸载/升级仍缺，不将内置开关冒称完整安装器|
+|P4-34|兼容验证与更新回滚：低频检查更新；验证包完整性、兼容性及权限变化，高风险明确确认，保留旧版恢复。|NOT_STARTED|apps/desktop/src/localTagSuggestions.ts；Manager.tsx；内置示范启停/单次撤销已有，第三方生命周期未实现|管理中心→素材→本地规则建议；第三方插件管理入口尚缺|已有局部测试，完整需求未验收|NOT_TESTED（完整条目）|内置示范启停/结果保留/确认撤销已做；外部插件安装/权限/卸载/升级仍缺，不将内置开关冒称完整安装器|
+|P4-35|情境式功能融合：能力随选中素材和任务出现在现有菜单；管理中心承载复杂操作，不由插件常驻堆按钮。|IN_PROGRESS|apps/desktop/src/localTagSuggestions.ts；Manager.tsx；内置示范启停/单次撤销已有，第三方生命周期未实现|管理中心→素材→本地规则建议；第三方插件管理入口尚缺|已有局部测试，完整需求未验收|NOT_TESTED（完整条目）|内置示范启停/结果保留/确认撤销已做；外部插件安装/权限/卸载/升级仍缺，不将内置开关冒称完整安装器|
+|P4-36|统一能力入口与优先级：重复能力只显示一个入口，用户默认提供器优先；否则本地/免费/已授权/兼容优先，不能自动收费。|NOT_STARTED|apps/desktop/src/localTagSuggestions.ts；Manager.tsx；内置示范启停/单次撤销已有，第三方生命周期未实现|管理中心→素材→本地规则建议；第三方插件管理入口尚缺|已有局部测试，完整需求未验收|NOT_TESTED（完整条目）|内置示范启停/结果保留/确认撤销已做；外部插件安装/权限/卸载/升级仍缺，不将内置开关冒称完整安装器|
+|P4-37|用户成果独立保留：卸载插件撤销权限、停后台、清理无用缓存；确认的标签、虚拟名称、文件架成果仍由柠猫保留。|IN_PROGRESS|apps/desktop/src/localTagSuggestions.ts；Manager.tsx；内置示范启停/单次撤销已有，第三方生命周期未实现|管理中心→素材→本地规则建议；第三方插件管理入口尚缺|已有局部测试，完整需求未验收|NOT_TESTED（完整条目）|内置示范启停/结果保留/确认撤销已做；外部插件安装/权限/卸载/升级仍缺，不将内置开关冒称完整安装器|
+|P4-38|分级来源与安全安装：区分官方、已验证、自行导入；校验来源完整性及所需权限，未知来源风险提示并限制权限；来源可信不等于无限权限。|NOT_STARTED|apps/desktop/src/localTagSuggestions.ts；Manager.tsx；内置示范启停/单次撤销已有，第三方生命周期未实现|管理中心→素材→本地规则建议；第三方插件管理入口尚缺|已有局部测试，完整需求未验收|NOT_TESTED（完整条目）|内置示范启停/结果保留/确认撤销已做；外部插件安装/权限/卸载/升级仍缺，不将内置开关冒称完整安装器|
+|P4-39|主程序协调安全工作流：素材引用、任务、结果通过主程序接口按需交换；插件互不继承权限，不允许绕过写盘审核。|IN_PROGRESS|apps/desktop/src/localTagSuggestions.ts；Manager.tsx；内置示范启停/单次撤销已有，第三方生命周期未实现|管理中心→素材→本地规则建议；第三方插件管理入口尚缺|已有局部测试，完整需求未验收|NOT_TESTED（完整条目）|内置示范启停/结果保留/确认撤销已做；外部插件安装/权限/卸载/升级仍缺，不将内置开关冒称完整安装器|
 |P4-40|手动优先和安全自动化：第一阶段由用户启动；后续指定文件架可授权低风险自动化，写盘、上传、付费独立确认。|IN_PROGRESS|apps/desktop/src-tauri/src/store.rs|搜索/管理中心；完整闭环待补|已有局部测试，完整需求未验收|NOT_TESTED（完整条目）|需补齐完整闭环；模型/设备依赖单列，不静默延期|
 |P4-41|分阶段进度与安全恢复：持久检查点、人工继续/失败步重试/放弃；真实文件写入核对实际结果，防止重复执行。|IN_PROGRESS|apps/desktop/src-tauri/src/store.rs|搜索/管理中心；完整闭环待补|已有局部测试，完整需求未验收|NOT_TESTED（完整条目）|需补齐完整闭环；模型/设备依赖单列，不静默延期|
 |P4-42|动态任务队列与资源调度：前台响应优先，后台索引/AI 并发受 CPU/RAM/GPU 实际负载约束，可降速暂停并安全恢复。|IN_PROGRESS|apps/desktop/src-tauri/src/store.rs|搜索/管理中心；完整闭环待补|已有局部测试，完整需求未验收|NOT_TESTED（完整条目）|需补齐完整闭环；模型/设备依赖单列，不静默延期|
 |P4-43|模型推荐、确认与回滚：复用已有兼容模型；新下载展示来源/用途/尺寸/空间，支持断点、兼容性验证、失败恢复、安全卸载。|IN_PROGRESS|apps/desktop/src-tauri/src/store.rs|搜索/管理中心；完整闭环待补|已有局部测试，完整需求未验收|NOT_TESTED（完整条目）|需补齐完整闭环；模型/设备依赖单列，不静默延期|
 |P4-44|阶段性真实交付与验收：搜索基础→智能检索→插件闭环→工作流；各阶段真实 Windows 样机、测试、独立回滚、旧功能回归。|IN_PROGRESS|apps/desktop/src-tauri/src/store.rs|搜索/管理中心；完整闭环待补|已有局部测试，完整需求未验收|NOT_TESTED（完整条目）|需补齐完整闭环；模型/设备依赖单列，不静默延期|
-|D05-1|Orb→Capsule→Full，移除独立QuickPeek|IN_PROGRESS|apps/desktop/src/orb/MorphCapsule.tsx；src-tauri/src/entry.rs|球→含最近3项/数量的胶囊→点击直接打开完整架；Esc收回球|探针/旧界面局部证据，产品闭环未验|PARTIAL|首版阻断：旧轻预览组件/原生状态已移除，旧IPC值仅兼容映射胶囊；连续形变、快捷添加/粘贴、双启动模式和新原生OLE仍待完成|
-|D05-2|白/深蓝/亮蓝三套完整主题|IN_PROGRESS|apps/desktop/src/style.css；preferences.ts|文件架更多菜单/管理中心设置/入口主题；所有窗口同步|探针/旧界面局部证据，产品闭环未验|PARTIAL|首版阻断：三套Token与旧设置兼容已实现，跨窗/重开和全量141界面通过；新包原生及最终视觉待验|
-|D05-3|管理中心三栏、独立窗口|IN_PROGRESS|apps/desktop/src/Manager.tsx|文件与素材/任务中心/设置；原文件架/素材/标签下沉二级|探针/旧界面局部证据，产品闭环未验|PARTIAL|首版阻断：三栏目已实现并经浏览器回归；新包原生及最终视觉待验|
+|D05-1|Orb→Capsule→Full，移除独立QuickPeek|IN_PROGRESS|apps/desktop/src/orb/MorphCapsule.tsx；src-tauri/src/entry.rs|球→含最近3项/数量/添加/粘贴的胶囊→完整架；最近项定位；Esc收回球|探针/旧界面局部证据，产品闭环未验|PARTIAL|首版阻断：添加/粘贴和双启动已实现并有旧包原生证据，最近项待同版原生；#66连续形变独立，不阻塞受控交接候选|
+|D05-2|白/深蓝/亮蓝三套完整主题|IN_PROGRESS|apps/desktop/src/style.css；preferences.ts|文件架更多→显示与排序/管理中心设置/入口主题；所有窗口同步|探针/旧界面局部证据，产品闭环未验|PARTIAL|首版阻断：三套Token、跨窗与旧包原生已测；当前蓝色小字对比修正及新包视觉待最终证据|
+|D05-3|管理中心三栏、独立窗口|IN_PROGRESS|apps/desktop/src/Manager.tsx|文件与素材/任务中心/设置；原文件架/素材/标签下沉二级|探针/旧界面局部证据，产品闭环未验|PARTIAL|首版阻断：三栏目和独立窗口已实现且旧包原生通过；跨传输任务汇总仍需补齐|
 |D05-4|单主要辅助面板及上下文保持|IN_PROGRESS|apps/desktop/src/App.tsx|预览/搜索/互传/AI|探针/旧界面局部证据，产品闭环未验|PARTIAL|首版阻断：Ctrl+K不再叠加现有模态面板、AI草稿保留已测；异步结果/固定详情仍需整体仲裁|

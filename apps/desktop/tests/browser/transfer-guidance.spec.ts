@@ -1,4 +1,20 @@
 import {test,expect} from '@playwright/test';
+test('浏览器分享提供直达接收链接，停止后移除失效链接',async({page})=>{
+ await page.goto('/tests/harness.html?browser-share');
+ await page.getByText('Alpha.txt',{exact:true}).click();
+ await page.getByRole('button',{name:'更多操作',exact:true}).click();
+ await page.getByRole('menuitem',{name:'发送到设备',exact:true}).click();
+ await page.getByText('浏览器分享测试（仅本机）',{exact:true}).click();
+ await page.getByRole('button',{name:'创建浏览器分享',exact:true}).click();
+ const link=page.getByLabel('浏览器接收链接',{exact:true});
+ await expect(link).toBeVisible();
+ const url=new URL(await link.inputValue());
+ expect(url.origin).toBe('http://127.0.0.1:53323');
+ expect(new URLSearchParams(url.hash.split('?')[1]).get('code')).toMatch(/^[a-f0-9-]{36}$/);
+ await expect(page.getByRole('button',{name:'复制接收链接',exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'停止浏览器分享',exact:true}).click();
+ await expect(link).toHaveCount(0);
+});
 for(const theme of ['light','dark','blue'])test(`接收就绪只展示关键动作，技术信息可用键盘展开 ${theme}`,async({page})=>{
  await page.setViewportSize({width:340,height:320});await page.addInitScript(value=>localStorage.setItem('ningmao-theme',value),theme);
  await page.goto('/tests/harness.html');await page.getByRole('button',{name:'更多操作',exact:true}).click();await page.getByRole('menuitem',{name:'文件互传',exact:true}).click();

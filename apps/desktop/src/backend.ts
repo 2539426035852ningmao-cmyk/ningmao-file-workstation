@@ -11,7 +11,7 @@ export type Progress = { job_id: number; name: string; file_index: number; file_
 export type ImportResult = { added: number; job_id: number | null; errors: string[] };
 export type DesktopPreferences={edge:"free"|"left"|"right"|"top"|"bottom";auto_hide:boolean;topmost:boolean;flow?:"vertical"|"horizontal";startup?:"orb"|"full"};
 export type EntryPresentation={kind:"orb"|"capsule";shelf_id:number|null};
-export type CollectRequest={shelf_id:number;action:"add"|"paste"};
+export type CollectRequest={shelf_id:number}&({action:"add"|"paste"}|{action:"locate";item_id:number});
 export type EntrySlot={id:number;x:number;y:number;width:number;height:number};
 export type PeekData={shelf:CatalogShelf;total:number;items:{id:number;name:string;kind:string;status:string;thumbnail:string|null}[]};
 export type ManagedReference=Pick<Item,"id"|"shelf_id"|"path"|"name"|"kind"|"tags">;
@@ -35,7 +35,7 @@ export type RecycleActivity={id:number;shelf_id:number;name:string;status:string
 export type WakeShortcutConfig={version:number;enabled:boolean;accelerator:string};
 export type WakeShortcutState={config:WakeShortcutConfig;active:boolean;paused:boolean;warning:string|null};
 export interface Backend {
-  desktopCollect?:(shelf:number,action:CollectRequest["action"])=>Promise<void>;
+  desktopCollect?:(shelf:number,action:CollectRequest["action"],itemId?:number)=>Promise<void>;
   chat?:ChatBackend;
   transfer?:TransferBackend;
   beginDuplicateScan?:()=>Promise<number>;
@@ -79,6 +79,7 @@ export interface Backend {
   topmost(): Promise<boolean>;
   quit(): Promise<void>;
   createShelf(name:string,session:boolean):Promise<number>;
+  renameShelf?:(id:number,name:string)=>Promise<void>;
   copyReferences(target:number,ids:number[]):Promise<number>;
   desktopState():Promise<DesktopView>;
   desktopPresent(shelf:number,kind:EntryPresentation["kind"]):Promise<void>;
@@ -101,7 +102,7 @@ export interface Backend {
   subscribe(events: Events): Promise<() => void>;
 }
 export const nativeBackend: Backend = {
-  desktopCollect:(shelfId,action)=>invoke("desktop_collect",{shelfId,action}),
+  desktopCollect:(shelfId,action,itemId)=>invoke("desktop_collect",{shelfId,action,itemId}),
   chat:nativeChat,
   transfer:nativeTransfer,
   beginDuplicateScan:()=>invoke("begin_duplicate_scan"),
@@ -131,6 +132,7 @@ export const nativeBackend: Backend = {
   open: id => invoke("open_item", { id }),
   cancel: jobId => invoke("cancel_copy", { jobId }), topmost: () => invoke("toggle_topmost"), quit: () => invoke("quit"),
   createShelf:(name,session)=>invoke("create_shelf",{name,session}),
+  renameShelf:(id,name)=>invoke("rename_shelf",{id,name}),
   copyReferences:(target,ids)=>invoke("copy_references",{target,ids}),
   desktopPresent:(shelfId,kind)=>invoke("desktop_present",{shelfId,kind}),desktopPeek:shelfId=>invoke("desktop_peek",{shelfId}),
   desktopState:()=>invoke<DesktopView>("desktop_state").then(view=>{document.documentElement.dataset.alwaysScrollbars=String(view.always_scrollbars??false);return view;}),desktopCollapse:shelfId=>invoke("desktop_collapse",{shelfId}),desktopOpen:shelfId=>invoke("desktop_open",{shelfId}),

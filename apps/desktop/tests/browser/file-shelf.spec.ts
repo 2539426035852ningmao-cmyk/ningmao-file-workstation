@@ -32,6 +32,21 @@ async function settle(page:import("@playwright/test").Page) {
   await page.evaluate(async()=>{await new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve())));await Promise.all(document.getAnimations().map(a=>a.finished.catch(()=>{})));});
 }
 
+test("空格键值有效但物理键位缺失时仍可预览，输入框内不拦截空格",async({page})=>{
+  await page.goto("/tests/harness.html");
+  const file=page.getByRole("button",{name:"选择 Alpha.txt",exact:true});
+  await file.click();
+  await file.dispatchEvent("keydown",{key:" ",code:"",bubbles:true});
+  await expect(page.getByRole("dialog")).toContainText("快速预览");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByRole("button",{name:"搜索文件",exact:true}).click();
+  const input=page.getByRole("textbox",{name:"搜索文件",exact:true});
+  await input.fill("Alpha");await input.press("Space");
+  await expect(input).toHaveValue("Alpha ");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
 test("默认打开的取消、错误和键盘入口保留引用与手动顺序",async({page})=>{
   await page.goto("/tests/harness.html");
   const file=page.getByRole("button",{name:"选择 Alpha.txt",exact:true});
@@ -89,8 +104,8 @@ test("拖入路由、绑定目录、复制进度、取消与失败反馈",async(
   await expect(page.getByRole("button",{name:"拖出复制",exact:true})).toHaveCount(0);
   await page.getByRole("button",{name:"添加并复制",exact:true}).click();
   await expect(page.getByRole("progressbar",{name:"当前文件复制进度"})).toBeVisible();
-  await page.getByRole("button",{name:"查看复制任务",exact:true}).click();
-  await page.getByRole("button",{name:"取消复制",exact:true}).click();
+  await page.getByRole("button",{name:"查看任务",exact:true}).click();
+  await page.getByRole("button",{name:"取消任务",exact:true}).click();
   await expect(page.getByText("已取消",{exact:true})).toBeVisible();
   await page.keyboard.press("Escape");
   await page.getByRole("button",{name:"添加并复制",exact:true}).click();

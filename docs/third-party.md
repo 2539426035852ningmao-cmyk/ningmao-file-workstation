@@ -90,3 +90,9 @@ M1-03 原生后端及模板源自本仓 M1-02，create-tauri-app/drag-rs MIT 全
 社交/社区线索用于确定配置与冲突测试；以锁定源码和[官方变更记录](https://tauri.app/release/global-shortcut/all-versions/)验证2.4.1释放回调锁后再调用处理器、Windows0.8.0使用MOD_NOREPEAT。锁文件保留全部旧包版本，新增8个包（含非Windows目标依赖），Windows实际归集272条/原有1条警示，未新增许可警示。离线解析曾带动无关降级，已撤回且未提交降级。未做完整依赖安全审计，不能据此宣称全面安全放行。
 
 无低级键盘钩子、按键日志或额外轮询。仅一个受限唤出键，通过旧托盘show_main路线；原生拖放时require_idle禁止激活调整。坏/未来设置保留且默认禁用；冲突不写坏旧配置，写入失败回退，回退失败清理本进程注册并明确报告。后台测试使用模拟注册器及官方纯解析器，尚未做Windows真实注册/冲突/释放或资源占用验收。
+
+## Anthropic Messages 文本适配（2026-11-08）
+
+按官方[Messages请求](https://platform.claude.com/docs/en/api/http/messages/create)、[SSE说明](https://platform.claude.com/docs/en/build-with-claude/streaming)与[版本说明](https://platform.claude.com/docs/en/api/versioning)独立实现，使用2026-10-21版本头、x-api-key、max_tokens及文本增量/message_stop。查阅官方anthropic-sdk-typescript的Messages接口作为协议对照，未复制SDK代码、引入SDK或新增运行依赖。现有reqwest/serde_json、会话、DPAPI和取消逻辑复用；仅官方api.anthropic.com按Messages处理，其他地址继续既有OpenAI-compatible，自定义Anthropic网关尚未支持。
+
+LM Studio/Ollama地址建议仅按[LM Studio兼容文档](https://lmstudio.ai/docs/developer/openai-compat)和[Ollama兼容文档](https://docs.ollama.com/api/openai-compatibility)列举本机示例，端口可编辑，不表示服务或模型已验证。开发使用自建合成HTTP/SSE服务，不使用第三方OAuth、不下载/分发模型、不把网页会员当API额度。用户单独批准的一次已有本地GGUF测试，详情见ACTIVE-DELIVERY；许可清单原警告仍保留，不据此批准正式发行。

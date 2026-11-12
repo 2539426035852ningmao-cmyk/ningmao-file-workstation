@@ -22,6 +22,13 @@ use std::{
 };
 
 pub type Result<T> = std::result::Result<T, String>;
+fn shelf_name(name: &str) -> Result<&str> {
+    let name = name.trim();
+    if name.is_empty() || name.chars().count() > 60 || name.chars().any(char::is_control) {
+        return Err("文件架名称需为 1 至 60 个字符，不能包含控制字符。".into());
+    }
+    Ok(name)
+}
 fn err(e: impl std::fmt::Display) -> String {
     e.to_string()
 }
@@ -562,10 +569,7 @@ impl Store {
         Ok(())
     }
     pub fn create_shelf(&mut self, name: &str, session: bool) -> Result<i64> {
-        let name = name.trim();
-        if name.is_empty() || name.chars().count() > 60 || name.chars().any(char::is_control) {
-            return Err("文件架名称需为 1 至 60 个字符，不能包含控制字符。".into());
-        }
+        let name = shelf_name(name)?;
         let tx = self.db.transaction().map_err(err)?;
         let exists: bool = tx
             .query_row(
@@ -592,6 +596,32 @@ impl Store {
         let id = tx.last_insert_rowid();
         tx.commit().map_err(err)?;
         Ok(id)
+    }
+    pub fn rename_shelf(&mut self, id: i64, name: &str) -> Result<()> {
+        let name = shelf_name(name)?;
+        let duplicate: bool = self
+            .db
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM shelves WHERE name=?1 AND id<>?2)",
+                params![name, id],
+                |r| r.get(0),
+            )
+            .map_err(err)?;
+        if duplicate {
+            return Err("已有同名文件架，请更换名称。".into());
+        }
+        if self
+            .db
+            .execute(
+                "UPDATE shelves SET name=?1 WHERE id=?2 AND trashed_at IS NULL",
+                params![name, id],
+            )
+            .map_err(err)?
+            == 0
+        {
+            return Err("文件架不存在或已回收。".into());
+        }
+        Ok(())
     }
     pub fn copy_references(&mut self, target: i64, ids: &[i64]) -> Result<usize> {
         if self

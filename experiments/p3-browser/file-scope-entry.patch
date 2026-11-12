@@ -1,12 +1,27 @@
+diff --git a/web/src/App.tsx b/web/src/App.tsx
+index 752dd21..d2be58f 100644
+--- a/web/src/App.tsx
++++ b/web/src/App.tsx
+@@ -110 +110,2 @@ const requestedReceiveCode =
+-  new URLSearchParams(window.location.search).get("code")?.trim() ?? "";
++  new URLSearchParams(window.location.hash.split("?", 2)[1] ?? "").get("code")?.trim()
++  ?? new URLSearchParams(window.location.search).get("code")?.trim() ?? "";
 diff --git a/web/src/TaskLauncher.tsx b/web/src/TaskLauncher.tsx
-index 8db0af6..01b9c0a 100644
+index 8db0af6..0d688d9 100644
 --- a/web/src/TaskLauncher.tsx
 +++ b/web/src/TaskLauncher.tsx
 @@ -2 +2 @@ import { useEffect, useRef, useState } from "react";
 -import { ArrowLeft, ArrowRight, Download, Link, SquareTerminal, Upload } from "lucide-react";
-+import { ArrowLeft, ArrowRight, Download, Link, Upload } from "lucide-react";
++import { ArrowLeft, ArrowRight, Download, Upload } from "lucide-react";
+@@ -19 +19 @@ export function taskFromHash(hash = window.location.hash): Task {
+-      return "store";
++      return "home";
 @@ -23 +23 @@ export function taskFromHash(hash = window.location.hash): Task {
 -      return "ssh";
 +      return "home";
-@@ -105 +104,0 @@ export function TaskLauncher({
+@@ -95 +94,0 @@ export function TaskLauncher({
+-  storeEnabled,
+@@ -103 +101,0 @@ export function TaskLauncher({
+-    ...(storeEnabled ? [{ task: "store" as const, icon: Link, description: "Share an encrypted link. Download later." }] : []),
+@@ -105 +102,0 @@ export function TaskLauncher({
 -    { task: "ssh", icon: SquareTerminal, description: "Join a shared terminal with an invitation." },

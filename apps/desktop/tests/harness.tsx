@@ -100,12 +100,13 @@ const backend:Backend={
   async desktopConfigure(preferences){calls.push(`configure:${preferences.edge}:${preferences.auto_hide}:${preferences.topmost}`);desktop.layout.preferences=preferences;const saved=!new URLSearchParams(location.search).has("readonly-layout");if(!saved)desktop.warning="布局文件只读；本次更改仅临时生效。";publishDesktop();return saved;},
   async desktopHover(inside){calls.push("entry-hover:"+inside);if(inside && desktop.edge_hidden){desktop.edge_hidden=false;publishDesktop();}},
   async createShelf(name,session){if(fail){const message=fail;fail="";throw new Error(message);}name=name.trim();if(!name || state.shelves.some(s=>s.name===name))throw new Error("文件架名称为空或已存在。");const id=Math.max(3,...state.shelves.map(s=>s.id))+1;state.shelves.push({id,name,kind:session?"session":"persistent",root:null,available:true});save();return id;},
+  async renameShelf(id,name){if(fail){const message=fail;fail="";throw new Error(message);}state.shelves.find(s=>s.id===id)!.name=name;save();publishDesktop();events.changed?.();},
   async copyReferences(target,ids){calls.push(`references:${target}:${ids.join(",")}`);let added=0;for(const id of ids){const value=state.items.find(i=>i.id===id)!;if(!state.items.some(i=>i.shelf_id===target && i.path===value.path)){state.items.push({...structuredClone(value),id:next++,shelf_id:target});added++;}}save();return added;},
   async desktopState(){desktop.catalog=state.shelves.map(({id,name,kind})=>({id,name,kind}));return structuredClone(desktop);},async desktopSelect(id){if(ownShelf || desktop.layout.detached?.some(s=>s.shelf_id===id))throw new Error("独立窗口的文件架不可在主窗切换");desktop.layout.active_shelf=id;publishDesktop();},
   async desktopDetach(id){if(fail){const message=fail;fail="";throw new Error(message);}calls.push("detach:"+id);desktop.layout.detached??=[];desktop.layout.detached.push({shelf_id:id,visible:true,topmost:false});desktop.layout.collapsed=desktop.layout.collapsed.filter(value=>value!==id);desktop.layout.active_shelf=state.shelves.find(s=>!desktop.layout.detached!.some(w=>w.shelf_id===s.id))?.id??0;publishDesktop();events.changed?.();},
   async desktopMerge(id){if(fail){const message=fail;fail="";throw new Error(message);}calls.push("merge:"+id);desktop.layout.detached=desktop.layout.detached?.filter(s=>s.shelf_id!==id);desktop.layout.active_shelf=id;publishDesktop();events.changed?.();},
   async desktopCollapse(id){calls.push("collapse:"+id);desktop.layout.enabled=true;desktop.layout.expanded=false;desktop.layout.active_shelf=id;if(!desktop.layout.collapsed.includes(id))desktop.layout.collapsed.push(id);publishDesktop();},
-  async desktopCollect(id,action){calls.push(`collect:${action}:${id}`);await backend.desktopPresent(id,"orb");await backend.desktopOpen(id);},
+  async desktopCollect(id,action,itemId){calls.push(`collect:${action}:${id}${itemId===undefined?"":":"+itemId}`);await backend.desktopPresent(id,"orb");await backend.desktopOpen(id);},
   async desktopOpen(id){calls.push("expand:"+id);if(!desktop.layout.detached?.some(s=>s.shelf_id===id)){desktop.layout.expanded=true;desktop.layout.active_shelf=id;events.activate?.(id);}publishDesktop();},
   async desktopPage(delta){desktop.layout.page+=delta;publishDesktop();},async desktopMove(){calls.push("move-entry");},async desktopDisable(){calls.push("disable-entry");},
   async snapshot(){if(snapshotFailure){const message=snapshotFailure;snapshotFailure="";throw new Error(message);}syncState();const shelves=state.shelves.filter(s=>ownShelf?s.id===ownShelf:!desktop.layout.detached?.some(w=>w.shelf_id===s.id)),allowed=new Set(shelves.map(s=>s.id));return structuredClone({shelves,items:state.items.filter(i=>allowed.has(i.shelf_id)),jobs:state.jobs.filter(j=>!ownShelf || j.shelf_id===ownShelf)});},
@@ -147,14 +148,14 @@ const backend:Backend={
   async topmost(){return true;},async quit(){calls.push("quit");},
   async subscribe(value){events=value;const storage=(event:StorageEvent)=>{if(event.key==="test-state"){syncState();events.changed?.();}if(event.key==="test-desktop-layout"){desktop=JSON.parse(event.newValue!);events.desktop?.(structuredClone(desktop));events.changed?.();}};window.addEventListener("storage",storage);return()=>window.removeEventListener("storage",storage);},
 };
-declare global { interface Window { testHarness:{collect:(shelf_id:number,action:"add"|"paste")=>void;notifyCopying:(active:boolean)=>void;notifyProgress:(p:Progress)=>void;nativeDrag:(active:boolean,id?:number)=>void;notifyFinished:(message:string)=>void;foldEntry:()=>void;notifyMetadata:()=>void;drop:(paths:string[])=>void;hover:(active:boolean)=>void;offline:(id:number)=>void;fail:(message:string)=>void;failNextSnapshot:(message:string)=>void;missing:(id:number)=>void;image:(id:number)=>void;tags:(id:number,tags:string[])=>Promise<void>;cancelRelocation:()=>void;cancelOpening:()=>void;calls:()=>string[];complete:()=>void} } }
+declare global { interface Window { testHarness:{collect:(shelf_id:number,action:"add"|"paste"|"locate",item_id?:number)=>void;notifyCopying:(active:boolean)=>void;notifyProgress:(p:Progress)=>void;nativeDrag:(active:boolean,id?:number)=>void;notifyFinished:(message:string)=>void;foldEntry:()=>void;notifyMetadata:()=>void;drop:(paths:string[])=>void;hover:(active:boolean)=>void;offline:(id:number)=>void;fail:(message:string)=>void;failNextSnapshot:(message:string)=>void;missing:(id:number)=>void;image:(id:number)=>void;tags:(id:number,tags:string[])=>Promise<void>;cancelRelocation:()=>void;cancelOpening:()=>void;calls:()=>string[];complete:()=>void} } }
 window.testHarness={
   notifyCopying:active=>{desktop.copying=active;publishDesktop();},
   notifyProgress:p=>events.progress(p),
   nativeDrag:(active,id)=>{desktop.native_dragging=active;desktop.drag_target=active?id??1:null;publishDesktop();},
   notifyFinished:message=>events.finished(message),
   foldEntry:()=>{desktop.edge_hidden=true;publishDesktop();},
-  collect:(shelf_id,action)=>events.collect?.({shelf_id,action}),
+  collect:(shelf_id,action,item_id)=>events.collect?.(action==="locate"?{shelf_id,action,item_id:item_id!}:{shelf_id,action}),
   notifyMetadata:()=>events.metadata?.(),
   drop:paths=>events.drop(paths),fail:message=>{fail=message;},
   hover:active=>events.hover(active),offline:id=>{state.shelves.find(s=>s.id===id)!.available=false;save();},
