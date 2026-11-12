@@ -38,13 +38,23 @@ struct SignalHeartbeat {
 }
 impl SignalHeartbeat {
     fn new() -> Self {
-        Self { last_sent: None, deadline: None }
+        Self {
+            last_sent: None,
+            deadline: None,
+        }
     }
     fn tick(&mut self, now: tokio::time::Instant) -> HeartbeatAction {
         if let Some(deadline) = self.deadline {
-            return if now >= deadline { HeartbeatAction::Timeout } else { HeartbeatAction::Wait };
+            return if now >= deadline {
+                HeartbeatAction::Timeout
+            } else {
+                HeartbeatAction::Wait
+            };
         }
-        if self.last_sent.is_none_or(|last| now >= last + WSS_PING_INTERVAL) {
+        if self
+            .last_sent
+            .is_none_or(|last| now >= last + WSS_PING_INTERVAL)
+        {
             self.last_sent = Some(now);
             self.deadline = Some(now + WSS_PONG_TIMEOUT);
             HeartbeatAction::Ping
@@ -691,12 +701,27 @@ mod tests {
         let now = tokio::time::Instant::now();
         let mut heart = SignalHeartbeat::new();
         assert_eq!(heart.tick(now), HeartbeatAction::Ping);
-        assert_eq!(heart.tick(now + Duration::from_secs(10)), HeartbeatAction::Wait);
+        assert_eq!(
+            heart.tick(now + Duration::from_secs(10)),
+            HeartbeatAction::Wait
+        );
         heart.pong();
-        assert_eq!(heart.tick(now + Duration::from_secs(24)), HeartbeatAction::Wait);
-        assert_eq!(heart.tick(now + Duration::from_secs(25)), HeartbeatAction::Ping);
-        assert_eq!(heart.tick(now + Duration::from_secs(39)), HeartbeatAction::Wait);
-        assert_eq!(heart.tick(now + Duration::from_secs(40)), HeartbeatAction::Timeout);
+        assert_eq!(
+            heart.tick(now + Duration::from_secs(24)),
+            HeartbeatAction::Wait
+        );
+        assert_eq!(
+            heart.tick(now + Duration::from_secs(25)),
+            HeartbeatAction::Ping
+        );
+        assert_eq!(
+            heart.tick(now + Duration::from_secs(39)),
+            HeartbeatAction::Wait
+        );
+        assert_eq!(
+            heart.tick(now + Duration::from_secs(40)),
+            HeartbeatAction::Timeout
+        );
     }
 
     #[test]
@@ -705,7 +730,10 @@ mod tests {
         let task = "b72ff401-e3a8-41d0-a510-bb57b83c1641";
         let input = json!({"type":"unavailable","to":target,"id":task,
             "local_path":"C:\\\\private\\\\sensitive","credential":"fake"});
-        assert_eq!(safe_unavailable(&input), Some(json!({"type":"unavailable","to":target,"id":task})));
+        assert_eq!(
+            safe_unavailable(&input),
+            Some(json!({"type":"unavailable","to":target,"id":task}))
+        );
         assert!(safe_unavailable(&json!({"type":"unavailable","to":"../bad","id":task})).is_none());
         assert!(safe_unavailable(&json!({"type":"unavailable","to":target,"id":"bad"})).is_none());
         assert!(safe_unavailable(&json!({"type":"cancel","to":target,"id":task})).is_none());
