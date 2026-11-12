@@ -25,6 +25,8 @@
 
 **新安全候选：** [#91 Windows WSS 假在线与通知修复](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/91) 直接叠放在 #89 后。最终集成时必须把 WSS pong 超时、掉线撤销接收授权、Worker 目标离线即时取消一同保留，避免退回只发送 ping 的旧实现。
 
+**Windows 最新候选同步：** [#92 #77→Web 的选择性兼容集成](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/92) 叠放于 #91，补回 #77 HEAD `66c7c9dd` 的语义 Space 预览、本机分享直达链接、对应测试及本机实验/许可证记录。它是人工选择性源码同步，**不是** #77 六个 Git 提交的完整合并历史；必须在最终主线集成时再次核对文档/实验差异、所有 CI 和原生 Gate。
+
 这份表格只确定了实际差异，不代表已经在 #77 上执行 merge，也不等于源码冲突已全部解决。文件安全、原生构建、双向传输真实性需对**最终集成分支 HEAD**分别验证。
 
 ## 可操作的集成路线（不自动执行 merge）
