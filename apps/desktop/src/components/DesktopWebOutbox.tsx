@@ -54,7 +54,13 @@ export function DesktopWebOutbox({backend,open,online,peers,selection}:{
   };
   const onSignal=(msg:DesktopWebSignal)=>{
     const session=active.current;
-    if(!session||!current(session)||msg.from!==session.to||msg.payload?.id!==session.id)return;
+    if(!session||!current(session))return;
+    if(msg.type==="unavailable"){
+      if(msg.to===session.to&&msg.id===session.id)
+        fail("目标网页设备已离线，未发送完成");
+      return;
+    }
+    if(msg.from!==session.to||msg.payload?.id!==session.id)return;
     const payload=msg.payload;
     if(msg.type==="cancel"){stop("对方已取消，未确认完成",false,false);return;}
     if(msg.type==="decision" && session.phase==="waiting"){

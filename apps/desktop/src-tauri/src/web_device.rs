@@ -23,6 +23,62 @@ use tokio_tungstenite::{
     tungstenite::{Message, client::IntoClientRequest},
 };
 
+const WSS_PING_INTERVAL: Duration = Duration::from_secs(25);
+const WSS_PONG_TIMEOUT: Duration = Duration::from_secs(15);
+
+#[derive(Debug, PartialEq, Eq)]
+enum HeartbeatAction {
+    Wait,
+    Ping,
+    Timeout,
+}
+struct SignalHeartbeat {
+    last_sent: Option<tokio::time::Instant>,
+    deadline: Option<tokio::time::Instant>,
+}
+impl SignalHeartbeat {
+    fn new() -> Self {
+        Self {
+            last_sent: None,
+            deadline: None,
+        }
+    }
+    fn tick(&mut self, now: tokio::time::Instant) -> HeartbeatAction {
+        if let Some(deadline) = self.deadline {
+            return if now >= deadline {
+                HeartbeatAction::Timeout
+            } else {
+                HeartbeatAction::Wait
+            };
+        }
+        if self
+            .last_sent
+            .is_none_or(|last| now >= last + WSS_PING_INTERVAL)
+        {
+            self.last_sent = Some(now);
+            self.deadline = Some(now + WSS_PONG_TIMEOUT);
+            HeartbeatAction::Ping
+        } else {
+            HeartbeatAction::Wait
+        }
+    }
+    fn pong(&mut self) {
+        self.deadline = None;
+    }
+}
+fn safe_unavailable(value: &Value) -> Option<Value> {
+    if value.get("type").and_then(Value::as_str) != Some("unavailable") {
+        return None;
+    }
+    let to = value.get("to")?.as_str()?;
+    let id = value.get("id")?.as_str()?;
+    if uuid::Uuid::parse_str(to).is_err() || uuid::Uuid::parse_str(id).is_err() {
+        return None;
+    }
+    // Worker-generated notification: drop all other fields before exposing it to the renderer.
+    Some(json!({"type":"unavailable","to":to,"id":id}))
+}
+
 #[derive(Default)]
 pub struct WebDeviceControl {
     session: Mutex<Option<DeviceSession>>,
@@ -344,7 +400,8 @@ pub async fn web_device_connect(
     let accepting = state.web_device.accepting.clone();
     let (outgoing, mut outbox) = mpsc::channel::<String>(32);
     let task = tokio::spawn(async move {
-        let mut heart = tokio::time::interval(Duration::from_secs(25));
+        let mut heart = tokio::time::interval(Duration::from_secs(5));
+        let mut heartbeat = SignalHeartbeat::new();
         loop {
             if current_gen.load(Ordering::SeqCst) != generation {
                 break;
@@ -356,7 +413,13 @@ pub async fn web_device_connect(
                 }
                 _=heart.tick()=>{
                     if now_ms().unwrap_or(u64::MAX)>=expires_at{break;}
-                    if sink.send(Message::Text(r#"{"type":"ping"}"#.into())).await.is_err(){break;}
+                    match heartbeat.tick(tokio::time::Instant::now()) {
+                        HeartbeatAction::Timeout => break,
+                        HeartbeatAction::Ping => {
+                            if sink.send(Message::Text(r#"{"type":"ping"}"#.into())).await.is_err(){break;}
+                        }
+                        HeartbeatAction::Wait => {}
+                    }
                 }
                 next=source.next()=>{
                     let raw=match next {
@@ -369,6 +432,14 @@ pub async fn web_device_connect(
                         Some(Ok(_))=>continue,
                     };
                     let Ok(value)=serde_json::from_str::<Value>(&raw) else {continue;};
+                    if value.get("type").and_then(Value::as_str)==Some("pong") {
+                        heartbeat.pong();
+                        continue;
+                    }
+                    if let Some(unavailable)=safe_unavailable(&value) {
+                        let _=app2.emit("web-device-signal", unavailable);
+                        continue;
+                    }
                     if value.get("type").and_then(Value::as_str)==Some("presence") {
                         let devices = safe_online_peers(&value, &self_id);
                         if let Ok(mut current)=peers.lock(){*current=devices.clone();}
@@ -400,6 +471,8 @@ pub async fn web_device_connect(
         }
         if current_gen.load(Ordering::SeqCst) == generation {
             online.store(false, Ordering::SeqCst);
+            // Never silently restore inbound receiving consent after a dropped WSS session.
+            accepting.store(false, Ordering::SeqCst);
             if let Ok(mut list) = peers.lock() {
                 list.clear();
             }
@@ -623,6 +696,49 @@ mod tests {
         assert!(native_signaling_request("https://test.workers.dev/", "../bad", &token).is_err());
         assert!(native_signaling_request("https://test.workers.dev/", id, "bad").is_err());
     }
+    #[test]
+    fn wss_heartbeat_times_out_without_pong_and_recovers_after_valid_pong() {
+        let now = tokio::time::Instant::now();
+        let mut heart = SignalHeartbeat::new();
+        assert_eq!(heart.tick(now), HeartbeatAction::Ping);
+        assert_eq!(
+            heart.tick(now + Duration::from_secs(10)),
+            HeartbeatAction::Wait
+        );
+        heart.pong();
+        assert_eq!(
+            heart.tick(now + Duration::from_secs(24)),
+            HeartbeatAction::Wait
+        );
+        assert_eq!(
+            heart.tick(now + Duration::from_secs(25)),
+            HeartbeatAction::Ping
+        );
+        assert_eq!(
+            heart.tick(now + Duration::from_secs(39)),
+            HeartbeatAction::Wait
+        );
+        assert_eq!(
+            heart.tick(now + Duration::from_secs(40)),
+            HeartbeatAction::Timeout
+        );
+    }
+
+    #[test]
+    fn worker_unavailable_reaches_renderer_only_as_two_valid_ids() {
+        let target = "18aba838-246f-4d0e-af08-1a27b536932a";
+        let task = "b72ff401-e3a8-41d0-a510-bb57b83c1641";
+        let input = json!({"type":"unavailable","to":target,"id":task,
+            "local_path":"C:\\\\private\\\\sensitive","credential":"fake"});
+        assert_eq!(
+            safe_unavailable(&input),
+            Some(json!({"type":"unavailable","to":target,"id":task}))
+        );
+        assert!(safe_unavailable(&json!({"type":"unavailable","to":"../bad","id":task})).is_none());
+        assert!(safe_unavailable(&json!({"type":"unavailable","to":target,"id":"bad"})).is_none());
+        assert!(safe_unavailable(&json!({"type":"cancel","to":target,"id":task})).is_none());
+    }
+
     #[test]
     fn pairing_code_and_token_never_accept_other_roles() {
         assert!(valid_pair_code(&format!("nm1i_{}", "x".repeat(43))));
