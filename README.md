@@ -4,6 +4,8 @@
 > **当前状态（2026-10-26 快照）：P2 r21 功能候选开发中，GitHub CI 通过，Windows 原生全矩阵仍为 PARTIAL；没有正式稳定 Release。**
 > 本仓库 `main` 目前以规范、研究及原型为主，最新桌面应用实现在尚未合并的堆叠 PR 中。不要把设计图、候选安装包或 CI 成功误读为正式软件发布。
 
+> **2026-11-09 网页 × Windows 集成更新：** Web W0–W3、Windows 原生 WSS、双向 WebRTC 候选正在分层 PR 中开发，网页和 Windows 真实双设备/Cloudflare 未放行；`main` 仍未合入完整主应用。[查看当前集成依赖、验收 Gate 与可执行路线](docs/execution/WEB-DESKTOP-MAIN-INTEGRATION-2026-11-09.md)。
+
 [查看当前真实进度](docs/project-status.md) · [了解产品](PRODUCT.md) · [Codex 开工入口](docs/codex-start-here.md) · [设计规范](design.md) · [全部文档](docs/README.md) · [贡献指南](CONTRIBUTING.md)
 
 ## 一眼认识柠猫
