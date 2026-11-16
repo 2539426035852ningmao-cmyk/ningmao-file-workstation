@@ -2,6 +2,8 @@
 
 <!-- impeccable:product-schema 1 -->
 
+2026-11-16 当前产品合同以根 design.md v0.3 与 D06 为准：双形态、常驻搜索、中央菜单、统一置顶和保留工作区更新。下方历史候选证据不等于本轮验收。
+
 ## Platform
 
 web
@@ -22,7 +24,7 @@ Windows 资源管理器与桌面创作应用之间的素材接收、整理、预
 
 ## Brand Commitments
 
-中文名柠猫文件工作站，英文名 Ningmao File Workstation；白色、深蓝、亮蓝三套完整主题，默认蓝色强调色；不改已定产品需求。统一采用已获批准的 shadcn/ui 主设计系统，遵循根目录 design.md 的圆角、间距、文字与渐进式操作规范；设计尺寸仍需用户体验验收。
+中文名柠猫文件工作站，英文名 Ningmao File Workstation；白色、深蓝、柔和浅蓝三套完整主题，默认蓝色强调色；不改已定产品需求。统一采用已获批准的 shadcn/ui 主设计系统，遵循根目录 design.md 的圆角、间距、文字与渐进式操作规范；设计尺寸仍需用户体验验收。
 
 ## Evidence on Hand
 

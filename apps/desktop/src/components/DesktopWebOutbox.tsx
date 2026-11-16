@@ -167,14 +167,14 @@ export function DesktopWebOutbox({backend,open,online,peers,selection}:{
     peers.some(peer=>peer.id===target)&&!busy;
 
   return <details className="transfer-experiment" data-testid="web-outbox-w2-w3">
-    <summary>Windows → 网页 / 手机 · 安全发送（W2/W3）</summary>
+    <summary>Windows → 网页 / 手机 安全发送（W2/W3）</summary>
     <section className="connection-fields" aria-label="Windows 向网页发送">
       <strong>文件架发送至同账号浏览器</strong>
       <p className="muted">只发送当前文件架明确选择的一个普通文件（最多 64 MiB）。先在本机安全读取并核验，再等待网页用户接受；不传远端路径和本机读取票据。</p>
       <label>接收网页设备
         <select aria-label="接收网页设备" value={peers.some(p=>p.id===target)?target:""} onChange={e=>setTarget(e.target.value)} disabled={!online||busy}>
           <option value="">请选择在线网页设备</option>
-          {peers.map(peer=><option key={peer.id} value={peer.id}>{peer.name} · {peer.id.slice(0,8)}</option>)}
+          {peers.map(peer=><option key={peer.id} value={peer.id}>{peer.name} {peer.id.slice(0,8)}</option>)}
         </select>
       </label>
       {!peers.length&&<p className="capability-hint">没有其他在线设备。请在受保护的柠猫网页登录同一账号并保持页面打开。</p>}

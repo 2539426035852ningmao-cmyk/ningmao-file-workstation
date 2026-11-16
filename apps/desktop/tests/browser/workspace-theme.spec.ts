@@ -7,7 +7,7 @@ test("三套完整主题跨管理中心、文件架和入口同步，重开保�
   await manager.setViewportSize({width:1040,height:720});
   const dock=await context.newPage();await dock.goto("/tests/harness.html?desktop-entry&count=1");
   await manager.getByRole("button",{name:"设置",exact:true}).click();
-  for(const [theme,fill,background] of [["light","rgb(245, 243, 239)","rgb(255, 255, 255)"],["dark","rgb(25, 30, 40)","rgb(25, 30, 40)"],["blue","rgb(40, 105, 214)","rgb(222, 235, 255)"]] as const){
+  for(const [theme,fill,background] of [["light","rgb(245, 243, 239)","rgb(255, 255, 255)"],["dark","rgb(48, 56, 69)","rgb(32, 38, 48)"],["blue","rgb(199, 216, 237)","rgb(237, 242, 248)"]] as const){
     await manager.getByRole("combobox",{name:"应用主题"}).selectOption(theme);
     await expect(page.locator(".workstation")).toHaveCSS("background-color",background);
     await expect(manager.locator(".manager-shell")).toHaveCSS("background-color",background);
@@ -27,7 +27,7 @@ test("三套完整主题跨管理中心、文件架和入口同步，重开保�
   }
   await page.reload();await dock.reload();
   await expect(page.locator("html")).toHaveClass("blue");
-  await expect(dock.locator(".orb-body").first()).toHaveCSS("background-color","rgb(40, 105, 214)");
+  await expect(dock.locator(".orb-body").first()).toHaveCSS("background-color","rgb(199, 216, 237)");
 });
 
 test("旧主题优先于旧球体皮肤，没有主题时迁移旧皮肤且保留原记录",async({page})=>{
@@ -37,6 +37,6 @@ test("旧主题优先于旧球体皮肤，没有主题时迁移旧皮肤且保�
   await expect(page.locator(".orb-body")).toHaveCSS("background-color","rgb(245, 243, 239)");
   await page.evaluate(()=>localStorage.removeItem("ningmao-theme"));
   await page.reload();
-  await expect(page.locator(".orb-body")).toHaveCSS("background-color","rgb(25, 30, 40)");
+  await expect(page.locator(".orb-body")).toHaveCSS("background-color","rgb(48, 56, 69)");
   expect(await page.evaluate(()=>localStorage.getItem("ningmao-orb-appearance-v1"))).toBe("navy-black");
 });

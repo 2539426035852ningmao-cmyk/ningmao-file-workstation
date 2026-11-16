@@ -91,15 +91,17 @@ pub fn ensure(app: &tauri::AppHandle, id: i64) -> Result<tauri::WebviewWindow> {
             .visible(false)
             .decorations(false)
             .transparent(true)
-            .shadow(false)
+            .shadow(true)
             .background_color(tauri::window::Color(0, 0, 0, 0))
-            .title(format!("柠猫 · {name}"))
+            .title(format!("柠猫 {name}"))
             .inner_size(420.0, 520.0)
             .min_inner_size(340.0, 320.0)
             .build()
             .map_err(error)?;
     restore(&window, record.geometry.as_ref())?;
-    window.set_always_on_top(record.topmost).map_err(error)?;
+    window
+        .set_always_on_top(state.layout.lock().map_err(error)?.preferences.topmost)
+        .map_err(error)?;
     Ok(window)
 }
 pub fn restore(window: &tauri::WebviewWindow, geometry: Option<&WindowGeometry>) -> Result<()> {
@@ -286,22 +288,6 @@ pub fn capture(window: &tauri::Window) {
         {
             record.geometry = Some(geometry);
             record.topmost = topmost.unwrap_or(record.topmost);
-        }
-    }
-}
-pub fn hidden(window: &tauri::Window) {
-    capture(window);
-    if let Some(state) = window.app_handle().try_state::<Desktop>()
-        && let Ok(mut l) = state.layout.lock()
-    {
-        if window.label() == "main" {
-            l.expanded = false;
-        } else if let Some(record) = l
-            .detached
-            .iter_mut()
-            .find(|r| Some(r.shelf_id) == detached_id(window.label()))
-        {
-            record.visible = false;
         }
     }
 }

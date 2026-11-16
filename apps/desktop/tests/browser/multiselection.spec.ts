@@ -33,7 +33,7 @@ test("多选汇总与移除只作用于可见引用，搜索输入的Ctrl+A不�
   await setup(page);await file(page,"Alpha.txt").click();await file(page,"Gamma.txt").click({modifiers:["Control"]});
   await page.setViewportSize({width:640,height:720});await page.getByRole("button",{name:"更多操作",exact:true}).click();await expandDisplayOptions(page);await page.getByRole("menuitemradio",{name:"白色主题",exact:true}).click();
   await page.getByRole("button",{name:"详情",exact:true}).click();await expect(page.getByRole("dialog")).toContainText("已选 2 项");await expect(page.getByRole("dialog")).toContainText("400 B");await page.keyboard.press("Escape");
-  await page.getByRole("button",{name:"搜索文件",exact:true}).focus();await page.keyboard.press("Delete");expect(await page.evaluate(()=>window.testHarness.calls())).toEqual([]);
+  await page.getByRole("textbox",{name:"搜索文件",exact:true}).focus();await page.keyboard.press("Delete");expect(await page.evaluate(()=>window.testHarness.calls())).toEqual([]);
   await file(page,"Gamma.txt").focus();await page.keyboard.press("Delete");await expect(page.locator('[data-item-id]')).toHaveCount(1);expect(await page.evaluate(()=>window.testHarness.calls())).toEqual(["remove:1","remove:3"]);
   await file(page,"中文 文件.txt").click();await page.keyboard.press("Control+f");const input=page.getByRole("textbox",{name:"搜索文件",exact:true});await input.fill("中文");await input.press("Control+a");await expect(selected(page)).toHaveCount(1);
 });

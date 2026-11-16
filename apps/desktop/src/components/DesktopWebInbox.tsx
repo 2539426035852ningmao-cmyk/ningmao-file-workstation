@@ -58,7 +58,7 @@ export function DesktopWebInbox({backend,open,online,peers,shelves}:{
     const old=active.current;
     cleanup();
     setError(message);
-    setStatus("接收失败 · 未确认文件已保存");
+    setStatus("接收失败 未确认文件已保存");
     if(old)void send({type:"cancel",to:old.from,payload:{id:old.id}}).catch(()=>{});
   };
 
@@ -71,7 +71,7 @@ export function DesktopWebInbox({backend,open,online,peers,shelves}:{
       if(cancelSource.current?.signal.aborted)return;
       const result=await saveAcceptedWebFile(session.shelf,{manifest:meta,bytes},cancelSource.current?.signal);
       if(active.current!==session)return;
-      setStatus("已保存到 Windows 文件架："+result.file_name+" · "+size(result.bytes)+" · 任务 #"+result.job_id);
+      setStatus("已保存到 Windows 文件架："+result.file_name+" "+size(result.bytes)+" 任务 #"+result.job_id);
       await send({type:"receipt",to:session.from,payload:{id:session.id,ok:true,persisted:true}});
       cleanup();
     }catch(e){if(active.current===session)fail(String(e));}
@@ -100,7 +100,7 @@ export function DesktopWebInbox({backend,open,online,peers,shelves}:{
       incoming.current=request;
       setPending(request);
       setError("");
-      setStatus("收到网页文件请求 · 尚未同意或创建本机文件");
+      setStatus("收到网页文件请求 尚未同意或创建本机文件");
       if(details.current)details.current.open=true;
       clearDeadline();
       deadline.current=setTimeout(()=>{
@@ -210,15 +210,15 @@ export function DesktopWebInbox({backend,open,online,peers,shelves}:{
   return <details ref={details} className="transfer-experiment" data-testid="web-inbox-w2-w3">
     <summary>网页 → Windows 文件安全接收（W2/W3）</summary>
     <section className="connection-fields" aria-label="网页文件安全接收">
-      <strong>同账号文件请求 · 先确认，再落盘</strong>
+      <strong>同账号文件请求 先确认，再落盘</strong>
       <p className="muted">通过已授权的原生信令和浏览器 WebRTC 接收。必须手动开启、选定已绑定文件架并确认文件；不接收远端路径。单个文件最大 64 MiB。</p>
       <Button type="button" variant="outline" disabled={!online||busy} onClick={()=>void toggle()}>
         {enabled?"关闭网页接收授权":"允许网页发送请求（仅当前面板）"}
       </Button>
-      {enabled&&<p role="status" className="transfer-note">已开启接收请求 · 不代表自动接受文件</p>}
+      {enabled&&<p role="status" className="transfer-note">已开启接收请求 不代表自动接受文件</p>}
       {pending&&<section className="transfer-status" aria-label="等待用户确认的网页文件">
         <strong>来自 {peers.find(p=>p.id===pending.from)?.name??"同账号网页设备"}</strong>
-        <p>{pending.meta.name} · {size(pending.meta.size)}</p>
+        <p>{pending.meta.name} {size(pending.meta.size)}</p>
         <label>保存到已绑定文件架<select aria-label="网页文件保存架" value={destination} onChange={e=>setDestination(Number(e.target.value))}>
           <option value={0}>请选择保存文件架</option>
           {shelves.filter(s=>s.kind==="bound"&&s.available).map(s=><option key={s.id} value={s.id}>{s.name}</option>)}

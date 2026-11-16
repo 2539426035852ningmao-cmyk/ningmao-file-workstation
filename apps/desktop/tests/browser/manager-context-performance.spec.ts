@@ -35,7 +35,7 @@ test("从任务和设置返回上次文件分类，素材筛选选择分页及�
   await expect(page.getByRole("textbox",{name:"搜索已收集素材"})).toHaveValue("Fixture");
   await expect(page.getByRole("combobox",{name:"素材标签"})).toHaveValue("合成标签");
   await expect(page.getByRole("checkbox",{name:"选择 Fixture-0100.txt",exact:true})).toBeChecked();
-  await expect(page.getByText("2000 项 · 第 2/20 页",{exact:true})).toBeVisible();
+  await expect(page.getByText("2000 项 第 2/20 页",{exact:true})).toBeVisible();
   // Re-selecting the active primary section also preserves the current task.
   await page.getByRole("button",{name:"文件与素材",exact:true}).click();
   await expect(page.getByRole("checkbox",{name:"选择 Fixture-0100.txt",exact:true})).toBeChecked();

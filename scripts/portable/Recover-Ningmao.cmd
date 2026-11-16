@@ -5,8 +5,5 @@ if "%~1"=="" (
   pause
   exit /b 1
 )
-set "NINGMAO_DATA_DIR=%~dp0data"
-set "WEBVIEW2_USER_DATA_FOLDER=%~dp0webview"
-set "NINGMAO_RECYCLE_TEST_ROOT="
-start "" /D "%~dp0app" "%~dp0app\Ningmao-Preview-0.1.0-x64.exe" --restore-backup "%~1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%~dp0Workspace.ps1" -Action Restore -BackupPath "%~1"
 endlocal

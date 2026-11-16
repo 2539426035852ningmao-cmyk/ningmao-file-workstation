@@ -31,7 +31,7 @@ export function writeShelfView(id:number,view:ShelfView,writable:boolean):string
   const latest=readViewMemory();
   return writeViewMemory({...latest.views,[id]:view},writable && latest.writable);
 }
-export const themes={light:"白色",dark:"深蓝色",blue:"亮蓝色"} as const;
+export const themes={light:"白色",dark:"深蓝色",blue:"浅蓝色"} as const;
 export type Theme=keyof typeof themes;
 export function readTheme():Theme {
   try {

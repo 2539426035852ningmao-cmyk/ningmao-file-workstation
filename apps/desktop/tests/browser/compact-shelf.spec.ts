@@ -5,26 +5,28 @@ import path from "node:path";
 const evidence=process.env.COMPACT_EVIDENCE;
 if(evidence)mkdirSync(evidence,{recursive:true});
 async function more(page:import("@playwright/test").Page,name:string,radio=false){
+  if(name==="添加文件"){await page.getByRole("button",{name:/^添加(引用|并复制)$/,exact:true}).click();return;}
   await page.getByRole("button",{name:"更多操作",exact:true}).click();
   if(radio)await expandDisplayOptions(page);
   await page.getByRole(radio?"menuitemradio":"menuitem",{name,exact:true}).click();
 }
 async function capture(page:import("@playwright/test").Page,name:string){if(evidence)await page.screenshot({path:path.join(evidence,name+".png")});}
 
-test("小文件架只有一行主操作，搜索原位展开并恢复焦点",async({page})=>{
+test("小文件架只有一行主操作，搜索常驻并保留标题",async({page})=>{
   await page.setViewportSize({width:420,height:520});
   await page.goto("/tests/harness.html");
   await expect(page.getByRole("button",{name:"更多操作",exact:true})).toBeVisible();
-  await expect(page.getByRole("textbox",{name:"搜索文件",exact:true})).toHaveCount(0);
+  await expect(page.getByRole("textbox",{name:"搜索文件",exact:true})).toBeVisible();
+  await expect(page.locator(".shelf-context")).not.toBeVisible();
   const files=await page.getByTestId("file-scroll").boundingBox();
-  expect(files!.height).toBeGreaterThan(400);
-  await page.getByRole("button",{name:"搜索文件",exact:true}).click();
+  expect(files!.height).toBeGreaterThan(350);
+  await page.getByRole("textbox",{name:"搜索文件",exact:true}).click();
   const search=page.getByRole("textbox",{name:"搜索文件",exact:true});
   await expect(search).toBeFocused();
   await search.fill("中文");await expect(page.locator("[data-item-id]")).toHaveCount(1);
   await search.press("Escape");
-  await expect(search).toHaveCount(0);
-  await expect(page.getByRole("button",{name:"搜索文件",exact:true})).toBeFocused();
+  await expect(search).toBeVisible();
+  await expect(page.getByRole("textbox",{name:"搜索文件",exact:true})).toBeFocused();
   await expect(page.locator("[data-item-id]")).toHaveCount(3);
 });
 
@@ -41,7 +43,7 @@ for(const [width,height] of [[340,320],[420,520],[640,720]])for(const theme of [
       return {viewport:{width:innerWidth,height:innerHeight},fileHeight:area.height,headerHeight:header.height,columns:new Set(rows.filter(r=>r.top===rows[0].top).map(r=>r.left)).size,horizontalOverflow:document.documentElement.scrollWidth>innerWidth,filenameFont:getComputedStyle(document.querySelector(".asset-name")!).fontSize};
     });
     expect(geometry.horizontalOverflow).toBe(false);expect(geometry.headerHeight).toBe(44);
-    expect(geometry.fileHeight).toBeGreaterThan(height*.72);expect(geometry.filenameFont).toBe("13px");
+    expect(geometry.fileHeight).toBeGreaterThan(height-150);expect(geometry.filenameFont).toBe("13px");
     if(width===420)expect(geometry.columns).toBe(3);if(width===340)expect(geometry.columns).toBe(2);
     await page.getByRole("button",{name:"更多操作",exact:true}).evaluate(n=>n.blur());await page.mouse.move(8,58);
     await capture(page,`${theme}-${width}`);
@@ -62,7 +64,7 @@ test("键盘搜索与文件架切换保持原位，列表和缩略图切换可�
   await capture(page,"search-empty-420");await search.press("Escape");
   await page.getByRole("button",{name:"切换文件架",exact:true}).press("Enter");
   await page.getByRole("menuitemradio",{name:"本次中转",exact:true}).click();
-  await expect(page.getByText("本次中转 · 仅保存引用",{exact:true})).toBeVisible();
+  await expect(page.getByRole("button",{name:"切换文件架",exact:true})).toContainText("本次中转");await expect(page.locator(".shelf-semantics")).not.toBeVisible();
   await page.getByRole("button",{name:"切换文件架",exact:true}).click();await page.getByRole("menuitemradio",{name:"灵感收集",exact:true}).click();
   await page.evaluate(()=>window.testHarness.drop(Array.from({length:40},(_,i)=>`SYNTHETIC/合成${i}.txt`)));
   const scroll=page.getByTestId("file-scroll");
@@ -81,7 +83,7 @@ test("最小窗口复制只显示短进度，取消、失败、离线和历史�
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByRole("button",{name:"查看任务",exact:true})).toHaveCSS("height","28px");
   await expect(page.locator(".status-toast")).toHaveCount(0,{timeout:500});
-  await page.evaluate(()=>window.testHarness.hover(true));await expect(page.getByText("释放以复制 · 保留来源",{exact:true})).toBeVisible();
+  await page.evaluate(()=>window.testHarness.hover(true));await expect(page.getByText("释放以复制 保留来源",{exact:true})).toBeVisible();
   await capture(page,"copy-340");await page.evaluate(()=>window.testHarness.hover(false));
   await page.getByRole("button",{name:"查看任务",exact:true}).click();await expect(page.getByRole("dialog")).toContainText("来源保留");
   await page.getByRole("button",{name:"取消任务",exact:true}).click();await expect(page.getByRole("dialog")).toContainText("已取消");
@@ -92,7 +94,7 @@ test("最小窗口复制只显示短进度，取消、失败、离线和历史�
   await expect(page.locator(".status-toast")).toHaveCount(0,{timeout:500});
   await capture(page,"error-340");
   await page.evaluate(()=>window.testHarness.offline(3));await more(page,"刷新文件状态");
-  await expect(page.getByText("目录离线，记录已保留 · 恢复目录后刷新",{exact:true})).toBeVisible();
+  await expect(page.getByText("目录离线，记录已保留 恢复目录后刷新",{exact:true})).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await capture(page,"offline-error-340");
   await more(page,"任务记录");await expect(page.getByRole("dialog")).toContainText("已取消");
 });

@@ -128,22 +128,22 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
       <strong>1. 选择文件</strong><p className="transfer-note">已选 {selection.files.length} 项{selection.files.length>16?"，一次最多发送16项":""}</p>
       {!selection.files.length&&<p className="capability-hint">先在文件架选择文件，再使用“发送到设备”。<Button variant="outline" onClick={()=>onOpenChange(false)}>返回文件架选文件</Button></p>}
       {(hasFiles||activeSend||result)&&<>
-      {!!selection.files.length&&<ul className="transfer-files" aria-label="待发送文件">{selection.files.map(file=><li key={file.id} title={file.name}>{file.name}</li>)}</ul>}
+      {!!selection.files.length&&<ul className="transfer-files" aria-label="待发送文件">{selection.files.map(file=><li key={file.id} aria-description={file.name}>{file.name}</li>)}</ul>}
       {webDevice?.signal_online&&backend.webOffer&&backend.webDeviceSignal&&backend.subscribeWebSignals&&
         <DesktopWebOutbox backend={backend} open={open} online={webDevice.signal_online}
           peers={webDevice.online_devices} selection={selection}/>}
-      {backend.webSourceInfo&&<details className="transfer-experiment"><summary>网页 / 手机互传 · W3 本机准备检查</summary>
+      {backend.webSourceInfo&&<details className="transfer-experiment"><summary>网页 / 手机互传 W3 本机准备检查</summary>
         <section className="connection-fields" aria-label="W3 网页发送文件源预检">
           <strong>文件架 → WebRTC 发送源</strong>
           <p className="muted">选中 1 个普通文件，验证 Windows 文件引用与 SHA-256，并立即释放临时读取授权。本检查不会联网发送或打开网页服务。</p>
           <Button type="button" variant="outline" disabled={webChecking||activeSend||selection.files.length!==1||!selection.shelf_id} onClick={()=>void checkWebSource()}>{webChecking?"正在校验本机文件…":"校验选中文件（本机）"}</Button>
-          {webSource&&<div role="status" className="transfer-status"><strong>本机文件已校验 · 尚未发送</strong><p>{webSource.name} · {sizes(webSource.bytes)}</p><p>SHA-256：<code className="transfer-hash">{webSource.sha256}</code></p><p className="muted">此验证仅证明本机文件可读。Windows 设备登录、跨网配对和网页接收仍需 W1–W4 后续服务端验收。</p></div>}
+          {webSource&&<div role="status" className="transfer-status"><strong>本机文件已校验 尚未发送</strong><p>{webSource.name} {sizes(webSource.bytes)}</p><p>SHA-256：<code className="transfer-hash">{webSource.sha256}</code></p><p className="muted">此验证仅证明本机文件可读。Windows 设备登录、跨网配对和网页接收仍需 W1–W4 后续服务端验收。</p></div>}
         </section>
       </details>}
-      {browserReady&&<details className="transfer-experiment"><summary>浏览器分享测试（仅本机）</summary><section className="connection-fields" aria-label="浏览器本机验证"><strong>浏览器分享 · 本机验证</strong><p className="muted">仅当前电脑可用，尚不支持跨设备。创建后复制接收链接，在本机浏览器打开即可接收；链接含临时分享凭证。</p>{browserCode&&browserBusy&&<><Input aria-label="浏览器接收链接" readOnly value={`http://127.0.0.1:53323/#receive?${new URLSearchParams({code:browserCode})}`}/><Button variant="outline" onClick={()=>void copy(`http://127.0.0.1:53323/#receive?${new URLSearchParams({code:browserCode})}`,"接收链接")}>复制接收链接</Button></>}<p role="status">{browserStatus}</p>{browserBusy?<Button variant="outline" onClick={()=>void backend.browserCancel?.().catch(e=>setError(String(e)))}>停止浏览器分享</Button>:<Button disabled={activeSend||!selection.files.length||selection.files.length>16} onClick={()=>void browserShare()}>创建浏览器分享</Button>}</section></details>}
+      {browserReady&&<details className="transfer-experiment"><summary>浏览器分享测试（仅本机）</summary><section className="connection-fields" aria-label="浏览器本机验证"><strong>浏览器分享 本机验证</strong><p className="muted">仅当前电脑可用，尚不支持跨设备。创建后复制接收链接，在本机浏览器打开即可接收；链接含临时分享凭证。</p>{browserCode&&browserBusy&&<><Input aria-label="浏览器接收链接" readOnly value={`http://127.0.0.1:53323/#receive?${new URLSearchParams({code:browserCode})}`}/><Button variant="outline" onClick={()=>void copy(`http://127.0.0.1:53323/#receive?${new URLSearchParams({code:browserCode})}`,"接收链接")}>复制接收链接</Button></>}<p role="status">{browserStatus}</p>{browserBusy?<Button variant="outline" onClick={()=>void backend.browserCancel?.().catch(e=>setError(String(e)))}>停止浏览器分享</Button>:<Button disabled={activeSend||!selection.files.length||selection.files.length>16} onClick={()=>void browserShare()}>创建浏览器分享</Button>}</section></details>}
       <form className="transfer-form" onSubmit={e=>{e.preventDefault();void send();}}>
         <fieldset className="connection-fields"><legend>2. 选择接收设备</legend>
-        {backend.devices&&<section aria-label="附近设备"><Button type="button" variant="outline" disabled={finding||activeSend} onClick={()=>void findDevices()}>{finding?"正在查找附近电脑…":"刷新附近设备"}</Button>{!finding&&!devices.length&&<p className="capability-hint">未发现设备？请对方在同一 Wi-Fi 下打开“接收文件”，选择保存位置并开启接收。</p>}{devices.map(device=><Button type="button" variant={address===device.address?"default":"outline"} key={device.fingerprint} disabled={activeSend} onClick={()=>{setAddress(device.address);setFingerprint(device.fingerprint);setDeviceName(device.name);setConnection("");}}>{device.name} · {device.fingerprint.slice(0,6).toUpperCase()}{known.includes(device.fingerprint)?" · 已配对":""}</Button>)}{deviceName&&<p role="status">{known.includes(fingerprint)?`已配对 ${deviceName}，可直接发送。`:`首次连接 ${deviceName}，请与对方核对六位设备码；确认发送后记住此设备。`}</p>}</section>}<p className="capability-hint">也可以请对方点击“复制连接信息”，在下面粘贴一次连接。</p>
+        {backend.devices&&<section aria-label="附近设备"><Button type="button" variant="outline" disabled={finding||activeSend} onClick={()=>void findDevices()}>{finding?"正在查找附近电脑…":"刷新附近设备"}</Button>{!finding&&!devices.length&&<p className="capability-hint">未发现设备？请对方在同一 Wi-Fi 下打开“接收文件”，选择保存位置并开启接收。</p>}{devices.map(device=><Button type="button" variant={address===device.address?"default":"outline"} key={device.fingerprint} disabled={activeSend} onClick={()=>{setAddress(device.address);setFingerprint(device.fingerprint);setDeviceName(device.name);setConnection("");}}>{device.name} {device.fingerprint.slice(0,6).toUpperCase()}{known.includes(device.fingerprint)?" 已配对":""}</Button>)}{deviceName&&<p role="status">{known.includes(fingerprint)?`已配对 ${deviceName}，可直接发送。`:`首次连接 ${deviceName}，请与对方核对六位设备码；确认发送后记住此设备。`}</p>}</section>}<p className="capability-hint">也可以请对方点击“复制连接信息”，在下面粘贴一次连接。</p>
         <label>粘贴对方的连接信息<Input aria-label="粘贴对方的连接信息" placeholder="ningmao://receive?…" value={connection} disabled={activeSend} onChange={e=>importConnection(e.target.value)}/></label>
         <details><summary>手动连接 / 查看设备信息</summary><label>接收方地址<Input aria-label="接收方地址" placeholder="192.168.1.20:53317" value={address} disabled={activeSend} onChange={e=>setAddress(e.target.value)} maxLength={80}/></label>
         <label>证书指纹<textarea aria-label="证书指纹" placeholder="接收方显示的64位 SHA256 指纹" value={fingerprint} disabled={activeSend} onChange={e=>setFingerprint(e.target.value)} maxLength={64} rows={2}/></label>
@@ -152,11 +152,11 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
         <p className="capability-hint">3. 点击发送后，等待对方点击“接受文件”。进度会显示在这里。</p>
         {activeSend?<Button type="button" variant="outline" disabled={cancelling} onClick={()=>{setCancelling(true);void backend.cancelSend().catch(e=>{setError(String(e));setCancelling(false);});}}>{cancelling?"正在取消…":"取消发送"}</Button>:<Button type="submit" disabled={!selection.files.length||selection.files.length>16||!address.trim()||!fingerprint.trim()||working}>{deviceName&&!known.includes(fingerprint)?"确认设备并发送":"发送文件"}</Button>}
       </form>
-      <div className="transfer-status" role="status">{activeSend?<>{cancelling?"正在取消，等待安全结束":phases[progress?.phase??""]??"正在连接…"}{progress&&<><progress aria-label="发送进度" value={progress.bytes} max={progress.total||1}/><span>{sizes(progress.bytes)} / {sizes(progress.total)} · {progress.file_index+1}/{progress.file_count}项</span></>}</>:result?<><strong>{statuses[result.status]??result.status}</strong><p>{result.message}</p><ul>{result.files.map(file=><li key={file.index}>{selection.files[file.index]?.name??`文件 ${file.index+1}`} · {statuses[file.status]??file.status}</li>)}</ul></>:null}</div>
+      <div className="transfer-status" role="status">{activeSend?<>{cancelling?"正在取消，等待安全结束":phases[progress?.phase??""]??"正在连接…"}{progress&&<><progress aria-label="发送进度" value={progress.bytes} max={progress.total||1}/><span>{sizes(progress.bytes)} / {sizes(progress.total)} {progress.file_index+1}/{progress.file_count}项</span></>}</>:result?<><strong>{statuses[result.status]??result.status}</strong><p>{result.message}</p><ul>{result.files.map(file=><li key={file.index}>{selection.files[file.index]?.name??`文件 ${file.index+1}`} {statuses[file.status]??file.status}</li>)}</ul></>:null}</div>
       </>}
     </>:<>
       {view.receiving?<section className="transfer-listening">
-        <strong>已准备好接收 · 设备码 {view.fingerprint?.slice(0,6).toUpperCase()}</strong>
+        <strong>已准备好接收 设备码 {view.fingerprint?.slice(0,6).toUpperCase()}</strong>
         <p className="transfer-note">接收到：{shelves.find(s=>s.id===view.shelf_id)?.name??"已选择的绑定目录"}</p>
         <p className="capability-hint">对方粘贴连接即可发送；收到请求后，你仍需确认。</p>
         <div className="transfer-receive-actions"><Button disabled={!view.address||!view.fingerprint} onClick={()=>void copy(`ningmao://receive?${new URLSearchParams({address:view.address??"",fingerprint:view.fingerprint??""})}`,"连接信息")}>复制连接信息</Button><Button variant="outline" disabled={working} onClick={()=>void action(()=>backend.stopReceive())}>停止接收</Button></div>
@@ -172,17 +172,17 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
         <p className="muted">地址填写这台电脑的局域网 IPv4，后面加 :53317。留空时自动选择局域网地址；开启后才可接收文件。</p></details>
         <Button type="submit" disabled={working||!target}>{working?"正在开启…":"开启接收"}</Button>
       </form>}
-      {view.pending&&<section className="transfer-request" aria-label="待确认接收"><h3>接收请求 · {view.pending.alias}</h3><ul className="transfer-files">{view.pending.files.map((file,index)=><li key={index}><span title={file.name}>{file.name}</span><small>{sizes(file.size)}</small></li>)}</ul><p>{view.pending.files.length}项 · {sizes(view.pending.total)}</p><div><Button variant="outline" disabled={working} onClick={()=>void action(()=>backend.decide(view.pending!.id,false))}>拒绝接收</Button><Button disabled={working} onClick={()=>void action(()=>backend.decide(view.pending!.id,true))}>接受文件</Button></div></section>}
+      {view.pending&&<section className="transfer-request" aria-label="待确认接收"><h3>接收请求 {view.pending.alias}</h3><ul className="transfer-files">{view.pending.files.map((file,index)=><li key={index}><span aria-description={file.name}>{file.name}</span><small>{sizes(file.size)}</small></li>)}</ul><p>{view.pending.files.length}项 {sizes(view.pending.total)}</p><div><Button variant="outline" disabled={working} onClick={()=>void action(()=>backend.decide(view.pending!.id,false))}>拒绝接收</Button><Button disabled={working} onClick={()=>void action(()=>backend.decide(view.pending!.id,true))}>接受文件</Button></div></section>}
     </>}
     {backend.webDeviceClaim&&<details className="transfer-experiment" data-testid="w1-device-pair">
-      <summary>连接网页 / 手机 · Windows 设备授权（W1）</summary>
+      <summary>连接网页 / 手机 Windows 设备授权（W1）</summary>
       <section className="connection-fields" aria-label="Windows 联网身份授权">
         <strong>受保护网页 → Windows 应用</strong>
         <p className="muted">先到已配置 Cloudflare Access 的柠猫网页「我的设备」生成一次性配对码，再在这里领取本机授权。默认不使用浏览器 Cookie 或 Access JWT。</p>
         {webDevice?.authorized?<div className="transfer-status" role="status">
-          <strong>{webDevice.signal_online?"Windows 原生信令已连接 · 网页接收需手动确认":"Windows 已获得临时设备授权 · 未联网传文件"}</strong>
-          <p>{webDevice.name} · {webDevice.device_id.slice(0,8)}</p>
-          <p>{webDevice.endpoint} · 有效期至 {new Date(webDevice.expires_at).toLocaleString()}</p>
+          <strong>{webDevice.signal_online?"Windows 原生信令已连接 网页接收需手动确认":"Windows 已获得临时设备授权 未联网传文件"}</strong>
+          <p>{webDevice.name} {webDevice.device_id.slice(0,8)}</p>
+          <p>{webDevice.endpoint} 有效期至 {new Date(webDevice.expires_at).toLocaleString()}</p>
           <p className="muted">凭据只在本次软件内存。W2/W3 接收须下方手动开启并逐次同意，尚未经过真实公网设备验收；默认拒绝所有网页请求。</p>
           <p className="muted">其他在线设备：{webDevice.signal_online?webDevice.online_devices.length:0} 台（不是文件传输成功数）</p>
           {!webDevice.signal_online&&backend.webDeviceConnect&&<Button type="button" disabled={webPairBusy} onClick={()=>void connectWebDevice()}>{webPairBusy?"正在连接信令…":"连接网页信令（W1）"}</Button>}

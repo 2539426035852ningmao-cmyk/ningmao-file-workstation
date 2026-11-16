@@ -165,6 +165,7 @@ export const nativeBackend: Backend = {
       cleanups.push(await listen<Progress>("copy-progress", event => events.progress(event.payload)));
       cleanups.push(await listen<{message:string}>("copy-finished", event => events.finished(event.payload.message)));
       cleanups.push(await listen<string>("native-drag-result", event => events.drag(event.payload)));
+      if(events.activate)cleanups.push(await getCurrentWebviewWindow().listen<[number,number]>("desktop-shelf-origin",event=>document.documentElement.style.setProperty("--shelf-origin",`${event.payload[0]}px ${event.payload[1]}px`)));
       cleanups.push(await listen<number>("desktop-activate-shelf",event=>events.activate?.(event.payload)));
       cleanups.push(await listen<DesktopView>("desktop-updated",event=>{document.documentElement.dataset.alwaysScrollbars=String(event.payload.always_scrollbars??false);events.desktop?.(event.payload);}));
       cleanups.push(await listen<string>("desktop-error",event=>events.error?.(event.payload)));

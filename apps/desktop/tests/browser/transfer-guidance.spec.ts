@@ -21,7 +21,7 @@ for(const theme of ['light','dark','blue'])test(`接收就绪只展示关键动�
  await page.getByRole('button',{name:'选择保存文件夹',exact:true}).click();
  await page.getByRole('button',{name:'开启接收',exact:true}).click();
  const panel=page.getByRole('dialog',{name:'文件互传',exact:true});
- await expect(panel.getByText('已准备好接收 · 设备码 AAAAAA')).toBeInViewport({ratio:1});
+ await expect(panel.getByText('已准备好接收 设备码 AAAAAA')).toBeInViewport({ratio:1});
  await expect(panel.getByLabel('本机地址',{exact:true})).toBeHidden();
  await expect(panel.getByRole('button',{name:'复制连接信息',exact:true})).toBeInViewport({ratio:1});
  await expect(panel.getByRole('button',{name:'停止接收',exact:true})).toBeInViewport({ratio:1});
@@ -61,7 +61,7 @@ test('附近设备单击选中后可发送，无需填写地址',async({page})=>
  await page.getByText('Alpha.txt',{exact:true}).click();
  await page.getByRole('button',{name:'更多操作',exact:true}).click();
  await page.getByRole('menuitem',{name:'发送到设备',exact:true}).click();
- await page.getByRole('button',{name:'合成接收电脑 · AAAAAA',exact:true}).click();
+ await page.getByRole('button',{name:'合成接收电脑 AAAAAA',exact:true}).click();
  await expect(page.getByRole('button',{name:'确认设备并发送',exact:true})).toBeEnabled();
  await expect(page.getByLabel('接收方地址',{exact:true})).toHaveValue('127.0.0.1:53317');
  expect(await page.evaluate(()=>window.transferHarness.calls())).toEqual([]);
@@ -83,13 +83,13 @@ test('首次确认设备先配对再发送，重新打开后记住设备',async(
  await page.getByText('Alpha.txt',{exact:true}).click();
  await page.getByRole('button',{name:'更多操作',exact:true}).click();
  await page.getByRole('menuitem',{name:'发送到设备',exact:true}).click();
- await page.getByRole('button',{name:'合成接收电脑 · AAAAAA',exact:true}).click();
+ await page.getByRole('button',{name:'合成接收电脑 AAAAAA',exact:true}).click();
  await page.getByRole('button',{name:'确认设备并发送',exact:true}).click();
  expect((await page.evaluate(()=>window.transferHarness.calls()))[0]).toBe('pair:127.0.0.1:53317');
  await page.reload();
  await page.getByText('Alpha.txt',{exact:true}).click();
  await page.getByRole('button',{name:'更多操作',exact:true}).click();
  await page.getByRole('menuitem',{name:'发送到设备',exact:true}).click();
- await page.getByRole('button',{name:'合成接收电脑 · AAAAAA · 已配对',exact:true}).click();
+ await page.getByRole('button',{name:'合成接收电脑 AAAAAA 已配对',exact:true}).click();
  await expect(page.getByRole('button',{name:'发送文件',exact:true})).toBeEnabled();
 });

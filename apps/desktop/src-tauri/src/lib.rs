@@ -177,6 +177,7 @@ async fn snapshot(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result
 #[tauri::command]
 async fn choose_files(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<Vec<String>> {
     shelf_windows::scope(&window)?;
+    let _dialog = desktop_runtime::NativeDialogGuard::new(&app);
     tauri::async_runtime::spawn_blocking(move || {
         app.dialog()
             .file()
@@ -223,11 +224,13 @@ fn clipboard_files(window: tauri::WebviewWindow) -> Result<Vec<String>> {
 #[tauri::command]
 async fn choose_folder(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<Option<i64>> {
     main_only(&window)?;
+    let _dialog = desktop_runtime::NativeDialogGuard::new(&app);
     let pick_app = app.clone();
     let path = tauri::async_runtime::spawn_blocking(move || {
         pick_app
             .dialog()
             .file()
+            .set_parent(&window)
             .set_title("主动绑定真实文件夹：拖入将复制并保留来源")
             .blocking_pick_folder()
     })
@@ -651,6 +654,7 @@ async fn execute_system_recycle(
     window: tauri::WebviewWindow,
     ticket: String,
 ) -> Result<Vec<RecycleOutcome>> {
+    let _dialog = desktop_runtime::NativeDialogGuard::new(&app);
     let scope = shelf_windows::scope(&window)?;
     let plan = app
         .state::<Runtime>()
@@ -931,6 +935,7 @@ async fn purge_trash(
     entity: String,
     id: i64,
 ) -> Result<bool> {
+    let _dialog = desktop_runtime::NativeDialogGuard::new(&app);
     metadata_window(&window)?;
     lifecycle_idle(&app)?;
     let pick = app.clone();
@@ -950,6 +955,7 @@ async fn relocate_reference(
     id: i64,
     directory: bool,
 ) -> Result<bool> {
+    let _dialog = desktop_runtime::NativeDialogGuard::new(&app);
     let scope = shelf_windows::scope(&window)?;
     let original = scoped_database(app.clone(), scope, vec![id], move |s| {
         s.relocation_source(id)
@@ -1131,6 +1137,7 @@ async fn analyze_duplicates(
 }
 #[tauri::command]
 async fn open_item(app: tauri::AppHandle, window: tauri::WebviewWindow, id: i64) -> Result<bool> {
+    let _dialog = desktop_runtime::NativeDialogGuard::new(&app);
     let scope = shelf_windows::scope(&window)?;
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<Runtime>();
@@ -1244,12 +1251,16 @@ fn start_native_drag(
 fn toggle_topmost(window: tauri::WebviewWindow) -> Result<bool> {
     shelf_windows::scope(&window)?;
     let value = !window.is_always_on_top().map_err(error)?;
-    window.set_always_on_top(value).map_err(error)?;
-    shelf_windows::capture_all(window.app_handle());
-    let _ = window
+    let mut preferences = window
         .app_handle()
         .state::<desktop_runtime::Desktop>()
-        .save();
+        .layout
+        .lock()
+        .map_err(error)?
+        .preferences
+        .clone();
+    preferences.topmost = value;
+    desktop_runtime::configure(window.app_handle(), preferences)?;
     Ok(value)
 }
 #[tauri::command]
@@ -1676,6 +1687,7 @@ async fn schedule_data_restore(
     app: tauri::AppHandle,
     window: tauri::WebviewWindow,
 ) -> Result<bool> {
+    let _dialog = desktop_runtime::NativeDialogGuard::new(&app);
     if metadata_scope(&window)?.is_some() {
         return Err("请在主窗口或管理中心恢复数据。".into());
     }
@@ -1706,6 +1718,7 @@ async fn schedule_data_restore(
 }
 #[tauri::command]
 async fn export_data_backup(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<bool> {
+    let _dialog = desktop_runtime::NativeDialogGuard::new(&app);
     if metadata_scope(&window)?.is_some() {
         return Err("请在主窗口或管理中心备份数据。".into());
     }
@@ -2148,6 +2161,9 @@ pub fn run() {
             if matches!(event, tauri::WindowEvent::Moved(_)) {
                 window_surface::observe_move(window);
             }
+            if matches!(event, tauri::WindowEvent::Focused(false)) {
+                desktop_runtime::focus_lost(window);
+            }
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 if window.label() != "manager" {
                     api.prevent_close();
@@ -2157,14 +2173,14 @@ pub fn run() {
                         let _ = window.emit("desktop-error", message);
                         return;
                     }
-                    // Frozen decision 19: X hides to tray. Only explicit collapse creates an orb.
-                    shelf_windows::hidden(window);
                     #[cfg(windows)]
                     let closing = window
                         .app_handle()
                         .try_state::<Runtime>()
                         .and_then(|state| state.duplicate_scan.close_start(window.label()).ok());
-                    let _ = window.hide();
+                    if let Err(message)=desktop_runtime::close_file_window(window) {
+                        let _=window.emit("desktop-error",message);
+                    }
                     #[cfg(windows)]
                     if let Some(generation) = closing
                         && let Some(state) = window.app_handle().try_state::<Runtime>()
