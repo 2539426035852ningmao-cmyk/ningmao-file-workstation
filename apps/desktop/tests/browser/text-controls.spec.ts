@@ -10,14 +10,15 @@ test("文件文字保留完整行高，长架名不挤占窗口控制和拖动�
     await page.reload();
     const header=page.locator(".shelf-header");
     await expect(page.getByRole("button",{name:"切换文件架",exact:true})).toContainText("这是一个");
-    await expect(page.getByRole("button",{name:"切换文件架",exact:true})).toHaveAttribute("title","这是一个用于日常收集整理的长文件架名称");
-    const metrics=await header.evaluate(el=>({width:el.scrollWidth,drag:el.querySelector(".titlebar-drag-space")!.getBoundingClientRect().width,controls:[...el.querySelectorAll(".window-controls button")].map(e=>({width:e.getBoundingClientRect().width,height:e.getBoundingClientRect().height}))}));
+    await expect(page.getByRole("button",{name:"切换文件架",exact:true})).toHaveAttribute("aria-description","这是一个用于日常收集整理的长文件架名称");
+    await expect(page.locator("html")).not.toHaveAttribute("data-shelf-enter","true");
+ const metrics=await header.evaluate(el=>({width:el.scrollWidth,drag:el.querySelector(".titlebar-drag-space")!.getBoundingClientRect().width,controls:[...el.querySelectorAll(".window-controls button")].map(e=>({width:e.getBoundingClientRect().width,height:e.getBoundingClientRect().height}))}));
     expect(metrics.width).toBeLessThanOrEqual(width);
     expect(metrics.drag).toBeGreaterThanOrEqual(20);
     for(const control of metrics.controls){expect(control.width).toBeGreaterThanOrEqual(30);expect(control.height).toBeGreaterThanOrEqual(30);}
-    await page.getByRole("button",{name:"最小化窗口",exact:true}).focus();
-    await page.keyboard.press("Tab");await expect(page.getByRole("button",{name:"最大化窗口",exact:true})).toBeFocused();
-    await page.keyboard.press("Tab");await expect(page.getByRole("button",{name:"暂时关闭窗口",exact:true})).toBeFocused();
+    await page.getByRole("button",{name:"更多操作",exact:true}).focus();
+    await page.keyboard.press("Tab");await expect(page.getByRole("button",{name:"收起文件架",exact:true})).toBeFocused();
+    await page.keyboard.press("Tab");await expect(page.getByRole("textbox",{name:"搜索文件",exact:true})).toBeFocused();
     for(const size of ["小缩略图","中缩略图","大缩略图"]){
       await page.getByRole("button",{name:"更多操作",exact:true}).click();
       await expandDisplayOptions(page);await page.getByRole("menuitemradio",{name:size,exact:true}).click();

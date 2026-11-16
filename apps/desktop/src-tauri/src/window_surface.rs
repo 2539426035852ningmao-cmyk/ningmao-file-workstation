@@ -23,9 +23,9 @@ pub struct Contour {
 impl Contour {
     pub fn raster_bounds(&self, scale: f64) -> [i32; 6] {
         // HRGN is a binary outer mask, not the visual edge. Preserve Chromium's
-        // partially covered edge pixels with three physical pixels of raster guard (GDI ellipse quantization).
+        // partially covered edge pixels and the 3px soft shadow at every DPI.
         // Semantic drop slots remain unchanged; this guard cannot select a shelf.
-        let pad = 3;
+        let pad = (4.0 * scale).ceil().max(3.0) as i32;
         [
             (self.x * scale).floor() as i32 - pad,
             (self.y * scale).floor() as i32 - pad,

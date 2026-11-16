@@ -28,7 +28,7 @@ test("未选文件不展示连接操作或启动附近设备发现，返回后�
   await page.getByRole("button",{name:"选择 Alpha.txt",exact:true}).click();
   await page.getByRole("button",{name:"更多操作",exact:true}).click();
   await page.getByRole("menuitem",{name:"发送到设备",exact:true}).click();
-  await panel.getByRole("button",{name:"合成接收电脑 · AAAAAA",exact:true}).click();
+  await panel.getByRole("button",{name:"合成接收电脑 AAAAAA",exact:true}).click();
   await expect(panel.getByRole("button",{name:"确认设备并发送",exact:true})).toBeEnabled();
   await panel.getByRole("button",{name:"关闭文件互传",exact:true}).click();
   await expect(page.getByRole("button",{name:"选择 Alpha.txt",exact:true})).toHaveAttribute("aria-pressed","true");

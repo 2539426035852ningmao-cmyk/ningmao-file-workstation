@@ -40,7 +40,7 @@ test("空格键值有效但物理键位缺失时仍可预览，输入框内不�
   await expect(page.getByRole("dialog")).toContainText("快速预览");
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await page.getByRole("button",{name:"搜索文件",exact:true}).click();
+  await page.getByRole("textbox",{name:"搜索文件",exact:true}).click();
   const input=page.getByRole("textbox",{name:"搜索文件",exact:true});
   await input.fill("Alpha");await input.press("Space");
   await expect(input).toHaveValue("Alpha ");
@@ -74,7 +74,7 @@ test("引用、标签、失效状态、预览与移除语义",async({page})=>{
   const errors:string[]=[];page.on("pageerror",e=>errors.push(e.message));
   await page.goto("/tests/harness.html");
   await expect(page.getByRole("button",{name:"选择 Alpha.txt",exact:true})).toBeVisible();
-  await page.getByRole("button",{name:"搜索文件",exact:true}).click();
+  await page.getByRole("textbox",{name:"搜索文件",exact:true}).click();
   await page.getByRole("textbox",{name:"搜索文件",exact:true}).fill("中文");
   await expect(page.locator("[data-item-id]")).toHaveCount(1);
   await page.getByRole("textbox",{name:"搜索文件",exact:true}).press("Escape");

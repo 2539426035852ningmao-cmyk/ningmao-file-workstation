@@ -60,10 +60,10 @@ export function GlobalSearch({backend,revision,scoped=false}:{backend:Backend;re
       <p className="global-search-summary" role="status">{locating?"正在定位…":loading?"正在搜索…":!query.trim()&&kind==="all"&&source==="all"&&status==="all"?"输入关键词，或选择筛选条件。":response.hits.length?`${response.hits.length} 个文件${response.truncated?"，仅显示前 50 项，请缩小条件":""}`:"没有匹配的文件"}</p>
       <div ref={list} id="search-results" className="global-search-results" role="listbox" aria-label="搜索结果" aria-busy={loading}>
         {response.hits.map((hit,index)=><button key={hit.references.map(r=>r.item_id).join(",")} id={`search-hit-${index}`} type="button" role="option" aria-selected={active===index} disabled={locating} onFocus={()=>setActive(index)} onClick={()=>void locate(hit)}>
-          <File size={20} aria-hidden="true"/><span className="global-search-info"><strong>{hit.name}</strong><span>{[...new Set(hit.references.map(r=>r.shelf_name))].join(" · ")}</span><small>{hit.kind.toUpperCase()} · {statuses[hit.status]??"无法读取"}{hit.match_kind==="tag"?" · 标签匹配":""}</small></span>{hit.references.length>1&&<span className="global-search-count">{hit.references.length} 处引用</span>}
+          <File size={20} aria-hidden="true"/><span className="global-search-info"><strong>{hit.name}</strong><span>{[...new Set(hit.references.map(r=>r.shelf_name))].join(" ")}</span><small>{hit.kind.toUpperCase()} {statuses[hit.status]??"无法读取"}{hit.match_kind==="tag"?" 标签匹配":""}</small></span>{hit.references.length>1&&<span className="global-search-count">{hit.references.length} 处引用</span>}
         </button>)}
       </div>
     </>}
-    <footer>Enter 定位 · Esc 关闭<span>Ctrl+K</span></footer>
+    <footer>Enter 定位 Esc 关闭<span>Ctrl+K</span></footer>
   </SheetContent></Sheet>;
 }

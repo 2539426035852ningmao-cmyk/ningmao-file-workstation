@@ -10,7 +10,7 @@ use std::{
     path::{Path, PathBuf},
     sync::{
         Mutex,
-        atomic::{AtomicBool, AtomicI64, Ordering},
+        atomic::{AtomicBool, AtomicI64, AtomicUsize, Ordering},
     },
     time::{Duration, Instant},
 };
@@ -24,6 +24,7 @@ pub struct Desktop {
     pub transitioning: AtomicBool,
     pub sense_enabled: AtomicBool,
     pub sense_running: AtomicBool,
+    native_dialogs: AtomicUsize,
     peek_target: AtomicI64,
     path: PathBuf,
     writable: bool,
@@ -101,6 +102,7 @@ impl Desktop {
             transitioning: AtomicBool::new(false),
             sense_enabled: AtomicBool::new(false),
             sense_running: AtomicBool::new(false),
+            native_dialogs: AtomicUsize::new(0),
             peek_target: AtomicI64::new(0),
             path,
             writable,
@@ -132,6 +134,24 @@ impl Desktop {
                 Some("入口布局未能保存；当前仍可使用，下次启动可能恢复旧位置。".into());
         }
         result
+    }
+}
+// A picker or confirmation owns focus temporarily. Never collapse its parent.
+pub struct NativeDialogGuard(tauri::AppHandle);
+impl NativeDialogGuard {
+    pub fn new(app: &tauri::AppHandle) -> Self {
+        app.state::<Desktop>()
+            .native_dialogs
+            .fetch_add(1, Ordering::SeqCst);
+        Self(app.clone())
+    }
+}
+impl Drop for NativeDialogGuard {
+    fn drop(&mut self) {
+        self.0
+            .state::<Desktop>()
+            .native_dialogs
+            .fetch_sub(1, Ordering::SeqCst);
     }
 }
 fn shelves(app: &tauri::AppHandle) -> Result<Vec<ShelfIdentity>> {
@@ -322,6 +342,10 @@ pub(crate) fn entry_geometry(app: &tauri::AppHandle) -> Result<()> {
     publish(app)
 }
 pub fn present(app: &tauri::AppHandle, id: i64, kind: crate::entry::Kind) -> Result<()> {
+    // Compatibility command: old callers now open the full shelf directly.
+    if kind != crate::entry::Kind::Orb {
+        return open(app, id, true);
+    }
     require_idle(app)?;
     known_shelf(app, id)?;
     let state = app.state::<Desktop>();
@@ -393,6 +417,9 @@ pub fn collapse(app: &tauri::AppHandle, id: i64) -> Result<()> {
         return Err("基础Dock最多收纳256架。".into());
     }
     let label = crate::shelf_windows::label_for(app, id)?;
+    if let Some(window) = app.get_webview_window(&label) {
+        crate::shelf_windows::capture(&window.as_ref().window());
+    }
     {
         let mut l = state.layout.lock().map_err(error)?;
         if label == "main" {
@@ -428,6 +455,17 @@ pub fn open(app: &tauri::AppHandle, id: i64, focus: bool) -> Result<()> {
     let state = app.state::<Desktop>();
     let main = crate::shelf_windows::ensure(app, id)?;
     let detached = main.label() != "main";
+    let source_slot = {
+        let layout = state.layout.lock().map_err(error)?.clone();
+        state
+            .entry
+            .lock()
+            .map_err(error)?
+            .geometry(&layout)
+            .slots
+            .into_iter()
+            .find(|s| s.id == id)
+    };
     {
         let mut layout = state.layout.lock().map_err(error)?;
         if detached {
@@ -444,7 +482,21 @@ pub fn open(app: &tauri::AppHandle, id: i64, focus: bool) -> Result<()> {
             layout.expanded = true;
         }
     }
-    if !focus && let Some(entry) = app.get_webview_window("desktop-entry") {
+    let first_open = if detached {
+        state
+            .layout
+            .lock()
+            .map_err(error)?
+            .detached
+            .iter()
+            .find(|s| s.shelf_id == id)
+            .is_some_and(|s| s.geometry.is_none())
+    } else {
+        state.layout.lock().map_err(error)?.main_geometry.is_none()
+    };
+    if (!focus || first_open)
+        && let Some(entry) = app.get_webview_window("desktop-entry")
+    {
         let p = entry.outer_position().map_err(error)?;
         let entry_size = entry.outer_size().map_err(error)?;
         let main_size = main.outer_size().map_err(error)?;
@@ -472,6 +524,25 @@ pub fn open(app: &tauri::AppHandle, id: i64, focus: bool) -> Result<()> {
                 .map_err(error)?;
         }
     }
+    if focus
+        && !main.is_visible().map_err(error)?
+        && let Some(entry) = app.get_webview_window("desktop-entry")
+        && entry.is_visible().unwrap_or(false)
+    {
+        let scale = main.scale_factor().map_err(error)?;
+        let ep = entry.outer_position().map_err(error)?;
+        let mp = main.outer_position().map_err(error)?;
+        let size = main.inner_size().map_err(error)?;
+        if let Some(slot) = source_slot {
+            let es = entry.scale_factor().map_err(error)?;
+            let x = ((f64::from(ep.x - mp.x) + (slot.x + 24.0) * es) / scale)
+                .clamp(24.0, (f64::from(size.width) / scale - 24.0).max(24.0));
+            let y = ((f64::from(ep.y - mp.y) + (slot.y + 24.0) * es) / scale)
+                .clamp(24.0, (f64::from(size.height) / scale - 24.0).max(24.0));
+            app.emit_to(main.label(), "desktop-shelf-origin", [x, y])
+                .map_err(error)?;
+        }
+    }
     app.emit_to(main.label(), "desktop-activate-shelf", id)
         .map_err(error)?;
     main.show().map_err(error)?;
@@ -480,6 +551,7 @@ pub fn open(app: &tauri::AppHandle, id: i64, focus: bool) -> Result<()> {
         crate::shelf_windows::recover_if_offscreen(&main)?;
         main.set_focus().map_err(error)?;
         entry_geometry(app)?;
+        crate::shelf_windows::capture(&main.as_ref().window());
         let _ = state.save();
     }
     publish(app)
@@ -551,6 +623,16 @@ pub fn configure(app: &tauri::AppHandle, preferences: Preferences) -> Result<boo
         let _ = entry_geometry(app);
         return Err(e);
     }
+    let pinned = state.layout.lock().map_err(error)?.preferences.topmost;
+    for window in app.webview_windows().values() {
+        if window.label() == "main" || crate::desktop::detached_id(window.label()).is_some() {
+            window.set_always_on_top(pinned).map_err(error)?;
+            if !pinned {
+                focus_lost(&window.as_ref().window());
+            }
+        }
+    }
+    crate::shelf_windows::capture_all(app);
     let saved = state.writable && state.save().is_ok();
     publish(app)?;
     Ok(saved)
@@ -737,7 +819,7 @@ pub fn setup(app: &tauri::AppHandle, root: &Path) -> Result<()> {
     let data = view(app)?;
     if let Some(main) = app.get_webview_window("main") {
         crate::shelf_windows::restore(&main, data.layout.main_geometry.as_ref())?;
-        main.set_always_on_top(data.layout.main_topmost)
+        main.set_always_on_top(data.layout.preferences.topmost)
             .map_err(error)?;
         if !data.layout.expanded {
             main.hide().map_err(error)?;
@@ -765,6 +847,46 @@ pub fn setup(app: &tauri::AppHandle, root: &Path) -> Result<()> {
         entry_geometry(app)?;
     }
     Ok(())
+}
+pub fn close_file_window(window: &tauri::Window) -> Result<()> {
+    let app = window.app_handle();
+    let id = crate::desktop::detached_id(window.label()).unwrap_or(active_shelf(app)?);
+    if id > 0 {
+        collapse(app, id)
+    } else {
+        window.hide().map_err(error)
+    }
+}
+
+pub fn focus_lost(window: &tauri::Window) {
+    if window.label() != "main" && crate::desktop::detached_id(window.label()).is_none() {
+        return;
+    }
+    let app = window.app_handle().clone();
+    let label = window.label().to_owned();
+    tauri::async_runtime::spawn(async move {
+        // Ignore focus transfers through native dialogs and quick focus reversals.
+        tokio::time::sleep(Duration::from_millis(180)).await;
+        let dispatch = app.clone();
+        let _ = app.run_on_main_thread(move || {
+            let Some(window) = dispatch.get_webview_window(&label) else {
+                return;
+            };
+            let state = dispatch.state::<Desktop>();
+            if window.is_focused().unwrap_or(true)
+                || !window.is_visible().unwrap_or(false)
+                || window.is_always_on_top().unwrap_or(true)
+                || state.native_dialogs.load(Ordering::SeqCst) > 0
+                || crate::window_surface::moving(&label)
+                || require_idle(&dispatch).is_err()
+            {
+                return;
+            }
+            if let Err(message) = close_file_window(&window.as_ref().window()) {
+                report(&dispatch, message);
+            }
+        });
+    });
 }
 fn request_peek(app: &tauri::AppHandle, id: Option<i64>) {
     let state = app.state::<Desktop>();

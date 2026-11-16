@@ -126,7 +126,7 @@ impl Default for Layout {
             preferences: Preferences::default(),
             detached: vec![],
             main_geometry: None,
-            main_topmost: false,
+            main_topmost: true,
             edge_hidden: false,
             drag_ids: None,
         }
@@ -249,7 +249,7 @@ impl Layout {
         self.detached.push(DetachedShelf {
             shelf_id: id,
             visible: true,
-            topmost: false,
+            topmost: self.preferences.topmost,
             geometry: None,
         });
         self.collapsed.retain(|s| *s != id);

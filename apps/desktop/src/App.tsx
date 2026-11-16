@@ -4,7 +4,7 @@ import type {TransferSelection} from "./components/TransferPanel";
 import {SystemRecycle} from "./components/SystemRecycle";
 import {RecycleDrawer} from "./components/RecycleDrawer";
 import {ScrollActivity} from "./components/ScrollActivity";
-import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { DndContext, DragOverlay, KeyboardSensor, PointerSensor, closestCenter, pointerWithin, useSensor, useSensors, type CollisionDetection } from "@dnd-kit/core";
 import { SortableContext, rectSortingStrategy, sortableKeyboardCoordinates, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -58,13 +58,13 @@ function Asset({item,backend,selected,list,size,disabled,select,inspect,open,dra
     className={`asset ${list?"asset-row":"asset-grid"} ${selected?"selected":""} ${sortable.isDragging?"dragging":""}`}
     style={{transform:CSS.Transform.toString(sortable.transform),transition:sortable.transition}}>
     <button ref={sortable.setActivatorNodeRef} className="drag-handle" disabled={disabled} aria-label={`调整 ${item.name} 顺序`} {...sortable.attributes} {...sortable.listeners}><GripVertical size={15}/></button>
-    <button className="asset-select" aria-label={`选择 ${item.name}`} aria-pressed={selected} draggable={false} title={item.status==="normal"?"拖动以复制；六点手柄调整顺序":undefined}
+    <button className="asset-select" aria-label={`选择 ${item.name}`} aria-pressed={selected} draggable={false} aria-description={item.status==="normal"?"拖动以复制；六点手柄调整顺序":undefined}
       onDragStart={e=>e.preventDefault()}
       onPointerDown={e=>{nativeDrag.current=false;press.current=null;if(e.button===0 && e.pointerType==="mouse" && item.status==="normal"){press.current={x:e.clientX,y:e.clientY};e.currentTarget.setPointerCapture(e.pointerId);}}}
       onPointerMove={e=>{const start=press.current;if(!(e.buttons&1)){press.current=null;return;}if(start && Math.hypot(e.clientX-start.x,e.clientY-start.y)>=6){press.current=null;nativeDrag.current=true;e.preventDefault();if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);drag();}}}
       onPointerUp={()=>{press.current=null;}} onPointerCancel={()=>{press.current=null;}} onLostPointerCapture={()=>{press.current=null;}}
       onClick={e=>{if(nativeDrag.current){e.preventDefault();e.stopPropagation();}else select(e);}} onDoubleClick={()=>{if(!nativeDrag.current)open();}} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();if(!e.repeat)open();}}}>
-      <Thumb item={item} backend={backend} size={list?30:size}/><span className="asset-name" title={item.name}>{item.name}</span>
+      <Thumb item={item} backend={backend} size={list?30:size}/><span className="asset-name" aria-description={item.name}>{item.name}</span>
       <span className="asset-meta">{item.status!=="normal" ? states[item.status] : item.kind.toUpperCase()}{item.tags.includes("精选") && <Star size={12}/>}</span>
       {list && <span className="asset-bytes">{sizes(item.bytes)}</span>}
     </button>
@@ -124,13 +124,28 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   const selected=selection.focus;
   function setSelected(id:number|null){setSelection({ids:id===null?[]:[id],anchor:id,focus:id});}
   const [collectRequest,setCollectRequest]=useState<import("./backend").CollectRequest|null>(null);
-  const [searchOpen,setSearchOpen]=useState(false),[displayOptions,setDisplayOptions]=useState(false),[moreOpen,setMoreOpen]=useState(false);
+  const [displayOptions,setDisplayOptions]=useState(false),[moreOpen,setMoreOpen]=useState(false);
   const [chatOpen,setChatOpen]=useState(false);
   const [chatLoaded,setChatLoaded]=useState(false);
   const [transferLoaded,setTransferLoaded]=useState(false),[transfer,setTransfer]=useState<{open:boolean;mode:"send"|"receive";selection:TransferSelection}>({open:false,mode:"receive",selection:{shelf_id:0,files:[]}});
   const [revealItem,setRevealItem]=useState<number|null>(null);
-  const searchInput=useRef<HTMLInputElement>(null),searchButton=useRef<HTMLButtonElement>(null),moreButton=useRef<HTMLButtonElement>(null);
-  const restoreSearchFocus=useRef(false);
+  const searchInput=useRef<HTMLInputElement>(null),moreButton=useRef<HTMLButtonElement>(null);
+  const revealTimer=useRef<ReturnType<typeof setTimeout>|undefined>(undefined);
+  const revealFrame=useRef<number|undefined>(undefined);
+  function revealShelf(){
+    clearTimeout(revealTimer.current);if(revealFrame.current!==undefined)cancelAnimationFrame(revealFrame.current);
+    delete document.documentElement.dataset.shelfEnter;
+    revealFrame.current=requestAnimationFrame(()=>{document.documentElement.dataset.shelfEnter="true";revealTimer.current=setTimeout(()=>{delete document.documentElement.dataset.shelfEnter;},260);});
+  }
+  useEffect(()=>{revealShelf();return()=>{clearTimeout(revealTimer.current);if(revealFrame.current!==undefined)cancelAnimationFrame(revealFrame.current);delete document.documentElement.dataset.shelfEnter;};},[]);
+  async function collapseShelf(){
+    if(!shelf){await backend.windowAction?.("hide");return;}
+    if(!matchMedia("(prefers-reduced-motion: reduce)").matches&&document.documentElement.dataset.reduceMotion!=="true"){
+      const animation=document.querySelector(".workstation")?.animate([{opacity:1,scale:"1"},{opacity:.2,scale:".97"}],{duration:100,easing:"ease-out"});
+      await animation?.finished.catch(()=>{});
+    }
+    await backend.desktopCollapse(activeShelf.current);
+  }
   const [feedback,setFeedback]=useState(false);
   const [query,setQuery]=useState("");
   const [filters,setFilters]=useState<ShelfFilters>(defaultFilters),[filtersOpen,setFiltersOpen]=useState(false);
@@ -187,8 +202,8 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   const running=data.jobs.find(j=>activeStatus(j.status));
   const inline=details && detailPinned && width>=1000;
   async function refresh() { const value=await backend.snapshot(); setData(value); return value; }
-  function activateShelf(id:number) { if(detachedShelfId!==undefined && id!==detachedShelfId)return;activeShelf.current=id;setShelfId(id); setSelected(null); setQuery(""); setFilters(defaultFilters);setFiltersOpen(false);setSearchOpen(false); setDetails(false); setPreview(false); }
-  function desktopChanged(value:DesktopView) { setCatalog(value.catalog??[]);setDetachedIds((value.layout.detached??[]).map(s=>s.shelf_id));setTopmost(detachedShelfId===undefined?(value.layout.main_topmost??false):(value.layout.detached?.find(s=>s.shelf_id===detachedShelfId)?.topmost??false));if(detachedShelfId===undefined && value.layout.active_shelf!==activeShelf.current)activateShelf(value.layout.active_shelf);if(value.warning)setError(value.warning); }
+  function activateShelf(id:number) { if((detachedShelfId!==undefined && id!==detachedShelfId)||id===activeShelf.current)return;activeShelf.current=id;setShelfId(id); setSelected(null); setQuery(""); setFilters(defaultFilters);setFiltersOpen(false); setDetails(false); setPreview(false); }
+  function desktopChanged(value:DesktopView) { setCatalog(value.catalog??[]);setDetachedIds((value.layout.detached??[]).map(s=>s.shelf_id));setTopmost(value.layout.preferences.topmost);if(detachedShelfId===undefined && value.layout.active_shelf!==activeShelf.current)activateShelf(value.layout.active_shelf);if(value.warning)setError(value.warning); }
   async function switchShelf(id:number) { if(detachedShelfId!==undefined)return;await perform(async()=>{await backend.desktopSelect(id);activateShelf(id);}); }
   async function perform(action:()=>Promise<unknown>) { setError(""); try { await action(); } catch(e) { setError(String(e)); } }
   async function cancelDuplicate(reason:"user"|"changed"){
@@ -249,9 +264,9 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
       drop:paths=>importRef.current(paths),hover:setHover,progress:setProgress,
       finished:message=>{copyFinished.current++;setMessage(message);setProgress(null);void refresh().catch(e=>setError(String(e)));},
       drag:message=>setMessage(`系统拖出结果：${message}；已请求复制。`),
-      activate:activateShelf,changed:()=>{void refresh().catch(e=>setError(String(e)));},error:setError,
+      activate:id=>{activateShelf(id);revealShelf();},changed:()=>{void refresh().catch(e=>setError(String(e)));},error:setError,
       collect:setCollectRequest,
-      focus:location=>{activateShelf(location.shelf_id);void backend.snapshot().then(value=>{if(!live||activeShelf.current!==location.shelf_id)return;setData(value);if(value.items.some(i=>i.id===location.item_id&&i.shelf_id===location.shelf_id)){setSelected(location.item_id);setRevealItem(location.item_id);}else setError("搜索结果已变化，请重新搜索。");}).catch(()=>{if(live)setError("暂时无法定位搜索结果。");});},
+      focus:location=>{activateShelf(location.shelf_id);setQuery("");setFilters(defaultFilters);void backend.snapshot().then(value=>{if(!live||activeShelf.current!==location.shelf_id)return;setData(value);if(value.items.some(i=>i.id===location.item_id&&i.shelf_id===location.shelf_id)){setSelected(location.item_id);setRevealItem(location.item_id);}else setError("搜索结果已变化，请重新搜索。");}).catch(()=>{if(live)setError("暂时无法定位搜索结果。");});},
       metadata:()=>{void backend.managementSnapshot().then(value=>{const tags=new Map(value.items.map(i=>[i.id,i.tags]));setData(old=>({...old,items:old.items.map(i=>tags.has(i.id)?{...i,tags:tags.get(i.id)!}:i)}));}).catch(e=>setError(String(e)));},
       desktop:desktopChanged,
     }).then(fn=>{if(live) cleanup=fn;else fn();}).catch(e=>setError(String(e)));
@@ -301,18 +316,14 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
     };
     window.addEventListener("keydown",fn);return()=>window.removeEventListener("keydown",fn);
   },[current,chosen,visible,bound,backend,preview,details]);
-  useLayoutEffect(()=>{
-    if(searchOpen)searchInput.current?.focus();
-    else if(restoreSearchFocus.current){restoreSearchFocus.current=false;searchButton.current?.focus();}
-  },[searchOpen]);
   useEffect(()=>{
     if(message==="文件架已恢复。" || message==="正在恢复文件架…")return;
     setFeedback(true);const timer=setTimeout(()=>setFeedback(false),4500);return()=>clearTimeout(timer);
   },[message]);
-  function closeSearch(){restoreSearchFocus.current=true;setQuery("");setSearchOpen(false);}
+  function closeSearch(){setQuery("");searchInput.current?.focus();}
   useEffect(()=>{
     const fn=(e:KeyboardEvent)=>{if(e.isComposing || e.defaultPrevented || (e.target instanceof HTMLElement && e.target.closest('[role="dialog"],[role="menu"]')))return;
-      if((e.ctrlKey || e.metaKey) && e.key.toLowerCase()==="f"){e.preventDefault();setSearchOpen(true);searchInput.current?.focus();}
+      if((e.ctrlKey || e.metaKey) && e.key.toLowerCase()==="f"){e.preventDefault();searchInput.current?.focus();}
     };window.addEventListener("keydown",fn);return()=>window.removeEventListener("keydown",fn);
   },[]);
   async function tag(item:Item) { await perform(async()=>{await backend.tags(item.id,item.tags.includes("精选")?item.tags.filter(t=>t!=="精选"):[...item.tags,"精选"]);await refresh();}); }
@@ -350,54 +361,62 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
     <RecycleDrawer backend={backend} open={recycleOpen} onOpenChange={setRecycleOpen} shelfId={shelfId} onChanged={refresh}/>
     {undo&&<div className="undo-record" role="status">已移入柠猫回收站 <Button variant="ghost" onClick={()=>void perform(async()=>{for(const id of undo.ids??[undo.id])await backend.restoreTrash?.(undo.entity,id);setUndo(null);await refresh();})}>撤销</Button></div>}
     <div className="shelf-chrome" {...windowDrag}><header className="shelf-header">
-      {!searchOpen && <OrbFace brand/>}
-      {searchOpen ? <div className="shelf-search"><Search size={16}/><Input ref={searchInput} aria-label="搜索文件" placeholder="搜索当前文件架" value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==="Escape" && !e.nativeEvent.isComposing){e.preventDefault();e.stopPropagation();closeSearch();}}}/><Button variant="ghost" size="icon" aria-label="关闭搜索" onClick={closeSearch}><X size={16}/></Button></div> : <>
+      <OrbFace brand/>
         <ShelfMenu label="文件架" align="start" trigger={<Button className="shelf-switch" variant="ghost" aria-label="切换文件架" title={shelf?.name || "主窗口"}><span>{shelf?.name || "主窗口"}</span><ChevronDown size={14}/></Button>}>
           <DropdownMenu.RadioGroup value={String(shelfId)} onValueChange={id=>switchShelf(Number(id))}>{data.shelves.map(s=><div className="shelf-choice" key={s.id}><DropdownMenu.RadioItem disabled={detachedShelfId!==undefined} value={String(s.id)}>{s.kind==="bound"?<Folder size={16}/>:<Archive size={16}/>}<span>{s.name}</span><DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem><button className="shelf-recycle" aria-label={`回收文件架 ${s.name}`} disabled={busy||!!running||hover||!!dragging||!backend.trashShelf} onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();void perform(async()=>{await backend.trashShelf?.(s.id);setUndo({entity:"shelf",id:s.id});await refresh();setMessage("整个文件架已移入柠猫回收站，原文件保留。");});}}><Trash2 size={14}/></button></div>)}</DropdownMenu.RadioGroup>
-          {detachedShelfId===undefined && <><DropdownMenu.Separator/>{catalog.filter(s=>detachedIds.includes(s.id)).map(s=><DropdownMenu.Item key={s.id} onSelect={()=>void perform(()=>backend.desktopOpen(s.id))}>打开独立窗口 · {s.name}</DropdownMenu.Item>)}<DropdownMenu.Item disabled={!native || busy || !shelf || !backend.renameShelf} onSelect={()=>{setRenaming(shelfId);setNewName(shelf?.name || "");setFormError("");setCreating(true);}}>重命名当前文件架</DropdownMenu.Item><DropdownMenu.Item disabled={!native || busy} onSelect={()=>{setRenaming(null);setNewName("");setSessionShelf(false);setFormError("");setCreating(true);}}><Plus size={16}/>新建文件架</DropdownMenu.Item><DropdownMenu.Item disabled={!native || busy || !!running} onSelect={()=>void perform(async()=>{const id=await backend.chooseFolder();await refresh();if(id)await switchShelf(id);})}><FolderPlus size={16}/>绑定文件夹</DropdownMenu.Item></>}
+          {detachedShelfId===undefined && <><DropdownMenu.Separator/>{catalog.filter(s=>detachedIds.includes(s.id)).map(s=><DropdownMenu.Item key={s.id} onSelect={()=>void perform(()=>backend.desktopOpen(s.id))}>打开独立窗口 {s.name}</DropdownMenu.Item>)}<DropdownMenu.Item disabled={!native || busy || !shelf || !backend.renameShelf} onSelect={()=>{setRenaming(shelfId);setNewName(shelf?.name || "");setFormError("");setCreating(true);}}>重命名当前文件架</DropdownMenu.Item><DropdownMenu.Item disabled={!native || busy} onSelect={()=>{setRenaming(null);setNewName("");setSessionShelf(false);setFormError("");setCreating(true);}}><Plus size={16}/>新建文件架</DropdownMenu.Item><DropdownMenu.Item disabled={!native || busy || !!running} onSelect={()=>void perform(async()=>{const id=await backend.chooseFolder();await refresh();if(id)await switchShelf(id);})}><FolderPlus size={16}/>绑定文件夹</DropdownMenu.Item></>}
         </ShelfMenu>
 
-        <Button ref={searchButton} variant="ghost" size="icon" aria-label="搜索文件" title="搜索文件 Ctrl+F" onClick={()=>setSearchOpen(true)}><Search size={16}/></Button>
-      </>}
-      {!searchOpen&&<span className="titlebar-drag-space" aria-hidden="true"/>}
+      <span className="titlebar-drag-space" aria-hidden="true"/>
       <Button className="add-files" variant="ghost" size="icon" disabled={!native || loading || !shelf || busy || !!running} aria-label={bound?"添加并复制":"添加引用"} title={bound?"添加并复制，保留来源":"添加引用，保留原文件"} onClick={()=>void perform(async()=>receive(await backend.chooseFiles()))}><Plus size={18}/></Button>
-      <Button className="shelf-collapse" variant="ghost" size="icon" aria-label="收起到悬浮入口" title="收起当前文件架" disabled={!native || loading || !shelf || busy || !!dragging || hover} onClick={()=>void perform(()=>backend.desktopCollapse(shelfId))}><ArrowDownToLine size={16}/></Button>
-      <ShelfMenu label="更多操作" open={moreOpen} onOpenChange={open=>{if(open)setDisplayOptions(false);setMoreOpen(open);}} trigger={<Button variant="ghost" size="icon" ref={moreButton} aria-label="更多操作" title="更多操作"><MoreHorizontal size={18}/></Button>}>
-        <DropdownMenu.Item className="compact-command" onSelect={()=>setSearchOpen(true)}>搜索文件</DropdownMenu.Item>
-        <DropdownMenu.Item onSelect={()=>openGlobalSearch(moreButton.current)}><Search size={16}/><span>{detachedShelfId!==undefined?"搜索当前文件架":"跨文件架搜索"}</span><kbd aria-hidden="true">Ctrl+K</kbd></DropdownMenu.Item>
-        <DropdownMenu.Item className="compact-command" disabled={!native || !shelf || busy || !!running} onSelect={()=>void perform(async()=>receive(await backend.chooseFiles()))}>添加文件</DropdownMenu.Item>
-        <DropdownMenu.Item disabled={!native || loading || !shelf || busy || !!running || !backend.clipboardFiles} title="粘贴资源管理器中复制的文件；截图请按 Ctrl+V" onSelect={()=>void pasteFiles()}><ClipboardPaste size={16}/><span>粘贴文件</span><kbd aria-hidden="true">Ctrl+V</kbd></DropdownMenu.Item>
-        <DropdownMenu.Item disabled={!native || loading || !shelf || busy} onSelect={()=>void perform(()=>backend.desktopCollapse(shelfId))}>收起到悬浮入口</DropdownMenu.Item>
-        <DropdownMenu.Item disabled={!native || loading || !shelf || busy} onSelect={()=>void perform(()=>detachedShelfId===undefined?backend.desktopDetach(shelfId):backend.desktopMerge(shelfId))}>{detachedShelfId===undefined?"拆分为独立窗口":"合并回主窗口"}</DropdownMenu.Item>
-        {detachedShelfId===undefined && <DropdownMenu.Item disabled={!native} onSelect={()=>void perform(()=>backend.desktopDisable())}>关闭悬浮入口</DropdownMenu.Item>}
-        <DropdownMenu.Item onSelect={()=>setRecycleOpen(true)}><Trash2 size={16}/>柠猫回收站</DropdownMenu.Item>
-        <DropdownMenu.Item disabled={!native} onSelect={()=>void perform(()=>backend.managerOpen())}>管理中心</DropdownMenu.Item>
-        {backend.transfer&&<DropdownMenu.Item onSelect={()=>{setTransferLoaded(true);setTransfer({open:true,mode:"receive",selection:{shelf_id:shelfId,files:[]}});}}>文件互传</DropdownMenu.Item>}
-        {backend.transfer&&chosen.length>0&&<DropdownMenu.Item disabled={chosen.length>16||chosen.some(item=>item.status!=="normal"||item.kind==="folder")} onSelect={()=>{setTransferLoaded(true);setTransfer({open:true,mode:"send",selection:{shelf_id:shelfId,files:chosen.map(({id,name})=>({id,name}))}});}}>发送到设备</DropdownMenu.Item>}
-        {backend.chat&&<DropdownMenu.Item onSelect={()=>{setChatLoaded(true);setChatOpen(true);}}>AI 对话</DropdownMenu.Item>}
-        <DropdownMenu.Item disabled={!native || !chosen.length || busy} onSelect={()=>{setCopyIds(chosen.map(i=>i.id));setCopyTarget(catalog.find(s=>s.id!==shelfId && s.kind!=="bound")?.id || 0);setFormError("");setCopyTo(true);}}>复制选中引用到其他架</DropdownMenu.Item><DropdownMenu.Separator/>
-        {chosen.length>=2 && <DropdownMenu.Item disabled={!backend.analyzeDuplicates || duplicateBusy || chosen.length>32 || chosen.some(i=>i.status!=="normal" || i.kind==="folder")} onSelect={()=>void analyzeSelected()}>{duplicateBusy?"正在比较文件…":chosen.length>32?"比较内容（最多 32 项）":chosen.some(i=>i.status!=="normal" || i.kind==="folder")?"比较内容（请选择正常文件）":"比较选中文件内容"}</DropdownMenu.Item>}
-        <DropdownMenu.Item disabled={!backend.planSystemRecycle || !chosen.length || chosen.some(i=>i.status!=="normal") || busy || !!running} onSelect={()=>setSystemRecycleIds(chosen.map(i=>i.id))}>将选中真实文件移入 Windows 回收站…</DropdownMenu.Item><DropdownMenu.Separator/>
-        <DropdownMenu.Item aria-expanded={displayOptions} aria-controls="shelf-display-options" onSelect={event=>{event.preventDefault();setDisplayOptions(value=>!value);}}><Grid2X2 size={16}/><span>显示与排序</span><ChevronDown size={14} style={{transform:displayOptions?"rotate(180deg)":undefined}}/></DropdownMenu.Item>
-        {displayOptions&&<DropdownMenu.Group id="shelf-display-options" aria-label="显示与排序">
+      <ShelfMenu label="更多操作" centered open={moreOpen} onOpenChange={open=>{if(open)setDisplayOptions(false);setMoreOpen(open);}} trigger={<Button variant="ghost" size="icon" ref={moreButton} aria-label="更多操作" title="更多操作"><MoreHorizontal size={18}/></Button>}>
+        <DropdownMenu.Group aria-label="收集与搜索">
+<DropdownMenu.Item onSelect={()=>openGlobalSearch(moreButton.current)}><Search size={16}/><span>{detachedShelfId!==undefined?"搜索当前文件架":"跨文件架搜索"}</span><kbd aria-hidden="true">Ctrl+K</kbd></DropdownMenu.Item>
+<DropdownMenu.Item disabled={!native || loading || !shelf || busy || !!running || !backend.clipboardFiles} aria-description="粘贴资源管理器中复制的文件；截图请按 Ctrl+V" onSelect={()=>void pasteFiles()}><ClipboardPaste size={16}/><span>粘贴文件</span><kbd aria-hidden="true">Ctrl+V</kbd></DropdownMenu.Item>
+</DropdownMenu.Group>
+        {chosen.length>0&&<><DropdownMenu.Separator/><DropdownMenu.Group aria-label="选中文件">
+{backend.transfer&&chosen.length>0&&<DropdownMenu.Item disabled={chosen.length>16||chosen.some(item=>item.status!=="normal"||item.kind==="folder")} onSelect={()=>{setTransferLoaded(true);setTransfer({open:true,mode:"send",selection:{shelf_id:shelfId,files:chosen.map(({id,name})=>({id,name}))}});}}>发送到设备</DropdownMenu.Item>}
+<DropdownMenu.Item disabled={!native || !chosen.length || busy} onSelect={()=>{setCopyIds(chosen.map(i=>i.id));setCopyTarget(catalog.find(s=>s.id!==shelfId && s.kind!=="bound")?.id || 0);setFormError("");setCopyTo(true);}}>复制选中引用到其他架</DropdownMenu.Item>
+{chosen.length>=2 && <DropdownMenu.Item disabled={!backend.analyzeDuplicates || duplicateBusy || chosen.length>32 || chosen.some(i=>i.status!=="normal" || i.kind==="folder")} onSelect={()=>void analyzeSelected()}>{duplicateBusy?"正在比较文件…":chosen.length>32?"比较内容（最多 32 项）":chosen.some(i=>i.status!=="normal" || i.kind==="folder")?"比较内容（请选择正常文件）":"比较选中文件内容"}</DropdownMenu.Item>}
+<DropdownMenu.Item disabled={!backend.planSystemRecycle || !chosen.length || chosen.some(i=>i.status!=="normal") || busy || !!running} onSelect={()=>setSystemRecycleIds(chosen.map(i=>i.id))}>将选中真实文件移入 Windows 回收站…</DropdownMenu.Item>
+</DropdownMenu.Group></>}
+        <DropdownMenu.Separator/>
+        <DropdownMenu.Group aria-label="浏览与整理">
+<DropdownMenu.Item aria-expanded={displayOptions} aria-controls="shelf-display-options" onSelect={event=>{event.preventDefault();setDisplayOptions(value=>!value);}}><Grid2X2 size={16}/><span>显示与排序</span><ChevronDown size={14} style={{transform:displayOptions?"rotate(180deg)":undefined}}/></DropdownMenu.Item>
+{displayOptions&&<DropdownMenu.Group id="shelf-display-options" aria-label="显示与排序">
         <DropdownMenu.RadioGroup value={list?"list":"grid"} onValueChange={v=>setView({list:v==="list"})}><DropdownMenu.RadioItem value="grid"><Grid2X2 size={16}/>网格视图<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem><DropdownMenu.RadioItem value="list"><List size={16}/>详细列表<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem></DropdownMenu.RadioGroup>
         <DropdownMenu.RadioGroup value={sort} onValueChange={v=>{if(isSortMode(v)){setView({sort:v});setMoreOpen(false);}}}>{sortOptions.map(option=><DropdownMenu.RadioItem key={option.value} value={option.value}>{option.label}<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>)}</DropdownMenu.RadioGroup>
         <DropdownMenu.Label className="menu-label">缩略图大小</DropdownMenu.Label><DropdownMenu.RadioGroup className="thumbnail-choices" aria-label="缩略图大小" value={String(size)} onValueChange={v=>setView({size:v==="60"?60:v==="120"?120:80})}>{[[60,"小"],[80,"中"],[120,"大"]].map(([v,label])=><DropdownMenu.RadioItem key={v} aria-label={label+"缩略图"} value={String(v)}>{label}<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>)}</DropdownMenu.RadioGroup>
         <DropdownMenu.Separator/>
         <DropdownMenu.Label>应用主题</DropdownMenu.Label><DropdownMenu.RadioGroup value={theme} onValueChange={value=>setTheme(value as Theme)}>{Object.entries(themes).map(([key,label])=><DropdownMenu.RadioItem key={key} value={key}>{label}主题<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>)}</DropdownMenu.RadioGroup>
         </DropdownMenu.Group>}
-        <DropdownMenu.Item onSelect={()=>setFiltersOpen(true)}><Search size={16}/>筛选文件</DropdownMenu.Item>
+<DropdownMenu.Item onSelect={()=>setFiltersOpen(true)}><Search size={16}/>筛选文件</DropdownMenu.Item>
+<DropdownMenu.Item disabled={loading} onSelect={()=>void perform(async()=>{await refresh();setMessage("已刷新文件状态。");})}><RefreshCw size={16}/>刷新文件状态</DropdownMenu.Item>
+</DropdownMenu.Group>
         <DropdownMenu.Separator/>
-        <DropdownMenu.Item disabled={loading} onSelect={()=>void perform(async()=>{await refresh();setMessage("已刷新文件状态。");})}><RefreshCw size={16}/>刷新文件状态</DropdownMenu.Item>
-        <DropdownMenu.Item onSelect={()=>setTasks(true)}>任务记录</DropdownMenu.Item>
-        <DropdownMenu.CheckboxItem disabled={!native} checked={topmost} onCheckedChange={()=>void perform(async()=>setTopmost(await backend.topmost()))}><Pin size={16}/>窗口置顶<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.CheckboxItem>
-        <DropdownMenu.Separator/><DropdownMenu.Item disabled={!native} onSelect={()=>void perform(()=>backend.quit())}>完整退出</DropdownMenu.Item>
+        <DropdownMenu.Group aria-label="工具与记录">
+{backend.transfer&&<DropdownMenu.Item onSelect={()=>{setTransferLoaded(true);setTransfer({open:true,mode:"receive",selection:{shelf_id:shelfId,files:[]}});}}>文件互传</DropdownMenu.Item>}
+{backend.chat&&<DropdownMenu.Item onSelect={()=>{setChatLoaded(true);setChatOpen(true);}}>AI 对话</DropdownMenu.Item>}
+<DropdownMenu.Item onSelect={()=>setTasks(true)}>任务记录</DropdownMenu.Item>
+<DropdownMenu.Item onSelect={()=>setRecycleOpen(true)}><Trash2 size={16}/>柠猫回收站</DropdownMenu.Item>
+<DropdownMenu.Item disabled={!native} onSelect={()=>void perform(()=>backend.managerOpen())}>管理中心</DropdownMenu.Item>
+</DropdownMenu.Group>
+        <DropdownMenu.Separator/>
+        <DropdownMenu.Group aria-label="窗口">
+<DropdownMenu.Item disabled={!native || loading || !shelf || busy} onSelect={()=>void perform(collapseShelf)}>收起到悬浮入口</DropdownMenu.Item>
+<DropdownMenu.Item disabled={!native || loading || !shelf || busy} onSelect={()=>void perform(()=>detachedShelfId===undefined?backend.desktopDetach(shelfId):backend.desktopMerge(shelfId))}>{detachedShelfId===undefined?"拆分为独立窗口":"合并回主窗口"}</DropdownMenu.Item>
+{detachedShelfId===undefined && <DropdownMenu.Item disabled={!native} onSelect={()=>void perform(()=>backend.desktopDisable())}>关闭悬浮入口</DropdownMenu.Item>}
+<DropdownMenu.CheckboxItem disabled={!native} checked={topmost} onCheckedChange={()=>void perform(async()=>setTopmost(await backend.topmost()))}><Pin size={16}/>窗口置顶<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.CheckboxItem>
+</DropdownMenu.Group>
+        <DropdownMenu.Separator/>
+        <DropdownMenu.Item disabled={!native} onSelect={()=>void perform(()=>backend.quit())}>完整退出</DropdownMenu.Item>
       </ShelfMenu>
-      <WindowControls backend={backend} onError={setError}/>
+      <WindowControls backend={backend} onError={setError} label={shelf?"收起文件架":"关闭空文件架"} disabled={!native || loading || busy || !!dragging || hover} onCollapse={()=>void perform(collapseShelf)}/>
     </header>
-    <div className="shelf-context" data-dropping={hover}><span className="shelf-semantics" title={bound?(shelf?.available?shelf.root || "":"绑定目录离线或不可读，保留原记录"):shelf?.kind==="session"?"完整退出后只清空引用，原文件保留":"持久保存引用，原文件保留"}>{!shelf?"请选择或新建文件架":hover?(bound?"释放以复制 · 保留来源":"释放以添加引用 · 保留原文件"):bound?"复制到目录 · 保留来源":shelf?.kind==="session"?"本次中转 · 仅保存引用":"仅保存引用"}</span><div className="selection-actions">{chosen.length>1 && <span className="selection-count" aria-label="已选数量" role="status">{chosen.length} 项</span>}{filtered && <Button variant="ghost" size="sm" className="filter-clear" aria-label="清除筛选" title="已启用文件筛选，点击清除" onClick={()=>setFilters(defaultFilters)}>已筛选<X size={12}/></Button>}{current && <>{chosen.some(i=>i.status!=="normal")&&<><Button variant="ghost" size="icon" aria-label="清理选中引用" title="移入柠猫回收站，保留原文件" disabled={busy||!!running} onClick={()=>void perform(async()=>{const ids=chosen.map(i=>i.id);if(backend.removeReferences)await backend.removeReferences(ids);else for(const id of ids)await backend.remove(id);setUndo({entity:"item",id:ids[0],ids});setSelected(null);await refresh();})}><Trash2 size={14}/></Button>{chosen.length===1&&<Button variant="ghost" size="sm" onClick={()=>{setDetails(true);}}>更新引用</Button>}</>}<Button variant="ghost" size="sm" aria-label="详情" onClick={()=>setDetails(true)}><Info size={14}/>详情</Button><Button variant="ghost" size="sm" disabled={chosen.some(i=>i.status!=="normal")} title="按住左键拖到目标，默认复制选中项" onPointerDown={e=>{if(e.button===0)drag(current.id);}} onKeyDown={e=>{if(e.key==="Enter")setMessage("请用鼠标按住“拖出复制”并拖向目标窗口。");}}><ArrowDownToLine size={14}/>拖出复制</Button></>}</div></div>
+    <div className="shelf-search" data-no-window-drag><Search size={16}/><Input ref={searchInput} aria-label="搜索文件" placeholder="搜索当前文件架" value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==="Escape" && !e.nativeEvent.isComposing){e.preventDefault();e.stopPropagation();closeSearch();}}}/>{query?<Button variant="ghost" size="icon" aria-label="清除搜索" onClick={closeSearch}><X size={14}/></Button>:<kbd aria-hidden="true">Ctrl F</kbd>}</div>
+    <div className="shelf-context" hidden={!!shelf&&!bound&&!hover&&!filtered&&!current} data-dropping={hover}><span className="shelf-semantics" hidden={!!shelf&&!bound&&!hover} aria-description={bound?(shelf?.available?shelf.root || "":"绑定目录离线或不可读，保留原记录"):shelf?.kind==="session"?"完整退出后只清空引用，原文件保留":"持久保存引用，原文件保留"}>{!shelf?"请选择或新建文件架":hover?(bound?"释放以复制 保留来源":"释放以添加引用 保留原文件"):bound?"复制到目录 保留来源":shelf?.kind==="session"?"本次中转 仅保存引用":"仅保存引用"}</span><div className="selection-actions">{chosen.length>1 && <span className="selection-count" aria-label="已选数量" role="status">{chosen.length} 项</span>}{filtered && <Button variant="ghost" size="sm" className="filter-clear" aria-label="清除筛选" title="已启用文件筛选，点击清除" onClick={()=>setFilters(defaultFilters)}>已筛选<X size={12}/></Button>}{current && <>{chosen.some(i=>i.status!=="normal")&&<><Button variant="ghost" size="icon" aria-label="清理选中引用" title="移入柠猫回收站，保留原文件" disabled={busy||!!running} onClick={()=>void perform(async()=>{const ids=chosen.map(i=>i.id);if(backend.removeReferences)await backend.removeReferences(ids);else for(const id of ids)await backend.remove(id);setUndo({entity:"item",id:ids[0],ids});setSelected(null);await refresh();})}><Trash2 size={14}/></Button>{chosen.length===1&&<Button variant="ghost" size="sm" onClick={()=>{setDetails(true);}}>更新引用</Button>}</>}<Button variant="ghost" size="sm" aria-label="详情" onClick={()=>setDetails(true)}><Info size={14}/>详情</Button><Button variant="ghost" size="sm" disabled={chosen.some(i=>i.status!=="normal")} title="按住左键拖到目标，默认复制选中项" onPointerDown={e=>{if(e.button===0)drag(current.id);}} onKeyDown={e=>{if(e.key==="Enter")setMessage("请用鼠标按住“拖出复制”并拖向目标窗口。");}}><ArrowDownToLine size={14}/>拖出复制</Button></>}</div></div>
     </div>
-    {bound && !shelf.available && <p className="offline-note" role="status">目录离线，记录已保留 · 恢复目录后刷新</p>}
+    {bound && !shelf.available && <p className="offline-note" role="status">目录离线，记录已保留 恢复目录后刷新</p>}
     {preferenceWarning && <div className="error-bar" role="alert"><span>{preferenceWarning}</span><Button variant="ghost" size="icon" aria-label="关闭设置提示" onClick={()=>{setViewWarning("");setThemeWarning("");}}><X size={15}/></Button></div>}
     {error && <div className="error-bar" role="alert"><span>{error}</span><Button variant="ghost" size="icon" aria-label="关闭错误提示" onClick={()=>setError("")}><X size={15}/></Button></div>}
     {duplicateBusy && <div className="offline-note"><span role="status">{duplicateCanceling?"正在取消比较…":"正在比较选中文件内容…"}</span> <Button variant="outline" size="sm" disabled={duplicateCanceling} onClick={()=>void cancelDuplicate("user")}>取消比较</Button></div>}
@@ -412,7 +431,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
         <DragOverlay>{dragItem && <div className="drag-preview" data-testid="drag-preview"><Thumb item={dragItem} backend={backend} size={45}/><span>{dragItem.name}</span><small>调整引用顺序</small></div>}</DragOverlay>
       </DndContext>}
     </main>{inline && current && <aside className="inspector"><header><h2>文件详情</h2><Button variant="ghost" size="icon" aria-label="关闭详情" onClick={()=>setDetails(false)}><X size={15}/></Button></header>{detail}</aside>}</div>
-    {running && <button className="compact-progress" aria-label="查看任务" onClick={()=>setTasks(true)}><span>{progress?`复制中 · ${progress.file_index}/${progress.file_count}`:"任务进行中"}</span><progress aria-label="当前文件复制进度" value={progress?.bytes || 0} max={Math.max(1,progress?.total || 1)}/><span>查看</span></button>}
+    {running && <button className="compact-progress" aria-label="查看任务" onClick={()=>setTasks(true)}><span>{progress?`复制中 ${progress.file_index}/${progress.file_count}`:"任务进行中"}</span><progress aria-label="当前文件复制进度" value={progress?.bytes || 0} max={Math.max(1,progress?.total || 1)}/><span>查看</span></button>}
     <footer className={`file-status ${feedback && !running && !error && !preferenceWarning?"status-toast":"sr-only"}`} role="status">{message}</footer>
     <Sheet open={!!duplicateResult} onOpenChange={value=>{if(!value)setDuplicateResult(null);}}><SheetContent className="details-sheet" showCloseButton={false}><SheetClose asChild><Button className="sheet-dismiss" variant="ghost" size="icon" aria-label="关闭重复分析"><X size={16}/></Button></SheetClose><SheetHeader><SheetTitle>重复文件分析</SheetTitle><SheetDescription>仅比较所选文件，原文件和引用均不改变。</SheetDescription></SheetHeader>{duplicateResult && <div className="file-details duplicate-results">{duplicateResult.report.same_entity.length>0 && <section><h3>同一文件的多个引用</h3>{duplicateResult.report.same_entity.map((group,index)=><p key={index}>{group.map(id=>duplicateResult.names[id]).join("、")}</p>)}</section>}{duplicateResult.report.duplicate_contents.length>0 && <section><h3>不同文件，内容相同</h3>{duplicateResult.report.duplicate_contents.map((group,index)=><p key={index}>{group.map(entity=>entity.map(id=>duplicateResult.names[id]).join(" / ")).join("、")}</p>)}</section>}{!duplicateResult.report.same_entity.length && !duplicateResult.report.duplicate_contents.length && <p>所选文件没有发现相同内容或同一文件的多个引用。</p>}</div>}</SheetContent></Sheet>
     <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}><SheetContent className="details-sheet" showCloseButton={false}><SheetClose asChild><Button className="sheet-dismiss" variant="ghost" size="icon" aria-label="关闭筛选"><X size={16}/></Button></SheetClose><SheetHeader><SheetTitle>筛选文件</SheetTitle><SheetDescription>仅筛选当前架已有记录，不扫描磁盘</SheetDescription></SheetHeader><div className="filter-form">
@@ -422,7 +441,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
       <Button variant="outline" disabled={!filtered} onClick={()=>setFilters(defaultFilters)}>重置筛选</Button><SheetClose asChild><Button>查看结果</Button></SheetClose>
     </div></SheetContent></Sheet>
     <Sheet open={tasks} onOpenChange={setTasks}><SheetContent className="details-sheet" showCloseButton={false}><SheetClose asChild><Button className="sheet-dismiss" variant="ghost" size="icon" aria-label="关闭任务记录"><X size={16}/></Button></SheetClose><SheetHeader><SheetTitle>任务记录</SheetTitle><SheetDescription>来源保留，失败与中断记录不会自动清理</SheetDescription></SheetHeader><div className="task-list">
-      {progress && <div className="copy-progress"><span>{progress.name} · {progress.file_index}/{progress.file_count}</span><progress aria-label="复制任务进度" value={progress.bytes} max={Math.max(1,progress.total)}/><span>{sizes(progress.bytes)} / {sizes(progress.total)}</span></div>}
+      {progress && <div className="copy-progress"><span>{progress.name} {progress.file_index}/{progress.file_count}</span><progress aria-label="复制任务进度" value={progress.bytes} max={Math.max(1,progress.total)}/><span>{sizes(progress.bytes)} / {sizes(progress.total)}</span></div>}
       {!data.jobs.length && <p className="muted">暂无任务</p>}
       {data.jobs.map(job=><div className="job" key={job.id}><Badge variant={["failed","interrupted","partial"].includes(job.status)?"destructive":"secondary"}>{jobStates[job.status] || job.status}</Badge><span>{job.message}</span>{activeStatus(job.status) && <Button variant="outline" onClick={()=>void perform(()=>backend.cancel(job.id))}>取消任务</Button>}{job.status==="interrupted" && job.staging && <p className="muted">上次临时文件位置：{job.staging}（未自动删除）</p>}</div>)}
     </div></SheetContent></Sheet>
@@ -431,6 +450,6 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
       <label>文件架名称<Input autoFocus maxLength={60} required value={newName} onChange={e=>setNewName(e.target.value)} onKeyDown={e=>{if(e.key==="Enter" && e.nativeEvent.isComposing)e.preventDefault();}}/></label>
       {renaming===null && <><label className="shelf-session"><input type="checkbox" checked={sessionShelf} onChange={e=>setSessionShelf(e.target.checked)}/>仅本次中转</label><p className="muted">{sessionShelf?"完整退出时清空引用和标签；原文件保留。":"持久保存，退出后可继续整理。"}</p></>}{formError && <p role="alert">{formError}</p>}<Button type="submit" disabled={busy || !newName.trim()}>{busy?"正在保存…":renaming!==null?"保存名称":"创建"}</Button>
     </form></SheetContent></Sheet>
-    <Sheet open={copyTo} onOpenChange={value=>{if(!busy)setCopyTo(value);}}><SheetContent className="details-sheet" showCloseButton={false}><SheetClose asChild><Button className="sheet-dismiss" variant="ghost" size="icon" disabled={busy} aria-label="关闭跨架复制"><X size={16}/></Button></SheetClose><SheetHeader><SheetTitle>复制引用到其他架</SheetTitle><SheetDescription>选中 {copyIds.length} 项 · 保留来源架、原文件和标签</SheetDescription></SheetHeader><form className="filter-form" onSubmit={event=>{event.preventDefault();if(busy || !copyTarget)return;setBusy(true);setFormError("");void backend.copyReferences(copyTarget,copyIds).then(async added=>{await refresh();setCopyTo(false);setMessage(`已添加 ${added} 项引用；目标已有项保持不变。`);}).catch(e=>setFormError(String(e))).finally(()=>setBusy(false));}}><label>目标文件架<select value={copyTarget} onChange={e=>setCopyTarget(Number(e.target.value))}><option value={0}>请选择</option>{catalog.filter(s=>s.id!==shelfId && s.kind!=="bound").map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label><p className="muted">绑定目录请用拖出复制；这里仅添加引用。</p>{formError && <p role="alert">{formError}</p>}<Button type="submit" disabled={busy || !copyTarget}>{busy?"正在复制…":"复制引用"}</Button></form></SheetContent></Sheet>
+    <Sheet open={copyTo} onOpenChange={value=>{if(!busy)setCopyTo(value);}}><SheetContent className="details-sheet" showCloseButton={false}><SheetClose asChild><Button className="sheet-dismiss" variant="ghost" size="icon" disabled={busy} aria-label="关闭跨架复制"><X size={16}/></Button></SheetClose><SheetHeader><SheetTitle>复制引用到其他架</SheetTitle><SheetDescription>选中 {copyIds.length} 项 保留来源架、原文件和标签</SheetDescription></SheetHeader><form className="filter-form" onSubmit={event=>{event.preventDefault();if(busy || !copyTarget)return;setBusy(true);setFormError("");void backend.copyReferences(copyTarget,copyIds).then(async added=>{await refresh();setCopyTo(false);setMessage(`已添加 ${added} 项引用；目标已有项保持不变。`);}).catch(e=>setFormError(String(e))).finally(()=>setBusy(false));}}><label>目标文件架<select value={copyTarget} onChange={e=>setCopyTarget(Number(e.target.value))}><option value={0}>请选择</option>{catalog.filter(s=>s.id!==shelfId && s.kind!=="bound").map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label><p className="muted">绑定目录请用拖出复制；这里仅添加引用。</p>{formError && <p role="alert">{formError}</p>}<Button type="submit" disabled={busy || !copyTarget}>{busy?"正在复制…":"复制引用"}</Button></form></SheetContent></Sheet>
   </div>;
 }

@@ -2,48 +2,30 @@ import {test,expect} from "@playwright/test";
 import {mkdirSync} from "node:fs";
 import path from "node:path";
 
-test("原创入口从球到胶囊，最近素材就地呈现与键盘收起",async({page})=>{
-  await page.goto("/tests/harness.html?desktop-entry");
-  await page.getByRole("button",{name:"展开 灵感收集",exact:true}).click();
-  await expect(page.getByTestId("morph-capsule")).toBeVisible();
-  expect(await page.evaluate(()=>window.testHarness.calls())).not.toContain("expand:1");
-  await expect(page.getByTestId("capsule-file")).toHaveCount(3);
-  await page.keyboard.press("Escape");await expect(page.getByTestId("morph-capsule")).toHaveCount(0);
-  await page.getByRole("button",{name:"展开 灵感收集",exact:true}).press("Control+Enter");
-  await expect.poll(()=>page.evaluate(()=>window.testHarness.calls())).toContain("expand:1");
-});
 
 test("入口切换全局主题、双眼无按钮语义、减少动态效果仍可使用",async({page})=>{
   await page.emulateMedia({reducedMotion:"reduce"});
   await page.goto("/tests/harness.html?desktop-entry");
   const face=page.locator(".orb-face").first();await expect(face.locator("path")).toHaveCount(2);
   await expect(face).toHaveAttribute("aria-hidden","true");
-  await page.getByRole("button",{name:"展开 灵感收集",exact:true}).click();
   await page.evaluate(()=>{localStorage.setItem("ningmao-theme","dark");window.dispatchEvent(new StorageEvent("storage",{key:"ningmao-theme"}));});
   await expect(page.locator("[data-orb-appearance='navy-black']").first()).toBeVisible();
   await page.evaluate(()=>{localStorage.setItem("ningmao-theme","light");window.dispatchEvent(new StorageEvent("storage",{key:"ningmao-theme"}));});
   await expect(page.locator("html")).toHaveClass(/light/);
   await page.evaluate(()=>{localStorage.setItem("ningmao-theme","dark");window.dispatchEvent(new StorageEvent("storage",{key:"ningmao-theme"}));});
-  await expect(page.getByTestId("morph-capsule")).toBeVisible();
+  await expect(page.getByRole("button",{name:"展开 灵感收集",exact:true})).toBeVisible();
   const flat=await page.locator(".orb-body").first().evaluate(el=>{const css=getComputedStyle(el);return {background:css.backgroundColor,image:css.backgroundImage,border:css.borderTopWidth,shadow:css.boxShadow};});
-  expect(flat).toEqual({background:"rgb(25, 30, 40)",image:"none",border:"0px",shadow:"none"});
+  expect(flat.background).toBe("rgb(48, 56, 69)");expect(flat.image).toBe("none");expect(flat.shadow).not.toBe("none");
   await page.reload();
   await expect(page.locator("[data-orb-appearance='navy-black']").first()).toBeVisible();
 });
-
-test("原生锁定信号保持形态和命中区，解除后成功文字可读",async({page})=>{
-  await page.goto("/tests/harness.html?desktop-entry");await page.getByRole("button",{name:"展开 灵感收集",exact:true}).click();
-  const before=await page.getByTestId("morph-capsule").boundingBox();
-  await page.evaluate(()=>window.testHarness.nativeDrag(true,1));
-  await expect(page.getByTestId("morph-capsule")).toBeDisabled();
-  await page.keyboard.press("Escape");expect(await page.getByTestId("morph-capsule").boundingBox()).toEqual(before);
-  await expect(page.getByRole("button",{name:"下一页文件架"})).toBeDisabled();
-  await page.evaluate(()=>{window.testHarness.nativeDrag(false);window.testHarness.notifyCopying(true);});
-  await expect(page.getByText("正在复制",{exact:true})).toBeVisible();
-  await page.evaluate(()=>{window.testHarness.notifyCopying(false);window.testHarness.notifyFinished("复制完成；已完成 1/1 项，来源保留。");});
-  await expect(page.getByRole("status")).toContainText("复制完成");
-  await page.getByRole("button",{name:"打开 灵感收集 文件架",exact:true}).click();
-  await expect.poll(()=>page.evaluate(()=>window.testHarness.calls())).toContain("expand:1");
+test("原生锁定时小球和分页保持目标 解除后显示真实任务状态",async({page})=>{
+ await page.goto('/tests/harness.html?desktop-entry');const orb=page.getByRole('button',{name:'展开 灵感收集',exact:true}),before=await orb.boundingBox();
+ await page.evaluate(()=>window.testHarness.nativeDrag(true,1));await expect(orb).toBeDisabled();await expect(page.getByRole('button',{name:'下一页文件架'})).toBeDisabled();
+ await page.keyboard.press('Escape');expect(await orb.boundingBox()).toEqual(before);
+ await page.evaluate(()=>{window.testHarness.nativeDrag(false);window.testHarness.notifyCopying(true);});await expect(page.getByRole('status',{name:'有复制任务进行中'})).toBeVisible();
+ await page.evaluate(()=>{window.testHarness.notifyCopying(false);window.testHarness.notifyFinished('复制完成 来源保留');});await expect(page.getByRole('status',{name:'复制完成 来源保留'})).toBeVisible();
+ await orb.click();await expect.poll(()=>page.evaluate(()=>window.testHarness.calls())).toContain('expand:1');
 });
 
 test("完整架双眼为装饰，独立收起按钮只收当前架且保留数据",async({page})=>{
@@ -51,7 +33,7 @@ test("完整架双眼为装饰，独立收起按钮只收当前架且保留数�
   const before=await page.evaluate(()=>localStorage.getItem("test-state"));
   expect(await page.locator(".shelf-header > .brand-eyes").evaluate(el=>el.closest("button"))).toBeNull();
   await expect(page.locator(".shelf-header > .brand-eyes")).toHaveAttribute("aria-hidden","true");
-  await page.getByRole("button",{name:"收起到悬浮入口",exact:true}).click();
+  await page.getByRole("button",{name:"收起文件架",exact:true}).click();
   await expect.poll(()=>page.evaluate(()=>window.testHarness.calls())).toContain("collapse:1");
   expect(await page.evaluate(()=>localStorage.getItem("test-state"))).toBe(before);
 });
@@ -66,14 +48,6 @@ for(const edge of ["left","right","top","bottom","free"] as const) {
   });
 }
 
-test("空架与失效文件的胶囊保留数量与状态，不增加虚假占位卡片",async({page})=>{
-  await page.goto("/tests/harness.html?desktop-entry");await page.evaluate(()=>window.testHarness.missing(1));
-  await page.getByRole("button",{name:"展开 灵感收集",exact:true}).click();
-  await expect(page.locator('.capsule-recent [title*="状态待核对"]')).toHaveCount(1);await expect(page.getByText("3 项 · 仅保存引用",{exact:true})).toBeVisible();
-  await page.keyboard.press("Escape");
-  await page.getByRole("button",{name:"展开 本次中转",exact:true}).click();
-  await expect(page.getByText("0 项 · 仅保存引用",{exact:true})).toBeVisible();await expect(page.getByTestId("capsule-file")).toHaveCount(0);
-});
 
 test("动效只在需要时请求帧，隐藏后停止计时器与帧，非活动架不重复心跳",async({page})=>{
   await page.addInitScript(()=>{
@@ -93,7 +67,7 @@ test("动效只在需要时请求帧，隐藏后停止计时器与帧，非活�
   await expect.poll(async()=>{const p=await probe();return p.frames+p.timers;}).toBe(0);
 });
 
-test("三套全局主题的球胶囊与完整架证据（不是Windows原生）",async({page})=>{
+test("三套全局主题的小球与完整架证据（不是Windows原生）",async({page})=>{
   const folder=process.env.ORB_EVIDENCE;if(folder)mkdirSync(folder,{recursive:true});
   await page.setViewportSize({width:420,height:520});
   await page.addInitScript(()=>localStorage.removeItem("test-desktop-layout"));
@@ -102,26 +76,26 @@ test("三套全局主题的球胶囊与完整架证据（不是Windows原生）"
     await page.evaluate(theme=>{localStorage.setItem("ningmao-theme",theme);window.dispatchEvent(new StorageEvent("storage",{key:"ningmao-theme"}));},theme);
     await page.getByRole("button",{name:"展开 灵感收集",exact:true}).press("Escape");
     const shot=async(name:string)=>{if(folder){await page.mouse.click(400,500);await page.waitForTimeout(320);await page.locator("nav[aria-label='悬浮文件架入口']").screenshot({path:path.join(folder,`${theme}-${name}.png`),omitBackground:true,animations:"disabled"});}};
-    await shot("orb");await page.getByRole("button",{name:"展开 灵感收集",exact:true}).click();await shot("capsule");
-    await expect(page.getByTestId("capsule-file")).toHaveCount(3);
+    await shot("orb");await page.getByRole("button",{name:"展开 灵感收集",exact:true}).click();
+    await expect.poll(()=>page.evaluate(()=>window.testHarness.calls())).toContain("expand:1");
     await page.goto("/tests/harness.html");await expect(page.getByRole("status").last()).toContainText("文件架已恢复");
     if(folder)await page.locator(".workstation").screenshot({path:path.join(folder,`${theme}-shelf.png`)});
   }
 });
 
-for(const count of [1,3,8])test(`${count} 架紧凑入口及胶囊切架`,async({page})=>{
+for(const count of [1,3,8])test(`${count} 架紧凑入口保持直接打开能力`,async({page})=>{
   await page.goto(`/tests/harness.html?desktop-entry&count=${count}`);
   await expect(page.getByRole("button",{name:/^展开 /})).toHaveCount(Math.min(count,5));
   if(process.env.ORB_EVIDENCE)await page.locator("nav").screenshot({path:path.join(process.env.ORB_EVIDENCE,`dock-${count}-shelves.png`),omitBackground:true});
   await page.getByRole("button",{name:"展开 灵感收集",exact:true}).click();
-  await expect(page.getByRole("combobox",{name:"打开其他文件架"}).locator("option")).toHaveCount(count+1);
-  if(count===8){await page.getByRole("combobox",{name:"打开其他文件架"}).selectOption("8");await expect.poll(()=>page.evaluate(()=>window.testHarness.calls())).toContain("expand:8");}
+  await expect.poll(()=>page.evaluate(()=>window.testHarness.calls())).toContain("expand:1");
+  if(count===8){await page.getByRole("button",{name:"下一页文件架"}).click();await page.getByRole("button",{name:"展开 项目 8",exact:true}).click();await expect.poll(()=>page.evaluate(()=>window.testHarness.calls())).toContain("expand:8");}
 });
 
 test("复制失败转入完整文件架处理，不复活轻预览",async({page})=>{
   await page.goto("/tests/harness.html?desktop-entry");
-  await page.getByRole("button",{name:"展开 灵感收集",exact:true}).click();
   await page.evaluate(()=>window.testHarness.notifyFinished("复制有错误；已完成 0/1 项，来源保留。合成目标不可写，请更换目录。"));
+  await page.getByRole("button",{name:/复制有错误/}).click();
   await expect.poll(()=>page.evaluate(()=>window.testHarness.calls())).toContain("expand:1");
   await expect(page.locator(".quick-peek")).toHaveCount(0);
 });
@@ -133,19 +107,10 @@ test("原创眨眼在低频触发后恢复，不留下持续帧循环",async({pa
   await expect.poll(async()=>Number(await face.evaluate(el=>el.style.getPropertyValue("--eye-open") || "1")),{timeout:7000,intervals:[20]}).toBeLessThan(.7);
   await expect.poll(async()=>Number(await face.evaluate(el=>el.style.getPropertyValue("--eye-open") || "1"))).toBe(1);
   await page.getByRole("button",{name:"展开 灵感收集",exact:true}).click();
-  await page.mouse.move(170,35,{steps:8});
-  await expect(page.getByTestId("morph-capsule")).toBeVisible();
-});
-
-test("胶囊接收反馈完整可见，详细文字保留在提示中",async({page})=>{
-  await page.goto("/tests/harness.html?desktop-entry&count=1");
-  await page.getByRole("button",{name:"展开 灵感收集",exact:true}).click();
-  const full="已接收 1 项；来源保留。";
-  await page.evaluate(message=>window.testHarness.notifyFinished(message),full);
-  const status=page.getByRole("status");
-  await expect(status).toHaveText("已接收 1 项");
-  expect(await status.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
-  await expect(status).toHaveAttribute("title",full);
-  await page.getByRole("button",{name:"打开 灵感收集 文件架",exact:true}).click();
   await expect.poll(()=>page.evaluate(()=>window.testHarness.calls())).toContain("expand:1");
+});
+test("小球接收回执有无障碍名称并可直接查看完整架",async({page})=>{
+ await page.goto('/tests/harness.html?desktop-entry&count=1');const full='已接收 1 项 来源保留';await page.evaluate(message=>window.testHarness.notifyFinished(message),full);
+ await expect(page.getByRole('status',{name:full,exact:true})).toBeVisible();await expect(page.locator('.orb-receipt')).not.toHaveAttribute('title');
+ await page.getByRole('button',{name:'展开 灵感收集',exact:true}).click();await expect.poll(()=>page.evaluate(()=>window.testHarness.calls())).toContain('expand:1');
 });

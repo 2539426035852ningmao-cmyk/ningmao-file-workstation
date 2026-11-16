@@ -17,9 +17,9 @@
     "source_path": "apps/v4/registry/new-york-v4/ui/button.tsx",
     "source_sha256": "79DD6F75F8136394442202D6B8B922FB269EAAD0A5DBA579397C9D5B41F893BB",
     "local_path": "src/components/ui/button.tsx",
-    "local_sha256": "79DD6F75F8136394442202D6B8B922FB269EAAD0A5DBA579397C9D5B41F893BB",
+    "local_sha256": "CDDB2D8D1EAE813A3D28C4D11CCD44909CA7E6EA5A0416DAC1C3CF5BCA9557C1",
     "license": "MIT",
-    "changes": "直接复用 M1-03 已核验组件，源码不改"
+    "changes": "沿用已核验 shadcn Button 添加现有 Radix Tooltip 简短悬浮提示 将原 title 保留为无障碍描述 焦点提示不截获模态 Escape"
   },
   {
     "project": "shadcn/ui",

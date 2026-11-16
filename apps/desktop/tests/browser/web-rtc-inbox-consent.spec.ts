@@ -8,12 +8,12 @@ async function connected(page:Page){
   await page.getByRole("button",{name:"更多操作",exact:true}).click();
   await page.getByRole("menuitem",{name:"文件互传",exact:true}).click();
   const panel=page.getByRole("dialog",{name:"文件互传",exact:true});
-  await panel.getByText("连接网页 / 手机 · Windows 设备授权（W1）",{exact:true}).click();
+  await panel.getByText("连接网页 / 手机 Windows 设备授权（W1）",{exact:true}).click();
   await panel.getByLabel("网页服务 HTTPS 地址").fill("https://test.workers.dev/");
   await panel.getByLabel("Windows 一次性配对码").fill(code);
   await panel.getByRole("button",{name:"绑定 Windows 设备"}).click();
   await panel.getByRole("button",{name:"连接网页信令（W1）"}).click();
-  await expect(panel.getByText("Windows 原生信令已连接 · 网页接收需手动确认")).toBeVisible();
+  await expect(panel.getByText("Windows 原生信令已连接 网页接收需手动确认")).toBeVisible();
   const section=panel.getByText("网页 → Windows 文件安全接收（W2/W3）",{exact:true});
   await section.click();
   return panel;
@@ -39,7 +39,7 @@ test("W2 显示文件清单与人工拒收，禁用自动文件写入",async({pa
   await panel.getByRole("button",{name:"允许网页发送请求（仅当前面板）"}).click();
   await incoming(page);
   await expect(panel.getByRole("region",{name:"等待用户确认的网页文件"})).toBeVisible();
-  await expect(panel.getByText("镜头 01.png · 3 B")).toBeVisible();
+  await expect(panel.getByText("镜头 01.png 3 B")).toBeVisible();
   await expect(panel.getByRole("button",{name:"确认接收并保存"})).toBeDisabled();
   await panel.getByRole("button",{name:"拒绝网页文件"}).click();
   await expect(panel.getByRole("region",{name:"等待用户确认的网页文件"})).toHaveCount(0);

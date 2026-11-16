@@ -22,6 +22,9 @@ try {
     if ($msi.Count -ne 1) { throw 'Expected exactly one MSI in clean build directory' }
     $exe = Join-Path $target 'debug/ningmao-file-workstation.exe'
     if ((Get-Item -LiteralPath $exe).VersionInfo.ProductVersion -notmatch '^0\.1\.0($|\+)') { throw 'Unexpected executable version' }
+    $pe=[IO.File]::ReadAllBytes($exe)
+    $peHeader=[BitConverter]::ToInt32($pe,0x3c)
+    if([BitConverter]::ToUInt16($pe,$peHeader+24+68) -ne 2) { throw 'Packaged application must use Windows GUI subsystem without a console window' }
     $out = if ($OutputDirectory) { [IO.Path]::GetFullPath($OutputDirectory) } else { Join-Path $repo 'apps/desktop/preview-package' }
     if ((Test-Path -LiteralPath $out) -and @(Get-ChildItem -LiteralPath $out -Force).Count) { throw 'Output directory must be empty; use a clean checkout' }
     $null = New-Item -ItemType Directory -Path $out -Force
@@ -34,7 +37,7 @@ try {
     $commit = & git rev-parse HEAD
     if ($LASTEXITCODE) { throw 'Cannot read source commit' }
     [ordered]@{
-        schema=1; sourceCommit=$commit.Trim(); version='0.1.0'; architecture='x64'; profile='debug'
+        schema=1; sourceCommit=$commit.Trim(); version='0.1.0'; architecture='x64'; profile='debug'; windowsSubsystem='windows-gui'
         identifier='app.ningmao.fileworkstation.preview'; signed=$false; installedOrLaunched=$false
         webview2='Existing runtime required; bootstrapper not bundled'
         review='Preview only. Read license-manifest warnings. Native experience, installation, upgrade and uninstall remain unverified.'

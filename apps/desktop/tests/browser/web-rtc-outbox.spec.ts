@@ -9,13 +9,13 @@ async function openOutbox(page:Page,query=""){
   await page.getByRole("button",{name:"更多操作",exact:true}).click();
   await page.getByRole("menuitem",{name:"发送到设备",exact:true}).click();
   const panel=page.getByRole("dialog",{name:"文件互传",exact:true});
-  await panel.getByText("连接网页 / 手机 · Windows 设备授权（W1）",{exact:true}).click();
+  await panel.getByText("连接网页 / 手机 Windows 设备授权（W1）",{exact:true}).click();
   await panel.getByLabel("网页服务 HTTPS 地址").fill("https://test.workers.dev/");
   await panel.getByLabel("Windows 一次性配对码").fill(code);
   await panel.getByRole("button",{name:"绑定 Windows 设备"}).click();
   await panel.getByRole("button",{name:"连接网页信令（W1）"}).click();
-  await expect(panel.getByText("Windows 原生信令已连接 · 网页接收需手动确认")).toBeVisible();
-  await panel.getByText("Windows → 网页 / 手机 · 安全发送（W2/W3）",{exact:true}).click();
+  await expect(panel.getByText("Windows 原生信令已连接 网页接收需手动确认")).toBeVisible();
+  await panel.getByText("Windows → 网页 / 手机 安全发送（W2/W3）",{exact:true}).click();
   await panel.getByLabel("接收网页设备").selectOption(browserId);
   return panel;
 }

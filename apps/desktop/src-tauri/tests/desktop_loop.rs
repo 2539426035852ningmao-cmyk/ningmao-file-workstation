@@ -4,6 +4,19 @@ use ningmao_desktop_lib::{
 };
 use std::fs;
 #[test]
+fn pin_preference_defaults_on_and_survives_detach_and_restart() {
+    let mut layout = Layout::default();
+    assert!(layout.preferences.topmost);
+    layout.detach(1, &[1, 2]).unwrap();
+    assert!(layout.detached[0].topmost);
+    layout.preferences.topmost = false;
+    layout.detach(2, &[1, 2]).unwrap();
+    assert!(!layout.detached[1].topmost);
+    let restored: Layout = serde_json::from_str(&serde_json::to_string(&layout).unwrap()).unwrap();
+    assert!(!restored.preferences.topmost);
+    assert_eq!(restored.detached.len(), 2);
+}
+#[test]
 fn startup_mode_defaults_to_orb_and_preserves_active_context() {
     use ningmao_desktop_lib::desktop::Startup;
     let mut layout: Layout = serde_json::from_str(r#"{"version":4,"active_shelf":7}"#).unwrap();

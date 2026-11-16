@@ -72,7 +72,7 @@ test("管理标签通知只更新元数据，不触发文件架目录刷新",asy
 });
 test("桌面设置保存贴边和置顶，管理中心不占用日常小架",async({page})=>{
   await page.goto("/tests/harness.html?manager");await expect(page.getByRole("heading",{name:"管理中心",exact:true})).toBeVisible({timeout:3000});
-  await page.getByRole("button",{name:"设置",exact:true}).click();await page.getByRole("combobox",{name:"入口位置模式"}).selectOption("right");await page.getByRole("checkbox",{name:"离开入口后自动收起"}).check();await page.getByRole("checkbox",{name:"悬浮入口置顶"}).uncheck();await page.getByRole("button",{name:"保存桌面设置"}).click();
+  await page.getByRole("button",{name:"设置",exact:true}).click();await page.getByRole("combobox",{name:"入口位置模式"}).selectOption("right");await page.getByRole("checkbox",{name:"离开入口后自动收起"}).check();await page.getByRole("checkbox",{name:"文件架与小球置顶"}).uncheck();await page.getByRole("button",{name:"保存桌面设置"}).click();
   await expect.poll(()=>page.evaluate(()=>window.testHarness.calls())).toContain('configure:right:true:false');await expect(page.getByRole("status")).toContainText("桌面设置已保存");
 });
 
@@ -90,7 +90,7 @@ test("管理任务从进度事件发现新任务，持续更新且完成后不�
  await page.setViewportSize({width:1040,height:720});await page.addInitScript(()=>localStorage.setItem("ningmao-theme","dark"));
  await page.goto("/tests/harness.html?manager");await page.getByRole("button",{name:"任务中心",exact:true}).click();await expect(page.getByText("暂无任务",{exact:true})).toBeVisible();
  await page.evaluate(async()=>{await window.testHarness.tags(1,[]);const saved=JSON.parse(localStorage.getItem("test-state")!);saved.jobs=[{id:1,shelf_id:1,status:"queued",message:"等待复制2项",staging:null}];localStorage.setItem("test-state",JSON.stringify(saved));window.testHarness.notifyProgress({job_id:1,name:"合成大文件.bin",file_index:1,file_count:2,bytes:512,total:1024});});
- const progress=page.getByRole("progressbar",{name:"当前文件复制进度"});await expect(progress).toHaveAttribute("value","512");await expect(page.getByText("合成大文件.bin · 1/2",{exact:true})).toBeVisible();await expect(page.getByText("复制中",{exact:true})).toBeVisible();
+ const progress=page.getByRole("progressbar",{name:"当前文件复制进度"});await expect(progress).toHaveAttribute("value","512");await expect(page.getByText("合成大文件.bin 1/2",{exact:true})).toBeVisible();await expect(page.getByText("复制中",{exact:true})).toBeVisible();
  await page.screenshot({path:`${process.env.M105_TEST_OUTPUT || "test-results"}/manager-task-progress-dark.png`});
  const reads=await page.evaluate(()=>window.testHarness.calls().filter(c=>c==="management-snapshot").length);
  await page.evaluate(()=>{for(let bytes=600;bytes<=1000;bytes+=100)window.testHarness.notifyProgress({job_id:1,name:"合成大文件.bin",file_index:1,file_count:2,bytes,total:1024});});await expect(progress).toHaveAttribute("value","1000");expect(await page.evaluate(()=>window.testHarness.calls().filter(c=>c==="management-snapshot").length)).toBe(reads);

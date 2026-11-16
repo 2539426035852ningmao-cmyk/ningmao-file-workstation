@@ -5,13 +5,6 @@ test("B01 body movement crosses threshold once and suppresses shape click",async
  await expect.poll(()=>page.evaluate(()=>window.testHarness.calls().filter(v=>v==="move-entry").length)).toBe(1);
  await expect(orb).toBeVisible();
 });
-test("B04 capsule close remains contextual and returns directly to orb",async({page})=>{
- await page.goto("/tests/harness.html?desktop-entry&count=1");await page.getByRole("button",{name:"展开 灵感收集",exact:true}).click();await page.mouse.move(400,400);
- await expect(page.locator(".capsule-close")).toBeHidden();
- const root=await page.locator('.orb-control[data-orb-mode="capsule"]').boundingBox();
- await page.mouse.move(root!.x+root!.width-13,root!.y+4);const close=page.getByRole("button",{name:"收回圆球",exact:true});
- await expect(close).toBeEnabled();await close.press("Enter");await expect(page.getByRole("button",{name:"展开 灵感收集",exact:true})).toBeVisible();
-});
 test("B05 idle menu scrollbar is transparent without losing keyboard reach",async({page})=>{
  await page.goto("/tests/harness.html");await page.getByRole("button",{name:"更多操作",exact:true}).click();const menu=page.getByRole("menu",{name:"更多操作",exact:true});
  await page.mouse.move(5,500);await expect(menu).toBeVisible();expect(await menu.evaluate(el=>getComputedStyle(el).scrollbarGutter)).toContain("stable");
@@ -28,12 +21,6 @@ test("B07 last shelf can be recycled and restored from global drawer",async({pag
 });
 test("B06 system recycle preview is distinct and cancellation preserves rows",async({page})=>{
  await page.goto("/tests/harness.html");await page.getByText("Alpha.txt",{exact:true}).first().click();await page.getByRole("button",{name:"更多操作",exact:true}).click();await page.getByRole("menuitem",{name:"将选中真实文件移入 Windows 回收站…"}).click();await expect(page.getByText("SYNTHETIC/Alpha.txt",{exact:true})).toBeVisible();await page.getByRole("button",{name:"继续并再次确认"}).click();await expect(page.getByText("合成对照：用户取消，文件及引用保留。")).toBeVisible();await page.getByRole("button",{name:"完成",exact:true}).click();await expect(page.getByText("Alpha.txt",{exact:true}).first()).toBeVisible();
-});
-
-test("B04 neutral protrusion cannot close until red core is reached",async({page})=>{
- await page.goto("/tests/harness.html?desktop-entry&count=1");await page.getByRole("button",{name:"展开 灵感收集",exact:true}).click();const body=page.locator('.orb-control[data-orb-mode="capsule"]'),b=(await body.boundingBox())!;
- await page.mouse.move(b.x+b.width-12,b.y+19);await expect(page.locator(".capsule-extrusion")).toHaveAttribute("data-active","false");await expect(page.locator(".capsule-close")).toBeDisabled();
- await page.mouse.move(b.x+b.width-13,b.y+4);await expect(page.locator(".capsule-close")).toBeEnabled();await page.locator(".capsule-close").click();await expect(page.getByRole("button",{name:"展开 灵感收集",exact:true})).toBeVisible();
 });
 test("B02 current eye pose stays fixed throughout window movement",async({page})=>{
  await page.goto("/tests/harness.html?desktop-entry&count=1");const orb=page.getByRole("button",{name:"展开 灵感收集",exact:true}),b=(await orb.boundingBox())!;await page.mouse.move(b.x+40,b.y+20);const eyes=page.locator(".orb-face");await expect.poll(()=>eyes.evaluate(el=>parseFloat((el as SVGElement).style.getPropertyValue("--gaze-x")))).toBeGreaterThan(.1);

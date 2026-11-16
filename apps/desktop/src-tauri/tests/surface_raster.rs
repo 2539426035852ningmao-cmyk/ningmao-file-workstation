@@ -3,7 +3,7 @@ use ningmao_desktop_lib::window_surface::Contour;
 use windows::Win32::Graphics::Gdi::{CreateRoundRectRgn, DeleteObject, HGDIOBJ, PtInRegion};
 #[test]
 fn floating_surface_mask_preserves_visible_antialias_coverage_at_each_dpi() {
-    for scale in [1.0, 1.25, 1.5] {
+    for scale in [1.0, 1.25, 1.5, 2.0, 3.0] {
         for (width, height, radius) in [(48.0, 48.0, 24.0), (320.0, 48.0, 24.0)] {
             let c = Contour {
                 x: 8.0,
@@ -19,6 +19,17 @@ fn floating_surface_mask_preserves_visible_antialias_coverage_at_each_dpi() {
             let right = (c.x + width) * scale;
             let bottom = (c.y + height) * scale;
             let radius = radius * scale;
+            assert!(
+                unsafe {
+                    PtInRegion(
+                        region,
+                        ((left + right) / 2.0) as i32,
+                        (bottom + 3.0 * scale - 1.0).floor() as i32,
+                    )
+                }
+                .as_bool(),
+                "soft shadow clipped at dpi={scale}"
+            );
             let mut missing = None;
             for y in top.floor() as i32..bottom.ceil() as i32 {
                 for x in left.floor() as i32..right.ceil() as i32 {

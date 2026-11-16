@@ -25,7 +25,7 @@ test('文件架粘贴复用导入，输入框内粘贴保留原行为',async({pa
  await page.locator('body').dispatchEvent('paste');
  await expect(page.getByText('剪贴板文件.txt',{exact:true})).toBeVisible({timeout:4000});
  const before=await page.evaluate(()=>window.testHarness.calls());
- await page.getByRole('button',{name:'搜索文件',exact:true}).click();
+ await page.getByRole('textbox',{name:'搜索文件',exact:true}).click();
  await page.getByPlaceholder('搜索当前文件架').dispatchEvent('paste');
  expect(await page.evaluate(()=>window.testHarness.calls())).toEqual(before);
 });
