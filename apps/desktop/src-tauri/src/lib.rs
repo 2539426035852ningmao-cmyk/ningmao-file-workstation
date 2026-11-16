@@ -814,13 +814,16 @@ async fn history_apply(
     redo: bool,
 ) -> Result<store::HistoryApplied> {
     metadata_window(&window)?;
-    let _guard = LifecycleGuard::acquire(&app)?;
+    let guard = LifecycleGuard::acquire(&app)?;
     let result = database(app.clone(), move |s| s.history_apply(redo)).await?;
     reconcile_recycle(&app)?;
     let target = database(app.clone(), |s| s.shelf_catalog())
         .await?
         .into_iter()
         .find(|s| s.id == result.shelf_id);
+    // Opening a shelf checks the same lifecycle flag. Finish the protected
+    // metadata/layout phase before starting the normal window-focus phase.
+    drop(guard);
     if let Some(target) = target {
         desktop_runtime::open(&app, target.id, true)?;
     }
