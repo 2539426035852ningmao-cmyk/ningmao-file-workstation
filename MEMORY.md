@@ -1,3 +1,7 @@
+# 2026-11-16 第二批：管理中心返回原任务与标签汇总
+
+承接干净#94/b32d6158eebceedcfe87c874c153fa30c52107ee，第一批Desktop43266464918/Preview43266464926/Web43266464916全SUCCESS，原首次失败保留。当前分支perf/manager-task-context-20261116，仅Manager.tsx：返回文件与素材恢复当前窗口上次分类，标签汇总仅素材元数据变化时重算。两项先红后绿：返回分类点击2→1；2000项/16次进度更新标签汇总16→0、遍历32000→0；额外快照原本0仍0。完整201PASS（3.8分钟）、相关21PASS14.1秒、生产/测试构建及仓库检查通过；不冒称原生CPU/内存收益。详docs/execution/MANAGER-CONTEXT-PERFORMANCE-20261116.md；精确包、完整CI/原生范围见同批PR及交付清单，不借用第一批包结果。无Rust/SQLite/窗口生命周期/文件/权限/网络改动；不安装/合并/发布。原有单实例manager_open直接保留。
+
 # 2026-11-13 第一批精简与性能优化
 
 构建后补记：PR #94应用源码f81e9def718dc2a784d16c7a7eee87f458865c28；EXE SHA2566895e9b918fe9e6495646a9633218c24deb31ac7ece132eb88bf7c0a23b4dda5，ZIP830e94fed2db88c1be0c44657cdf973eb26f9a9091293125ede83f78ebed9eea，解压9文件校验/空data-webview PASS。同EXE新隔离球→胶囊→空架→接收→空发送→返回、正常退出及重启CtrlEnter回架PASS，PID42568/40476均正常退出、端点0、SQLite完整2架0项0任务。仅空库子集，原生隐藏轮询/拖放/全主题/DPI/真实双向未验，1412日志保留。Web43264403366/Preview43264403271 SUCCESS；Desktop43264403485的Windows安全编译SUCCESS，Ubuntu198PASS/1旧排序测试FAIL。原样重复12次1失败，诊断16次3失败：Enter时焦点已回menu，未触发排序。仅测试移开鼠标再聚焦，20次连续PASS；无生产改动，不重打MSI。完整日志/最终后续CI见PR #94和专项报告。
