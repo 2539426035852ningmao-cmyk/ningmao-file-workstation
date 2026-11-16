@@ -1,3 +1,5 @@
+import {selectScene} from "../menu";
+import {displayOption,sceneItem} from "../menu";
 import {expandDisplayOptions} from "../menu";
 import { test,expect,type Page } from "@playwright/test";
 import type { Item } from "../../src/backend";
@@ -56,7 +58,7 @@ test("自动排序与搜索、刷新兼容，相同值按名称及稳定ID排序
   await page.keyboard.press("Control+f");const input=page.getByRole("textbox",{name:"搜索文件",exact:true});await input.fill("素材");
   expect(await order(page)).toEqual([46,41,42]);await expect(page.locator(".drag-handle:enabled")).toHaveCount(0);await input.press("Escape");
   const before=await order(page);
-  await page.getByRole("button",{name:"更多操作",exact:true}).click();await page.getByRole("menuitem",{name:"刷新文件状态",exact:true}).click();
+  await page.getByRole("button",{name:"更多操作",exact:true}).click();await (await sceneItem(page,"刷新文件状态")).click();
   expect(await order(page)).toEqual(before);
   const state=await page.evaluate(()=>JSON.parse(localStorage.getItem("test-state")!));
   state.items=[sample(52,"同名.txt","txt",3,10),sample(51,"同名.txt","txt",3,10)];
@@ -65,7 +67,7 @@ test("自动排序与搜索、刷新兼容，相同值按名称及稳定ID排序
 });
 
 test("窄窗新增排序可用键盘选中且菜单末项仍可到达",async({page})=>{
-  await setup(page);await page.getByRole("button",{name:"更多操作",exact:true}).click();await expandDisplayOptions(page);await page.getByRole("menuitemradio",{name:"白色主题",exact:true}).click();await page.setViewportSize({width:340,height:320});
+  await setup(page);await page.getByRole("button",{name:"更多操作",exact:true}).click();await expandDisplayOptions(page);await (await displayOption(page,"白色主题")).click();await page.setViewportSize({width:340,height:320});
   await page.getByRole("button",{name:"更多操作",exact:true}).press("Enter");await expandDisplayOptions(page);
   // Scrolling a focused item under the pointer can make Radix's pointer-leave
   // return focus to the menu before Enter. Keep this keyboard check pointer-free.
@@ -76,6 +78,6 @@ test("窄窗新增排序可用键盘选中且菜单末项仍可到达",async({pa
   await expect(page.getByRole("button",{name:"更多操作",exact:true})).toBeFocused();
   await page.getByRole("button",{name:"更多操作",exact:true}).click();await expandDisplayOptions(page);await expect(option).toHaveAttribute("aria-checked","true");
   await option.focus();await capture(page,"sort-340-light");
-  const menu=page.getByRole("menu",{name:"更多操作",exact:true});await menu.press("End");await expect(page.getByRole("menuitem",{name:"完整退出",exact:true})).toBeFocused();
+  const menu=page.getByRole("menu",{name:"更多操作",exact:true});await selectScene(page,"窗口与入口");await page.mouse.move(0,0);await menu.press("End");await expect(page.getByRole("menuitem",{name:"完整退出",exact:true})).toBeFocused();
   await page.keyboard.press("Escape");expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });

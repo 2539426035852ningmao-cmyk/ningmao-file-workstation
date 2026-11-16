@@ -1,3 +1,4 @@
+export type HistoryState={capacity:number;undo:string|null;redo:string|null};
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
@@ -27,7 +28,7 @@ export function detachedShelfFromLabel(label:string):number|undefined {
   const id=Number(label.slice(6));return Number.isSafeInteger(id)?id:undefined;
 }
 export type NearPointer={shelf_id:number|null;x:number;y:number};
-export type Events = {collect?:(request:CollectRequest)=>void;focus?:(location:{shelf_id:number;item_id:number})=>void;near?:(value:NearPointer)=>void; drop: (paths: string[]) => void; hover: (active: boolean) => void; progress: (p: Progress) => void; finished: (message: string) => void; drag: (message: string) => void; activate?:(id:number)=>void; changed?:()=>void; metadata?:()=>void; desktop?:(view:DesktopView)=>void; error?:(message:string)=>void };
+export type Events = {collapse?:()=>void;collect?:(request:CollectRequest)=>void;focus?:(location:{shelf_id:number;item_id:number})=>void;near?:(value:NearPointer)=>void; drop: (paths: string[]) => void; hover: (active: boolean) => void; progress: (p: Progress) => void; finished: (message: string) => void; drag: (message: string) => void; activate?:(id:number)=>void; changed?:()=>void; metadata?:()=>void; desktop?:(view:DesktopView)=>void; error?:(message:string)=>void };
 export type TrashEntry={id:number;entity:"item"|"shelf";name:string;shelf_id:number;shelf_name:string;shelf_kind:string;path:string|null;removed_at:number;children:number};
 export type SystemRecyclePreview={ticket:string;items:{id:number;name:string;path:string;other_references:number;shelf_kind:string}[]};
 export type SystemRecycleOutcome={id:number;status:string;message:string};
@@ -35,6 +36,9 @@ export type RecycleActivity={id:number;shelf_id:number;name:string;status:string
 export type WakeShortcutConfig={version:number;enabled:boolean;accelerator:string};
 export type WakeShortcutState={config:WakeShortcutConfig;active:boolean;paused:boolean;warning:string|null};
 export interface Backend {
+  historyState?:()=>Promise<HistoryState>;
+  historyApply?:(redo:boolean)=>Promise<{shelf_id:number;label:string}>;
+  historyCapacity?:(capacity:number)=>Promise<HistoryState>;
   desktopCollect?:(shelf:number,action:CollectRequest["action"],itemId?:number)=>Promise<void>;
   chat?:ChatBackend;
   transfer?:TransferBackend;
@@ -114,6 +118,7 @@ export const nativeBackend: Backend = {
   wakeShortcutState:()=>invoke("wake_shortcut_state"),wakeShortcutConfigure:config=>invoke("wake_shortcut_configure",{config}),wakeShortcutPause:paused=>invoke("wake_shortcut_pause",{paused}),
   windowAction:action=>invoke("file_window_action",{action}),windowState:()=>invoke("file_window_state"),
   subscribeWindowState:callback=>getCurrentWebviewWindow().listen<boolean>("file-window-state",e=>callback(e.payload)),
+  historyState:()=>invoke("history_state"),historyApply:redo=>invoke("history_apply",{redo}),historyCapacity:capacity=>invoke("history_capacity",{capacity}),
   recycleActivity:()=>invoke("recycle_activity"),removeReferences:ids=>invoke("remove_references",{ids}),
   planSystemRecycle:ids=>invoke("plan_system_recycle",{ids}),executeSystemRecycle:ticket=>invoke("execute_system_recycle",{ticket}),cancelSystemRecycle:()=>invoke("cancel_system_recycle"),
   trashEntries:filter=>invoke("trash_entries",{filter}),trashShelf:shelfId=>invoke("trash_shelf",{shelfId}),
@@ -160,6 +165,7 @@ export const nativeBackend: Backend = {
         events.hover(payload.type === "enter" || payload.type === "over");
         if (payload.type === "drop") events.drop(payload.paths);
       }));
+      if(events.collapse)cleanups.push(await getCurrentWebviewWindow().listen("desktop-request-collapse",()=>events.collapse?.()));
       cleanups.push(await getCurrentWebviewWindow().listen<boolean>("window-moving",event=>{document.documentElement.dataset.windowMoving=String(event.payload);window.dispatchEvent(new CustomEvent("ningmao-window-motion",{detail:event.payload}));}));
       cleanups.push(await listen<NearPointer>("desktop-near-pointer",event=>events.near?.(event.payload)));
       cleanups.push(await listen<Progress>("copy-progress", event => events.progress(event.payload)));

@@ -1,3 +1,4 @@
+import {displayOption,sceneItem} from "../menu";
 import {expandDisplayOptions} from "../menu";
 import { test,expect,type Page } from "@playwright/test";
 import type { Item } from "../../src/backend";
@@ -13,7 +14,7 @@ async function setup(page:Page){
   },items);
   await page.goto("/tests/harness.html");await expect(page.locator("[data-item-id]")).toHaveCount(7);
 }
-async function openFilters(page:Page){await page.getByRole("button",{name:"更多操作",exact:true}).click();await expect(page.getByRole("menuitem",{name:"筛选文件",exact:true})).toBeVisible({timeout:3000});await page.getByRole("menuitem",{name:"筛选文件",exact:true}).click();return page.getByRole("dialog",{name:"筛选文件",exact:true});}
+async function openFilters(page:Page){await page.getByRole("button",{name:"更多操作",exact:true}).click();await expect((await sceneItem(page,"筛选文件"))).toBeVisible({timeout:3000});await (await sceneItem(page,"筛选文件")).click();return page.getByRole("dialog",{name:"筛选文件",exact:true});}
 async function order(page:Page){return page.locator("[data-item-id]").evaluateAll(nodes=>nodes.map(n=>Number(n.getAttribute("data-item-id"))));}
 async function capture(page:Page,name:string){const dir=process.env.FILTER_EVIDENCE;if(dir){mkdirSync(dir,{recursive:true});await page.screenshot({path:path.join(dir,name+".png")});}}
 
@@ -53,7 +54,7 @@ test("异常引用保留，筛选隐藏的选择没有动作，切架和重载�
 test("刷新后已选标签消失仍显示原条件，无结果可明确清除",async({page})=>{
   await setup(page);let dialog=await openFilters(page);await dialog.getByRole("combobox",{name:"标签",exact:true}).selectOption("归档");await dialog.getByRole("button",{name:"查看结果",exact:true}).click();await expect.poll(()=>order(page)).toEqual([3]);
   await page.evaluate(()=>window.testHarness.tags(3,[]));
-  await page.getByRole("button",{name:"更多操作",exact:true}).click();await page.getByRole("menuitem",{name:"刷新文件状态",exact:true}).click();await expect(page.getByRole("heading",{name:"没有匹配的文件",exact:true})).toBeVisible();
+  await page.getByRole("button",{name:"更多操作",exact:true}).click();await (await sceneItem(page,"刷新文件状态")).click();await expect(page.getByRole("heading",{name:"没有匹配的文件",exact:true})).toBeVisible();
   dialog=await openFilters(page);await expect(dialog.getByRole("combobox",{name:"标签",exact:true})).toHaveValue("归档");await expect(dialog.getByRole("combobox",{name:"标签",exact:true}).locator('option:checked')).toHaveText("归档");
   await dialog.getByRole("button",{name:"重置筛选",exact:true}).click();await expect(dialog.getByRole("combobox",{name:"标签",exact:true})).toHaveValue("");await dialog.getByRole("button",{name:"查看结果",exact:true}).click();await expect.poll(()=>order(page)).toEqual([1,2,3,4,5,6,8]);
 });
@@ -61,7 +62,7 @@ test("刷新后已选标签消失仍显示原条件，无结果可明确清除",
 for(const [width,height,theme] of [[340,320,"light"],[420,520,"dark"],[640,720,"light"]] as const){
   test(`${width}×${height} ${theme} 筛选抽屉可滚动、键盘退出，活动提示不遮挡语义`,async({page})=>{
     await setup(page);await page.setViewportSize({width,height});
-    if(theme==="light"){await page.getByRole("button",{name:"更多操作",exact:true}).click();await expandDisplayOptions(page);await page.getByRole("menuitemradio",{name:"白色主题",exact:true}).click();}
+    if(theme==="light"){await page.getByRole("button",{name:"更多操作",exact:true}).click();await expandDisplayOptions(page);await (await displayOption(page,"白色主题")).click();}
     const dialog=await openFilters(page);const type=dialog.getByRole("combobox",{name:"文件类型",exact:true});await type.selectOption("txt");await type.focus();
     await expect.poll(async()=>{const box=await dialog.boundingBox();return !!box && box.x>=0 && box.x+box.width<=width+1;}).toBe(true);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);

@@ -7,13 +7,13 @@ test('重命名当前文件架保留选择与素材，取消不写入，重载�
   await item.click();
   const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('test-state')!).items);
   await page.getByRole('button',{name:'切换文件架',exact:true}).click();
-  await page.getByRole('menuitem',{name:'重命名当前文件架',exact:true}).click();
+  await page.getByRole('button',{name:'重命名文件架 灵感收集',exact:true}).click();
   await expect(page.getByRole('heading',{name:'重命名文件架',exact:true})).toBeVisible();
   await page.getByRole('textbox',{name:'文件架名称',exact:true}).fill('不保存的名称');
   await page.keyboard.press('Escape');
   await expect(page.getByRole('button',{name:'切换文件架',exact:true})).toHaveAttribute('aria-description','灵感收集');
   await page.getByRole('button',{name:'切换文件架',exact:true}).click();
-  await page.getByRole('menuitem',{name:'重命名当前文件架',exact:true}).click();
+  await page.getByRole('button',{name:'重命名文件架 灵感收集',exact:true}).click();
   await page.getByRole('textbox',{name:'文件架名称',exact:true}).fill('素材整理 Work');
   await page.evaluate(()=>window.testHarness.fail('名称暂未保存'));
   await page.getByRole('button',{name:'保存名称',exact:true}).click();

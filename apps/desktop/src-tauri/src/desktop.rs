@@ -2,6 +2,14 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
+/// Physical origin of a presentation sharing the same expression center.
+pub fn expression_origin(anchor: (i32, i32), center: (f64, f64), scale: f64) -> (i32, i32) {
+    (
+        anchor.0.saturating_sub((center.0 * scale).round() as i32),
+        anchor.1.saturating_sub((center.1 * scale).round() as i32),
+    )
+}
+
 pub fn detached_id(label: &str) -> Option<i64> {
     let id = label.strip_prefix("shelf-")?.parse::<i64>().ok()?;
     (id > 0 && label == format!("shelf-{id}")).then_some(id)

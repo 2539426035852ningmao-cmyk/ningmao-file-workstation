@@ -1,3 +1,4 @@
+import {sceneItem} from "../menu";
 import {expect,test,type Page} from "@playwright/test";
 const browser="18aba838-246f-4d0e-af08-1a27b536932a";
 const id="b72ff401-e3a8-41d0-a510-bb57b83c1641";
@@ -6,7 +7,7 @@ const offer={id,name:"镜头 01.png",size:3,mime:"image/png",sha256:"a".repeat(6
 async function connected(page:Page){
   await page.goto("/tests/harness.html");
   await page.getByRole("button",{name:"更多操作",exact:true}).click();
-  await page.getByRole("menuitem",{name:"文件互传",exact:true}).click();
+  await (await sceneItem(page,"文件互传")).click();
   const panel=page.getByRole("dialog",{name:"文件互传",exact:true});
   await panel.getByText("连接网页 / 手机 Windows 设备授权（W1）",{exact:true}).click();
   await panel.getByLabel("网页服务 HTTPS 地址").fill("https://test.workers.dev/");

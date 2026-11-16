@@ -268,8 +268,9 @@ const backend:Backend={
   async topmost(){return true;},async quit(){calls.push("quit");},
   async subscribe(value){events=value;const storage=(event:StorageEvent)=>{if(event.key==="test-state"){syncState();events.changed?.();}if(event.key==="test-desktop-layout"){desktop=JSON.parse(event.newValue!);events.desktop?.(structuredClone(desktop));events.changed?.();}};window.addEventListener("storage",storage);return()=>window.removeEventListener("storage",storage);},
 };
-declare global { interface Window { testHarness:{collect:(shelf_id:number,action:"add"|"paste"|"locate",item_id?:number)=>void;notifyCopying:(active:boolean)=>void;notifyProgress:(p:Progress)=>void;nativeDrag:(active:boolean,id?:number)=>void;notifyFinished:(message:string)=>void;foldEntry:()=>void;notifyMetadata:()=>void;drop:(paths:string[])=>void;hover:(active:boolean)=>void;offline:(id:number)=>void;fail:(message:string)=>void;failNextSnapshot:(message:string)=>void;missing:(id:number)=>void;image:(id:number)=>void;tags:(id:number,tags:string[])=>Promise<void>;cancelRelocation:()=>void;cancelOpening:()=>void;calls:()=>string[];complete:()=>void} } }
+declare global { interface Window { testHarness:{openShelf:(id:number)=>Promise<void>;requestCollapse:()=>void;collect:(shelf_id:number,action:"add"|"paste"|"locate",item_id?:number)=>void;notifyCopying:(active:boolean)=>void;notifyProgress:(p:Progress)=>void;nativeDrag:(active:boolean,id?:number)=>void;notifyFinished:(message:string)=>void;foldEntry:()=>void;notifyMetadata:()=>void;drop:(paths:string[])=>void;hover:(active:boolean)=>void;offline:(id:number)=>void;fail:(message:string)=>void;failNextSnapshot:(message:string)=>void;missing:(id:number)=>void;image:(id:number)=>void;tags:(id:number,tags:string[])=>Promise<void>;cancelRelocation:()=>void;cancelOpening:()=>void;calls:()=>string[];complete:()=>void} } }
 window.testHarness={
+  openShelf:id=>backend.desktopOpen(id),requestCollapse:()=>events.collapse?.(),
   notifyCopying:active=>{desktop.copying=active;publishDesktop();},
   notifyProgress:p=>events.progress(p),
   nativeDrag:(active,id)=>{desktop.native_dragging=active;desktop.drag_target=active?id??1:null;publishDesktop();},
@@ -290,6 +291,41 @@ window.testHarness={
 };
 if(new URLSearchParams(location.search).has("desktop-entry")){const count=Math.max(1,Math.min(8,Number(new URLSearchParams(location.search).get("count")) || 7));state.shelves=state.shelves.slice(0,count);for(let id=3;id<=count;id++)state.shelves.push({id,name:`项目 ${id}`,kind:"persistent",root:null,available:true});desktop.layout.enabled=true;desktop.layout.collapsed=state.shelves.map(s=>s.id);publishDesktop();}
 if(new URLSearchParams(location.search).has("edge")){desktop.edge_hidden=true;desktop.layout.preferences={edge:"right",auto_hide:true,topmost:true};}
+// Browser contract adapter; transactional safety is checked against real SQLite in organize_history.rs.
+type MetadataImage={shelves:Snapshot["shelves"];items:Item[];recycle:typeof recycle};
+type HistoryEntry={before:MetadataImage;after:MetadataImage;label:string;shelf:number};
+type TestHistory={capacity:number;cursor:number;steps:HistoryEntry[]};
+const historyKey="test-organize-history";
+const readHistory=():TestHistory=>JSON.parse(localStorage.getItem(historyKey)||'{"capacity":100,"cursor":0,"steps":[]}');
+const metadataImage=():MetadataImage=>structuredClone({shelves:state.shelves,items:state.items,recycle});
+let historyDepth=0;
+for(const [method,label] of Object.entries({createShelf:"新建文件架",renameShelf:"重命名文件架",import:"添加引用",copyReferences:"跨架添加引用",remove:"移除引用",removeReferences:"移除引用",tags:"修改标签",tagReferences:"批量修改标签",reorder:"调整手动顺序",trashShelf:"回收文件架",restoreTrash:"恢复回收记录"})){
+  const methods=backend as unknown as Record<string,(...args:unknown[])=>Promise<unknown>>;
+  const original=methods[method];if(!original)continue;
+  methods[method]=async(...args)=>{
+    if(historyDepth)return original(...args);
+    syncState();const before=metadataImage();historyDepth++;
+    try{
+      const result=await original(...args),after=metadataImage();
+      if(JSON.stringify(before)!==JSON.stringify(after)){
+        const history=readHistory();history.steps=history.steps.slice(0,history.cursor);
+        const changedShelf=after.shelves.find(row=>JSON.stringify(row)!==JSON.stringify(before.shelves.find(old=>old.id===row.id)))?.id;
+        const changedItem=after.items.find(row=>JSON.stringify(row)!==JSON.stringify(before.items.find(old=>old.id===row.id)))??before.items.find(row=>!after.items.some(current=>current.id===row.id));
+        const shelf=changedShelf??changedItem?.shelf_id??(Number(args[0])||1);
+        history.steps.push({before,after,label,shelf});history.steps=history.steps.slice(-history.capacity);history.cursor=history.steps.length;
+        localStorage.setItem(historyKey,JSON.stringify(history));events?.changed?.();
+      }
+      return result;
+    }finally{historyDepth--;}
+  };
+}
+backend.historyState=async()=>{const h=readHistory();return {capacity:h.capacity,undo:h.steps[h.cursor-1]?.label??null,redo:h.steps[h.cursor]?.label??null};};
+backend.historyCapacity=async capacity=>{if(!Number.isInteger(capacity)||capacity<1||capacity>1000)throw Error("历史容量需为1至1000步");const h=readHistory();const dropped=Math.max(0,h.steps.length-capacity);h.steps=h.steps.slice(dropped);h.cursor=Math.max(0,h.cursor-dropped);h.capacity=capacity;localStorage.setItem(historyKey,JSON.stringify(h));return backend.historyState!();};
+backend.historyApply=async redo=>{
+  const h=readHistory(),entry=h.steps[redo?h.cursor:h.cursor-1];if(!entry)throw Error("没有可恢复的整理操作");
+  const image=structuredClone(redo?entry.after:entry.before);state.shelves=image.shelves;state.items=image.items;recycle.splice(0,recycle.length,...image.recycle);save();h.cursor+=redo?1:-1;localStorage.setItem(historyKey,JSON.stringify(h));
+  const id=state.shelves.some(s=>s.id===entry.shelf)?entry.shelf:state.shelves[0]?.id??0;if(id)await backend.desktopOpen(id);events?.changed?.();return {shelf_id:id,label:entry.label};
+};
 createRoot(document.getElementById("root")!).render(new URLSearchParams(location.search).has("desktop-entry")?<DesktopEntry backend={backend}/>:new URLSearchParams(location.search).has("manager")?<Manager backend={backend}/>:<App backend={backend} native={true} detachedShelfId={ownShelf}/>);
 
 declare global { interface Window {

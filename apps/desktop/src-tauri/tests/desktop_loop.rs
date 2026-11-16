@@ -4,6 +4,29 @@ use ningmao_desktop_lib::{
 };
 use std::fs;
 #[test]
+fn expression_anchor_roundtrips_across_dpi_and_negative_monitors() {
+    use ningmao_desktop_lib::desktop::expression_origin;
+    for scale in [1.0, 1.25, 1.5, 2.0, 3.0] {
+        let face = (-1720, 320);
+        let shelf = expression_origin(face, (30.0, 24.0), scale);
+        let orb = expression_origin(face, (32.0, 88.0), scale);
+        assert_eq!(
+            (
+                shelf.0 + (30.0_f64 * scale).round() as i32,
+                shelf.1 + (24.0_f64 * scale).round() as i32
+            ),
+            face
+        );
+        assert_eq!(
+            (
+                orb.0 + (32.0_f64 * scale).round() as i32,
+                orb.1 + (88.0_f64 * scale).round() as i32
+            ),
+            face
+        );
+    }
+}
+#[test]
 fn pin_preference_defaults_on_and_survives_detach_and_restart() {
     let mut layout = Layout::default();
     assert!(layout.preferences.topmost);

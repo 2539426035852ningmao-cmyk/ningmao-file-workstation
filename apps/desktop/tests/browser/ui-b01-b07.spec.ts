@@ -1,3 +1,5 @@
+import {selectScene} from "../menu";
+import {sceneItem} from "../menu";
 import {test,expect} from "@playwright/test";
 test("B01 body movement crosses threshold once and suppresses shape click",async({page})=>{
  await page.goto("/tests/harness.html?desktop-entry&count=1");const orb=page.getByRole("button",{name:"展开 灵感收集",exact:true});const b=(await orb.boundingBox())!;
@@ -8,7 +10,7 @@ test("B01 body movement crosses threshold once and suppresses shape click",async
 test("B05 idle menu scrollbar is transparent without losing keyboard reach",async({page})=>{
  await page.goto("/tests/harness.html");await page.getByRole("button",{name:"更多操作",exact:true}).click();const menu=page.getByRole("menu",{name:"更多操作",exact:true});
  await page.mouse.move(5,500);await expect(menu).toBeVisible();expect(await menu.evaluate(el=>getComputedStyle(el).scrollbarGutter)).toContain("stable");
- await menu.press("End");await expect(page.getByRole("menuitem",{name:"完整退出",exact:true})).toBeFocused();
+ await selectScene(page,"窗口与入口");await page.mouse.move(0,0);await menu.press("End");await expect(page.getByRole("menuitem",{name:"完整退出",exact:true})).toBeFocused();
 });
 
 test("B06 reference recycle and undo preserve item identity",async({page})=>{

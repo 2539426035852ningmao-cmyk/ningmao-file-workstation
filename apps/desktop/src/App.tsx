@@ -1,3 +1,5 @@
+import {HistoryCapacity} from "./components/HistoryCapacity";
+import {shapeShelf,stopShelfMotion} from "./orb/shelfMotion";
 import {WindowControls} from "./components/WindowControls";
 import {GlobalSearch,openGlobalSearch} from "./components/GlobalSearch";
 import type {TransferSelection} from "./components/TransferPanel";
@@ -9,7 +11,7 @@ import { DndContext, DragOverlay, KeyboardSensor, PointerSensor, closestCenter, 
 import { SortableContext, rectSortingStrategy, sortableKeyboardCoordinates, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Archive, Trash2, ArrowDownToLine, Check, ChevronDown, ClipboardPaste, File, Folder, FolderPlus, GripVertical, Grid2X2, Info, List, MoreHorizontal, Pin, Pencil, Plus, RefreshCw, Search, Star, X } from "lucide-react";
+import { Archive, Trash2, ArrowDownToLine, Check, ChevronDown, ClipboardPaste, File, Folder, FolderPlus, GripVertical, Grid2X2, Info, List, MoreHorizontal, Pin, Pencil, Undo2, Redo2, Plus, RefreshCw, Search, Star, X } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Badge } from "./components/ui/badge";
@@ -130,22 +132,21 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   const [transferLoaded,setTransferLoaded]=useState(false),[transfer,setTransfer]=useState<{open:boolean;mode:"send"|"receive";selection:TransferSelection}>({open:false,mode:"receive",selection:{shelf_id:0,files:[]}});
   const [revealItem,setRevealItem]=useState<number|null>(null);
   const searchInput=useRef<HTMLInputElement>(null),moreButton=useRef<HTMLButtonElement>(null);
-  const revealTimer=useRef<ReturnType<typeof setTimeout>|undefined>(undefined);
-  const revealFrame=useRef<number|undefined>(undefined);
-  function revealShelf(){
-    clearTimeout(revealTimer.current);if(revealFrame.current!==undefined)cancelAnimationFrame(revealFrame.current);
-    delete document.documentElement.dataset.shelfEnter;
-    revealFrame.current=requestAnimationFrame(()=>{document.documentElement.dataset.shelfEnter="true";revealTimer.current=setTimeout(()=>{delete document.documentElement.dataset.shelfEnter;},260);});
+  const [shaping,setShaping]=useState(false);
+  const shapeClosing=useRef(false),shapeGeneration=useRef(0);
+  function revealShelf(initial=false){
+    const node=document.querySelector<HTMLElement>(".workstation");if(!node)return;
+    const generation=++shapeGeneration.current;shapeClosing.current=false;setShaping(true);void shapeShelf(node,true,initial).finally(()=>{if(generation===shapeGeneration.current)setShaping(false);});
   }
-  useEffect(()=>{revealShelf();return()=>{clearTimeout(revealTimer.current);if(revealFrame.current!==undefined)cancelAnimationFrame(revealFrame.current);delete document.documentElement.dataset.shelfEnter;};},[]);
+  useEffect(()=>{revealShelf(true);return()=>{const node=document.querySelector<HTMLElement>(".workstation");if(node)stopShelfMotion(node);};},[]);
   async function collapseShelf(){
     if(!shelf){await backend.windowAction?.("hide");return;}
-    if(!matchMedia("(prefers-reduced-motion: reduce)").matches&&document.documentElement.dataset.reduceMotion!=="true"){
-      const animation=document.querySelector(".workstation")?.animate([{opacity:1,scale:"1"},{opacity:.2,scale:".97"}],{duration:100,easing:"ease-out"});
-      await animation?.finished.catch(()=>{});
-    }
-    await backend.desktopCollapse(activeShelf.current);
+    const node=document.querySelector<HTMLElement>(".workstation");
+    const generation=++shapeGeneration.current;shapeClosing.current=true;setShaping(true);
+    try{if(node&&!await shapeShelf(node,false))return;await backend.desktopCollapse(activeShelf.current);}
+    finally{if(generation===shapeGeneration.current){shapeClosing.current=false;setShaping(false);}}
   }
+  const collapseLatest=useRef(collapseShelf);collapseLatest.current=collapseShelf;
   const [feedback,setFeedback]=useState(false);
   const [query,setQuery]=useState("");
   const [filters,setFilters]=useState<ShelfFilters>(defaultFilters),[filtersOpen,setFiltersOpen]=useState(false);
@@ -166,7 +167,23 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   const [copyTo,setCopyTo]=useState(false),[copyTarget,setCopyTarget]=useState(0),[copyIds,setCopyIds]=useState<number[]>([]);
   const [recycleOpen,setRecycleOpen]=useState(false);
   const [systemRecycleIds,setSystemRecycleIds]=useState<number[]|null>(null);
-  const [undo,setUndo]=useState<{entity:string;id:number;ids?:number[]}|null>(null);
+  const [history,setHistory]=useState<import("./backend").HistoryState|null>(null),[historyBusy,setHistoryBusy]=useState(false);
+  const historyFlight=useRef(false);
+  async function readHistory(){if(backend.historyState)setHistory(await backend.historyState());}
+  async function applyHistory(redo:boolean){
+    if(historyFlight.current||busy||hover||dragging||!backend.historyApply)return;
+    historyFlight.current=true;setHistoryBusy(true);
+    try{const result=await backend.historyApply(redo);await refresh();setMessage(`${redo?"已重做":"已撤销"} ${result.label}`);}
+    finally{try{await readHistory();}finally{historyFlight.current=false;setHistoryBusy(false);}}
+  }
+  useEffect(()=>{
+    const key=(event:KeyboardEvent)=>{
+      if(event.defaultPrevented||event.isComposing||event.repeat||!event.ctrlKey||event.altKey||event.target instanceof Element&&event.target.closest('input,textarea,[contenteditable="true"],[role="dialog"],[role="menu"]'))return;
+      const undo=event.key.toLowerCase()==="z"&&!event.shiftKey,redo=event.key.toLowerCase()==="y"||event.key.toLowerCase()==="z"&&event.shiftKey;
+      if((undo&&history?.undo)||(redo&&history?.redo)){event.preventDefault();void perform(()=>applyHistory(redo));}
+    };
+    window.addEventListener("keydown",key);return()=>window.removeEventListener("keydown",key);
+  },[backend,history,busy,hover,dragging]);
   const [repairFeedback,setRepairFeedback]=useState<{error:boolean;message:string}|null>(null);
   const [duplicateBusy,setDuplicateBusy]=useState(false),[duplicateCanceling,setDuplicateCanceling]=useState(false);
   const [duplicateResult,setDuplicateResult]=useState<{report:DuplicateReport;names:Record<number,string>}|null>(null);
@@ -201,7 +218,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   function drag(id:number){const targets=chosen.some(i=>i.id===id)?chosen:visible.filter(i=>i.id===id);if(!targets.length)return;if(!chosen.some(i=>i.id===id))setSelected(id);if(targets.length>64){setError("请选择 1 至 64 项拖出；不会只复制部分选中项。");return;}if(targets.some(i=>i.status!=="normal")){setError("选中项含失效或不可读引用，请取消选择后重试。");return;}if(native)void perform(()=>backend.drag(targets.map(i=>i.id)));}
   const running=data.jobs.find(j=>activeStatus(j.status));
   const inline=details && detailPinned && width>=1000;
-  async function refresh() { const value=await backend.snapshot(); setData(value); return value; }
+  async function refresh() { const value=await backend.snapshot(); setData(value); await readHistory(); return value; }
   function activateShelf(id:number) { if((detachedShelfId!==undefined && id!==detachedShelfId)||id===activeShelf.current)return;activeShelf.current=id;setShelfId(id); setSelected(null); setQuery(""); setFilters(defaultFilters);setFiltersOpen(false); setDetails(false); setPreview(false); }
   function desktopChanged(value:DesktopView) { setCatalog(value.catalog??[]);setDetachedIds((value.layout.detached??[]).map(s=>s.shelf_id));setTopmost(value.layout.preferences.topmost);if(detachedShelfId===undefined && value.layout.active_shelf!==activeShelf.current)activateShelf(value.layout.active_shelf);if(value.warning)setError(value.warning); }
   async function switchShelf(id:number) { if(detachedShelfId!==undefined)return;await perform(async()=>{await backend.desktopSelect(id);activateShelf(id);}); }
@@ -261,6 +278,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   useEffect(()=>{
     let live=true; let cleanup:(()=>void)|undefined;
     void backend.subscribe({
+      collapse:()=>{if(!shapeClosing.current)void perform(()=>collapseLatest.current());},
       drop:paths=>importRef.current(paths),hover:setHover,progress:setProgress,
       finished:message=>{copyFinished.current++;setMessage(message);setProgress(null);void refresh().catch(e=>setError(String(e)));},
       drag:message=>setMessage(`系统拖出结果：${message}；已请求复制。`),
@@ -312,7 +330,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
       if(e.key===" " && current) {e.preventDefault();setPreview(true);}
       if((e.ctrlKey || e.metaKey) && e.key.toLowerCase()==="a" && e.target instanceof HTMLElement && e.target.closest('.file-scroll')){e.preventDefault();marquee(visible.map(i=>i.id));}
       if(e.key==="Escape") {if(!preview && !details)setSelected(null);setPreview(false);setDetails(false);}
-      if(e.key==="Delete" && chosen.length && !e.repeat && e.target instanceof HTMLElement && e.target.closest('.file-scroll')){e.preventDefault();void perform(async()=>{try{const ids=chosen.map(i=>i.id);if(backend.removeReferences)await backend.removeReferences(ids);else for(const id of ids)await backend.remove(id);setUndo({entity:"item",id:ids[0],ids});}finally{await refresh();}setSelected(null);setMessage("选中项已移入柠猫回收站，原文件保留。");});}
+      if(e.key==="Delete" && chosen.length && !e.repeat && e.target instanceof HTMLElement && e.target.closest('.file-scroll')){e.preventDefault();void perform(async()=>{try{const ids=chosen.map(i=>i.id);if(backend.removeReferences)await backend.removeReferences(ids);else for(const id of ids)await backend.remove(id);}finally{await refresh();}setSelected(null);setMessage("选中项已移入柠猫回收站，原文件保留。");});}
     };
     window.addEventListener("keydown",fn);return()=>window.removeEventListener("keydown",fn);
   },[current,chosen,visible,bound,backend,preview,details]);
@@ -327,7 +345,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
     };window.addEventListener("keydown",fn);return()=>window.removeEventListener("keydown",fn);
   },[]);
   async function tag(item:Item) { await perform(async()=>{await backend.tags(item.id,item.tags.includes("精选")?item.tags.filter(t=>t!=="精选"):[...item.tags,"精选"]);await refresh();}); }
-  async function remove(id:number) { await perform(async()=>{await backend.remove(id);setUndo({entity:"item",id});setSelected(null);setDetails(false);await refresh();setMessage("已移入柠猫回收站，原文件保留。");}); }
+  async function remove(id:number) { await perform(async()=>{await backend.remove(id);setSelected(null);setDetails(false);await refresh();setMessage("已移入柠猫回收站，原文件保留。");}); }
   useEffect(()=>setRepairFeedback(null),[selected,shelfId]);
   async function relocate(id:number,directory:boolean) {
     setBusy(true);setRepairFeedback(null);
@@ -359,17 +377,19 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
     {backend.transfer&&transferLoaded&&<Suspense fallback={null}><TransferPanel backend={backend.transfer} open={transfer.open} initialMode={transfer.mode} selection={transfer.selection} shelves={data.shelves} chooseReceiveFolder={detachedShelfId===undefined?async()=>{const id=await backend.chooseFolder();if(id!==null)await refresh();return id;}:undefined} onOpenChange={open=>setTransfer(value=>({...value,open}))}/></Suspense>}
     <SystemRecycle backend={backend} ids={systemRecycleIds} onClose={()=>setSystemRecycleIds(null)} onChanged={refresh}/>
     <RecycleDrawer backend={backend} open={recycleOpen} onOpenChange={setRecycleOpen} shelfId={shelfId} onChanged={refresh}/>
-    {undo&&<div className="undo-record" role="status">已移入柠猫回收站 <Button variant="ghost" onClick={()=>void perform(async()=>{for(const id of undo.ids??[undo.id])await backend.restoreTrash?.(undo.entity,id);setUndo(null);await refresh();})}>撤销</Button></div>}
+
     <div className="shelf-chrome" {...windowDrag}><header className="shelf-header">
-      <ShelfFace disabled={!native || loading || busy || !!dragging || hover} onCollapse={()=>void perform(collapseShelf)} theme={theme} onTheme={setTheme}/>
+      <ShelfFace disabled={!native || loading || (busy&&!shaping) || !!dragging || hover} onCollapse={()=>{if(shapeClosing.current){revealShelf();void backend.desktopOpen(activeShelf.current).catch(e=>setError(String(e)));}else void perform(collapseShelf);}} theme={theme} onTheme={setTheme}/>
         <ShelfMenu label="文件架" align="start" trigger={<Button className="shelf-switch" variant="ghost" aria-label="切换文件架" title={shelf?.name || "主窗口"}><span>{shelf?.name || "主窗口"}</span><ChevronDown size={14}/></Button>}>
-          <DropdownMenu.RadioGroup value={String(shelfId)} onValueChange={id=>switchShelf(Number(id))}>{data.shelves.map(s=><div className="shelf-choice" key={s.id}><DropdownMenu.RadioItem disabled={detachedShelfId!==undefined} value={String(s.id)}>{s.kind==="bound"?<Folder size={16}/>:<Archive size={16}/>}<span>{s.name}</span></DropdownMenu.RadioItem>{s.id===shelfId&&<button className="shelf-rename" aria-label={`重命名文件架 ${s.name}`} disabled={busy||!backend.renameShelf} onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();setRenaming(s.id);setNewName(s.name);setFormError("");setCreating(true);}}><Pencil size={14}/></button>}<button className="shelf-recycle" aria-label={`回收文件架 ${s.name}`} disabled={busy||!!running||hover||!!dragging||!backend.trashShelf} onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();void perform(async()=>{await backend.trashShelf?.(s.id);setUndo({entity:"shelf",id:s.id});await refresh();setMessage("整个文件架已移入柠猫回收站，原文件保留。");});}}><Trash2 size={14}/></button></div>)}</DropdownMenu.RadioGroup>
+          <DropdownMenu.RadioGroup value={String(shelfId)} onValueChange={id=>switchShelf(Number(id))}>{data.shelves.map(s=><div className="shelf-choice" key={s.id}><DropdownMenu.RadioItem disabled={detachedShelfId!==undefined} value={String(s.id)}>{s.kind==="bound"?<Folder size={16}/>:<Archive size={16}/>}<span>{s.name}</span></DropdownMenu.RadioItem>{s.id===shelfId&&<button className="shelf-rename" aria-label={`重命名文件架 ${s.name}`} disabled={busy||!backend.renameShelf} onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();setRenaming(s.id);setNewName(s.name);setFormError("");setCreating(true);}}><Pencil size={14}/></button>}<button className="shelf-recycle" aria-label={`回收文件架 ${s.name}`} disabled={busy||!!running||hover||!!dragging||!backend.trashShelf} onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();void perform(async()=>{await backend.trashShelf?.(s.id);await refresh();setMessage("整个文件架已移入柠猫回收站，原文件保留。");});}}><Trash2 size={14}/></button></div>)}</DropdownMenu.RadioGroup>
           {detachedShelfId===undefined && <><DropdownMenu.Separator/>{catalog.filter(s=>detachedIds.includes(s.id)).map(s=><DropdownMenu.Item key={s.id} onSelect={()=>void perform(()=>backend.desktopOpen(s.id))}>打开独立窗口 {s.name}</DropdownMenu.Item>)}<DropdownMenu.Item disabled={!native || busy} onSelect={()=>{setRenaming(null);setNewName("");setSessionShelf(false);setFormError("");setCreating(true);}}><Plus size={16}/>新建文件架</DropdownMenu.Item><DropdownMenu.Item disabled={!native || busy || !!running} onSelect={()=>void perform(async()=>{const id=await backend.chooseFolder();await refresh();if(id)await switchShelf(id);})}><FolderPlus size={16}/>绑定文件夹</DropdownMenu.Item></>}
         </ShelfMenu>
 
       <span className="titlebar-drag-space" aria-hidden="true"/>
+      <Button variant="ghost" size="icon" aria-label="撤销" title={history?.undo?`撤销 ${history.undo}`:"撤销"} disabled={!history?.undo||historyBusy||busy||hover||!!dragging} onClick={()=>void perform(()=>applyHistory(false))}><Undo2 size={16}/></Button>
+      <Button variant="ghost" size="icon" aria-label="重做" title={history?.redo?`重做 ${history.redo}`:"重做"} disabled={!history?.redo||historyBusy||busy||hover||!!dragging} onClick={()=>void perform(()=>applyHistory(true))}><Redo2 size={16}/></Button>
       <Button className="add-files" variant="ghost" size="icon" disabled={!native || loading || !shelf || busy || !!running} aria-label={bound?"添加并复制":"添加引用"} title={bound?"添加并复制，保留来源":"添加引用，保留原文件"} onClick={()=>void perform(async()=>receive(await backend.chooseFiles()))}><Plus size={18}/></Button>
-      <ShelfMenu label="更多操作" centered open={moreOpen} onOpenChange={open=>{if(open)setDisplayOptions(false);setMoreOpen(open);}} trigger={<Button variant="ghost" size="icon" ref={moreButton} aria-label="更多操作" title="更多操作"><MoreHorizontal size={18}/></Button>}>
+      <ShelfMenu label="更多操作" centered settings={<><HistoryCapacity capacity={history?.capacity??100} onSave={backend.historyCapacity?async capacity=>{setHistory(await backend.historyCapacity!(capacity));}:undefined}/>        <DropdownMenu.Label>应用主题</DropdownMenu.Label><DropdownMenu.RadioGroup value={theme} onValueChange={value=>setTheme(value as Theme)}>{Object.entries(themes).map(([key,label])=><DropdownMenu.RadioItem key={key} value={key}>{label}主题<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>)}</DropdownMenu.RadioGroup></>} open={moreOpen} onOpenChange={open=>{if(open)setDisplayOptions(true);setMoreOpen(open);}} trigger={<Button variant="ghost" size="icon" ref={moreButton} aria-label="更多操作" title="更多操作"><MoreHorizontal size={18}/></Button>}>
         <DropdownMenu.Group aria-label="收集与搜索">
 <DropdownMenu.Item onSelect={()=>openGlobalSearch(moreButton.current)}><Search size={16}/><span>{detachedShelfId!==undefined?"搜索当前文件架":"跨文件架搜索"}</span><kbd aria-hidden="true">Ctrl+K</kbd></DropdownMenu.Item>
 <DropdownMenu.Item disabled={!native || loading || !shelf || busy || !!running || !backend.clipboardFiles} aria-description="粘贴资源管理器中复制的文件；截图请按 Ctrl+V" onSelect={()=>void pasteFiles()}><ClipboardPaste size={16}/><span>粘贴文件</span><kbd aria-hidden="true">Ctrl+V</kbd></DropdownMenu.Item>
@@ -382,13 +402,13 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
 </DropdownMenu.Group></>}
         <DropdownMenu.Separator/>
         <DropdownMenu.Group aria-label="浏览与整理">
-<DropdownMenu.Item aria-expanded={displayOptions} aria-controls="shelf-display-options" onSelect={event=>{event.preventDefault();setDisplayOptions(value=>!value);}}><Grid2X2 size={16}/><span>显示与排序</span><ChevronDown size={14} style={{transform:displayOptions?"rotate(180deg)":undefined}}/></DropdownMenu.Item>
+
 {displayOptions&&<DropdownMenu.Group id="shelf-display-options" aria-label="显示与排序">
         <DropdownMenu.RadioGroup value={list?"list":"grid"} onValueChange={v=>setView({list:v==="list"})}><DropdownMenu.RadioItem value="grid"><Grid2X2 size={16}/>网格视图<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem><DropdownMenu.RadioItem value="list"><List size={16}/>详细列表<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem></DropdownMenu.RadioGroup>
         <DropdownMenu.RadioGroup value={sort} onValueChange={v=>{if(isSortMode(v)){setView({sort:v});setMoreOpen(false);}}}>{sortOptions.map(option=><DropdownMenu.RadioItem key={option.value} value={option.value}>{option.label}<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>)}</DropdownMenu.RadioGroup>
         <DropdownMenu.Label className="menu-label">缩略图大小</DropdownMenu.Label><DropdownMenu.RadioGroup className="thumbnail-choices" aria-label="缩略图大小" value={String(size)} onValueChange={v=>setView({size:v==="60"?60:v==="120"?120:80})}>{[[60,"小"],[80,"中"],[120,"大"]].map(([v,label])=><DropdownMenu.RadioItem key={v} aria-label={label+"缩略图"} value={String(v)}>{label}<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>)}</DropdownMenu.RadioGroup>
         <DropdownMenu.Separator/>
-        <DropdownMenu.Label>应用主题</DropdownMenu.Label><DropdownMenu.RadioGroup value={theme} onValueChange={value=>setTheme(value as Theme)}>{Object.entries(themes).map(([key,label])=><DropdownMenu.RadioItem key={key} value={key}>{label}主题<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>)}</DropdownMenu.RadioGroup>
+
         </DropdownMenu.Group>}
 <DropdownMenu.Item onSelect={()=>setFiltersOpen(true)}><Search size={16}/>筛选文件</DropdownMenu.Item>
 <DropdownMenu.Item disabled={loading} onSelect={()=>void perform(async()=>{await refresh();setMessage("已刷新文件状态。");})}><RefreshCw size={16}/>刷新文件状态</DropdownMenu.Item>
@@ -414,9 +434,9 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
       <WindowControls backend={backend} onError={setError} label={shelf?"收起文件架":"关闭空文件架"} disabled={!native || loading || busy || !!dragging || hover} onCollapse={()=>void perform(collapseShelf)}/>
     </header>
     <div className="shelf-search" data-no-window-drag><Search size={16}/><Input ref={searchInput} aria-label="搜索文件" placeholder="搜索当前文件架" value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==="Escape" && !e.nativeEvent.isComposing){e.preventDefault();e.stopPropagation();closeSearch();}}}/>{query?<Button variant="ghost" size="icon" aria-label="清除搜索" onClick={closeSearch}><X size={14}/></Button>:<kbd aria-hidden="true">Ctrl F</kbd>}</div>
-    <div className="shelf-context" hidden={!!shelf&&!bound&&!hover&&!filtered&&!current} data-dropping={hover}><div className="selection-actions">{chosen.length>1 && <span className="selection-count" aria-label="已选数量" role="status">{chosen.length} 项</span>}{filtered && <Button variant="ghost" size="sm" className="filter-clear" aria-label="清除筛选" title="已启用文件筛选，点击清除" onClick={()=>setFilters(defaultFilters)}>已筛选<X size={12}/></Button>}{current && <>{chosen.some(i=>i.status!=="normal")&&<><Button variant="ghost" size="icon" aria-label="清理选中引用" title="移入柠猫回收站，保留原文件" disabled={busy||!!running} onClick={()=>void perform(async()=>{const ids=chosen.map(i=>i.id);if(backend.removeReferences)await backend.removeReferences(ids);else for(const id of ids)await backend.remove(id);setUndo({entity:"item",id:ids[0],ids});setSelected(null);await refresh();})}><Trash2 size={14}/></Button>{chosen.length===1&&<Button variant="ghost" size="sm" onClick={()=>{setDetails(true);}}>更新引用</Button>}</>}<Button variant="ghost" size="sm" aria-label="详情" onClick={()=>setDetails(true)}><Info size={14}/>详情</Button><Button variant="ghost" size="sm" disabled={chosen.some(i=>i.status!=="normal")} title="按住左键拖到目标，默认复制选中项" onPointerDown={e=>{if(e.button===0)drag(current.id);}} onKeyDown={e=>{if(e.key==="Enter")setMessage("请用鼠标按住“拖出复制”并拖向目标窗口。");}}><ArrowDownToLine size={14}/>拖出复制</Button></>}</div></div>
+    <div className="shelf-context" hidden={!filtered&&!current} data-dropping={hover}><div className="selection-actions">{chosen.length>1 && <span className="selection-count" aria-label="已选数量" role="status">{chosen.length} 项</span>}{filtered && <Button variant="ghost" size="sm" className="filter-clear" aria-label="清除筛选" title="已启用文件筛选，点击清除" onClick={()=>setFilters(defaultFilters)}>已筛选<X size={12}/></Button>}{current && <>{chosen.some(i=>i.status!=="normal")&&<><Button variant="ghost" size="icon" aria-label="清理选中引用" title="移入柠猫回收站，保留原文件" disabled={busy||!!running} onClick={()=>void perform(async()=>{const ids=chosen.map(i=>i.id);if(backend.removeReferences)await backend.removeReferences(ids);else for(const id of ids)await backend.remove(id);setSelected(null);await refresh();})}><Trash2 size={14}/></Button>{chosen.length===1&&<Button variant="ghost" size="sm" onClick={()=>{setDetails(true);}}>更新引用</Button>}</>}<Button variant="ghost" size="sm" aria-label="详情" onClick={()=>setDetails(true)}><Info size={14}/>详情</Button><Button variant="ghost" size="sm" disabled={chosen.some(i=>i.status!=="normal")} title="按住左键拖到目标，默认复制选中项" onPointerDown={e=>{if(e.button===0)drag(current.id);}} onKeyDown={e=>{if(e.key==="Enter")setMessage("请用鼠标按住“拖出复制”并拖向目标窗口。");}}><ArrowDownToLine size={14}/>拖出复制</Button></>}</div></div>
     </div>
-    {bound && !shelf.available && <p className="offline-note" role="status">目录离线，记录已保留 恢复目录后刷新</p>}
+
     {preferenceWarning && <div className="error-bar" role="alert"><span>{preferenceWarning}</span><Button variant="ghost" size="icon" aria-label="关闭设置提示" onClick={()=>{setViewWarning("");setThemeWarning("");}}><X size={15}/></Button></div>}
     {error && <div className="error-bar" role="alert"><span>{error}</span><Button variant="ghost" size="icon" aria-label="关闭错误提示" onClick={()=>setError("")}><X size={15}/></Button></div>}
     {duplicateBusy && <div className="offline-note"><span role="status">{duplicateCanceling?"正在取消比较…":"正在比较选中文件内容…"}</span> <Button variant="outline" size="sm" disabled={duplicateCanceling} onClick={()=>void cancelDuplicate("user")}>取消比较</Button></div>}

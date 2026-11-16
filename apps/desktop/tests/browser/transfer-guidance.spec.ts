@@ -1,3 +1,4 @@
+import {sceneItem} from "../menu";
 import {test,expect} from '@playwright/test';
 test('浏览器分享提供直达接收链接，停止后移除失效链接',async({page})=>{
  await page.goto('/tests/harness.html?browser-share');
@@ -17,7 +18,7 @@ test('浏览器分享提供直达接收链接，停止后移除失效链接',asy
 });
 for(const theme of ['light','dark','blue'])test(`接收就绪只展示关键动作，技术信息可用键盘展开 ${theme}`,async({page})=>{
  await page.setViewportSize({width:340,height:320});await page.addInitScript(value=>localStorage.setItem('ningmao-theme',value),theme);
- await page.goto('/tests/harness.html');await page.getByRole('button',{name:'更多操作',exact:true}).click();await page.getByRole('menuitem',{name:'文件互传',exact:true}).click();
+ await page.goto('/tests/harness.html');await page.getByRole('button',{name:'更多操作',exact:true}).click();await (await sceneItem(page,"文件互传")).click();
  await page.getByRole('button',{name:'选择保存文件夹',exact:true}).click();
  await page.getByRole('button',{name:'开启接收',exact:true}).click();
  const panel=page.getByRole('dialog',{name:'文件互传',exact:true});
@@ -36,7 +37,7 @@ for(const theme of ['light','dark','blue'])test(`接收就绪只展示关键动�
 test('零选择可以直接返回选文件，测试分享默认收起',async({page})=>{
  await page.goto('/tests/harness.html?browser-share');
  await page.getByRole('button',{name:'更多操作',exact:true}).click();
- await page.getByRole('menuitem',{name:'文件互传',exact:true}).click();
+ await (await sceneItem(page,"文件互传")).click();
  await page.getByRole('tab',{name:'发送文件',exact:true}).click();
  await expect(page.getByText('1. 选择文件',{exact:true})).toBeVisible();
  await expect(page.getByRole('button',{name:'创建浏览器分享',exact:true})).toBeHidden();
@@ -70,7 +71,7 @@ test('附近设备单击选中后可发送，无需填写地址',async({page})=>
 test('首次接收可以就地选择文件夹，选择后不会自动监听',async({page})=>{
  await page.goto('/tests/harness.html');
  await page.getByRole('button',{name:'更多操作',exact:true}).click();
- await page.getByRole('menuitem',{name:'文件互传',exact:true}).click();
+ await (await sceneItem(page,"文件互传")).click();
  await page.getByRole('button',{name:'选择保存文件夹',exact:true}).click();
  await expect(page.getByLabel('接收文件架')).toHaveValue('3');
  await expect(page.getByRole('button',{name:'开启接收',exact:true})).toBeEnabled();

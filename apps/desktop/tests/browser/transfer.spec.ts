@@ -1,3 +1,4 @@
+import {sceneItem} from "../menu";
 import {expect,test} from "@playwright/test";
 
 for(const theme of ["light","dark","blue"])test(`互传分区与键盘切换适配340×320 ${theme}`,async({page},info)=>{
@@ -5,7 +6,7 @@ for(const theme of ["light","dark","blue"])test(`互传分区与键盘切换适�
   await page.addInitScript(theme=>localStorage.setItem("ningmao-theme",theme),theme);
   await page.goto("/tests/harness.html");
   await page.getByRole("button",{name:"更多操作",exact:true}).click();
-  await page.getByRole("menuitem",{name:"文件互传",exact:true}).click();
+  await (await sceneItem(page,"文件互传")).click();
   const panel=page.getByRole("dialog",{name:"文件互传",exact:true});
   const receive=panel.getByRole("tab",{name:"接收文件",exact:true});
   await receive.focus();await page.keyboard.press("ArrowLeft");
@@ -42,8 +43,8 @@ test("文件互传默认关闭，显式开启并确认接收才提交",async({pa
   });
   await page.goto("/tests/harness.html");
   await page.getByRole("button",{name:"更多操作",exact:true}).click();
-  await expect(page.getByRole("menuitem",{name:"文件互传",exact:true})).toBeVisible({timeout:1000});
-  await page.getByRole("menuitem",{name:"文件互传",exact:true}).click();
+  await expect((await sceneItem(page,"文件互传"))).toBeVisible({timeout:1000});
+  await (await sceneItem(page,"文件互传")).click();
   const panel=page.getByRole("dialog",{name:"文件互传",exact:true});
   expect(await page.evaluate(()=>window.transferHarness.calls())).toEqual([]);
   await panel.getByLabel("接收文件架").selectOption("3");

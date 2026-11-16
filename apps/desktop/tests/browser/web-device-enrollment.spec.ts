@@ -1,10 +1,11 @@
+import {sceneItem} from "../menu";
 import {expect,test} from "@playwright/test";
 const code="nm1i_"+"a".repeat(43);
 
 test("W1 Windows 配对通过现有文件互传面板调用原生接口，不把会话令牌交给网页",async({page})=>{
   await page.goto("/tests/harness.html");
   await page.getByRole("button",{name:"更多操作",exact:true}).click();
-  await page.getByRole("menuitem",{name:"文件互传",exact:true}).click();
+  await (await sceneItem(page,"文件互传")).click();
   const panel=page.getByRole("dialog",{name:"文件互传",exact:true});
   await panel.getByText("连接网页 / 手机 Windows 设备授权（W1）",{exact:true}).click();
   await panel.getByLabel("网页服务 HTTPS 地址").fill("https://test.workers.dev/");
@@ -23,7 +24,7 @@ test("W1 Windows 配对通过现有文件互传面板调用原生接口，不把
 test("W1 错误配对不会变成已授权状态，仍可安全重试",async({page})=>{
   await page.goto("/tests/harness.html?web-device-error");
   await page.getByRole("button",{name:"更多操作",exact:true}).click();
-  await page.getByRole("menuitem",{name:"文件互传",exact:true}).click();
+  await (await sceneItem(page,"文件互传")).click();
   const panel=page.getByRole("dialog",{name:"文件互传",exact:true});
   await panel.getByText("连接网页 / 手机 Windows 设备授权（W1）",{exact:true}).click();
   await panel.getByLabel("网页服务 HTTPS 地址").fill("https://test.workers.dev/");

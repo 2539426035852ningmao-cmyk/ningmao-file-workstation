@@ -12,6 +12,28 @@ use std::{
     time::{Duration, Instant},
 };
 use tauri::{Emitter, Manager};
+
+/// Actual client pixels, independent of invisible resize frames and DWM policy.
+pub fn client_origin(window: &tauri::WebviewWindow) -> Result<(i32, i32)> {
+    #[cfg(windows)]
+    {
+        use windows::Win32::{
+            Foundation::{HWND, POINT},
+            Graphics::Gdi::ClientToScreen,
+        };
+        let mut point = POINT { x: 0, y: 0 };
+        let hwnd = HWND(window.hwnd().map_err(error)?.0);
+        if !unsafe { ClientToScreen(hwnd, &mut point) }.as_bool() {
+            return Err("无法定位窗口客户区".into());
+        }
+        Ok((point.x, point.y))
+    }
+    #[cfg(not(windows))]
+    {
+        let point = window.inner_position().map_err(error)?;
+        Ok((point.x, point.y))
+    }
+}
 #[derive(Clone, Debug)]
 pub struct Contour {
     pub x: f64,

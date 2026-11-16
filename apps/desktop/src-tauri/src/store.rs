@@ -1,4 +1,7 @@
+#[path = "store/history.rs"]
+mod history;
 use base64::Engine;
+pub use history::{HistoryApplied, HistoryState};
 #[path = "store/chat.rs"]
 mod chat;
 #[allow(unused_imports)]
@@ -274,12 +277,18 @@ impl Store {
         }
         // VACUUM INTO reads a consistent SQLite snapshot, including committed WAL pages.
         // Never copy only the main file while a WAL may contain recent records.
-        if version == 1 {
+        let add_history=version==2 && !db.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='history_steps')",[],|r|r.get::<_,bool>(0)).map_err(err)?;
+        if version == 1 || add_history {
             let stamp = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .map_err(err)?
                 .as_nanos();
-            let backup = path.with_extension(format!("pre-ui-b06-{stamp}.sqlite3"));
+            let suffix = if version == 1 {
+                "pre-ui-b06"
+            } else {
+                "pre-organize-history"
+            };
+            let backup = path.with_extension(format!("{suffix}-{stamp}.sqlite3"));
             db.execute("VACUUM INTO ?1", [path_text(&backup)?])
                 .map_err(err)?;
             let verify =
@@ -323,6 +332,7 @@ impl Store {
             CREATE TABLE IF NOT EXISTS chat_sessions(id INTEGER PRIMARY KEY AUTOINCREMENT,title TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS chat_messages(id INTEGER PRIMARY KEY AUTOINCREMENT,session_id INTEGER NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,role TEXT NOT NULL,content TEXT NOT NULL,status TEXT NOT NULL);
             UPDATE chat_messages SET status='stopped' WHERE status='streaming';").map_err(err)?;
+        history::install(&db)?;
         Ok(Self { db })
     }
     pub fn trash_entries(&self, filter: Option<i64>) -> Result<Vec<TrashEntry>> {
@@ -368,6 +378,11 @@ impl Store {
         self.db.prepare("SELECT j.id,i.shelf_id,i.name,j.status,j.message FROM recycle_journal j JOIN items i ON i.id=j.item_id WHERE j.status NOT IN ('committed') ORDER BY j.id DESC").map_err(err)?.query_map([],|r|Ok(RecycleActivity{id:r.get(0)?,shelf_id:r.get(1)?,name:r.get(2)?,status:r.get(3)?,message:r.get(4)?})).map_err(err)?.collect::<std::result::Result<_,_>>().map_err(err)
     }
     pub fn remove_references(&mut self, ids: &[i64]) -> Result<()> {
+        self.record_history("移除引用", 0, |s| {
+            s.remove_references_without_history(ids)
+        })
+    }
+    fn remove_references_without_history(&mut self, ids: &[i64]) -> Result<()> {
         if ids.is_empty()
             || ids.len() > 256
             || ids.iter().collect::<std::collections::HashSet<_>>().len() != ids.len()
@@ -375,7 +390,7 @@ impl Store {
             return Err("请选择1至256个不同引用。".into());
         }
         self.validate_item_scope(None, ids)?;
-        let tx = self.db.transaction().map_err(err)?;
+        let tx = self.db.savepoint().map_err(err)?;
         for id in ids {
             tx.execute(
                 "UPDATE items SET trashed_at=unixepoch() WHERE id=?1 AND trashed_at IS NULL",
@@ -386,6 +401,9 @@ impl Store {
         tx.commit().map_err(err)
     }
     pub fn trash_shelf(&mut self, id: i64) -> Result<()> {
+        self.record_history("回收文件架", id, |s| s.trash_shelf_without_history(id))
+    }
+    fn trash_shelf_without_history(&mut self, id: i64) -> Result<()> {
         self.shelf(id)?;
         let busy:bool=self.db.query_row("SELECT EXISTS(SELECT 1 FROM jobs WHERE shelf_id=?1 AND status IN ('queued','copying'))",[id],|r|r.get(0)).map_err(err)?;
         if busy {
@@ -400,6 +418,11 @@ impl Store {
         Ok(())
     }
     pub fn restore_trash(&mut self, entity: &str, id: i64) -> Result<()> {
+        self.record_history("恢复回收记录", 0, |s| {
+            s.restore_trash_without_history(entity, id)
+        })
+    }
+    fn restore_trash_without_history(&mut self, entity: &str, id: i64) -> Result<()> {
         let sql = match entity {
             "shelf" => "UPDATE shelves SET trashed_at=NULL WHERE id=?1 AND trashed_at IS NOT NULL",
             "item" => {
@@ -414,7 +437,7 @@ impl Store {
     }
     pub fn purge_trash(&mut self, entity: &str, id: i64) -> Result<()> {
         // Database rows only. This method has no filesystem deletion capability.
-        let tx = self.db.transaction().map_err(err)?;
+        let tx = self.db.savepoint().map_err(err)?;
         match entity {
             "item" => {
                 let shelf:i64=tx.query_row("SELECT shelf_id FROM items WHERE id=?1 AND trashed_at IS NOT NULL AND shelf_id IN (SELECT id FROM shelves WHERE trashed_at IS NULL)",[id],|r|r.get(0)).map_err(err)?;
@@ -476,7 +499,7 @@ impl Store {
         Ok(())
     }
     fn commit_recycled(&mut self, journal: i64) -> Result<()> {
-        let tx = self.db.transaction().map_err(err)?;
+        let tx = self.db.savepoint().map_err(err)?;
         tx.execute("UPDATE items SET trashed_at=unixepoch() WHERE id IN (SELECT item_id FROM recycle_journal WHERE id=?1 AND status='os-success') AND path IN (SELECT path FROM recycle_journal WHERE id=?1)",[journal]).map_err(err)?;
         tx.execute(
             "UPDATE recycle_journal SET status='committed' WHERE id=?1 AND status='os-success'",
@@ -569,8 +592,13 @@ impl Store {
         Ok(())
     }
     pub fn create_shelf(&mut self, name: &str, session: bool) -> Result<i64> {
+        self.record_history("新建文件架", 0, |s| {
+            s.create_shelf_without_history(name, session)
+        })
+    }
+    fn create_shelf_without_history(&mut self, name: &str, session: bool) -> Result<i64> {
         let name = shelf_name(name)?;
-        let tx = self.db.transaction().map_err(err)?;
+        let tx = self.db.savepoint().map_err(err)?;
         let exists: bool = tx
             .query_row(
                 "SELECT EXISTS(SELECT 1 FROM shelves WHERE name=?1)",
@@ -598,6 +626,11 @@ impl Store {
         Ok(id)
     }
     pub fn rename_shelf(&mut self, id: i64, name: &str) -> Result<()> {
+        self.record_history("重命名文件架", id, |s| {
+            s.rename_shelf_without_history(id, name)
+        })
+    }
+    fn rename_shelf_without_history(&mut self, id: i64, name: &str) -> Result<()> {
         let name = shelf_name(name)?;
         let duplicate: bool = self
             .db
@@ -624,6 +657,11 @@ impl Store {
         Ok(())
     }
     pub fn copy_references(&mut self, target: i64, ids: &[i64]) -> Result<usize> {
+        self.record_history("跨架添加引用", target, |s| {
+            s.copy_references_without_history(target, ids)
+        })
+    }
+    fn copy_references_without_history(&mut self, target: i64, ids: &[i64]) -> Result<usize> {
         if self
             .shelf_catalog()?
             .into_iter()
@@ -640,7 +678,7 @@ impl Store {
         {
             return Err("请选择 1 至 256 个不同引用。".into());
         }
-        let tx = self.db.transaction().map_err(err)?;
+        let tx = self.db.savepoint().map_err(err)?;
         let mut added = 0;
         for id in ids {
             let (path, name, tags): (String, String, String) = tx
@@ -755,6 +793,11 @@ impl Store {
             .map_err(err)
     }
     pub fn add_reference(&mut self, shelf: i64, path: &Path) -> Result<i64> {
+        self.record_history("添加引用", shelf, |s| {
+            s.add_reference_without_history(shelf, path)
+        })
+    }
+    fn add_reference_without_history(&mut self, shelf: i64, path: &Path) -> Result<i64> {
         if self.shelf(shelf)?.kind == "bound" {
             return Err("真实目录只能通过复制添加文件。".into());
         }
@@ -828,6 +871,11 @@ impl Store {
         Ok(())
     }
     pub fn remove_reference(&mut self, id: i64) -> Result<()> {
+        self.record_history("移除引用", 0, |s| {
+            s.remove_reference_without_history(id)
+        })
+    }
+    fn remove_reference_without_history(&mut self, id: i64) -> Result<()> {
         self.validate_item_scope(None, &[id])?;
         self.db
             .execute(
@@ -838,6 +886,9 @@ impl Store {
         Ok(())
     }
     pub fn set_tags(&mut self, id: i64, tags: Vec<String>) -> Result<()> {
+        self.record_history("修改标签", 0, |s| s.set_tags_without_history(id, tags))
+    }
+    fn set_tags_without_history(&mut self, id: i64, tags: Vec<String>) -> Result<()> {
         if tags.len() > 32 || tags.iter().any(|t| t.len() > 128) {
             return Err("标签过长或过多。".into());
         }
@@ -855,6 +906,16 @@ impl Store {
         Ok(())
     }
     pub fn tag_references(&mut self, ids: &[i64], tag: &str, remove: bool) -> Result<usize> {
+        self.record_history("批量修改标签", 0, |s| {
+            s.tag_references_without_history(ids, tag, remove)
+        })
+    }
+    fn tag_references_without_history(
+        &mut self,
+        ids: &[i64],
+        tag: &str,
+        remove: bool,
+    ) -> Result<usize> {
         let tag = tag.trim();
         if tag.is_empty() || tag.len() > 128 || tag.chars().any(char::is_control) {
             return Err("标签需为1至128字节，不能包含控制字符。".into());
@@ -865,7 +926,7 @@ impl Store {
         {
             return Err("请选择1至256个不同引用；不会只更新部分选中项。".into());
         }
-        let tx = self.db.transaction().map_err(err)?;
+        let tx = self.db.savepoint().map_err(err)?;
         for id in ids {
             let raw: String = tx
                 .query_row("SELECT tags FROM items WHERE id=?1 AND trashed_at IS NULL AND shelf_id IN (SELECT id FROM shelves WHERE trashed_at IS NULL)", [id], |r| r.get(0))
@@ -989,6 +1050,11 @@ impl Store {
             .map_err(err)
     }
     pub fn reorder(&mut self, shelf: i64, ids: &[i64]) -> Result<()> {
+        self.record_history("调整手动顺序", shelf, |s| {
+            s.reorder_without_history(shelf, ids)
+        })
+    }
+    fn reorder_without_history(&mut self, shelf: i64, ids: &[i64]) -> Result<()> {
         let expected: Vec<i64> = self
             .db
             .prepare("SELECT id FROM items WHERE shelf_id=?1 AND trashed_at IS NULL ORDER BY id")
@@ -1002,7 +1068,7 @@ impl Store {
         if sorted != expected {
             return Err("排序记录已变化，请刷新后重试。".into());
         }
-        let tx = self.db.transaction().map_err(err)?;
+        let tx = self.db.savepoint().map_err(err)?;
         for (position, id) in ids.iter().enumerate() {
             tx.execute(
                 "UPDATE items SET position=?1 WHERE id=?2 AND shelf_id=?3",
@@ -1186,7 +1252,7 @@ impl Store {
         Ok(())
     }
     pub fn clean_exit(&mut self) -> Result<()> {
-        let tx = self.db.transaction().map_err(err)?;
+        let tx = self.db.savepoint().map_err(err)?;
         tx.execute(
             "DELETE FROM items WHERE trashed_at IS NULL AND shelf_id IN (SELECT id FROM shelves WHERE kind='session' AND trashed_at IS NULL) AND id NOT IN (SELECT item_id FROM recycle_journal WHERE status IN ('pending','uncertain','os-success'))",
             [],
