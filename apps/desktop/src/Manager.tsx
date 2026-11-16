@@ -22,6 +22,7 @@ export default function Manager({backend}:{backend:Backend}) {
   const [data,setData]=useState(empty),[desktop,setDesktop]=useState<DesktopView|null>(null);
   const [section,setSection]=useState("overview"),[query,setQuery]=useState(""),[shelf,setShelf]=useState(0),[tagFilter,setTagFilter]=useState("");
   const fileSection=fileSections.some(([key])=>key===section),primarySection=fileSection?"files":section;
+  const lastFileSection=useRef("overview");
   const [selected,setSelected]=useState<number[]>([]),[page,setPage]=useState(0),[tag,setTag]=useState(""),[detail,setDetail]=useState<number|null>(null);
   const [suggestionsOpen,setSuggestionsOpen]=useState(false);
   const [rulesEnabled,setRulesEnabled]=useState(()=>{try{return localStorage.getItem("ningmao-local-rules")!=="off";}catch{return true;}});
@@ -63,7 +64,7 @@ export default function Manager({backend}:{backend:Backend}) {
     try{localStorage.setItem("ningmao-local-rules",next?"on":"off");}
     catch{setError("规则状态已临时更改，但无法保存；重新打开后可能恢复原状态。");}
   }
-  const tags=[...new Set(data.items.flatMap(i=>i.tags))].sort((a,b)=>a.localeCompare(b,"zh-CN"));
+  const tags=useMemo(()=>[...new Set(data.items.flatMap(i=>i.tags))].sort((a,b)=>a.localeCompare(b,"zh-CN")),[data.items]);
   const shelfName=(id:number)=>data.shelves.find(s=>s.id===id)?.name || "文件架";
   async function act(action:()=>Promise<void>) {if(busy)return;setBusy(true);setError("");try{await action();}catch(e){setError(String(e));}finally{if(live.current)setBusy(false);}}
   function patchPreferences(patch:Partial<DesktopPreferences>) {settingsDirty.current=true;setDirty(true);setPreferences(value=>({...value,...patch}));}
@@ -76,7 +77,7 @@ export default function Manager({backend}:{backend:Backend}) {
     </article>;
   })}</div>;
   return <div className="manager-shell">
-    <aside className="manager-nav"><h1>管理中心</h1><nav aria-label="管理中心导航">{sections.map(([key,label,Icon])=><Button key={key} variant="ghost" className={primarySection===key?"active":""} aria-current={primarySection===key?"page":undefined} onClick={()=>setSection(key==="files"?"overview":key)}><Icon size={17}/><span>{label}</span></Button>)}</nav><p>柠猫文件工作站</p></aside>
+    <aside className="manager-nav"><h1>管理中心</h1><nav aria-label="管理中心导航">{sections.map(([key,label,Icon])=><Button key={key} variant="ghost" className={primarySection===key?"active":""} aria-current={primarySection===key?"page":undefined} onClick={()=>{if(fileSection)lastFileSection.current=section;setSection(key==="files"?lastFileSection.current:key);}}><Icon size={17}/><span>{label}</span></Button>)}</nav><p>柠猫文件工作站</p></aside>
     <main className="manager-main"><ScrollActivity/><header><h2>{sections.find(([key])=>key===primarySection)?.[1]}</h2><div className="manager-heading-actions"><Button variant="ghost" size="sm" onClick={e=>openGlobalSearch(e.currentTarget)} title="跨文件架搜索 · Ctrl+K"><Search size={15}/>跨文件架搜索</Button><Button variant="ghost" size="sm" disabled={loading || busy} onClick={()=>void act(async()=>{await refresh();setMessage("已刷新收集记录。");})}><RefreshCw size={15}/>刷新记录</Button></div></header>
     {fileSection&&<nav className="manager-file-sections" aria-label="文件与素材分类">{fileSections.map(([key,label])=><Button key={key} variant="ghost" aria-current={section===key?"page":undefined} onClick={()=>setSection(key)}>{label}</Button>)}</nav>}
     {error && <div className="error-bar" role="alert"><span>{error}</span><Button variant="ghost" size="icon" aria-label="关闭管理错误" onClick={()=>setError("")}><X size={15}/></Button></div>}
