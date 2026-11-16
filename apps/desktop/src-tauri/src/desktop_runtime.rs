@@ -6,6 +6,7 @@ use crate::{
 };
 use serde::Serialize;
 use std::{
+    collections::HashMap,
     io::Write,
     path::{Path, PathBuf},
     sync::{
@@ -25,6 +26,8 @@ pub struct Desktop {
     pub sense_enabled: AtomicBool,
     pub sense_running: AtomicBool,
     native_dialogs: AtomicUsize,
+    close_epoch: AtomicUsize,
+    close_requests: Mutex<HashMap<String, usize>>,
     peek_target: AtomicI64,
     path: PathBuf,
     writable: bool,
@@ -103,6 +106,8 @@ impl Desktop {
             sense_enabled: AtomicBool::new(false),
             sense_running: AtomicBool::new(false),
             native_dialogs: AtomicUsize::new(0),
+            close_epoch: AtomicUsize::new(0),
+            close_requests: Mutex::new(HashMap::new()),
             peek_target: AtomicI64::new(0),
             path,
             writable,
@@ -413,10 +418,12 @@ pub fn collapse(app: &tauri::AppHandle, id: i64) -> Result<()> {
     known_shelf(app, id)?;
     let state = app.state::<Desktop>();
     let old = state.layout.lock().map_err(error)?.clone();
+    let old_entry = state.entry.lock().map_err(error)?.clone();
     if old.collapsed.len() >= 256 && !old.collapsed.contains(&id) {
         return Err("基础Dock最多收纳256架。".into());
     }
     let label = crate::shelf_windows::label_for(app, id)?;
+    state.close_requests.lock().map_err(error)?.remove(&label);
     if let Some(window) = app.get_webview_window(&label) {
         crate::shelf_windows::capture(&window.as_ref().window());
     }
@@ -436,8 +443,32 @@ pub fn collapse(app: &tauri::AppHandle, id: i64) -> Result<()> {
         }
     }
     state.layout.lock().map_err(error)?.fold_entry();
+    // Both presentations share the expression center, including after a shelf move.
+    if let Some(window) = app.get_webview_window(&label) {
+        let p = crate::window_surface::client_origin(&window)?;
+        let scale = window.scale_factor().map_err(error)?;
+        let anchor = (
+            p.0.saturating_add((30.0 * scale).round() as i32),
+            p.1.saturating_add((24.0 * scale).round() as i32),
+        );
+        let layout = state.layout.lock().map_err(error)?.clone();
+        let geometry = state.entry.lock().map_err(error)?.geometry(&layout);
+        if let Some(slot) = geometry.slots.iter().find(|slot| slot.id == id) {
+            let es = app
+                .get_webview_window("desktop-entry")
+                .ok_or("入口尚未创建")?
+                .scale_factor()
+                .map_err(error)?;
+            let origin =
+                crate::desktop::expression_origin(anchor, (slot.x + 24.0, slot.y + 24.0), es);
+            state.layout.lock().map_err(error)?.entry_position = Some(origin);
+            state.entry.lock().map_err(error)?.anchor = Some(origin);
+        }
+    }
     if let Err(e) = entry_geometry(app) {
         *state.layout.lock().map_err(error)? = old;
+        *state.entry.lock().map_err(error)? = old_entry;
+        let _ = entry_geometry(app);
         return Err(e);
     }
     app.get_webview_window(&label)
@@ -455,6 +486,11 @@ pub fn open(app: &tauri::AppHandle, id: i64, focus: bool) -> Result<()> {
     let state = app.state::<Desktop>();
     let main = crate::shelf_windows::ensure(app, id)?;
     let detached = main.label() != "main";
+    state
+        .close_requests
+        .lock()
+        .map_err(error)?
+        .remove(main.label());
     let source_slot = {
         let layout = state.layout.lock().map_err(error)?.clone();
         state
@@ -482,47 +518,25 @@ pub fn open(app: &tauri::AppHandle, id: i64, focus: bool) -> Result<()> {
             layout.expanded = true;
         }
     }
-    let first_open = if detached {
-        state
-            .layout
-            .lock()
-            .map_err(error)?
-            .detached
-            .iter()
-            .find(|s| s.shelf_id == id)
-            .is_some_and(|s| s.geometry.is_none())
-    } else {
-        state.layout.lock().map_err(error)?.main_geometry.is_none()
-    };
-    if (!focus || first_open)
+    if !main.is_visible().map_err(error)?
         && let Some(entry) = app.get_webview_window("desktop-entry")
+        && let Some(slot) = &source_slot
     {
-        let p = entry.outer_position().map_err(error)?;
-        let entry_size = entry.outer_size().map_err(error)?;
-        let main_size = main.outer_size().map_err(error)?;
-        if let Some(monitor) = entry.current_monitor().map_err(error)? {
-            let area = monitor.work_area();
-            let x = if i64::from(p.x) + i64::from(entry_size.width) + 8 + i64::from(main_size.width)
-                <= i64::from(area.position.x) + i64::from(area.size.width)
-            {
-                p.x.saturating_add(entry_size.width as i32)
-                    .saturating_add(8)
-            } else {
-                p.x.saturating_sub(main_size.width as i32).saturating_sub(8)
-            };
-            let pos = clamp_position(
-                (x, p.y),
-                (main_size.width, main_size.height),
-                Rect {
-                    x: area.position.x,
-                    y: area.position.y,
-                    width: area.size.width,
-                    height: area.size.height,
-                },
-            );
-            main.set_position(tauri::PhysicalPosition::new(pos.0, pos.1))
-                .map_err(error)?;
-        }
+        let ep = crate::window_surface::client_origin(&entry)?;
+        let es = entry.scale_factor().map_err(error)?;
+        let scale = main.scale_factor().map_err(error)?;
+        let anchor = (
+            ep.0.saturating_add(((slot.x + 24.0) * es).round() as i32),
+            ep.1.saturating_add(((slot.y + 24.0) * es).round() as i32),
+        );
+        let pos = crate::desktop::expression_origin(anchor, (30.0, 24.0), scale);
+        let client = crate::window_surface::client_origin(&main)?;
+        let outer = main.outer_position().map_err(error)?;
+        main.set_position(tauri::PhysicalPosition::new(
+            pos.0 - (client.0 - outer.x),
+            pos.1 - (client.1 - outer.y),
+        ))
+        .map_err(error)?;
     }
     if focus
         && !main.is_visible().map_err(error)?
@@ -850,12 +864,58 @@ pub fn setup(app: &tauri::AppHandle, root: &Path) -> Result<()> {
 }
 pub fn close_file_window(window: &tauri::Window) -> Result<()> {
     let app = window.app_handle();
+    require_idle(app)?;
     let id = crate::desktop::detached_id(window.label()).unwrap_or(active_shelf(app)?);
-    if id > 0 {
-        collapse(app, id)
-    } else {
-        window.hide().map_err(error)
+    if id <= 0 {
+        return window.hide().map_err(error);
     }
+    let state = app.state::<Desktop>();
+    let epoch = state.close_epoch.fetch_add(1, Ordering::SeqCst) + 1;
+    let label = window.label().to_owned();
+    state
+        .close_requests
+        .lock()
+        .map_err(error)?
+        .insert(label.clone(), epoch);
+    window.emit("desktop-request-collapse", ()).map_err(error)?;
+    // A missing/crashed webview must not leave the OS close command ineffective.
+    let task = app.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        let dispatch = task.clone();
+        let _ = task.run_on_main_thread(move || {
+            let state = dispatch.state::<Desktop>();
+            let pending = state
+                .close_requests
+                .lock()
+                .map(|mut requests| {
+                    if requests.get(&label) == Some(&epoch) {
+                        requests.remove(&label);
+                        true
+                    } else {
+                        false
+                    }
+                })
+                .unwrap_or(false);
+            if !pending
+                || state.native_dialogs.load(Ordering::SeqCst) > 0
+                || crate::window_surface::moving(&label)
+            {
+                return;
+            }
+            if label == "main" && active_shelf(&dispatch) != Ok(id) {
+                return;
+            }
+            if dispatch
+                .get_webview_window(&label)
+                .is_some_and(|w| w.is_visible().unwrap_or(false))
+                && let Err(message) = collapse(&dispatch, id)
+            {
+                report(&dispatch, message);
+            }
+        });
+    });
+    Ok(())
 }
 
 pub fn focus_lost(window: &tauri::Window) {

@@ -1,3 +1,4 @@
+import {sceneItem} from "../menu";
 import {test,expect} from "@playwright/test";
 
 test("三套完整主题跨管理中心、文件架和入口同步，重开保留",async({page,context})=>{
@@ -13,7 +14,7 @@ test("三套完整主题跨管理中心、文件架和入口同步，重开保�
     await expect(manager.locator(".manager-shell")).toHaveCSS("background-color",background);
     await expect(dock.locator(".orb-body").first()).toHaveCSS("background-color",fill);
     await page.getByRole("button",{name:"更多操作",exact:true}).click();
-    await page.getByRole("menuitem",{name:"AI 对话",exact:true}).click();
+    await (await sceneItem(page,"AI 对话")).click();
     await expect(page.getByRole("dialog",{name:"AI 对话",exact:true})).toHaveCSS("background-color",background);
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog")).toHaveCount(0);

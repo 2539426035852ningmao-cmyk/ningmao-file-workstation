@@ -91,7 +91,7 @@ pub fn ensure(app: &tauri::AppHandle, id: i64) -> Result<tauri::WebviewWindow> {
             .visible(false)
             .decorations(false)
             .transparent(true)
-            .shadow(true)
+            .shadow(false)
             .background_color(tauri::window::Color(0, 0, 0, 0))
             .title(format!("柠猫 {name}"))
             .inner_size(420.0, 520.0)

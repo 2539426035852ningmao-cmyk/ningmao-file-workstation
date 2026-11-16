@@ -1,9 +1,10 @@
+import {sceneItem} from "../menu";
 import {test,expect} from "@playwright/test";
 
 test("Ctrl K 不在已有工作面板上叠加搜索，关闭后可正常搜索",async({page})=>{
   await page.goto("/tests/harness.html");
   await page.getByRole("button",{name:"更多操作",exact:true}).click();
-  await page.getByRole("menuitem",{name:"AI 对话",exact:true}).click();
+  await (await sceneItem(page,"AI 对话")).click();
   const chat=page.getByRole("dialog",{name:"AI 对话",exact:true});
   await expect(chat).toBeVisible();
   await chat.getByRole("textbox",{name:"消息",exact:true}).fill("尚未发送的草稿");
@@ -16,7 +17,7 @@ test("Ctrl K 不在已有工作面板上叠加搜索，关闭后可正常搜索"
   await expect(page.getByRole("dialog",{name:"跨文件架搜索",exact:true})).toBeVisible();
   await page.keyboard.press("Escape");
   await page.getByRole("button",{name:"更多操作",exact:true}).click();
-  await page.getByRole("menuitem",{name:"AI 对话",exact:true}).click();
+  await (await sceneItem(page,"AI 对话")).click();
   await expect(chat.getByRole("textbox",{name:"消息",exact:true})).toHaveValue("尚未发送的草稿");
 });
 

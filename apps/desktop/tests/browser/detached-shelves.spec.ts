@@ -1,29 +1,30 @@
+import {sceneItem,selectScene} from "../menu";
 import {expandDisplayOptions} from "../menu";
 import {test,expect} from "@playwright/test";
 import {mkdirSync} from "node:fs";
 import path from "node:path";
 async function capture(page:import("@playwright/test").Page,name:string){const folder=process.env.DETACHED_EVIDENCE;if(folder){mkdirSync(folder,{recursive:true});await page.screenshot({path:path.join(folder,name+".png")});}}
-async function more(page:import("@playwright/test").Page,name:string){await page.getByRole("button",{name:"更多操作",exact:true}).click();await page.getByRole("menuitem",{name,exact:true}).click();}
+async function more(page:import("@playwright/test").Page,name:string){await page.getByRole("button",{name:"更多操作",exact:true}).click();await (await sceneItem(page,name)).click();}
 
 test("文件架与小球使用同一个置顶偏好 旧窗口标记不覆盖它",async({page})=>{
   await page.addInitScript(()=>localStorage.setItem("test-desktop-layout",JSON.stringify({layout:{enabled:true,expanded:true,active_shelf:2,collapsed:[],page:0,main_topmost:true,preferences:{edge:"right",auto_hide:false,topmost:false},detached:[{shelf_id:1,visible:true,topmost:true}]},entries:[],total:0,warning:null,copying:false,edge_hidden:false})));
   for(const url of ["/tests/harness.html","/tests/harness.html?shelf=1"]){
     await page.goto(url);await expect(page.getByRole("status").last()).toContainText("文件架已恢复");
     await page.getByRole("button",{name:"更多操作",exact:true}).click();
-    await expect(page.getByRole("menuitemcheckbox",{name:"窗口置顶",exact:true})).not.toBeChecked();
+    await selectScene(page,"窗口与入口");await expect(page.getByRole("menuitemcheckbox",{name:"窗口置顶",exact:true})).not.toBeChecked();
     await page.evaluate(()=>{const value=JSON.parse(localStorage.getItem("test-desktop-layout")!);value.layout.main_topmost=false;value.layout.detached[0].topmost=false;value.layout.preferences.topmost=true;const updated=JSON.stringify(value);localStorage.setItem("test-desktop-layout",updated);window.dispatchEvent(new StorageEvent("storage",{key:"test-desktop-layout",newValue:updated}));});
-    await expect(page.getByRole("menuitemcheckbox",{name:"窗口置顶",exact:true})).toBeChecked();
+    await selectScene(page,"窗口与入口");await expect(page.getByRole("menuitemcheckbox",{name:"窗口置顶",exact:true})).toBeChecked();
   }
 });
 test("文件架拆出后主窗切到其他架，独立窗合并保留引用和标签",async({page,context})=>{
   await page.goto("/tests/harness.html");await page.evaluate(()=>window.testHarness.tags(1,["拆合保留"]));
   await page.getByRole("button",{name:"更多操作",exact:true}).click();
-  const detach=page.getByRole("menuitem",{name:"拆分为独立窗口",exact:true});await expect(detach).toBeVisible({timeout:3000});await detach.click();
+  const detach=(await sceneItem(page,"拆分为独立窗口"));await expect(detach).toBeVisible({timeout:3000});await detach.click();
   await expect.poll(()=>page.evaluate(()=>window.testHarness.calls())).toContain("detach:1");
   await expect(page.getByRole("button",{name:"切换文件架",exact:true})).toContainText("本次中转");
   const shelf=await context.newPage();await shelf.goto("/tests/harness.html?shelf=1");await expect(shelf.getByRole("button",{name:"选择 Alpha.txt",exact:true})).toBeVisible();
   await shelf.setViewportSize({width:420,height:520});expect(await shelf.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await capture(shelf,"independent-dark");
-  await shelf.getByRole("button",{name:"更多操作",exact:true}).click();await shelf.getByRole("menuitem",{name:"合并回主窗口",exact:true}).click();await expect.poll(()=>shelf.evaluate(()=>window.testHarness.calls())).toContain("merge:1");
+  await shelf.getByRole("button",{name:"更多操作",exact:true}).click();await (await sceneItem(shelf,"合并回主窗口")).click();await expect.poll(()=>shelf.evaluate(()=>window.testHarness.calls())).toContain("merge:1");
   await page.reload();await expect(page.getByRole("button",{name:"切换文件架",exact:true})).toContainText("灵感收集");await expect(page.getByRole("button",{name:"选择 Alpha.txt",exact:true})).toBeVisible();
   expect(await page.evaluate(()=>JSON.parse(localStorage.getItem("test-state")!).items.find((i:{id:number})=>i.id===1).tags)).toEqual(["拆合保留"]);
   await shelf.close();

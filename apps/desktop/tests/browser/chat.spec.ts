@@ -1,3 +1,4 @@
+import {sceneItem} from "../menu";
 import {expect,test} from "@playwright/test";
 
 test("原生聊天适配器使用后端命令及参数名称",async({page})=>{
@@ -12,7 +13,7 @@ test("原生聊天适配器使用后端命令及参数名称",async({page})=>{
 test("AI入口可脱机配置，聊天上下文和历史由后端保存",async({page})=>{
   await page.goto("/tests/harness.html");
   await page.getByRole("button",{name:"更多操作",exact:true}).click();
-  await page.getByRole("menuitem",{name:"AI 对话",exact:true}).click();
+  await (await sceneItem(page,"AI 对话")).click();
   const chat=page.getByRole("dialog",{name:"AI 对话",exact:true});
   await expect(chat).toContainText("配置模型后开始对话");
   await chat.getByRole("button",{name:"配置模型",exact:true}).click();
@@ -33,7 +34,7 @@ test("AI入口可脱机配置，聊天上下文和历史由后端保存",async({
   await chat.getByRole("button",{name:"关闭 AI 对话",exact:true}).click();
   await page.reload();
   await page.getByRole("button",{name:"更多操作",exact:true}).click();
-  await page.getByRole("menuitem",{name:"AI 对话",exact:true}).click();
+  await (await sceneItem(page,"AI 对话")).click();
   await expect(page.getByRole("log")).toContainText("记住合成编号42");
   await page.getByRole("button",{name:"模型设置",exact:true}).click();
   await page.getByRole("button",{name:"测试已保存配置",exact:true}).click();
@@ -44,7 +45,7 @@ test("关闭正在生成的对话先停止请求",async({page})=>{
   await page.addInitScript(()=>localStorage.setItem("test-chat-config",JSON.stringify({base_url:"http://localhost:11434/v1",model:"synthetic",enabled:true,has_key:false})));
   await page.goto("/tests/harness.html?chat-delay");
   await page.getByRole("button",{name:"更多操作",exact:true}).click();
-  await page.getByRole("menuitem",{name:"AI 对话",exact:true}).click();
+  await (await sceneItem(page,"AI 对话")).click();
   const chat=page.getByRole("dialog",{name:"AI 对话",exact:true});
   await chat.getByLabel("消息").fill("合成请求");
   await chat.getByRole("button",{name:"发送",exact:true}).click();
@@ -61,7 +62,7 @@ for(const theme of ["light","dark"])test(`AI抽屉 340×320 ${theme} 设置和�
   await page.goto("/tests/harness.html");
   await page.evaluate(theme=>{document.documentElement.classList.toggle("dark",theme==="dark");},theme);
   await page.getByRole("button",{name:"更多操作",exact:true}).click();
-  await page.getByRole("menuitem",{name:"AI 对话",exact:true}).click();
+  await (await sceneItem(page,"AI 对话")).click();
   const chat=page.getByRole("dialog",{name:"AI 对话",exact:true});
   await expect(chat.getByRole("button",{name:"发送",exact:true})).toBeVisible();
   expect(await chat.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);

@@ -291,18 +291,20 @@ async fn run_import(
     let shelf = database(app.clone(), move |s| s.shelf(shelf_id)).await?;
     if shelf.kind != "bound" {
         return database(app, move |s| {
-            let mut added = 0;
-            let mut errors = vec![];
-            for path in paths {
-                match s.add_reference(shelf_id, std::path::Path::new(&path)) {
-                    Ok(_) => added += 1,
-                    Err(e) => errors.push(e),
+            s.record_history("添加引用", shelf_id, |s| {
+                let mut added = 0;
+                let mut errors = vec![];
+                for path in paths {
+                    match s.add_reference(shelf_id, std::path::Path::new(&path)) {
+                        Ok(_) => added += 1,
+                        Err(e) => errors.push(e),
+                    }
                 }
-            }
-            Ok(ImportResult {
-                added,
-                job_id: None,
-                errors,
+                Ok(ImportResult {
+                    added,
+                    job_id: None,
+                    errors,
+                })
             })
         })
         .await;
@@ -785,6 +787,47 @@ async fn recycle_activity(
 ) -> Result<Vec<store::RecycleActivity>> {
     metadata_window(&window)?;
     database(app, |s| s.recycle_activity()).await
+}
+#[tauri::command]
+async fn history_state(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+) -> Result<store::HistoryState> {
+    metadata_window(&window)?;
+    database(app, |s| s.history_state()).await
+}
+#[tauri::command]
+async fn history_capacity(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    capacity: i64,
+) -> Result<store::HistoryState> {
+    metadata_window(&window)?;
+    let result = database(app.clone(), move |s| s.history_capacity(capacity)).await?;
+    app.emit("workstation-changed", ()).map_err(error)?;
+    Ok(result)
+}
+#[tauri::command]
+async fn history_apply(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    redo: bool,
+) -> Result<store::HistoryApplied> {
+    metadata_window(&window)?;
+    let guard = LifecycleGuard::acquire(&app)?;
+    let result = database(app.clone(), move |s| s.history_apply(redo)).await?;
+    reconcile_recycle(&app)?;
+    let target = database(app.clone(), |s| s.shelf_catalog())
+        .await?
+        .into_iter()
+        .find(|s| s.id == result.shelf_id);
+    // Opening a shelf checks the same lifecycle flag. Finish the protected
+    // metadata/layout phase before starting the normal window-focus phase.
+    drop(guard);
+    if let Some(target) = target {
+        desktop_runtime::open(&app, target.id, true)?;
+    }
+    Ok(result)
 }
 #[tauri::command]
 async fn remove_references(
@@ -2286,6 +2329,9 @@ pub fn run() {
             execute_system_recycle,
             cancel_system_recycle,
             recycle_activity,
+            history_state,
+            history_capacity,
+            history_apply,
             remove_references,
             trash_entries,
             trash_shelf,

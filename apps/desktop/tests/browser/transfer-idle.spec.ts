@@ -1,8 +1,9 @@
+import {sceneItem} from "../menu";
 import {expect,test,type Page} from "@playwright/test";
 
 async function openTransfer(page:Page){
   await page.getByRole("button",{name:"更多操作",exact:true}).click();
-  await page.getByRole("menuitem",{name:"文件互传",exact:true}).click();
+  await (await sceneItem(page,"文件互传")).click();
   await expect(page.getByRole("dialog",{name:"文件互传",exact:true})).toBeVisible();
 }
 async function visibility(page:Page,value:"visible"|"hidden"){

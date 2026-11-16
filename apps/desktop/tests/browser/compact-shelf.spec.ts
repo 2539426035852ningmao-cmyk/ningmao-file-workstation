@@ -1,3 +1,5 @@
+import {selectScene} from "../menu";
+import {displayOption,sceneItem} from "../menu";
 import {expandDisplayOptions} from "../menu";
 import { test,expect } from "@playwright/test";
 import { mkdirSync,writeFileSync } from "node:fs";
@@ -8,7 +10,7 @@ async function more(page:import("@playwright/test").Page,name:string,radio=false
   if(name==="添加文件"){await page.getByRole("button",{name:/^添加(引用|并复制)$/,exact:true}).click();return;}
   await page.getByRole("button",{name:"更多操作",exact:true}).click();
   if(radio)await expandDisplayOptions(page);
-  await page.getByRole(radio?"menuitemradio":"menuitem",{name,exact:true}).click();
+  if(radio)await (await displayOption(page,name)).click();else await (await sceneItem(page,name)).click();
 }
 async function capture(page:import("@playwright/test").Page,name:string){if(evidence)await page.screenshot({path:path.join(evidence,name+".png")});}
 
@@ -42,7 +44,7 @@ for(const [width,height] of [[340,320],[420,520],[640,720]])for(const theme of [
       const rows=[...document.querySelectorAll("[data-item-id]")].map(n=>n.getBoundingClientRect());
       return {viewport:{width:innerWidth,height:innerHeight},fileHeight:area.height,headerHeight:header.height,columns:new Set(rows.filter(r=>r.top===rows[0].top).map(r=>r.left)).size,horizontalOverflow:document.documentElement.scrollWidth>innerWidth,filenameFont:getComputedStyle(document.querySelector(".asset-name")!).fontSize};
     });
-    expect(geometry.horizontalOverflow).toBe(false);expect(geometry.headerHeight).toBe(44);
+    expect(geometry.horizontalOverflow).toBe(false);expect(geometry.headerHeight).toBe(48);
     expect(geometry.fileHeight).toBeGreaterThan(height-150);expect(geometry.filenameFont).toBe("13px");
     if(width===420)expect(geometry.columns).toBe(3);if(width===340)expect(geometry.columns).toBe(2);
     await page.getByRole("button",{name:"更多操作",exact:true}).evaluate(n=>n.blur());await page.mouse.move(8,58);
@@ -52,7 +54,7 @@ for(const [width,height] of [[340,320],[420,520],[640,720]])for(const theme of [
     const menu=page.getByRole("menu",{name:"更多操作",exact:true});
     const box=await menu.boundingBox();expect(box!.x).toBeGreaterThanOrEqual(0);expect(box!.x+box!.width).toBeLessThanOrEqual(width);
     if(width===340 && theme==="dark")await capture(page,"menu-340");
-    await menu.press("End");await expect(page.getByRole("menuitem",{name:"完整退出",exact:true})).toBeFocused();
+    await selectScene(page,"窗口与入口");await page.mouse.move(0,0);await menu.press("End");await expect(page.getByRole("menuitem",{name:"完整退出",exact:true})).toBeFocused();
     await page.keyboard.press("Escape");await expect(page.getByRole("button",{name:"更多操作",exact:true})).toBeFocused();
   });
 }
@@ -83,7 +85,7 @@ test("最小窗口复制只显示短进度，取消、失败、离线和历史�
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByRole("button",{name:"查看任务",exact:true})).toHaveCSS("height","28px");
   await expect(page.locator(".status-toast")).toHaveCount(0,{timeout:500});
-  await page.evaluate(()=>window.testHarness.hover(true));await expect(page.getByText("释放以复制 保留来源",{exact:true})).toBeVisible();
+  await page.evaluate(()=>window.testHarness.hover(true));await expect(page.getByText("释放以复制 保留来源",{exact:true})).toHaveCount(0);
   await capture(page,"copy-340");await page.evaluate(()=>window.testHarness.hover(false));
   await page.getByRole("button",{name:"查看任务",exact:true}).click();await expect(page.getByRole("dialog")).toContainText("来源保留");
   await page.getByRole("button",{name:"取消任务",exact:true}).click();await expect(page.getByRole("dialog")).toContainText("已取消");
@@ -94,7 +96,7 @@ test("最小窗口复制只显示短进度，取消、失败、离线和历史�
   await expect(page.locator(".status-toast")).toHaveCount(0,{timeout:500});
   await capture(page,"error-340");
   await page.evaluate(()=>window.testHarness.offline(3));await more(page,"刷新文件状态");
-  await expect(page.getByText("目录离线，记录已保留 恢复目录后刷新",{exact:true})).toBeVisible();
+  await expect(page.getByText("目录离线，记录已保留 恢复目录后刷新",{exact:true})).toHaveCount(0);await expect(page.getByRole("button",{name:"添加并复制",exact:true})).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await capture(page,"offline-error-340");
   await more(page,"任务记录");await expect(page.getByRole("dialog")).toContainText("已取消");
 });

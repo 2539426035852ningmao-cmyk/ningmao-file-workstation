@@ -1,3 +1,4 @@
+import {sceneItem} from "../menu";
 import {test,expect} from "@playwright/test";
 test("启动模式仅圆球与完整架，保存后重新打开仍保留",async({page})=>{
   await page.goto("/tests/harness.html?manager");
@@ -15,7 +16,7 @@ test("启动模式仅圆球与完整架，保存后重新打开仍保留",async(
 
 test("管理中心按需打开，跨架检索和批量标签保留来源",async({page})=>{
   await page.goto("/tests/harness.html");await page.getByRole("button",{name:"更多操作",exact:true}).click();
-  await page.getByRole("menuitem",{name:"管理中心",exact:true}).click();await expect.poll(()=>page.evaluate(()=>window.testHarness.calls())).toContain("manager-open");
+  await (await sceneItem(page,"管理中心")).click();await expect.poll(()=>page.evaluate(()=>window.testHarness.calls())).toContain("manager-open");
   await page.goto("/tests/harness.html?manager");await expect(page.getByRole("heading",{name:"管理中心",exact:true})).toBeVisible({timeout:3000});
   await page.getByRole("button",{name:"素材",exact:true}).click();await page.getByRole("textbox",{name:"搜索已收集素材"}).fill("Alpha");
   await page.getByRole("checkbox",{name:"选择 Alpha.txt",exact:true}).check();await page.getByRole("textbox",{name:"标签名称",exact:true}).fill("项目素材");await page.getByRole("button",{name:"添加标签",exact:true}).click();

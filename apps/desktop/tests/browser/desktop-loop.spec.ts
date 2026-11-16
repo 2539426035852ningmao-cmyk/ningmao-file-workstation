@@ -1,14 +1,15 @@
+import {sceneItem} from "../menu";
 import {test,expect} from "@playwright/test";
 test("新建文件架后收起到真实桌面入口命令，已有内容保持",async({page})=>{
   await page.goto("/tests/harness.html");await page.getByRole("button",{name:"切换文件架",exact:true}).click();await page.getByRole("menuitem",{name:"新建文件架",exact:true}).click();
   const form=page.getByRole("dialog",{name:"新建文件架",exact:true});await form.getByRole("textbox",{name:"文件架名称",exact:true}).fill("项目素材");await form.getByRole("button",{name:"创建",exact:true}).click();
   await expect(form).toHaveCount(0);await expect(page.getByRole("button",{name:"切换文件架",exact:true})).toContainText("项目素材");await expect(page.getByRole("heading",{name:"拖入文件，添加引用",exact:true})).toBeVisible();
-  await page.getByRole("button",{name:"更多操作",exact:true}).click();await page.getByRole("menuitem",{name:"收起到悬浮入口",exact:true}).click();await expect.poll(()=>page.evaluate(()=>window.testHarness.calls())).toContain("collapse:4");
+  await page.getByRole("button",{name:"更多操作",exact:true}).click();await (await sceneItem(page,"收起到悬浮入口")).click();await expect.poll(()=>page.evaluate(()=>window.testHarness.calls())).toContain("collapse:4");await page.evaluate(()=>window.testHarness.openShelf(4));
   await page.getByRole("button",{name:"切换文件架",exact:true}).click();await page.getByRole("menuitemradio",{name:"灵感收集",exact:true}).click();await expect(page.getByRole("button",{name:"选择 Alpha.txt",exact:true})).toBeVisible();
 });
 test("跨架仅复制选中引用，来源和标签保留，排除绑定目录",async({page})=>{
   await page.goto("/tests/harness.html");await page.evaluate(()=>window.testHarness.tags(1,["精选"]));
-  await page.getByRole("button",{name:"更多操作",exact:true}).click();await page.getByRole("menuitem",{name:"刷新文件状态",exact:true}).click();
+  await page.getByRole("button",{name:"更多操作",exact:true}).click();await (await sceneItem(page,"刷新文件状态")).click();
   await page.getByRole("button",{name:"选择 Alpha.txt",exact:true}).click();await page.getByRole("button",{name:"更多操作",exact:true}).click();await page.getByRole("menuitem",{name:"复制选中引用到其他架",exact:true}).click();
   const sheet=page.getByRole("dialog",{name:"复制引用到其他架",exact:true});await sheet.getByRole("combobox",{name:"目标文件架"}).selectOption("2");await sheet.getByRole("button",{name:"复制引用",exact:true}).click();await expect(sheet).toHaveCount(0);
   await expect(page.getByRole("button",{name:"选择 Alpha.txt",exact:true})).toBeVisible();

@@ -1,8 +1,9 @@
+import {sceneItem} from "../menu";
 import {expect,test} from "@playwright/test";
 const code="nm1i_"+"a".repeat(43);
 async function pair(page:import("@playwright/test").Page){
   await page.getByRole("button",{name:"更多操作",exact:true}).click();
-  await page.getByRole("menuitem",{name:"文件互传",exact:true}).click();
+  await (await sceneItem(page,"文件互传")).click();
   const panel=page.getByRole("dialog",{name:"文件互传",exact:true});
   await panel.getByText("连接网页 / 手机 Windows 设备授权（W1）",{exact:true}).click();
   await panel.getByLabel("网页服务 HTTPS 地址").fill("https://test.workers.dev/");
