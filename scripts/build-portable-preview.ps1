@@ -1,4 +1,4 @@
-param([Parameter(Mandatory)][string]$PackageDirectory, [Parameter(Mandatory)][string]$OutputDirectory)
+﻿param([Parameter(Mandatory)][string]$PackageDirectory, [Parameter(Mandatory)][string]$OutputDirectory)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 . (Join-Path $PSScriptRoot 'verify-preview-package.ps1')
@@ -10,7 +10,7 @@ $null = New-Item -ItemType Directory -Path $output
 foreach ($name in @('app','data','webview')) { $null = New-Item -ItemType Directory -Path (Join-Path $output $name) }
 Copy-Item -LiteralPath (Join-Path $package 'Ningmao-Preview-0.1.0-x64.exe') -Destination (Join-Path $output 'app')
 foreach ($name in @('LICENSE.txt','THIRD_PARTY_NOTICES.txt','license-manifest.json','build-manifest.json')) { Copy-Item -LiteralPath (Join-Path $package $name) -Destination $output }
-foreach($name in @('Start-Ningmao.cmd','Start-Ningmao.vbs','Recover-Ningmao.cmd','Workspace.ps1','Connect-Workspace.cmd','Connect-Workspace.vbs','Update-Ningmao.cmd','Update-Ningmao.vbs')) {
+foreach($name in @('Start-Ningmao.cmd','Start-Ningmao.vbs','New-Workspace.vbs','Recover-Ningmao.cmd','Workspace.ps1','Connect-Workspace.cmd','Connect-Workspace.vbs','Update-Ningmao.cmd','Update-Ningmao.vbs')) {
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot "portable/$name") -Destination $output
 }
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'portable/README.md') -Destination $output

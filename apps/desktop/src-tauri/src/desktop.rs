@@ -182,15 +182,15 @@ impl Layout {
         self.enabled = true;
         self.expanded = false;
         self.active_shelf = id;
-        if !self.collapsed.contains(&id) {
-            self.collapsed.push(id);
-        }
-        self.page = (self.collapsed.len().saturating_sub(1)) / PAGE_SIZE;
+        // One shared entry represents the most recently collapsed shelf.
+        // This changes presentation only; shelves and detached records remain.
+        self.collapsed = vec![id];
+        self.page = 0;
     }
     pub fn open(&mut self, id: i64) {
         self.expanded = true;
         self.active_shelf = id;
-        self.collapsed.retain(|value| *value != id);
+        self.collapsed.clear();
         self.page = self
             .page
             .min(self.collapsed.len().saturating_sub(1) / PAGE_SIZE);

@@ -15,7 +15,7 @@ test("入口切换全局主题、双眼无按钮语义、减少动态效果仍�
   await page.evaluate(()=>{localStorage.setItem("ningmao-theme","dark");window.dispatchEvent(new StorageEvent("storage",{key:"ningmao-theme"}));});
   await expect(page.getByRole("button",{name:"展开 灵感收集",exact:true})).toBeVisible();
   const flat=await page.locator(".orb-body").first().evaluate(el=>{const css=getComputedStyle(el);return {background:css.backgroundColor,image:css.backgroundImage,border:css.borderTopWidth,shadow:css.boxShadow};});
-  expect(flat.background).toBe("rgb(48, 56, 69)");expect(flat.image).toBe("none");expect(flat.shadow).not.toBe("none");
+  expect(flat.background).toBe("rgb(32, 38, 48)");expect(flat.image).toBe("none");expect(flat.shadow).not.toBe("none");
   await page.reload();
   await expect(page.locator("[data-orb-appearance='navy-black']").first()).toBeVisible();
 });

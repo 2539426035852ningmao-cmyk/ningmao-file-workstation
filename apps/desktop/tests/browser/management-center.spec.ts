@@ -69,7 +69,7 @@ test("管理中心切换主题同步到已打开的文件架",async({page,contex
 });
 test("管理标签通知只更新元数据，不触发文件架目录刷新",async({page})=>{
   await page.goto("/tests/harness.html");await expect(page.getByRole("button",{name:"选择 Alpha.txt",exact:true})).toBeVisible();await page.evaluate(async()=>{await window.testHarness.tags(1,["管理标签"]);window.testHarness.failNextSnapshot("不应触发目录刷新");window.testHarness.notifyMetadata();});
-  await page.getByRole("button",{name:"选择 Alpha.txt",exact:true}).click();await page.getByRole("button",{name:"详情",exact:true}).click();await expect(page.getByText("管理标签",{exact:true})).toBeVisible();await expect(page.getByRole("alert")).toHaveCount(0);
+  await page.getByRole("button",{name:"选择 Alpha.txt",exact:true}).click();await page.keyboard.press("Space");await expect(page.getByText("管理标签",{exact:true})).toBeVisible();await expect(page.getByRole("alert")).toHaveCount(0);
 });
 test("桌面设置保存贴边和置顶，管理中心不占用日常小架",async({page})=>{
   await page.goto("/tests/harness.html?manager");await expect(page.getByRole("heading",{name:"管理中心",exact:true})).toBeVisible({timeout:3000});

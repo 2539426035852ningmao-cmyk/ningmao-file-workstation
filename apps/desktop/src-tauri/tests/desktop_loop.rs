@@ -4,6 +4,21 @@ use ningmao_desktop_lib::{
 };
 use std::fs;
 #[test]
+fn legacy_multiple_collapsed_shelves_resume_as_one_entry_without_losing_shelves() {
+    use ningmao_desktop_lib::entry::EntryState;
+    let mut layout: Layout = serde_json::from_str(r#"{"version":4,"enabled":true,"expanded":false,"active_shelf":1,"collapsed":[3,1],"detached":[{"shelf_id":3,"visible":false,"topmost":true,"geometry":null}]}"#).unwrap();
+    layout.prepare_startup(&[1, 3, 7]);
+    let geometry = EntryState::default().geometry(&layout);
+    assert_eq!(geometry.slots.len(), 1);
+    assert_eq!(geometry.slots[0].id, 1);
+    assert_eq!(layout.detached.len(), 1);
+    assert_eq!(layout.detached[0].shelf_id, 3);
+    layout.collapse(7);
+    assert_eq!(layout.visible_ids(), vec![7]);
+    layout.open(1);
+    assert!(layout.visible_ids().is_empty());
+}
+#[test]
 fn expression_anchor_roundtrips_across_dpi_and_negative_monitors() {
     use ningmao_desktop_lib::desktop::expression_origin;
     for scale in [1.0, 1.25, 1.5, 2.0, 3.0] {
@@ -122,12 +137,12 @@ fn dock_keeps_explicit_ids_and_latches_native_drop_target() {
     layout.collapse(1);
     layout.collapse(2);
     layout.collapse(1);
-    assert_eq!(layout.collapsed, vec![1, 2]);
+    assert_eq!(layout.collapsed, vec![1]);
     layout.begin_drag();
     assert_eq!(layout.hover_target(8.0, 1.0), Some(1));
-    assert_eq!(layout.hover_target(70.0, 1.0), Some(2));
+    assert_eq!(layout.hover_target(70.0, 1.0), None);
     layout.active_shelf = 99;
-    assert_eq!(layout.drop_target(70.0, 1.0), Some(2));
+    assert_eq!(layout.drop_target(8.0, 1.0), Some(1));
     assert_eq!(layout.drop_target(70.0, 1.0), None);
     layout.open(1);
     assert!(!layout.collapsed.contains(&1));
