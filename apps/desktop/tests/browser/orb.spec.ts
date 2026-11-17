@@ -28,13 +28,13 @@ test("原生锁定时小球和分页保持目标 解除后显示真实任务状�
  await orb.click();await expect.poll(()=>page.evaluate(()=>window.testHarness.calls())).toContain('expand:1');
 });
 
-test("完整架表情可收起，独立收起按钮保留当前架数据",async({page})=>{
+test("子窗口表情及关闭按钮用于收回，保留当前架数据",async({page})=>{
   await page.goto("/tests/harness.html?shelf=1");await expect(page.getByRole("status").last()).toContainText("文件架已恢复");
   const before=await page.evaluate(()=>localStorage.getItem("test-state"));
-  await expect(page.getByRole("button",{name:"表情 收起文件架",exact:true})).toBeVisible();
+  await expect(page.getByRole("button",{name:"表情 收回子窗口",exact:true})).toBeVisible();
   await expect(page.locator(".shelf-face-control > .brand-eyes")).toHaveAttribute("aria-hidden","true");
-  await page.getByRole("button",{name:"收起文件架",exact:true}).click();
-  await expect.poll(()=>page.evaluate(()=>window.testHarness.calls())).toContain("collapse:1");
+  await page.getByRole("button",{name:"收回子窗口",exact:true}).click();
+  await expect.poll(()=>page.evaluate(()=>window.testHarness.calls())).toContain("merge:1");
   expect(await page.evaluate(()=>localStorage.getItem("test-state"))).toBe(before);
 });
 

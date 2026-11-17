@@ -16,12 +16,12 @@ test("文件架与小球使用同一个置顶偏好 旧窗口标记不覆盖它"
     await selectScene(page,"窗口与入口");await expect(page.getByRole("menuitemcheckbox",{name:"窗口置顶",exact:true})).toBeChecked();
   }
 });
-test("文件架拆出后主窗切到其他架，独立窗合并保留引用和标签",async({page,context})=>{
+test("文件架拆出后主窗保持当前架，独立窗收回保留引用和标签",async({page,context})=>{
   await page.goto("/tests/harness.html");await page.evaluate(()=>window.testHarness.tags(1,["拆合保留"]));
   await page.getByRole("button",{name:"更多操作",exact:true}).click();
   const detach=(await sceneItem(page,"拆分为独立窗口"));await expect(detach).toBeVisible({timeout:3000});await detach.click();
   await expect.poll(()=>page.evaluate(()=>window.testHarness.calls())).toContain("detach:1");
-  await expect(page.getByRole("button",{name:"切换文件架",exact:true})).toContainText("本次中转");
+  await expect(page.getByRole("button",{name:"切换文件架",exact:true})).toContainText("灵感收集");
   const shelf=await context.newPage();await shelf.goto("/tests/harness.html?shelf=1");await expect(shelf.getByRole("button",{name:"选择 Alpha.txt",exact:true})).toBeVisible();
   await shelf.setViewportSize({width:420,height:520});expect(await shelf.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await capture(shelf,"independent-dark");
   await shelf.getByRole("button",{name:"更多操作",exact:true}).click();await (await sceneItem(shelf,"合并回主窗口")).click();await expect.poll(()=>shelf.evaluate(()=>window.testHarness.calls())).toContain("merge:1");
@@ -29,18 +29,18 @@ test("文件架拆出后主窗切到其他架，独立窗合并保留引用和�
   expect(await page.evaluate(()=>JSON.parse(localStorage.getItem("test-state")!).items.find((i:{id:number})=>i.id===1).tags)).toEqual(["拆合保留"]);
   await shelf.close();
 });
-test("全部拆出后空主窗仍可新建，拆合失败不丢引用或改变归属",async({page,context})=>{
+test("重复拆出仍保留主架，拆合失败不丢引用或改变归属",async({page,context})=>{
   await page.goto("/tests/harness.html");
   await page.evaluate(()=>window.testHarness.fail("合成拆分失败"));
   await more(page,"拆分为独立窗口");
   await expect(page.getByRole("alert")).toContainText("合成拆分失败");
   await expect(page.getByRole("button",{name:"选择 Alpha.txt",exact:true})).toBeVisible();
   await more(page,"拆分为独立窗口");await more(page,"拆分为独立窗口");
-  await expect(page.getByRole("heading",{name:"主窗口暂无文件架"})).toBeVisible();
-  await expect(page.getByRole("button",{name:"添加引用",exact:true})).toBeDisabled();
+  await expect(page.getByRole("button",{name:"选择 Alpha.txt",exact:true})).toBeVisible();
+  await expect(page.getByRole("button",{name:"添加引用",exact:true})).toBeEnabled();
   await page.setViewportSize({width:340,height:320});await page.evaluate(()=>{localStorage.setItem("ningmao-theme","light");window.dispatchEvent(new StorageEvent("storage",{key:"ningmao-theme"}));});await expect(page.locator("html")).toHaveClass("light");expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await capture(page,"empty-main-light");
   await page.evaluate(()=>window.testHarness.drop(["SYNTHETIC/no-target.txt"]));
-  await expect(page.getByRole("alert")).toContainText("请先新建文件架");
+  await expect(page.getByRole("button",{name:"选择 no-target.txt",exact:true})).toBeVisible();
   expect(await page.evaluate(()=>window.testHarness.calls())).not.toContain("import:0:1");
   const own=await context.newPage();await own.goto("/tests/harness.html?shelf=1");
   await own.getByRole("button",{name:"切换文件架",exact:true}).click();
@@ -58,13 +58,13 @@ test("独立窗仅显示自己的文件，可跨架复制引用，各窗视图�
   await own.getByRole("button",{name:"更多操作",exact:true}).click();await expandDisplayOptions(own);await own.getByRole("menuitemradio",{name:"详细列表",exact:true}).click();
   await page.getByRole("button",{name:"更多操作",exact:true}).click();await expandDisplayOptions(page);await page.getByRole("menuitemradio",{name:"大缩略图",exact:true}).click();
   const prefs=await page.evaluate(()=>JSON.parse(localStorage.getItem("ningmao-shelf-views")!).shelves);
-  expect(prefs["1"].list).toBe(true);expect(prefs["2"].size).toBe(120);
+  expect(prefs["1"].size).toBe(120);expect(await own.evaluate(()=>JSON.parse(localStorage.getItem("ningmao-child-views")!).shelves["1"].list)).toBe(true);
   await own.getByRole("button",{name:"选择 Alpha.txt",exact:true}).click();await more(own,"复制选中引用到其他架");
   await own.getByRole("combobox",{name:"目标文件架"}).selectOption("2");await own.getByRole("button",{name:"复制引用",exact:true}).click();
   await expect(page.getByRole("button",{name:"选择 Alpha.txt",exact:true})).toBeVisible();
   await page.evaluate(()=>window.testHarness.drop(["SYNTHETIC/Only-main.txt"]));
   await expect(page.getByRole("button",{name:"选择 Only-main.txt",exact:true})).toBeVisible();
-  await expect(own.getByRole("button",{name:"选择 Only-main.txt",exact:true})).toHaveCount(0);
+  await expect(own.getByRole("button",{name:"选择 Only-main.txt",exact:true})).toBeVisible();
   await more(own,"合并回主窗口");await expect(page.getByRole("button",{name:"切换文件架",exact:true})).toContainText("灵感收集");
-  await expect(page.locator(".asset-row").first()).toBeVisible();await page.reload();await expect(page.locator(".asset-row").first()).toBeVisible();await own.close();
+  await expect(page.locator(".asset-row")).toHaveCount(0);await page.reload();await expect(page.locator(".asset-row")).toHaveCount(0);await own.close();
 });
