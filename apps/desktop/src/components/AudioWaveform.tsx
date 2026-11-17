@@ -38,7 +38,8 @@ export function AudioWaveform({item,backend,prepared,compact=false,onActivate}:{
  }
  const total=duration||wave?.duration||0,ratio=total?Math.max(0,Math.min(1,position/total)):0;
  const peaks=wave?.peaks??[],bars=Array.from({length:Math.min(128,peaks.length)},(_,i)=>{const start=Math.floor(i*peaks.length/Math.min(128,peaks.length)),end=Math.max(start+1,Math.floor((i+1)*peaks.length/Math.min(128,peaks.length)));return Math.max(...peaks.slice(start,end));});
- const path=bars.map((p,i)=>{const h=Math.max(.5,Math.sqrt(p)*20);return `M${i+.5},${24-h}v${h*2}`;}).join(' ');
+ const maximum=Math.max(.001,...bars);
+ const path=bars.map((p,i)=>{const h=Math.max(.5,Math.sqrt(p/maximum)*20);return `M${i+.5},${24-h}v${h*2}`;}).join(' ');
  return <div ref={host} className={`audio-waveform${compact?' audio-waveform-compact':''}`} data-no-window-drag onPointerDown={e=>e.stopPropagation()} onDoubleClick={e=>e.stopPropagation()}>
    <audio ref={playerRef} src={prepared?.url??undefined} preload="metadata" aria-label={`音频试听 ${item.name}`} onLoadedMetadata={()=>{const p=player.current;if(p){setDuration(Number.isFinite(p.duration)?p.duration:0);p.currentTime=Math.min(positionRef.current,Number.isFinite(p.duration)?p.duration:positionRef.current);}}} onPlay={()=>{if(!ownsPlayback(key.current)){player.current?.pause();return;}setPlaying(true);}} onPause={()=>setPlaying(false)} onEnded={()=>setPlaying(false)} onTimeUpdate={()=>{const n=player.current?.currentTime??0;positionRef.current=n;setPosition(n);}} onError={()=>{if(player.current?.getAttribute('src'))setError('当前音频无法播放');}}/>
    <button type="button" data-audio-toggle aria-label={playing?`暂停 ${item.name}`:`播放 ${item.name}`} onClick={()=>void play()}>{playing?<Pause size={16}/>:<Play size={16}/>}</button>
