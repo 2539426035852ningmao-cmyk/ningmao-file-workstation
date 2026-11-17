@@ -12,7 +12,7 @@ test("Ctrl K 不在已有工作面板上叠加搜索，关闭后可正常搜索"
   await expect(page.getByRole("dialog")).toHaveCount(1);
   await expect(chat).toBeVisible();
   await page.keyboard.press("Escape");
-  await expect(chat).toHaveCount(0);
+  await expect(chat).toBeVisible();await chat.getByRole("button",{name:"关闭 AI 对话",exact:true}).click();await expect(chat).toHaveCount(0);
   await page.keyboard.press("Control+k");
   await expect(page.getByRole("dialog",{name:"跨文件架搜索",exact:true})).toBeVisible();
   await page.keyboard.press("Escape");

@@ -106,6 +106,7 @@ function trashItem(id:number){const item=state.items.find(i=>i.id===id)!;const s
 let maximized=false;
 let duplicateTicket=0,duplicateCanceled=false;
 const backend:Backend={
+  async waveformPrepare(id){const values=JSON.parse(localStorage.getItem("test-waveforms")||"{}");if(!values[id])throw Error("合成波形未设置");return values[id];},
   async previewPrepare(id){const files=JSON.parse(localStorage.getItem('test-previews')||'{}');return files[id]??{kind:'unsupported'};},
   async previewRelease(ticket){localStorage.setItem('test-preview-released',ticket);},
   transfer:{

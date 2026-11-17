@@ -7,7 +7,6 @@ import path from "node:path";
 const evidence=process.env.COMPACT_EVIDENCE;
 if(evidence)mkdirSync(evidence,{recursive:true});
 async function more(page:import("@playwright/test").Page,name:string,radio=false){
-  if(name==="添加文件"){await page.getByRole("button",{name:/^添加(引用|并复制)$/,exact:true}).click();return;}
   await page.getByRole("button",{name:"更多操作",exact:true}).click();
   if(radio)await expandDisplayOptions(page);
   if(radio)await (await displayOption(page,name)).click();else await (await sceneItem(page,name)).click();
@@ -96,7 +95,7 @@ test("最小窗口复制只显示短进度，取消、失败、离线和历史�
   await expect(page.locator(".status-toast")).toHaveCount(0,{timeout:500});
   await capture(page,"error-340");
   await page.evaluate(()=>window.testHarness.offline(3));await more(page,"刷新文件状态");
-  await expect(page.getByText("目录离线，记录已保留 恢复目录后刷新",{exact:true})).toHaveCount(0);await expect(page.getByRole("button",{name:"添加并复制",exact:true})).toBeVisible();
+  await expect(page.getByText("目录离线，记录已保留 恢复目录后刷新",{exact:true})).toHaveCount(0);await expect(page.getByRole("button",{name:"刷新当前文件架",exact:true})).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await capture(page,"offline-error-340");
   await more(page,"任务记录");await expect(page.getByRole("dialog")).toContainText("已取消");
 });

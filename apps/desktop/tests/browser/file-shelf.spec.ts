@@ -7,7 +7,7 @@ for(const status of ["failed","completed","cancelled"])test(`快速复制${statu
   await expect(page.getByRole("button",{name:"选择 Alpha.txt",exact:true})).toBeVisible();
   await page.getByRole("button",{name:"切换文件架",exact:true}).click();
   await page.getByRole("menuitem",{name:"绑定文件夹",exact:true}).click();
-  const add=page.getByRole("button",{name:"添加并复制",exact:true});await add.click();await expect(add).toBeEnabled();
+  await more(page,"添加文件");await expect(page.getByRole("button",{name:"刷新当前文件架",exact:true})).toBeEnabled();
   const expected=status==="failed"?"复制有错误；已完成 0/1 项，来源保留。合成目录被占用。":status==="cancelled"?"已取消；已完成 0/1 项，来源保留。":"复制完成；已完成 1/1 项，来源保留。";
   await expect(page.locator(".file-status")).toHaveText(expected);
   await expect(page.getByRole("progressbar",{name:"当前文件复制进度"})).toHaveCount(0);
@@ -106,13 +106,13 @@ test("拖入路由、绑定目录、复制进度、取消与失败反馈",async(
   await page.getByRole("menuitem",{name:"绑定文件夹",exact:true}).click();
   await expect(page.getByRole("button",{name:"切换文件架",exact:true})).toContainText("测试绑定目录");
   await expect(page.getByRole("button",{name:"拖出复制",exact:true})).toHaveCount(0);
-  await page.getByRole("button",{name:"添加并复制",exact:true}).click();
+  await more(page,"添加文件");
   await expect(page.getByRole("progressbar",{name:"当前文件复制进度"})).toBeVisible();
   await page.getByRole("button",{name:"查看任务",exact:true}).click();
   await page.getByRole("button",{name:"取消任务",exact:true}).click();
   await expect(page.getByText("已取消",{exact:true})).toBeVisible();
   await page.keyboard.press("Escape");
-  await page.getByRole("button",{name:"添加并复制",exact:true}).click();
+  await more(page,"添加文件");
   await page.evaluate(()=>window.testHarness.complete());
   await expect(page.getByRole("button",{name:"选择 新增文件 (1).txt",exact:true})).toBeVisible();
   await page.getByRole("button",{name:"选择 新增文件 (1).txt",exact:true}).click({button:"right"});
@@ -120,7 +120,7 @@ test("拖入路由、绑定目录、复制进度、取消与失败反馈",async(
   await expect(page.getByRole("menuitem",{name:"移入柠猫回收站（保留原文件）"})).toBeEnabled();
   await page.keyboard.press("Escape");
   await page.evaluate(()=>window.testHarness.fail("模拟权限不足：未修改原文件"));
-  await page.getByRole("button",{name:"添加并复制",exact:true}).click();
+  await more(page,"添加文件");
   await expect(page.getByRole("alert")).toContainText("模拟权限不足");
 });
 test("手动排序中途反馈、持久顺序、深浅主题与窄窗详情",async({page})=>{
@@ -219,7 +219,7 @@ test("文件夹修复入口、正常引用和绑定目录边界",async({page})=>
   await page.keyboard.press("Escape");
   await page.getByRole("button",{name:"切换文件架",exact:true}).click();
   await page.getByRole("menuitem",{name:"绑定文件夹",exact:true}).click();
-  await page.getByRole("button",{name:"添加并复制",exact:true}).click();
+  await more(page,"添加文件");
   await page.evaluate(()=>window.testHarness.complete());
   await page.evaluate(()=>window.testHarness.missing(10));await more(page,"刷新文件状态");
   await page.getByRole("button",{name:"选择 新增文件 (1).txt",exact:true}).click({button:"right"});

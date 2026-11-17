@@ -361,6 +361,9 @@ pub fn detach(app: &tauri::AppHandle, id: i64) -> Result<()> {
     desktop_runtime::publish(app)
 }
 pub fn merge(app: &tauri::AppHandle, id: i64) -> Result<()> {
+    if desktop_runtime::form_is_protected(app, &format!("shelf-{id}"))? {
+        return Err("请先关闭子窗口内正在编辑的表单。".into());
+    }
     desktop_runtime::require_idle(app)?;
     desktop_runtime::known_shelf(app, id)?;
     capture_all(app);

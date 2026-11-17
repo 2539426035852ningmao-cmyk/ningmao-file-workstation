@@ -74,7 +74,7 @@ fn media(ext: &str) -> Option<(&'static str, &'static str)> {
         _ => return None,
     })
 }
-fn open(path: &std::path::Path) -> Result<File> {
+pub(crate) fn open(path: &std::path::Path) -> Result<File> {
     let mut options = OpenOptions::new();
     options.read(true);
     #[cfg(windows)]

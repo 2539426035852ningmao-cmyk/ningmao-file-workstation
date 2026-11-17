@@ -37,7 +37,7 @@ test("重复拆出仍保留主架，拆合失败不丢引用或改变归属",asy
   await expect(page.getByRole("button",{name:"选择 Alpha.txt",exact:true})).toBeVisible();
   await more(page,"拆分为独立窗口");await more(page,"拆分为独立窗口");
   await expect(page.getByRole("button",{name:"选择 Alpha.txt",exact:true})).toBeVisible();
-  await expect(page.getByRole("button",{name:"添加引用",exact:true})).toBeEnabled();
+  await expect(page.getByRole("button",{name:"刷新当前文件架",exact:true})).toBeEnabled();
   await page.setViewportSize({width:340,height:320});await page.evaluate(()=>{localStorage.setItem("ningmao-theme","light");window.dispatchEvent(new StorageEvent("storage",{key:"ningmao-theme"}));});await expect(page.locator("html")).toHaveClass("light");expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await capture(page,"empty-main-light");
   await page.evaluate(()=>window.testHarness.drop(["SYNTHETIC/no-target.txt"]));
   await expect(page.getByRole("button",{name:"选择 no-target.txt",exact:true})).toBeVisible();
