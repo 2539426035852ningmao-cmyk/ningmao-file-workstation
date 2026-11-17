@@ -31,5 +31,109 @@
     "ecosystem": "npm",
     "sha256": "a79aae0c0f21990d9d963bb3c5a79cdcea9a46f8523ba55c58d7fe776b6ebc84",
     "source": "https://github.com/theKashey/react-remove-scroll-bar/blob/7301c160fda44cb8cf2b9fdfde61efad35736196/LICENSE"
+  },
+  {
+    "ecosystem": "cargo",
+    "name": "symphonia",
+    "version": "0.5.5",
+    "file": "symphonia-0.5.5-MPL-2.0.txt",
+    "sha256": "c76f740d1521b9bed9ca7a04ad526c310493c62621b1341d623b431736533b30",
+    "source": "https://github.com/pdeljanov/Symphonia/blob/6d533f26150953a882a6a111ebd13f0abf7129d5/LICENSE"
+  },
+  {
+    "ecosystem": "cargo",
+    "name": "symphonia-bundle-flac",
+    "version": "0.5.5",
+    "file": "symphonia-0.5.5-MPL-2.0.txt",
+    "sha256": "c76f740d1521b9bed9ca7a04ad526c310493c62621b1341d623b431736533b30",
+    "source": "https://github.com/pdeljanov/Symphonia/blob/6d533f26150953a882a6a111ebd13f0abf7129d5/LICENSE"
+  },
+  {
+    "ecosystem": "cargo",
+    "name": "symphonia-bundle-mp3",
+    "version": "0.5.5",
+    "file": "symphonia-0.5.5-MPL-2.0.txt",
+    "sha256": "c76f740d1521b9bed9ca7a04ad526c310493c62621b1341d623b431736533b30",
+    "source": "https://github.com/pdeljanov/Symphonia/blob/6d533f26150953a882a6a111ebd13f0abf7129d5/LICENSE"
+  },
+  {
+    "ecosystem": "cargo",
+    "name": "symphonia-codec-aac",
+    "version": "0.5.5",
+    "file": "symphonia-0.5.5-MPL-2.0.txt",
+    "sha256": "c76f740d1521b9bed9ca7a04ad526c310493c62621b1341d623b431736533b30",
+    "source": "https://github.com/pdeljanov/Symphonia/blob/6d533f26150953a882a6a111ebd13f0abf7129d5/LICENSE"
+  },
+  {
+    "ecosystem": "cargo",
+    "name": "symphonia-codec-alac",
+    "version": "0.5.5",
+    "file": "symphonia-0.5.5-MPL-2.0.txt",
+    "sha256": "c76f740d1521b9bed9ca7a04ad526c310493c62621b1341d623b431736533b30",
+    "source": "https://github.com/pdeljanov/Symphonia/blob/6d533f26150953a882a6a111ebd13f0abf7129d5/LICENSE"
+  },
+  {
+    "ecosystem": "cargo",
+    "name": "symphonia-codec-pcm",
+    "version": "0.5.5",
+    "file": "symphonia-0.5.5-MPL-2.0.txt",
+    "sha256": "c76f740d1521b9bed9ca7a04ad526c310493c62621b1341d623b431736533b30",
+    "source": "https://github.com/pdeljanov/Symphonia/blob/6d533f26150953a882a6a111ebd13f0abf7129d5/LICENSE"
+  },
+  {
+    "ecosystem": "cargo",
+    "name": "symphonia-codec-vorbis",
+    "version": "0.5.5",
+    "file": "symphonia-0.5.5-MPL-2.0.txt",
+    "sha256": "c76f740d1521b9bed9ca7a04ad526c310493c62621b1341d623b431736533b30",
+    "source": "https://github.com/pdeljanov/Symphonia/blob/6d533f26150953a882a6a111ebd13f0abf7129d5/LICENSE"
+  },
+  {
+    "ecosystem": "cargo",
+    "name": "symphonia-core",
+    "version": "0.5.5",
+    "file": "symphonia-0.5.5-MPL-2.0.txt",
+    "sha256": "c76f740d1521b9bed9ca7a04ad526c310493c62621b1341d623b431736533b30",
+    "source": "https://github.com/pdeljanov/Symphonia/blob/6d533f26150953a882a6a111ebd13f0abf7129d5/LICENSE"
+  },
+  {
+    "ecosystem": "cargo",
+    "name": "symphonia-format-isomp4",
+    "version": "0.5.5",
+    "file": "symphonia-0.5.5-MPL-2.0.txt",
+    "sha256": "c76f740d1521b9bed9ca7a04ad526c310493c62621b1341d623b431736533b30",
+    "source": "https://github.com/pdeljanov/Symphonia/blob/6d533f26150953a882a6a111ebd13f0abf7129d5/LICENSE"
+  },
+  {
+    "ecosystem": "cargo",
+    "name": "symphonia-format-ogg",
+    "version": "0.5.5",
+    "file": "symphonia-0.5.5-MPL-2.0.txt",
+    "sha256": "c76f740d1521b9bed9ca7a04ad526c310493c62621b1341d623b431736533b30",
+    "source": "https://github.com/pdeljanov/Symphonia/blob/6d533f26150953a882a6a111ebd13f0abf7129d5/LICENSE"
+  },
+  {
+    "ecosystem": "cargo",
+    "name": "symphonia-format-riff",
+    "version": "0.5.5",
+    "file": "symphonia-0.5.5-MPL-2.0.txt",
+    "sha256": "c76f740d1521b9bed9ca7a04ad526c310493c62621b1341d623b431736533b30",
+    "source": "https://github.com/pdeljanov/Symphonia/blob/6d533f26150953a882a6a111ebd13f0abf7129d5/LICENSE"
+  },
+  {
+    "ecosystem": "cargo",
+    "name": "symphonia-metadata",
+    "version": "0.5.5",
+    "file": "symphonia-0.5.5-MPL-2.0.txt",
+    "sha256": "c76f740d1521b9bed9ca7a04ad526c310493c62621b1341d623b431736533b30",
+    "source": "https://github.com/pdeljanov/Symphonia/blob/6d533f26150953a882a6a111ebd13f0abf7129d5/LICENSE"
+  },
+  {
+    "ecosystem": "cargo",
+    "name": "symphonia-utils-xiph",
+    "version": "0.5.5",
+    "file": "symphonia-0.5.5-MPL-2.0.txt",
+    "sha256": "c76f740d1521b9bed9ca7a04ad526c310493c62621b1341d623b431736533b30",
+    "source": "https://github.com/pdeljanov/Symphonia/blob/6d533f26150953a882a6a111ebd13f0abf7129d5/LICENSE"
   }
 ]
