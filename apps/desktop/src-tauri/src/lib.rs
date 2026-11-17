@@ -1417,8 +1417,11 @@ fn desktop_collapse(
         .duplicate_scan
         .close_start(window.label())
         .ok();
-    let result = if scope.is_some() { shelf_windows::merge(&app, shelf_id) }
-        else { desktop_runtime::collapse(&app, shelf_id) };
+    let result = if scope.is_some() {
+        shelf_windows::merge(&app, shelf_id)
+    } else {
+        desktop_runtime::collapse(&app, shelf_id)
+    };
     #[cfg(windows)]
     if let Some(generation) = closing {
         let _ = app

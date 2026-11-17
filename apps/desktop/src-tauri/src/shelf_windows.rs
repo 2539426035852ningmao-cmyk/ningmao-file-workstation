@@ -382,7 +382,13 @@ pub fn merge(app: &tauri::AppHandle, id: i64) -> Result<()> {
 }
 
 pub fn show_children(app: &tauri::AppHandle) -> Result<()> {
-    let records = app.state::<Desktop>().layout.lock().map_err(error)?.detached.clone();
+    let records = app
+        .state::<Desktop>()
+        .layout
+        .lock()
+        .map_err(error)?
+        .detached
+        .clone();
     for record in records.iter().filter(|s| s.visible) {
         ensure(app, record.shelf_id)?.show().map_err(error)?;
     }

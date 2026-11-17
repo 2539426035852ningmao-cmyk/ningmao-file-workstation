@@ -257,7 +257,9 @@ impl Layout {
             return Err("最多打开9个子窗口，请先收回一个。".into());
         }
         self.detached.push(DetachedShelf {
-            number: (1..=9).find(|n| !self.detached.iter().any(|s| s.number == *n)).unwrap_or(1),
+            number: (1..=9)
+                .find(|n| !self.detached.iter().any(|s| s.number == *n))
+                .unwrap_or(1),
             shelf_id: id,
             visible: true,
             topmost: self.preferences.topmost,

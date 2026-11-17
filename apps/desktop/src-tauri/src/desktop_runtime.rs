@@ -493,8 +493,11 @@ fn open_surface(app: &tauri::AppHandle, id: i64, focus: bool, force_parent: bool
         let layout = state.layout.lock().map_err(error)?;
         force_parent || (!layout.expanded && layout.active_shelf == id)
     };
-    let main = if parent { app.get_webview_window("main").ok_or("主窗口不存在")? }
-        else { crate::shelf_windows::ensure(app, id)? };
+    let main = if parent {
+        app.get_webview_window("main").ok_or("主窗口不存在")?
+    } else {
+        crate::shelf_windows::ensure(app, id)?
+    };
     let detached = main.label() != "main";
     state
         .close_requests
@@ -957,14 +960,16 @@ pub fn focus_lost(window: &tauri::Window) {
                 return;
             }
             // Moving focus between parent and children is internal navigation.
-            if dispatch.webview_windows().values().any(|w|
+            if dispatch.webview_windows().values().any(|w| {
                 (w.label() == "main" || crate::desktop::detached_id(w.label()).is_some())
-                && w.is_focused().unwrap_or(false)) {
+                    && w.is_focused().unwrap_or(false)
+            }) {
                 return;
             }
             if crate::desktop::detached_id(&label).is_some() {
                 if let Some(parent) = dispatch.get_webview_window("main")
-                    && let Err(message) = close_file_window(&parent.as_ref().window()) {
+                    && let Err(message) = close_file_window(&parent.as_ref().window())
+                {
                     report(&dispatch, message);
                 }
                 return;
@@ -1317,7 +1322,11 @@ mod tests {
             let catalog: Vec<i64> = (1..=256).collect();
             for id in &catalog {
                 layout.detached.push(crate::desktop::DetachedShelf {
-                    shelf_id: *id, number: 0, visible: false, topmost: true, geometry: None,
+                    shelf_id: *id,
+                    number: 0,
+                    visible: false,
+                    topmost: true,
+                    geometry: None,
                 });
             }
             for window in &mut layout.detached {

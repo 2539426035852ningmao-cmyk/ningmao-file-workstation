@@ -18,7 +18,9 @@ fn detach_and_return_preserve_parent_and_existing_children() {
 fn tenth_child_is_rejected_without_modifying_registered_windows() {
     let mut layout = Layout::default();
     let catalog: Vec<_> = (1..=10).collect();
-    for id in 1..=9 { layout.detach(id, &catalog).unwrap(); }
+    for id in 1..=9 {
+        layout.detach(id, &catalog).unwrap();
+    }
     assert!(layout.detach(10, &catalog).is_err());
     assert_eq!(layout.detached.len(), 9);
     let numbers: Vec<_> = layout.detached.iter().map(|s| s.number).collect();

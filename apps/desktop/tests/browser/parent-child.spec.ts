@@ -11,6 +11,7 @@ test("快速拆出保持主窗口上下文，重复拆出不重复编号，收�
   await expect(page.locator('.child-window-choice')).toHaveCount(1);
   await expect(page.locator('.child-window-choice')).toContainText('1');
   await expect(page.locator('.child-window-choice')).toContainText('灵感收集');
+  expect(await page.locator('.child-window-choice .child-name').evaluate(e=>e.scrollWidth<=e.clientWidth)).toBe(true);
   await page.getByRole('menuitemradio',{name:'本次中转',exact:true}).click();
   await expect(page.getByRole('menuitemradio',{name:'灵感收集',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'收回子窗口 灵感收集',exact:true}).click();
