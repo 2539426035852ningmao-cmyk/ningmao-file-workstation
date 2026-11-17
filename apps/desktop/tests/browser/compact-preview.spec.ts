@@ -24,13 +24,15 @@ test('音频不自动播放 空格播放暂停 Esc停止并释放 文字输入�
    let raw='';for(const b of bytes)raw+=String.fromCharCode(b);localStorage.setItem('test-previews',JSON.stringify({1:{kind:'audio',url:'data:audio/wav;base64,'+btoa(raw),ticket:'synthetic-audio'}}));
  });
  await page.getByRole('button',{name:'选择 Alpha.txt',exact:true}).click();await page.keyboard.press('Space');
- const audio=page.getByLabel('音频预览',{exact:true});await expect(audio).toBeVisible();await expect.poll(()=>audio.evaluate((a:HTMLAudioElement)=>a.readyState)).toBeGreaterThan(0);
+ const audio=page.getByLabel('音频预览',{exact:true});await expect(page.getByRole('group',{name:'播放控制',exact:true})).toBeVisible();await expect.poll(()=>audio.evaluate((a:HTMLAudioElement)=>a.readyState)).toBeGreaterThan(0);
  expect(await audio.evaluate((a:HTMLAudioElement)=>a.paused)).toBe(true);
+ await page.keyboard.press('Space');await expect.poll(()=>audio.evaluate((a:HTMLAudioElement)=>a.paused)).toBe(false);
+ await page.getByRole('slider',{name:'播放进度',exact:true}).focus();await page.keyboard.press('Space');await expect.poll(()=>audio.evaluate((a:HTMLAudioElement)=>a.paused)).toBe(true);
  await page.keyboard.press('Space');await expect.poll(()=>audio.evaluate((a:HTMLAudioElement)=>a.paused)).toBe(false);
  await page.keyboard.press('Space');await expect.poll(()=>audio.evaluate((a:HTMLAudioElement)=>a.paused)).toBe(true);
  await page.keyboard.press('Space');await expect.poll(()=>audio.evaluate((a:HTMLAudioElement)=>a.paused)).toBe(false);
  // Model a media-control document listener consuming Escape ahead of Radix.
- await audio.focus();
+ await page.getByRole('button',{name:'暂停',exact:true}).click();await page.getByRole('button',{name:'播放',exact:true}).click();await page.getByRole('button',{name:'暂停',exact:true}).focus();
  const handle=await audio.elementHandle();await page.keyboard.press('Escape');await expect(page.getByRole('dialog')).toBeHidden();expect(await handle!.evaluate((a:HTMLAudioElement)=>a.paused&&a.getAttribute('src')===null)).toBe(true);
  await expect.poll(()=>page.evaluate(()=>localStorage.getItem('test-preview-released'))).toBe('synthetic-audio');
 });

@@ -492,3 +492,4 @@ html[data-reduce-motion="true"] :is(.workstation,.shelf-header,.shelf-search,.sh
 
 .file-preview-dialog button{box-shadow:none}.preview-scroll{padding:4px}.preview-information .file-details{padding:12px 4px 4px}
 .preview-information .detail-preview{display:none}
+.preview-player{display:flex;align-items:center;gap:4px;min-width:0;padding:4px;background:var(--secondary);border-radius:8px}.preview-player input[type=range]{flex:1;min-width:32px;max-width:100%;accent-color:var(--primary)}.preview-player .preview-time{font-variant-numeric:tabular-nums;white-space:nowrap;font-size:12px;min-width:76px;text-align:center}.preview-content audio{display:none}
