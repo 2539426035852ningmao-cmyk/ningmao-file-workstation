@@ -106,6 +106,8 @@ function trashItem(id:number){const item=state.items.find(i=>i.id===id)!;const s
 let maximized=false;
 let duplicateTicket=0,duplicateCanceled=false;
 const backend:Backend={
+  async previewPrepare(id){const files=JSON.parse(localStorage.getItem('test-previews')||'{}');return files[id]??{kind:'unsupported'};},
+  async previewRelease(ticket){localStorage.setItem('test-preview-released',ticket);},
   transfer:{
     async peers(){return JSON.parse(localStorage.getItem("test-transfer-peers")||"[]");},
     async pair(name,address,fingerprint){transferCalls.push(`pair:${address}`);localStorage.setItem("test-transfer-peers",JSON.stringify([{name,fingerprint}]));},

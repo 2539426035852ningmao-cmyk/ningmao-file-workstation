@@ -1,5 +1,5 @@
 export type HistoryState={capacity:number;undo:string|null;redo:string|null};
-import { invoke, isTauri } from "@tauri-apps/api/core";
+import { invoke, isTauri, convertFileSrc } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import {nativeChat,type ChatBackend} from "./chatBackend";
@@ -8,6 +8,7 @@ export type Shelf = { id: number; name: string; kind: "persistent" | "session" |
 export type Item = { id: number; shelf_id: number; path: string; name: string; kind: string; bytes: number; modified: number; status: string; tags: string[] };
 export type Job = { id: number; shelf_id: number; status: string; message: string; staging: string | null };
 export type Snapshot = { shelves: Shelf[]; items: Item[]; jobs: Job[] };
+export type PreviewFile={kind:"image"|"text"|"audio"|"video"|"unsupported";url?:string|null;text?:string|null;ticket?:string|null;truncated?:boolean};
 export type Progress = { job_id: number; name: string; file_index: number; file_count: number; bytes: number; total: number };
 export type ImportResult = { added: number; job_id: number | null; errors: string[] };
 export type DesktopPreferences={edge:"free"|"left"|"right"|"top"|"bottom";auto_hide:boolean;topmost:boolean;flow?:"vertical"|"horizontal";startup?:"orb"|"full"};
@@ -36,6 +37,8 @@ export type RecycleActivity={id:number;shelf_id:number;name:string;status:string
 export type WakeShortcutConfig={version:number;enabled:boolean;accelerator:string};
 export type WakeShortcutState={config:WakeShortcutConfig;active:boolean;paused:boolean;warning:string|null};
 export interface Backend {
+  previewPrepare?:(id:number)=>Promise<PreviewFile>;
+  previewRelease?:(ticket:string)=>Promise<void>;
   historyState?:()=>Promise<HistoryState>;
   historyApply?:(redo:boolean)=>Promise<{shelf_id:number;label:string}>;
   historyCapacity?:(capacity:number)=>Promise<HistoryState>;
@@ -106,6 +109,8 @@ export interface Backend {
   subscribe(events: Events): Promise<() => void>;
 }
 export const nativeBackend: Backend = {
+  previewPrepare:async id=>{const file=await invoke<PreviewFile>("preview_prepare",{id});return {...file,url:file.ticket?convertFileSrc(file.ticket,"preview"):file.url};},
+  previewRelease:ticket=>invoke("preview_release",{ticket}),
   desktopCollect:(shelfId,action,itemId)=>invoke("desktop_collect",{shelfId,action,itemId}),
   chat:nativeChat,
   transfer:nativeTransfer,

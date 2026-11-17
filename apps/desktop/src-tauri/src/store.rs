@@ -1488,6 +1488,9 @@ impl CopyPlan {
 }
 
 pub fn thumbnail(path: &Path) -> Result<Option<String>> {
+    image_preview(path, 320)
+}
+pub fn image_preview(path: &Path, size: u32) -> Result<Option<String>> {
     let path = canonical_user_path(path)?;
     let ext = path
         .extension()
@@ -1509,7 +1512,8 @@ pub fn thumbnail(path: &Path) -> Result<Option<String>> {
     limits.max_image_height = Some(8192);
     limits.max_alloc = Some(64 * 1024 * 1024);
     reader.limits(limits);
-    let small = reader.decode().map_err(err)?.thumbnail(320, 320);
+    let size = size.clamp(1, 1600);
+    let small = reader.decode().map_err(err)?.thumbnail(size, size);
     let mut bytes = Cursor::new(Vec::new());
     small
         .write_to(&mut bytes, image::ImageFormat::Png)

@@ -3,6 +3,60 @@ use ningmao_desktop_lib::store::Store;
 use std::{fs, path::PathBuf, sync::atomic::AtomicBool};
 
 #[test]
+#[ignore = "new explicitly named synthetic D08 preview workspace only"]
+fn prepare_preview_fixture() {
+    let root = PathBuf::from(
+        std::env::var_os("NINGMAO_PREVIEW_FIXTURE_DIR").expect("explicit scratch path"),
+    );
+    assert!(root.is_absolute());
+    fs::create_dir(&root).expect("must not replace an existing workspace");
+    let source = root.join("source");
+    let data = root.join("data");
+    fs::create_dir(&source).unwrap();
+    fs::create_dir(&data).unwrap();
+    let mut store = Store::open(&data.join("workstation.sqlite3")).unwrap();
+    let text = source.join("合成正文.txt");
+    fs::write(&text,"柠猫 D08 本地内容预览\n这份文件只用于测试，不包含私人资料。\n<script>这是文字，不应执行</script>\n").unwrap();
+    store.add_reference(1, &text).unwrap();
+    let picture = source.join("合成图片.png");
+    image::RgbImage::from_fn(640, 480, |x, y| {
+        image::Rgb([(x / 3) as u8, (y / 2) as u8, 128])
+    })
+    .save(&picture)
+    .unwrap();
+    store.add_reference(1, &picture).unwrap();
+    let wav = source.join("合成音频.wav");
+    let samples = 80000u32;
+    let mut bytes = Vec::new();
+    bytes.extend(b"RIFF");
+    bytes.extend((36 + samples * 2).to_le_bytes());
+    bytes.extend(b"WAVEfmt ");
+    bytes.extend(16u32.to_le_bytes());
+    bytes.extend(1u16.to_le_bytes());
+    bytes.extend(1u16.to_le_bytes());
+    bytes.extend(8000u32.to_le_bytes());
+    bytes.extend(16000u32.to_le_bytes());
+    bytes.extend(2u16.to_le_bytes());
+    bytes.extend(16u16.to_le_bytes());
+    bytes.extend(b"data");
+    bytes.extend((samples * 2).to_le_bytes());
+    bytes.resize(44 + samples as usize * 2, 0);
+    fs::write(&wav, bytes).unwrap();
+    store.add_reference(1, &wav).unwrap();
+    if let Some(path) = std::env::var_os("NINGMAO_PREVIEW_VIDEO") {
+        let video = source.join("合成视频.webm");
+        fs::copy(path, &video).unwrap();
+        store.add_reference(1, &video).unwrap();
+    }
+    store.integrity_check().unwrap();
+    fs::write(
+        root.join("SYNTHETIC-ONLY.txt"),
+        b"D08 synthetic preview fixture; no private files",
+    )
+    .unwrap();
+}
+
+#[test]
 #[ignore = "prepares a new synthetic recovery fixture; never touches an existing database"]
 fn prepare_recovery_fixture() {
     let root = PathBuf::from(

@@ -1,9 +1,11 @@
-$ErrorActionPreference='Stop'
+﻿$ErrorActionPreference='Stop'
 Set-StrictMode -Version Latest
 . (Join-Path $PSScriptRoot 'portable/Workspace.ps1')
 $fixture=Join-Path ([IO.Path]::GetTempPath()) ('ningmao-workspace-'+[guid]::NewGuid().ToString('N'))
 $null=New-Item -ItemType Directory -Path $fixture
 try {
+    $previousRegistry=$env:NINGMAO_WORKSPACE_REGISTRY
+    $env:NINGMAO_WORKSPACE_REGISTRY=Join-Path $fixture 'registry/workspace.json'
     $old=Join-Path $fixture '旧工作区'; $fresh=Join-Path $fixture '新测试包'
     foreach($root in @($old,$fresh)) { $null=New-Item -ItemType Directory -Path (Join-Path $root 'app'),(Join-Path $root 'data'),(Join-Path $root 'webview') }
     [IO.File]::WriteAllText((Join-Path $old 'data/workstation.sqlite3'),'synthetic existing database')
@@ -13,6 +15,16 @@ try {
     [IO.File]::WriteAllText((Join-Path $fresh 'app/Ningmao-Preview-0.1.0-x64.exe'),'new synthetic application')
     $hash=(Get-FileHash -LiteralPath (Join-Path $fresh 'app/Ningmao-Preview-0.1.0-x64.exe')).Hash.ToLowerInvariant()
     [IO.File]::WriteAllText((Join-Path $fresh 'SHA256SUMS.txt'),$hash+'  app/Ningmao-Preview-0.1.0-x64.exe')
+    if((Resolve-NingmaoWorkspace $fresh -Candidates @($old)) -ne $old) { throw 'Single legacy workspace must connect without a picker' }
+    $null=New-Item -ItemType Directory -Path (Split-Path -Parent $env:NINGMAO_WORKSPACE_REGISTRY)
+    [IO.File]::WriteAllText($env:NINGMAO_WORKSPACE_REGISTRY,(@{version=1;root=$old;package=$old}|ConvertTo-Json))
+    if((Resolve-NingmaoWorkspace $fresh -Candidates @()) -ne $old) { throw 'Every new package must reuse the remembered workspace' }
+    $moved=Join-Path $fixture '移动后'
+    Move-Item -LiteralPath $old -Destination $moved
+    $beforePointer=Get-Content -LiteralPath $env:NINGMAO_WORKSPACE_REGISTRY -Raw
+    $rejected=$false;try { Resolve-NingmaoWorkspace $fresh -Candidates @() | Out-Null } catch { $rejected=$_.Exception.Message.Contains('暂不可用') }
+    if(-not $rejected -or (Get-Content -LiteralPath $env:NINGMAO_WORKSPACE_REGISTRY -Raw) -ne $beforePointer) { throw 'Missing remembered workspace must stop without replacing the connection' }
+    Move-Item -LiteralPath $moved -Destination $old
     Set-NingmaoWorkspace -PackageRoot $fresh -WorkspaceRoot $old
     if((Get-NingmaoWorkspace $fresh) -ne $old) { throw 'New package must reconnect the selected old workspace' }
     $before=(Get-FileHash -LiteralPath (Join-Path $old 'data/workstation.sqlite3')).Hash
@@ -31,6 +43,7 @@ try {
     if(-not $rejected) { throw 'Invalid workspace must not silently create an empty profile' }
     Write-Output 'PASS: old workspace reconnect; application update; byte-identical records and view settings; backup; running-instance rejection; incompatible configuration rejection'
 } finally {
+    $env:NINGMAO_WORKSPACE_REGISTRY=$previousRegistry
     $absolute=[IO.Path]::GetFullPath($fixture)
     $temp=[IO.Path]::GetFullPath([IO.Path]::GetTempPath())
     if(-not $absolute.StartsWith($temp,[StringComparison]::OrdinalIgnoreCase) -or (Split-Path -Leaf $absolute) -notmatch '^ningmao-workspace-[a-f0-9]{32}$') { throw 'Unsafe cleanup path' }

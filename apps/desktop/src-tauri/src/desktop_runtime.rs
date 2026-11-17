@@ -773,7 +773,8 @@ pub fn manager_open(app: &tauri::AppHandle) -> Result<()> {
         "manager",
         tauri::WebviewUrl::App("index.html".into()),
     )
-    .title("柠猫文件工作站 · 管理中心")
+    .title("柠猫文件工作站 管理中心")
+    .skip_taskbar(false)
     .visible(false)
     .inner_size(1040.0, 720.0)
     .min_inner_size(760.0, 520.0)

@@ -88,7 +88,10 @@ test("引用、标签、失效状态、预览与移除语义",async({page})=>{
   await page.evaluate(()=>window.testHarness.missing(1));await more(page,"刷新文件状态");
   await expect(page.locator('[data-item-id="1"]')).toContainText("引用失效");
   await page.getByRole("button",{name:"选择 Alpha.txt",exact:true}).click();
-  await expect(page.getByRole("button",{name:"拖出复制",exact:true})).toBeDisabled();
+  await expect(page.getByRole("button",{name:"拖出复制",exact:true})).toHaveCount(0);
+  const invalid=await page.getByRole("button",{name:"选择 Alpha.txt",exact:true}).boundingBox();
+  await page.mouse.move(invalid!.x+30,invalid!.y+30);await page.mouse.down();await page.mouse.move(invalid!.x+50,invalid!.y+30,{steps:5});await page.mouse.up();
+  expect((await page.evaluate(()=>window.testHarness.calls())).filter(call=>call.startsWith("drag:"))).toEqual([]);
   await page.keyboard.press("Delete");await expect(page.locator('[data-item-id="1"]')).toHaveCount(0);
   expect(await page.evaluate(()=>window.testHarness.calls())).toContain("remove:1");
   await page.reload();await expect(page.locator("[data-item-id]")).toHaveCount(2);

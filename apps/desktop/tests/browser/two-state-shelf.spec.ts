@@ -43,7 +43,7 @@ test("更多菜单居中 虚化背景 Escape回到入口",async({page})=>{
   expect(Math.abs(b.x+b.width/2-170)).toBeLessThan(2);
   expect(Math.abs(b.y+b.height/2-160)).toBeLessThan(2);
   expect(b.y).toBeGreaterThanOrEqual(8);expect(b.y+b.height).toBeLessThanOrEqual(312);
-  await expect(page.locator(".shelf-menu-backdrop")).toHaveCSS("backdrop-filter","blur(3px)");
+  await expect(page.locator(".shelf-menu-backdrop")).toHaveCSS("backdrop-filter","blur(1.95px)");
   await page.keyboard.press("Escape");await expect(menu).toHaveCount(0);await expect(trigger).toBeFocused();
   await trigger.hover();await expect(page.getByRole("tooltip")).toHaveText("更多操作");
   await expect(trigger).not.toHaveAttribute("title");

@@ -12,6 +12,7 @@ mod search_control;
 mod shelf_windows;
 pub mod store;
 use ningmao_transfer_client as loopback_transport;
+mod preview;
 mod transfer_desktop;
 mod transfer_discovery;
 mod transfer_identity;
@@ -24,6 +25,7 @@ mod web_transfer_bridge;
 mod web_transfer_receive;
 pub mod window_surface;
 pub mod windows_recycle;
+mod workspace;
 use serde::Serialize;
 use std::{
     fs::{File, OpenOptions},
@@ -63,6 +65,7 @@ struct RecycleOutcome {
     message: String,
 }
 struct Runtime {
+    previews: preview::Previews,
     browser_shares: browser_share_process::ShareControl,
     transfers: transfer_desktop::TransferControl,
     web_transfers: web_transfer_bridge::WebTransferBridge,
@@ -2101,12 +2104,20 @@ pub fn run() {
         window_state = window_state.with_filename(file.to_string_lossy());
     }
     tauri::Builder::default()
+        .register_asynchronous_uri_scheme_protocol("preview", |ctx, request, responder| {
+            let app = ctx.app_handle().clone();
+            let owner = ctx.webview_label().to_owned();
+            tauri::async_runtime::spawn_blocking(move || responder.respond(preview::serve(&app, &owner, request)));
+        })
         .plugin(window_state.build())
         .plugin(tauri_plugin_dialog::init())
         .setup(move |app| {
-            let root = std::env::var_os("NINGMAO_DATA_DIR")
-                .map(PathBuf::from)
-                .unwrap_or(app.path().app_data_dir()?);
+            let explicit_root = std::env::var_os("NINGMAO_DATA_DIR").map(PathBuf::from);
+            let registry = std::env::var_os("NINGMAO_WORKSPACE_REGISTRY").map(PathBuf::from)
+                .or_else(|| std::env::var_os("LOCALAPPDATA").map(|p| PathBuf::from(p).join("Ningmao/workspace.json")));
+            let root = if let Some(root) = &explicit_root { root.clone() }
+                else if let Some(registry) = &registry { workspace::resolve(registry).map_err(std::io::Error::other)? }
+                else { app.path().app_data_dir()? };
             std::fs::create_dir_all(&root)?;
             let lock = OpenOptions::new()
                 .create(true)
@@ -2133,6 +2144,7 @@ pub fn run() {
             }
             Store::apply_pending_restore(&root).map_err(std::io::Error::other)?;
             app.manage(Runtime {
+                previews: Default::default(),
                 browser_shares: Default::default(),
                 transfers: Default::default(),
                 web_transfers: Default::default(),
@@ -2158,6 +2170,11 @@ pub fn run() {
                 _process_lock: lock,
             });
             desktop_runtime::setup(app.handle(), &root).map_err(std::io::Error::other)?;
+            // Explicit test/data roots never register with the user's launcher.
+            if (explicit_root.is_none() || std::env::var_os("NINGMAO_WORKSPACE_REGISTRY").is_some()) && let Some(registry) = &registry {
+                let package = std::env::current_exe().ok().and_then(|p| p.parent().and_then(|p| p.parent()).map(PathBuf::from));
+                workspace::remember(registry, &root, package).map_err(std::io::Error::other)?;
+            }
             if let Some(config) = &recovery_window {
                 let main = tauri::WebviewWindowBuilder::from_config(app.handle(), config)?.build()?;
                 if desktop_runtime::view(app.handle()).map_err(std::io::Error::other)?.layout.expanded {
@@ -2200,6 +2217,9 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
+            if matches!(event, tauri::WindowEvent::Destroyed) && let Some(state) = window.app_handle().try_state::<Runtime>() {
+                state.previews.close_owner(window.label());
+            }
             desktop_runtime::window_event(window, event);
             if matches!(event, tauri::WindowEvent::Moved(_)) {
                 window_surface::observe_move(window);
@@ -2341,6 +2361,8 @@ pub fn run() {
             set_tags,
             reorder,
             thumbnail,
+            preview::preview_prepare,
+            preview::preview_release,
             begin_duplicate_scan,
             cancel_duplicate_scan,
             analyze_duplicates,

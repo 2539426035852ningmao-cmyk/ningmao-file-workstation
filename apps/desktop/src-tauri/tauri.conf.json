@@ -24,11 +24,12 @@
         "decorations": false,
         "transparent": true,
         "shadow": false,
+        "skipTaskbar": true,
         "backgroundColor": "#00000000"
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost"
+      "csp": "default-src 'self'; img-src 'self' data:; media-src 'self' preview: http://preview.localhost https://preview.localhost; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost"
     }
   },
   "bundle": {
