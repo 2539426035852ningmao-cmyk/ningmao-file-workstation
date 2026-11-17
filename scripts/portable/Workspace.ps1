@@ -23,15 +23,27 @@ function Resolve-NingmaoWorkspace([string]$PackageRoot,[string[]]$Candidates) {
     if(Test-Path -LiteralPath (Join-Path $package 'data/workstation.sqlite3')) { return $package }
     if(-not $PSBoundParameters.ContainsKey('Candidates')) {
         # Legacy bootstrap only: running packages, then immediate siblings.
-        # Never scan disks or choose by folder/database modification time.
+        # Never scan disks. Legacy packages have no shared registry yet.
         $Candidates=@(Get-CimInstance Win32_Process -Filter "Name='Ningmao-Preview-0.1.0-x64.exe'" -ErrorAction SilentlyContinue | ForEach-Object { if($_.ExecutablePath) { Split-Path -Parent (Split-Path -Parent $_.ExecutablePath) } } | Select-Object -Unique)
-        if($Candidates.Count -ne 1) {
+        if($Candidates.Count -eq 0) {
             $parent=Split-Path -Parent $package
-            $Candidates=@(Get-ChildItem -LiteralPath $parent -Directory -ErrorAction SilentlyContinue | Where-Object { -not ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -and (Test-Path -LiteralPath (Join-Path $_.FullName 'app/Ningmao-Preview-0.1.0-x64.exe')) -and (Test-Path -LiteralPath (Join-Path $_.FullName 'data/workstation.sqlite3')) } | Select-Object -ExpandProperty FullName)
+            $Candidates=@(Get-ChildItem -LiteralPath $parent -Directory -ErrorAction SilentlyContinue | Where-Object { -not ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -and (Test-Path -LiteralPath (Join-Path $_.FullName 'app/Ningmao-Preview-0.1.0-x64.exe')) -and ((Test-Path -LiteralPath (Join-Path $_.FullName 'data/workstation.sqlite3')) -or (Test-Path -LiteralPath (Join-Path $_.FullName 'workspace.json'))) } | Select-Object -ExpandProperty FullName)
         }
     }
-    $valid=@($Candidates | Where-Object { Test-Path -LiteralPath (Join-Path $_ 'data/workstation.sqlite3') -PathType Leaf } | ForEach-Object { Get-NingmaoWorkspace $_ } | Select-Object -Unique)
-    if($valid.Count -gt 1) { throw '发现多份旧工作区 无法唯一识别 请重新定位一次' }
+    $valid=@($Candidates | Where-Object { (Test-Path -LiteralPath (Join-Path $_ 'data/workstation.sqlite3') -PathType Leaf) -or (Test-Path -LiteralPath (Join-Path $_ 'workspace.json') -PathType Leaf) } | ForEach-Object { Get-NingmaoWorkspace $_ } | Select-Object -Unique)
+    if($valid.Count -gt 1) {
+        # First migration: prefer the last application-saved window state, not
+        # the package name or extraction/folder time. Once launched, the shared
+        # registry is authoritative. No database contents or source files read.
+        $ranked=@($valid | ForEach-Object {
+            $root=$_
+            $state=Get-Item -LiteralPath (Join-Path $root 'data/.window-state.json') -ErrorAction SilentlyContinue
+            if(-not $state) { $state=Get-Item -LiteralPath (Join-Path $root 'data/desktop-layout-v4.json') -ErrorAction SilentlyContinue }
+            $database=Get-Item -LiteralPath (Join-Path $root 'data/workstation.sqlite3')
+            [pscustomobject]@{Root=$root;Saved=if($state){$state.LastWriteTimeUtc.Ticks}else{0};Database=$database.LastWriteTimeUtc.Ticks}
+        } | Sort-Object -Property @{Expression='Saved';Descending=$true},@{Expression='Database';Descending=$true},Root)
+        return $ranked[0].Root
+    }
     if($valid.Count -eq 1) { return $valid[0] }
     return Join-Path (Split-Path -Parent (Get-NingmaoRegistryPath)) 'Workspace'
 }

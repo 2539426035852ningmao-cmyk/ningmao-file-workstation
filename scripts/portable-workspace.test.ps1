@@ -16,6 +16,19 @@ try {
     $hash=(Get-FileHash -LiteralPath (Join-Path $fresh 'app/Ningmao-Preview-0.1.0-x64.exe')).Hash.ToLowerInvariant()
     [IO.File]::WriteAllText((Join-Path $fresh 'SHA256SUMS.txt'),$hash+'  app/Ningmao-Preview-0.1.0-x64.exe')
     if((Resolve-NingmaoWorkspace $fresh -Candidates @($old)) -ne $old) { throw 'Single legacy workspace must connect without a picker' }
+    $older=Join-Path $fixture '更早的旧包'
+    $null=New-Item -ItemType Directory -Path (Join-Path $older 'data')
+    [IO.File]::WriteAllText((Join-Path $older 'data/workstation.sqlite3'),'older synthetic database')
+    foreach($root in @($old,$older)) { [IO.File]::WriteAllText((Join-Path $root 'data/.window-state.json'),'{}') }
+    (Get-Item -LiteralPath (Join-Path $older 'data/.window-state.json')).LastWriteTimeUtc=[datetime]'2026-11-15T00:00:00Z'
+    (Get-Item -LiteralPath (Join-Path $old 'data/.window-state.json')).LastWriteTimeUtc=[datetime]'2026-11-16T00:00:00Z'
+    # Copying or extracting an older package must not overrule saved application use.
+    (Get-Item -LiteralPath $older).LastWriteTimeUtc=[datetime]'2026-11-17T00:00:00Z'
+    if((Resolve-NingmaoWorkspace $fresh -Candidates @($older,$old)) -ne $old) { throw 'Multiple legacy packages must automatically resume the last saved window workspace' }
+    $linked=Join-Path $fixture '仅带连接的新包'
+    $null=New-Item -ItemType Directory -Path $linked
+    Set-NingmaoWorkspace $linked $old
+    if((Resolve-NingmaoWorkspace $fresh -Candidates @($older,$linked)) -ne $old) { throw 'Legacy discovery must follow package connections even without a local database' }
     $null=New-Item -ItemType Directory -Path (Split-Path -Parent $env:NINGMAO_WORKSPACE_REGISTRY)
     [IO.File]::WriteAllText($env:NINGMAO_WORKSPACE_REGISTRY,(@{version=1;root=$old;package=$old}|ConvertTo-Json))
     if((Resolve-NingmaoWorkspace $fresh -Candidates @()) -ne $old) { throw 'Every new package must reuse the remembered workspace' }
@@ -41,7 +54,7 @@ try {
     [IO.File]::WriteAllText((Join-Path $fresh 'workspace.json'),'{"version":999,"root":"invalid"}')
     $rejected=$false;try { Get-NingmaoWorkspace $fresh | Out-Null } catch {$rejected=$true}
     if(-not $rejected) { throw 'Invalid workspace must not silently create an empty profile' }
-    Write-Output 'PASS: old workspace reconnect; application update; byte-identical records and view settings; backup; running-instance rejection; incompatible configuration rejection'
+    Write-Output 'PASS: automatic multiple-package migration by saved window use; linked-package discovery; remembered/offline workspace; application update; byte-identical records and settings; backup; running-instance and incompatible configuration rejection'
 } finally {
     $env:NINGMAO_WORKSPACE_REGISTRY=$previousRegistry
     $absolute=[IO.Path]::GetFullPath($fixture)
