@@ -16,7 +16,7 @@ export function FilePreview({item,backend,onClose}:{item:Item;backend:Backend;on
    let live=true,ticket:string|null=null;setFile(null);setError('');setDimensions('');setPlaying(false);setPosition(0);setDuration(0);setMuted(false);
    void (backend.previewPrepare?.(item.id)??Promise.resolve<PreviewFile>({kind:'unsupported'})).then(value=>{
      if(!live){if(value.ticket)void backend.previewRelease?.(value.ticket).catch(()=>{});return;}
-     ticket=value.ticket??null;setFile(value);
+     ticket=value.ticket??null;setFile(value);if(value.dimensions)setDimensions(`${value.dimensions[0]} × ${value.dimensions[1]}`);
    }).catch(e=>{if(live)setError(String(e));});
    return()=>{live=false;const player=media.current;if(player){player.pause();player.removeAttribute('src');player.load();}if(ticket)void backend.previewRelease?.(ticket).catch(()=>{});};
  },[backend,item.id,item.path,item.status]);
@@ -42,7 +42,7 @@ export function FilePreview({item,backend,onClose}:{item:Item;backend:Backend;on
     <header><Dialog.Title className="sr-only">快速预览</Dialog.Title><h3 title={item.name}>{item.name}</h3><Dialog.Close asChild><Button variant="ghost" size="icon" aria-label="关闭预览"><X size={16}/></Button></Dialog.Close></header>
     <div className="preview-scroll"><div className="preview-content" aria-busy={!file&&!error}>
       {!file&&!error&&<span role="status">正在读取…</span>}
-      {file?.kind==='image'&&file.url&&<img alt={item.name} src={file.url} onLoad={event=>setDimensions(`${event.currentTarget.naturalWidth} × ${event.currentTarget.naturalHeight}`)} onError={failed}/>}
+      {file?.kind==='image'&&file.url&&<img alt={item.name} src={file.url} onError={failed}/>}
       {file?.kind==='text'&&<pre tabIndex={0} aria-label="文件内容">{file.text}</pre>}
       {file?.kind==='audio'&&file.url&&<AudioWaveform item={item} backend={backend} prepared={file}/>}
       {file?.kind==='video'&&file.url&&<video ref={playerRef} aria-label="视频预览" src={file.url} preload="metadata" playsInline {...mediaEvents}/>}
