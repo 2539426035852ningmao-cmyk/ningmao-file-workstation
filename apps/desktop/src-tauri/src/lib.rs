@@ -174,7 +174,7 @@ async fn database<T: Send + 'static>(
 #[tauri::command]
 async fn snapshot(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<Snapshot> {
     let scope = shelf_windows::scope(&window)?;
-    let excluded = shelf_windows::ids(&app)?;
+    let excluded = Vec::new();
     database(app, move |s| s.snapshot_scoped(scope, &excluded)).await
 }
 #[tauri::command]
@@ -1417,7 +1417,11 @@ fn desktop_collapse(
         .duplicate_scan
         .close_start(window.label())
         .ok();
-    let result = desktop_runtime::collapse(&app, shelf_id);
+    let result = if scope.is_some() {
+        shelf_windows::merge(&app, shelf_id)
+    } else {
+        desktop_runtime::collapse(&app, shelf_id)
+    };
     #[cfg(windows)]
     if let Some(generation) = closing {
         let _ = app

@@ -7,9 +7,9 @@ use std::fs;
 fn detach_merge_and_restore_keep_fixed_ownership_even_when_main_is_empty() {
     let mut layout = Layout::default();
     layout.detach(1, &[1, 2]).unwrap();
-    assert_eq!(layout.active_shelf, 2);
+    assert_eq!(layout.active_shelf, 1);
     layout.detach(2, &[1, 2]).unwrap();
-    assert_eq!(layout.active_shelf, 0);
+    assert_eq!(layout.active_shelf, 1);
     assert_eq!(layout.file_scope("shelf-1").unwrap(), Some(1));
     for label in [
         "shelf-01",

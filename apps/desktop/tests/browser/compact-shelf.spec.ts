@@ -67,7 +67,7 @@ test("键盘搜索与文件架切换保持原位，列表和缩略图切换可�
   await page.getByRole("button",{name:"切换文件架",exact:true}).press("Enter");
   await page.getByRole("menuitemradio",{name:"本次中转",exact:true}).click();
   await expect(page.getByRole("button",{name:"切换文件架",exact:true})).toContainText("本次中转");await expect(page.locator(".shelf-semantics")).not.toBeVisible();
-  await page.getByRole("button",{name:"切换文件架",exact:true}).click();await page.getByRole("menuitemradio",{name:"灵感收集",exact:true}).click();
+  await page.getByRole("menuitemradio",{name:"灵感收集",exact:true}).click();await page.keyboard.press("Escape");
   await page.evaluate(()=>window.testHarness.drop(Array.from({length:40},(_,i)=>`SYNTHETIC/合成${i}.txt`)));
   const scroll=page.getByTestId("file-scroll");
   await more(page,"详细列表",true);await expect(page.locator(".asset-row").first()).toHaveCSS("height","44px");

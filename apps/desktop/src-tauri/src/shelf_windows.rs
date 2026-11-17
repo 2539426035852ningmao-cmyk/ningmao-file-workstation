@@ -99,7 +99,13 @@ pub fn ensure(app: &tauri::AppHandle, id: i64) -> Result<tauri::WebviewWindow> {
             .min_inner_size(340.0, 320.0)
             .build()
             .map_err(error)?;
-    restore(&window, record.geometry.as_ref())?;
+    let initial = record.geometry.clone().or_else(|| {
+        let mut geometry = state.layout.lock().ok()?.main_geometry.clone()?;
+        geometry.x = geometry.x.saturating_add(36);
+        geometry.y = geometry.y.saturating_add(48);
+        Some(geometry)
+    });
+    restore(&window, initial.as_ref())?;
     window
         .set_always_on_top(state.layout.lock().map_err(error)?.preferences.topmost)
         .map_err(error)?;
@@ -300,7 +306,7 @@ pub fn capture_all(app: &tauri::AppHandle) {
 pub fn show_main(app: &tauri::AppHandle) -> Result<()> {
     let id = desktop_runtime::active_shelf(app)?;
     if id > 0 {
-        return desktop_runtime::open(app, id, true);
+        return desktop_runtime::open_parent(app, id);
     }
     let main = app.get_webview_window("main").ok_or("主窗口不存在")?;
     main.unminimize().map_err(error)?;
@@ -317,6 +323,12 @@ pub fn show_main(app: &tauri::AppHandle) -> Result<()> {
 pub fn detach(app: &tauri::AppHandle, id: i64) -> Result<()> {
     desktop_runtime::require_idle(app)?;
     desktop_runtime::known_shelf(app, id)?;
+    if ids(app)?.contains(&id) {
+        let window = ensure(app, id)?;
+        window.show().map_err(error)?;
+        window.unminimize().map_err(error)?;
+        return window.set_focus().map_err(error);
+    }
     capture_all(app);
     let state = app.state::<Desktop>();
     let _transition = Transition::begin(&state)?;
@@ -343,8 +355,6 @@ pub fn detach(app: &tauri::AppHandle, id: i64) -> Result<()> {
         *state.layout.lock().map_err(error)? = old;
         return Err(e);
     }
-    let active = state.layout.lock().map_err(error)?.active_shelf;
-    let _ = app.emit_to("main", "desktop-activate-shelf", active);
     let _ = app.emit("workstation-changed", ());
     let _ = state.save();
     desktop_runtime::entry_geometry(app)?;
@@ -365,9 +375,31 @@ pub fn merge(app: &tauri::AppHandle, id: i64) -> Result<()> {
         return Err(error(e));
     }
     drop(transition);
-    let result = desktop_runtime::open(app, id, true);
     let _ = state.save();
     let _ = app.emit("workstation-changed", ());
     let _ = desktop_runtime::publish(app);
-    result
+    Ok(())
+}
+
+pub fn show_children(app: &tauri::AppHandle) -> Result<()> {
+    let records = app
+        .state::<Desktop>()
+        .layout
+        .lock()
+        .map_err(error)?
+        .detached
+        .clone();
+    for record in records.iter().filter(|s| s.visible) {
+        ensure(app, record.shelf_id)?.show().map_err(error)?;
+    }
+    Ok(())
+}
+pub fn hide_children(app: &tauri::AppHandle) -> Result<()> {
+    capture_all(app);
+    for id in ids(app)? {
+        if let Some(w) = app.get_webview_window(&format!("shelf-{id}")) {
+            w.hide().map_err(error)?;
+        }
+    }
+    Ok(())
 }

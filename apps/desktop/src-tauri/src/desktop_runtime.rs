@@ -58,12 +58,12 @@ pub struct View {
 
 impl Desktop {
     fn load(root: &Path) -> Self {
-        let path = root.join("desktop-layout-v4.json");
-        let (source, expected) = (1..=4)
+        let path = root.join("desktop-layout-v5.json");
+        let (source, expected) = (1..=5)
             .rev()
             .map(|v| (root.join(format!("desktop-layout-v{v}.json")), v))
             .find(|(p, _)| p.exists())
-            .unwrap_or((path.clone(), 4));
+            .unwrap_or((path.clone(), 5));
         let loaded = if !source.exists() {
             Ok(Layout::default())
         } else {
@@ -81,7 +81,7 @@ impl Desktop {
                     if layout.version != expected {
                         return Err("布局版本不兼容，原文件已保留。".into());
                     }
-                    layout.version = 4;
+                    layout.version = 5;
                     if layout.validate() {
                         Ok(layout)
                     } else {
@@ -422,7 +422,8 @@ pub fn collapse(app: &tauri::AppHandle, id: i64) -> Result<()> {
     if old.collapsed.len() >= 256 && !old.collapsed.contains(&id) {
         return Err("基础Dock最多收纳256架。".into());
     }
-    let label = crate::shelf_windows::label_for(app, id)?;
+    let label = "main".to_owned();
+    crate::shelf_windows::hide_children(app)?;
     state.close_requests.lock().map_err(error)?.remove(&label);
     if let Some(window) = app.get_webview_window(&label) {
         crate::shelf_windows::capture(&window.as_ref().window());
@@ -477,12 +478,26 @@ pub fn collapse(app: &tauri::AppHandle, id: i64) -> Result<()> {
     publish(app)
 }
 pub fn open(app: &tauri::AppHandle, id: i64, focus: bool) -> Result<()> {
+    open_surface(app, id, focus, false)
+}
+pub fn open_parent(app: &tauri::AppHandle, id: i64) -> Result<()> {
+    open_surface(app, id, true, true)
+}
+fn open_surface(app: &tauri::AppHandle, id: i64, focus: bool, force_parent: bool) -> Result<()> {
     if focus {
         require_idle(app)?;
     }
     known_shelf(app, id)?;
     let state = app.state::<Desktop>();
-    let main = crate::shelf_windows::ensure(app, id)?;
+    let parent = {
+        let layout = state.layout.lock().map_err(error)?;
+        force_parent || (!layout.expanded && layout.active_shelf == id)
+    };
+    let main = if parent {
+        app.get_webview_window("main").ok_or("主窗口不存在")?
+    } else {
+        crate::shelf_windows::ensure(app, id)?
+    };
     let detached = main.label() != "main";
     state
         .close_requests
@@ -558,6 +573,9 @@ pub fn open(app: &tauri::AppHandle, id: i64, focus: bool) -> Result<()> {
     app.emit_to(main.label(), "desktop-activate-shelf", id)
         .map_err(error)?;
     main.show().map_err(error)?;
+    if main.label() == "main" {
+        crate::shelf_windows::show_children(app)?;
+    }
     if focus {
         main.unminimize().map_err(error)?;
         crate::shelf_windows::recover_if_offscreen(&main)?;
@@ -579,9 +597,6 @@ pub fn active_shelf(app: &tauri::AppHandle) -> Result<i64> {
 pub fn select(app: &tauri::AppHandle, id: i64) -> Result<()> {
     require_idle(app)?;
     known_shelf(app, id)?;
-    if crate::shelf_windows::ids(app)?.contains(&id) {
-        return Err("该文件架已拆出，请从独立窗口入口打开。".into());
-    }
     app.state::<Desktop>()
         .layout
         .lock()
@@ -847,7 +862,7 @@ pub fn setup(app: &tauri::AppHandle, root: &Path) -> Result<()> {
             .layout
             .detached
             .iter()
-            .filter(|s| s.visible && !data.layout.collapsed.contains(&s.shelf_id))
+            .filter(|s| s.visible && data.layout.expanded)
         {
             if let Err(e) = crate::shelf_windows::ensure(&restore, record.shelf_id)
                 .and_then(|w| w.show().map_err(error))
@@ -862,6 +877,9 @@ pub fn setup(app: &tauri::AppHandle, root: &Path) -> Result<()> {
     Ok(())
 }
 pub fn close_file_window(window: &tauri::Window) -> Result<()> {
+    if let Some(id) = crate::desktop::detached_id(window.label()) {
+        return crate::shelf_windows::merge(window.app_handle(), id);
+    }
     let app = window.app_handle();
     require_idle(app)?;
     let id = crate::desktop::detached_id(window.label()).unwrap_or(active_shelf(app)?);
@@ -939,6 +957,21 @@ pub fn focus_lost(window: &tauri::Window) {
                 || crate::window_surface::moving(&label)
                 || require_idle(&dispatch).is_err()
             {
+                return;
+            }
+            // Moving focus between parent and children is internal navigation.
+            if dispatch.webview_windows().values().any(|w| {
+                (w.label() == "main" || crate::desktop::detached_id(w.label()).is_some())
+                    && w.is_focused().unwrap_or(false)
+            }) {
+                return;
+            }
+            if crate::desktop::detached_id(&label).is_some() {
+                if let Some(parent) = dispatch.get_webview_window("main")
+                    && let Err(message) = close_file_window(&parent.as_ref().window())
+                {
+                    report(&dispatch, message);
+                }
                 return;
             }
             if let Err(message) = close_file_window(&window.as_ref().window()) {
@@ -1261,9 +1294,9 @@ mod tests {
         let state = Desktop::load(root.path());
         assert!(state.writable);
         assert_eq!(state.layout.lock().unwrap().collapsed, vec![2]);
-        assert_eq!(state.layout.lock().unwrap().version, 4);
+        assert_eq!(state.layout.lock().unwrap().version, 5);
         state.save().unwrap();
-        assert!(root.path().join("desktop-layout-v4.json").is_file());
+        assert!(root.path().join("desktop-layout-v5.json").is_file());
         assert_eq!(std::fs::read(legacy).unwrap(), bytes);
     }
     #[test]
@@ -1278,7 +1311,7 @@ mod tests {
         assert_eq!(state.layout.lock().unwrap().preferences.edge, Edge::Right);
         state.save().unwrap();
         assert_eq!(std::fs::read(legacy).unwrap(), bytes);
-        assert!(root.path().join("desktop-layout-v4.json").is_file());
+        assert!(root.path().join("desktop-layout-v5.json").is_file());
     }
     #[test]
     fn maximum_registered_window_layout_can_be_loaded_after_save() {
@@ -1288,7 +1321,13 @@ mod tests {
             let mut layout = state.layout.lock().unwrap();
             let catalog: Vec<i64> = (1..=256).collect();
             for id in &catalog {
-                layout.detach(*id, &catalog).unwrap();
+                layout.detached.push(crate::desktop::DetachedShelf {
+                    shelf_id: *id,
+                    number: 0,
+                    visible: false,
+                    topmost: true,
+                    geometry: None,
+                });
             }
             for window in &mut layout.detached {
                 window.geometry = Some(crate::desktop::WindowGeometry {
@@ -1308,7 +1347,7 @@ mod tests {
         assert_eq!(loaded.layout.lock().unwrap().collapsed.len(), 256);
     }
     #[test]
-    fn v3_layout_remains_byte_exact_when_orb_layout_writes_v4() {
+    fn v3_layout_remains_byte_exact_when_orb_layout_writes_v5() {
         let root = tempfile::tempdir().unwrap();
         let legacy = root.path().join("desktop-layout-v3.json");
         let bytes=br#"{"version":3,"enabled":true,"active_shelf":4,"collapsed":[4],"preferences":{"edge":"right","auto_hide":false,"topmost":true}}"#;
@@ -1320,10 +1359,27 @@ mod tests {
         assert_eq!(std::fs::read(&legacy).unwrap(), bytes);
         let restored = Desktop::load(root.path());
         assert_eq!(restored.layout.lock().unwrap().preferences.edge, Edge::Top);
-        assert_eq!(restored.layout.lock().unwrap().version, 4);
+        assert_eq!(restored.layout.lock().unwrap().version, 5);
         assert_eq!(
             restored.entry.lock().unwrap().presentation.kind,
             crate::entry::Kind::Orb
         );
+    }
+    #[test]
+    fn v4_window_layout_is_preserved_when_child_numbers_are_saved() {
+        let root = tempfile::tempdir().unwrap();
+        let legacy = root.path().join("desktop-layout-v4.json");
+        let bytes = br#"{"version":4,"active_shelf":1,"detached":[{"shelf_id":3,"visible":true,"topmost":true,"geometry":null}]}"#;
+        std::fs::write(&legacy, bytes).unwrap();
+        let state = Desktop::load(root.path());
+        state.layout.lock().unwrap().reconcile(&[1, 3]);
+        state.save().unwrap();
+        assert_eq!(std::fs::read(&legacy).unwrap(), bytes);
+        let restored = Desktop::load(root.path());
+        let layout = restored.layout.lock().unwrap();
+        assert_eq!(layout.active_shelf, 1);
+        assert_eq!(layout.detached[0].number, 1);
+        assert!(layout.detached[0].visible);
+        assert!(root.path().join("desktop-layout-v5.json").is_file());
     }
 }

@@ -23,7 +23,7 @@ export type SearchResponse={hits:SearchHit[];truncated:boolean};
 export type DuplicateReport={same_entity:number[][];duplicate_contents:number[][][]};
 export type ManagementSnapshot={shelves:Pick<Shelf,"id"|"name"|"kind">[];items:ManagedReference[];jobs:Job[]};
 export type CatalogShelf=Pick<Shelf,"id"|"name"|"kind">;
-export type DesktopView = {layout:{enabled:boolean;expanded:boolean;active_shelf:number;collapsed:number[];page:number;preferences:DesktopPreferences;main_topmost?:boolean;detached?:{shelf_id:number;visible:boolean;topmost:boolean}[]};entries:{id:number;name:string;kind:string}[];total:number;warning:string|null;copying:boolean;edge_hidden:boolean;catalog?:CatalogShelf[];presentation?:EntryPresentation;geometry?:{width:number;height:number;slots:EntrySlot[]};native_dragging?:boolean;always_scrollbars?:boolean;close_lower?:boolean;drag_target?:number|null};
+export type DesktopView = {layout:{enabled:boolean;expanded:boolean;active_shelf:number;collapsed:number[];page:number;preferences:DesktopPreferences;main_topmost?:boolean;detached?:{shelf_id:number;number?:number;visible:boolean;topmost:boolean}[]};entries:{id:number;name:string;kind:string}[];total:number;warning:string|null;copying:boolean;edge_hidden:boolean;catalog?:CatalogShelf[];presentation?:EntryPresentation;geometry?:{width:number;height:number;slots:EntrySlot[]};native_dragging?:boolean;always_scrollbars?:boolean;close_lower?:boolean;drag_target?:number|null};
 export function detachedShelfFromLabel(label:string):number|undefined {
   if(!/^shelf-[1-9]\d*$/.test(label))return undefined;
   const id=Number(label.slice(6));return Number.isSafeInteger(id)?id:undefined;

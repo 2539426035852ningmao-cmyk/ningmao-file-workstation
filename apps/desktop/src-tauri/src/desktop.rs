@@ -33,6 +33,8 @@ impl WindowGeometry {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct DetachedShelf {
+    #[serde(default)]
+    pub number: u8,
     pub shelf_id: i64,
     pub visible: bool,
     pub topmost: bool,
@@ -124,7 +126,7 @@ pub struct Layout {
 impl Default for Layout {
     fn default() -> Self {
         Self {
-            version: 4,
+            version: 5,
             enabled: false,
             expanded: true,
             active_shelf: 1,
@@ -150,7 +152,7 @@ impl Layout {
         }
     }
     pub fn validate(&self) -> bool {
-        self.version == 4
+        matches!(self.version, 4 | 5)
             && !(self.preferences.edge == Edge::Free && self.preferences.auto_hide)
             && self.active_shelf >= 0
             && self.detached.len() <= 256
@@ -251,23 +253,18 @@ impl Layout {
         if !catalog.contains(&id) || self.detached.iter().any(|s| s.shelf_id == id) {
             return Err("文件架不存在或已经拆出。".into());
         }
-        if self.detached.len() >= 256 {
-            return Err("本候选最多登记256个独立架；现有数据不会截断。".into());
+        if self.detached.len() >= 9 {
+            return Err("最多打开9个子窗口，请先收回一个。".into());
         }
         self.detached.push(DetachedShelf {
+            number: (1..=9)
+                .find(|n| !self.detached.iter().any(|s| s.number == *n))
+                .unwrap_or(1),
             shelf_id: id,
             visible: true,
             topmost: self.preferences.topmost,
             geometry: None,
         });
-        self.collapsed.retain(|s| *s != id);
-        if self.active_shelf == id {
-            self.active_shelf = catalog
-                .iter()
-                .find(|s| !self.detached.iter().any(|d| d.shelf_id == **s))
-                .copied()
-                .unwrap_or(0);
-        }
         Ok(())
     }
     pub fn merge(&mut self, id: i64) -> Result<(), String> {
@@ -275,25 +272,20 @@ impl Layout {
             return Err("文件架并非独立窗口。".into());
         }
         self.detached.retain(|s| s.shelf_id != id);
-        self.collapsed.retain(|s| *s != id);
-        self.active_shelf = id;
-        self.expanded = true;
         Ok(())
     }
     pub fn reconcile(&mut self, catalog: &[i64]) {
         self.detached.retain(|s| catalog.contains(&s.shelf_id));
         self.collapsed.retain(|s| catalog.contains(s));
-        if !catalog.contains(&self.active_shelf)
-            || self
-                .detached
-                .iter()
-                .any(|s| s.shelf_id == self.active_shelf)
-        {
-            self.active_shelf = catalog
-                .iter()
-                .find(|s| !self.detached.iter().any(|d| d.shelf_id == **s))
-                .copied()
-                .unwrap_or(0);
+        let mut used = HashSet::new();
+        for record in &mut self.detached {
+            if record.number == 0 || !used.insert(record.number) {
+                record.number = (1..=9).find(|n| !used.contains(n)).unwrap_or(0);
+                used.insert(record.number);
+            }
+        }
+        if !catalog.contains(&self.active_shelf) {
+            self.active_shelf = catalog.first().copied().unwrap_or(0);
         }
     }
     pub fn fold_entry(&mut self) -> bool {
