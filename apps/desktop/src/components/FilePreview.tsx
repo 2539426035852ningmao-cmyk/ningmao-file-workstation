@@ -17,12 +17,19 @@ export function FilePreview({item,backend,onClose,information}:{item:Item;backen
  },[backend,item.id,item.path,item.status]);
  const failed=()=>setError('当前文件或编码无法预览，可用默认程序打开。');
  const playerRef=useCallback((node:HTMLMediaElement|null)=>{const previous=media.current;if(previous&&previous!==node){previous.pause();previous.removeAttribute('src');previous.load();}media.current=node;},[]);
+ useEffect(()=>{
+   const key=(event:KeyboardEvent)=>{
+     if(event.isComposing||event.repeat)return;
+     if(event.key==='Escape'){event.preventDefault();event.stopPropagation();onClose();return;}
+     if(event.key!==' '||!media.current||event.target instanceof Element&&event.target.closest('input,textarea,select,button,[contenteditable=true]'))return;
+     event.preventDefault();event.stopPropagation();if(media.current.paused)void media.current.play().catch(failed);else media.current.pause();
+   };
+   // Capture ahead of native media controls and Radix's bubbling dismiss handler.
+   window.addEventListener('keydown',key,true);return()=>window.removeEventListener('keydown',key,true);
+ },[onClose]);
  return <Dialog.Root open onOpenChange={open=>{if(!open)onClose();}}><Dialog.Portal>
    <Dialog.Overlay className="shelf-menu-backdrop preview-backdrop"/>
-   <Dialog.Content ref={content} tabIndex={-1} className="file-preview-dialog" aria-describedby={undefined} onOpenAutoFocus={event=>{event.preventDefault();content.current?.focus();}} onKeyDownCapture={event=>{
-     if(event.key!==' '||event.nativeEvent.isComposing||event.repeat||!media.current||event.target instanceof Element&&event.target.closest('input,textarea,select,button,[contenteditable=true]'))return;
-     event.preventDefault();event.stopPropagation();if(media.current.paused)void media.current.play().catch(failed);else media.current.pause();
-   }}>
+   <Dialog.Content ref={content} tabIndex={-1} className="file-preview-dialog" aria-describedby={undefined} onOpenAutoFocus={event=>{event.preventDefault();content.current?.focus();}}>
     <header><Dialog.Title>快速预览</Dialog.Title><Dialog.Close asChild><Button variant="ghost" size="icon" aria-label="关闭预览"><X size={16}/></Button></Dialog.Close></header>
     <div className="preview-scroll"><h3 title={item.name}>{item.name}</h3><div className="preview-content" aria-busy={!file&&!error}>
       {!file&&!error&&<span role="status">正在读取…</span>}

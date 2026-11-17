@@ -16,6 +16,7 @@ test('选中项不再挤出详情和拖出按钮 空格内容预览居中且保�
 });
 
 test('音频不自动播放 空格播放暂停 Esc停止并释放 文字输入不抢键',async({page})=>{
+ await page.addInitScript(()=>document.addEventListener('keydown',event=>{if(event.key==='Escape'&&document.querySelector('audio')){event.preventDefault();event.stopImmediatePropagation();}},true));
  await page.setViewportSize({width:420,height:520});await page.goto('/tests/harness.html');
  await page.evaluate(()=>{
    const samples=80000,bytes=new Uint8Array(44+samples*2),view=new DataView(bytes.buffer);const word=(offset:number,value:string)=>{for(let i=0;i<value.length;i++)bytes[offset+i]=value.charCodeAt(i);};
@@ -28,6 +29,8 @@ test('音频不自动播放 空格播放暂停 Esc停止并释放 文字输入�
  await page.keyboard.press('Space');await expect.poll(()=>audio.evaluate((a:HTMLAudioElement)=>a.paused)).toBe(false);
  await page.keyboard.press('Space');await expect.poll(()=>audio.evaluate((a:HTMLAudioElement)=>a.paused)).toBe(true);
  await page.keyboard.press('Space');await expect.poll(()=>audio.evaluate((a:HTMLAudioElement)=>a.paused)).toBe(false);
+ // Model a media-control document listener consuming Escape ahead of Radix.
+ await audio.focus();
  const handle=await audio.elementHandle();await page.keyboard.press('Escape');await expect(page.getByRole('dialog')).toBeHidden();expect(await handle!.evaluate((a:HTMLAudioElement)=>a.paused&&a.getAttribute('src')===null)).toBe(true);
  await expect.poll(()=>page.evaluate(()=>localStorage.getItem('test-preview-released'))).toBe('synthetic-audio');
 });
