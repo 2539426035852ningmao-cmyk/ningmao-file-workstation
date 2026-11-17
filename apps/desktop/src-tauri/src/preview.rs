@@ -32,6 +32,7 @@ struct Permit {
 #[derive(Default)]
 pub struct Previews {
     permits: Mutex<HashMap<String, Arc<Permit>>>,
+    image_decoder: Mutex<()>,
 }
 impl Previews {
     pub fn close_owner(&self, owner: &str) {
@@ -73,6 +74,8 @@ fn media(ext: &str) -> Option<(&'static str, &'static str)> {
         "webm" => ("video", "video/webm"),
         "ogv" => ("video", "video/ogg"),
         "mov" => ("video", "video/quicktime"),
+        "pdf" => ("pdf", "application/pdf"),
+        "docx" | "pptx" | "xlsx" => ("office", "application/octet-stream"),
         _ => return None,
     })
 }
@@ -97,6 +100,107 @@ fn original_dimensions(source: &File) -> Result<(u32, u32)> {
         .into_dimensions()
         .map_err(error)
 }
+#[cfg(windows)]
+pub fn cached_shell_thumbnail(path: &std::path::Path) -> Option<String> {
+    use base64::Engine;
+    use std::{io::Cursor, mem::size_of, os::windows::ffi::OsStrExt};
+    use windows::{
+        Win32::{
+            Foundation::SIZE,
+            Graphics::Gdi::{
+                BI_RGB, BITMAP, BITMAPINFO, BITMAPINFOHEADER, CreateCompatibleDC, DIB_RGB_COLORS,
+                DeleteDC, DeleteObject, GetDIBits, GetObjectW, HGDIOBJ,
+            },
+            System::Com::{COINIT_MULTITHREADED, CoInitializeEx, CoUninitialize},
+            UI::Shell::{
+                IShellItemImageFactory, SHCreateItemFromParsingName, SIIGBF_INCACHEONLY,
+                SIIGBF_THUMBNAILONLY,
+            },
+        },
+        core::PCWSTR,
+    };
+    let source = open(path).ok()?;
+    let name: Vec<_> = path.as_os_str().encode_wide().chain(Some(0)).collect();
+    let pixels = unsafe {
+        CoInitializeEx(None, COINIT_MULTITHREADED).ok().ok()?;
+        let pixels = (|| {
+            let factory: IShellItemImageFactory =
+                SHCreateItemFromParsingName(PCWSTR(name.as_ptr()), None).ok()?;
+            let bitmap = factory
+                .GetImage(
+                    SIZE { cx: 256, cy: 256 },
+                    SIIGBF_INCACHEONLY | SIIGBF_THUMBNAILONLY,
+                )
+                .ok()?;
+            let object = HGDIOBJ(bitmap.0);
+            let pixels = (|| {
+                let mut info = BITMAP::default();
+                if GetObjectW(
+                    object,
+                    size_of::<BITMAP>() as i32,
+                    Some((&mut info as *mut BITMAP).cast()),
+                ) == 0
+                {
+                    return None;
+                }
+                let (width, height) = (info.bmWidth, info.bmHeight);
+                if !(1..=512).contains(&width) || !(1..=512).contains(&height) {
+                    return None;
+                }
+                let mut dib = BITMAPINFO {
+                    bmiHeader: BITMAPINFOHEADER {
+                        biSize: size_of::<BITMAPINFOHEADER>() as u32,
+                        biWidth: width,
+                        biHeight: -height,
+                        biPlanes: 1,
+                        biBitCount: 32,
+                        biCompression: BI_RGB.0,
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                };
+                let mut data = vec![0_u8; (width * height * 4) as usize];
+                let dc = CreateCompatibleDC(None);
+                if dc.is_invalid() {
+                    return None;
+                }
+                let lines = GetDIBits(
+                    dc,
+                    bitmap,
+                    0,
+                    height as u32,
+                    Some(data.as_mut_ptr().cast()),
+                    &mut dib,
+                    DIB_RGB_COLORS,
+                );
+                let _ = DeleteDC(dc);
+                if lines != height {
+                    return None;
+                }
+                let pixels = data.as_chunks_mut::<4>().0;
+                let opaque = pixels.iter().all(|pixel| pixel[3] == 0);
+                for pixel in pixels {
+                    pixel.swap(0, 2);
+                    if opaque {
+                        pixel[3] = 255;
+                    }
+                }
+                image::RgbaImage::from_raw(width as u32, height as u32, data)
+            })();
+            let _ = DeleteObject(object);
+            pixels
+        })();
+        CoUninitialize();
+        pixels
+    }?;
+    drop(source);
+    let mut output = Cursor::new(Vec::new());
+    pixels.write_to(&mut output, image::ImageFormat::Png).ok()?;
+    Some(format!(
+        "data:image/png;base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(output.into_inner())
+    ))
+}
 pub fn prepare_owned(
     app: &tauri::AppHandle,
     window: &tauri::WebviewWindow,
@@ -117,7 +221,7 @@ pub fn prepare_owned(
         .to_lowercase();
     let mut result = Prepared::empty();
     if ["png", "jpg", "jpeg", "webp"].contains(&ext.as_str()) {
-        let _decoder = runtime.thumbnail.lock().map_err(error)?;
+        let _decoder = runtime.previews.image_decoder.lock().map_err(error)?;
         let source = open(&path)?;
         result.dimensions = Some(original_dimensions(&source)?);
         result.url = store::image_preview(&path, 1600)?;
@@ -161,6 +265,11 @@ pub fn prepare_owned(
     } else if let Some((kind, mime)) = media(&ext) {
         let file = open(&path)?;
         let size = file.metadata().map_err(error)?.len();
+        if (kind == "pdf" && size > 64 * 1024 * 1024)
+            || (kind == "office" && size > 24 * 1024 * 1024)
+        {
+            return Err("文档超过快速预览大小限制，请双击用默认程序打开".into());
+        }
         if size == 0 {
             return Err("文件为空，无法播放".into());
         }
@@ -329,6 +438,7 @@ pub fn serve(app: &tauri::AppHandle, owner: &str, request: Request<Vec<u8>>) -> 
         })
     {
         builder = builder.header("Access-Control-Allow-Origin", origin);
+        builder = builder.header("Access-Control-Expose-Headers", "Content-Range");
     }
     if request.method() == "HEAD" {
         body.clear();
@@ -358,7 +468,7 @@ mod tests {
     }
     #[test]
     fn active_documents_are_not_media() {
-        for ext in ["html", "svg", "exe", "pdf", "lnk"] {
+        for ext in ["html", "svg", "exe", "lnk"] {
             assert!(media(ext).is_none());
         }
         assert_eq!(media("wav"), Some(("audio", "audio/wav")));

@@ -69,6 +69,7 @@ export function collect(repo) {
   const lock = json(join(app, 'package-lock.json'));
   for (const [path, pkg] of Object.entries(lock.packages)) {
     if (!path || pkg.dev) continue;
+    if (pkg.optional && /^node_modules\/@napi-rs\/canvas(?:-|$)/.test(path)) continue;
     const folder = resolve(app, path);
     inside(app, folder);
     if (!existsSync(folder)) throw new Error('production npm package not installed: ' + path);
@@ -91,7 +92,7 @@ export function collect(repo) {
   records.sort((a, b) => compare(a.ecosystem + '/' + a.name + '/' + a.version, b.ecosystem + '/' + b.name + '/' + b.version));
   const missing = records.filter(r => !r.texts.length).map(({ ecosystem, name, version }) => ({ ecosystem, name, version }));
   const warnings = records.filter(r => r.note).map(({ ecosystem, name, version, note }) => ({ ecosystem, name, version, note }));
-  const scope = 'Windows x64 normal Cargo dependencies (excluding build/proc-macro), installed non-dev npm lock entries (conservative superset), copied source notices and Rust toolchain root notices. Collected text is not a complete legal/security audit or byte-level SBOM; bundled/native subcomponent obligations still require review.';
+  const scope = 'Windows x64 normal Cargo dependencies (excluding build/proc-macro), installed non-dev npm lock entries (excluding the PDF.js Node-only optional @napi-rs/canvas packages), copied source notices and Rust toolchain root notices. Collected text is not a complete legal/security audit or byte-level SBOM; bundled/native subcomponent obligations still require review.';
   const manifest = { schema: 1, scope, missing, warnings, packages: records.map(({ texts, ...r }) => ({ ...r, files: texts.map(({ text, ...t }) => t) })) };
   const text = ['Ningmao File Workstation Preview — THIRD PARTY NOTICES', scope,
     'Open review items: ' + JSON.stringify({ missing, warnings }, null, 2),

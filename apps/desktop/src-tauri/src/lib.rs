@@ -1064,17 +1064,32 @@ async fn thumbnail(
     window: tauri::WebviewWindow,
     id: i64,
 ) -> Result<Option<String>> {
+    trusted_native_origin(&window)?;
     let scope = shelf_windows::scope(&window)?;
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<Runtime>();
         let path = {
             let store = state.store.lock().map_err(error)?;
             store.validate_item_scope(scope, &[id])?;
-            store.item_path(id)?
+            store.opening_target(id)?
         };
         // ponytail: one bounded decoder at a time; use a measured worker pool if throughput needs it.
         let _slot = state.thumbnail.lock().map_err(error)?;
-        store::thumbnail(&path)
+        if let Some(image) = store::thumbnail(&path)? {
+            return Ok(Some(image));
+        }
+        #[cfg(windows)]
+        if matches!(
+            path.extension()
+                .and_then(|value| value.to_str())
+                .unwrap_or("")
+                .to_ascii_lowercase()
+                .as_str(),
+            "pdf" | "docx" | "pptx" | "xlsx" | "mp4" | "m4v" | "webm" | "ogv" | "mov"
+        ) {
+            return Ok(preview::cached_shell_thumbnail(&path));
+        }
+        Ok(None)
     })
     .await
     .map_err(error)?

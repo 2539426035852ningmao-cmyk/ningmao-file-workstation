@@ -515,6 +515,29 @@ html *::-webkit-scrollbar{width:8px;height:8px}html *::-webkit-scrollbar-track{b
 .file-preview-dialog{width:min(560px,calc(100vw - 40px));max-height:calc(100dvh - 40px);padding:20px;display:flex;flex-direction:column;gap:12px}
 .file-preview-dialog>header{display:flex;align-items:flex-start;gap:12px;flex-shrink:0}.file-preview-dialog>header>h3{flex:1;min-width:0;font-size:16px;font-weight:600;overflow-wrap:anywhere;margin:0;text-wrap:balance}.file-preview-dialog>header>button{flex-shrink:0}
 .preview-scroll{display:flex;flex-direction:column;gap:12px;overflow:auto;min-height:0}.preview-content{min-height:0;flex-shrink:1}.preview-content :is(img,video){max-width:100%;max-height:calc(100dvh - 240px);width:auto;height:auto;object-fit:contain;margin:auto;display:block}.preview-content pre{max-height:calc(100dvh - 240px);overflow:auto}.preview-summary{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--muted-text);font-variant-numeric:tabular-nums;flex-shrink:0}.preview-path{font-size:12px;color:var(--muted-text);flex-shrink:0}.preview-path p{overflow-wrap:anywhere;margin:8px 0 0}
+.file-preview-dialog{animation:preview-arrive 180ms var(--shelf-ease)}
+@keyframes preview-arrive{from{opacity:0;scale:.985;translate:0 4px}to{opacity:1;scale:1;translate:0 0}}
+.preview-scroll{scrollbar-gutter:stable both-edges;overflow-anchor:none}
+.preview-scroll>.preview-content{flex:none;margin-bottom:0}
+.preview-scroll>.preview-player{flex:none}
+.preview-player>button{flex:none}
+.preview-player input[type=range]{min-width:0}
+.preview-image-stage{height:max(56px,calc(100dvh - 240px));display:grid;place-items:center}
+.preview-image-stage img{width:100%;height:100%;min-height:0}
+.preview-path-toggle{display:flex;align-items:center;gap:5px;background:none;color:inherit;border:0;padding:2px 0;cursor:pointer}
+.preview-path-toggle span{transition:rotate 180ms var(--shelf-ease)}
+.preview-path-toggle[aria-expanded=true] span{rotate:90deg}
+.preview-path-reveal{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows 210ms var(--shelf-ease),opacity 160ms ease}
+.preview-path-reveal[data-expanded=true]{grid-template-rows:1fr;opacity:1}
+.preview-path-reveal>div{overflow:hidden;min-height:0;user-select:text}
+.document-preview canvas{display:block;max-width:100%;height:auto;margin:auto;background:white}
+.document-preview nav{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:8px}
+.document-preview table{border-collapse:collapse}
+.document-preview td{padding:4px 8px;vertical-align:top;overflow-wrap:anywhere;border-bottom:1px solid var(--secondary)}
+.document-preview .document-table{overflow:auto}
+.document-icon{position:relative;display:grid;place-items:center}
+.document-icon b{position:absolute;bottom:1px;padding:1px 4px;border-radius:4px;color:var(--text);background:var(--secondary);font-size:10px;line-height:14px}
+@media(prefers-reduced-motion:reduce){.file-preview-dialog{animation:none}.preview-path-reveal,.preview-path-toggle span{transition:none}}
 
 .audio-waveform{display:flex;align-items:center;gap:8px;position:relative;min-width:0;flex-wrap:wrap;width:100%;padding:8px;border-radius:12px;background:var(--surface-raised,var(--surface))}.audio-waveform audio{display:none}.audio-waveform>button{display:grid;place-items:center;flex:0 0 28px;width:28px;height:28px;border:0;border-radius:50%;color:var(--text);background:var(--accent);cursor:pointer}.audio-wave-track{flex:1;min-width:20px;height:48px;cursor:pointer;outline-offset:3px}.audio-wave-track svg{width:100%;height:100%;overflow:visible}.audio-wave-base{stroke:var(--muted-text);stroke-width:.7;fill:none}.audio-wave-played{stroke:var(--blue);stroke-width:.7;fill:none}.audio-wave-time{width:calc(100% - 36px);font-size:12px;font-variant-numeric:tabular-nums;color:var(--muted-text);text-align:right}.audio-wave-error{font-size:12px;width:100%;margin:0}.audio-wave-loading{display:block;margin-top:24px;height:1px;background:var(--line)}
 .audio-waveform-compact{position:absolute;z-index:2;top:20px;left:6px;width:calc(100% - 12px);padding:2px;gap:3px;background:transparent}.audio-waveform-compact .audio-wave-track{height:40px}.audio-waveform-compact>button{width:24px;height:24px;flex-basis:24px}.asset-row .audio-waveform-compact{left:auto;right:8px;top:3px;width:110px}.asset-row:has(.audio-waveform) .asset-select{grid-template-columns:30px minmax(0,1fr)}.asset-row:has(.audio-waveform) .asset-name{margin-right:110px}.asset-row:has(.audio-waveform) :is(.asset-meta,.asset-bytes){display:none}
