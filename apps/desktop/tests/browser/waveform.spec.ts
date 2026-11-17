@@ -18,3 +18,10 @@ test('卡片真实波形可定位试听，跨窗口独占，暂停恢复，预�
  await page.bringToFront();await page.getByRole('button',{name:'选择 试听1.wav',exact:true}).click();await page.keyboard.press('Space');const preview=page.getByRole('dialog',{name:'快速预览',exact:true});await preview.getByRole('button',{name:'播放 试听1.wav',exact:true}).click();await expect.poll(()=>second.evaluate((p:HTMLAudioElement)=>p.paused)).toBe(true);await page.keyboard.press('Escape');await expect(preview).toHaveCount(0);
  await expect.poll(()=>page.evaluate(()=>localStorage.getItem('test-preview-released'))).toBe('audio-1');
 });
+test('延迟完成的旧播放请求不能暂停后续的重新播放',async({page})=>{
+ await page.addInitScript(()=>{const original=HTMLMediaElement.prototype.play;Object.assign(window,{testAudioSettled:0});HTMLMediaElement.prototype.play=function(){return original.call(this).then(()=>new Promise<void>(resolve=>setTimeout(resolve,500)),error=>new Promise<void>((_,reject)=>setTimeout(()=>reject(error),500))).finally(()=>{const w=window as unknown as {testAudioSettled:number};w.testAudioSettled++;});};});
+ await audioFixture(page);const audio=page.getByLabel('音频试听 试听1.wav',{exact:true});
+ await page.getByRole('button',{name:'播放 试听1.wav',exact:true}).click();await page.getByRole('button',{name:'暂停 试听1.wav',exact:true}).click();await page.getByRole('button',{name:'播放 试听1.wav',exact:true}).click();
+ await expect.poll(()=>page.evaluate(()=>(window as unknown as {testAudioSettled:number}).testAudioSettled)).toBe(2);
+ expect(await audio.evaluate((p:HTMLAudioElement)=>p.paused)).toBe(false);await expect(page.getByRole('button',{name:'暂停 试听1.wav',exact:true})).toBeVisible();
+});

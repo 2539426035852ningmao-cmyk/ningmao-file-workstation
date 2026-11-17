@@ -26,22 +26,22 @@ export function AudioWaveform({item,backend,prepared,compact=false,onActivate}:{
  },[backend,cacheKey,compact,item.id,stop]);
  async function play(at?:number){
    const p=player.current;if(!p)return;
-   if(at===undefined&&!p.paused){p.pause();return;}
+   if(at===undefined&&!p.paused){generation.current++;p.pause();return;}
    onActivate?.();claimPlayback(key.current);const request=++generation.current;
    if(at!==undefined)positionRef.current=Math.max(0,at);
    try{
      if(!p.getAttribute('src')){const file=prepared??await backend.previewPrepare?.(item.id);if(!file?.url||file.kind!=='audio')throw new Error('此音频暂时无法播放');if(request!==generation.current||!ownsPlayback(key.current)){if(!prepared&&file.ticket)void backend.previewRelease?.(file.ticket);return;}if(!prepared)ownedTicket.current=file.ticket??null;p.src=file.url;}
      if(request!==generation.current||!ownsPlayback(key.current))return;
      if(p.readyState>=1)p.currentTime=Math.min(positionRef.current,Number.isFinite(p.duration)?p.duration:positionRef.current);
-     await p.play();if(request!==generation.current||!ownsPlayback(key.current))p.pause();
-   }catch(e){setError(String(e));stop();}
+     await p.play();
+   }catch(e){if(request===generation.current&&ownsPlayback(key.current)){setError(String(e));stop();}}
  }
  const total=duration||wave?.duration||0,ratio=total?Math.max(0,Math.min(1,position/total)):0;
  const peaks=wave?.peaks??[],bars=Array.from({length:Math.min(128,peaks.length)},(_,i)=>{const start=Math.floor(i*peaks.length/Math.min(128,peaks.length)),end=Math.max(start+1,Math.floor((i+1)*peaks.length/Math.min(128,peaks.length)));return Math.max(...peaks.slice(start,end));});
  const maximum=Math.max(.001,...bars);
  const path=bars.map((p,i)=>{const h=Math.max(.5,Math.sqrt(p/maximum)*20);return `M${i+.5},${24-h}v${h*2}`;}).join(' ');
  return <div ref={host} className={`audio-waveform${compact?' audio-waveform-compact':''}`} data-no-window-drag onPointerDown={e=>e.stopPropagation()} onDoubleClick={e=>e.stopPropagation()}>
-   <audio ref={playerRef} src={prepared?.url??undefined} preload="metadata" aria-label={`音频试听 ${item.name}`} onLoadedMetadata={()=>{const p=player.current;if(p){setDuration(Number.isFinite(p.duration)?p.duration:0);p.currentTime=Math.min(positionRef.current,Number.isFinite(p.duration)?p.duration:positionRef.current);}}} onPlay={()=>{if(!ownsPlayback(key.current)){player.current?.pause();return;}setPlaying(true);}} onPause={()=>setPlaying(false)} onEnded={()=>setPlaying(false)} onTimeUpdate={()=>{const n=player.current?.currentTime??0;positionRef.current=n;setPosition(n);}} onError={()=>{if(player.current?.getAttribute('src'))setError('当前音频无法播放');}}/>
+   <audio ref={playerRef} src={prepared?.url??undefined} preload="metadata" aria-label={`音频试听 ${item.name}`} onLoadedMetadata={()=>{const p=player.current;if(p){setDuration(Number.isFinite(p.duration)?p.duration:0);p.currentTime=Math.min(positionRef.current,Number.isFinite(p.duration)?p.duration:positionRef.current);}}} onPlay={()=>{if(!ownsPlayback(key.current)){player.current?.pause();return;}setPlaying(!!player.current&&!player.current.paused);}} onPause={()=>setPlaying(!!player.current&&!player.current.paused)} onEnded={()=>setPlaying(!!player.current&&!player.current.paused)} onTimeUpdate={()=>{const n=player.current?.currentTime??0;positionRef.current=n;setPosition(n);}} onError={()=>{if(player.current?.getAttribute('src'))setError('当前音频无法播放');}}/>
    <button type="button" data-audio-toggle aria-label={playing?`暂停 ${item.name}`:`播放 ${item.name}`} onClick={()=>void play()}>{playing?<Pause size={16}/>:<Play size={16}/>}</button>
    <div className="audio-wave-track" role="slider" tabIndex={0} aria-label={`试听进度 ${item.name}`} aria-valuemin={0} aria-valuemax={total} aria-valuenow={position} aria-valuetext={`${time(position)} / ${time(total)}`} title={error||undefined} onClick={e=>{if(total){const rect=e.currentTarget.getBoundingClientRect();void play(Math.max(0,Math.min(1,(e.clientX-rect.left)/rect.width))*total);}}} onKeyDown={e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();e.stopPropagation();void play();}else if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();e.stopPropagation();void play(Math.max(0,Math.min(total,positionRef.current+(e.key==='ArrowRight'?5:-5))));}}}>
      {wave?<svg viewBox={`0 0 ${Math.max(1,bars.length)} 48`} preserveAspectRatio="none" aria-hidden="true"><path d={path} className="audio-wave-base"/><path d={path} className="audio-wave-played" style={{clipPath:`inset(0 ${100-ratio*100}% 0 0)`}}/></svg>:<span className="audio-wave-loading" aria-hidden="true"/>}
