@@ -9,7 +9,7 @@ use serde::Serialize;
 use std::{
     collections::HashMap,
     fs::{File, OpenOptions},
-    io::{Read, Seek, SeekFrom},
+    io::{BufReader, Read, Seek, SeekFrom},
     path::PathBuf,
     sync::{Arc, Mutex},
     time::{Duration, Instant},
@@ -47,6 +47,7 @@ pub struct Prepared {
     text: Option<String>,
     ticket: Option<String>,
     truncated: bool,
+    dimensions: Option<(u32, u32)>,
 }
 impl Prepared {
     fn empty() -> Self {
@@ -56,6 +57,7 @@ impl Prepared {
             text: None,
             ticket: None,
             truncated: false,
+            dimensions: None,
         }
     }
 }
@@ -74,7 +76,7 @@ fn media(ext: &str) -> Option<(&'static str, &'static str)> {
         _ => return None,
     })
 }
-fn open(path: &std::path::Path) -> Result<File> {
+pub(crate) fn open(path: &std::path::Path) -> Result<File> {
     let mut options = OpenOptions::new();
     options.read(true);
     #[cfg(windows)]
@@ -87,6 +89,13 @@ fn open(path: &std::path::Path) -> Result<File> {
         return Err("仅预览普通文件".into());
     }
     Ok(file)
+}
+fn original_dimensions(source: &File) -> Result<(u32, u32)> {
+    image::ImageReader::new(BufReader::new(source))
+        .with_guessed_format()
+        .map_err(error)?
+        .into_dimensions()
+        .map_err(error)
 }
 pub fn prepare_owned(
     app: &tauri::AppHandle,
@@ -109,6 +118,8 @@ pub fn prepare_owned(
     let mut result = Prepared::empty();
     if ["png", "jpg", "jpeg", "webp"].contains(&ext.as_str()) {
         let _decoder = runtime.thumbnail.lock().map_err(error)?;
+        let source = open(&path)?;
+        result.dimensions = Some(original_dimensions(&source)?);
         result.url = store::image_preview(&path, 1600)?;
         result.kind = "image";
     } else if [
@@ -351,5 +362,17 @@ mod tests {
             assert!(media(ext).is_none());
         }
         assert_eq!(media("wav"), Some(("audio", "audio/wav")));
+    }
+    #[test]
+    fn image_metadata_uses_original_dimensions_without_changing_source() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("portrait.png");
+        image::RgbImage::new(480, 960).save(&path).unwrap();
+        let before = std::fs::read(&path).unwrap();
+        assert_eq!(
+            original_dimensions(&open(&path).unwrap()).unwrap(),
+            (480, 960)
+        );
+        assert_eq!(std::fs::read(&path).unwrap(), before);
     }
 }

@@ -58,7 +58,9 @@ export function collect(repo) {
       source = override.source;
       note = override.note;
     }
-    records.push({ ecosystem, name, version, license, source, ...(note ? { note } : {}), texts });
+    const sourceArchive = ecosystem === 'cargo' && name.startsWith('symphonia') && version === '0.5.5'
+      ? `https://crates.io/api/v1/crates/${name}/${version}/download` : undefined;
+    records.push({ ecosystem, name, version, license, source, ...(sourceArchive ? { sourceArchive } : {}), ...(note ? { note } : {}), texts });
   }
   for (const pkg of metadata.packages) {
     if (!pkg.source || !runtime.has(pkg.name + ' v' + pkg.version)) continue;
@@ -94,6 +96,7 @@ export function collect(repo) {
   const text = ['Ningmao File Workstation Preview — THIRD PARTY NOTICES', scope,
     'Open review items: ' + JSON.stringify({ missing, warnings }, null, 2),
     ...records.flatMap(r => ['\n' + '='.repeat(72), r.ecosystem + ': ' + r.name + '@' + r.version, 'Declared license: ' + r.license, 'Source: ' + r.source,
+      ...(r.sourceArchive ? ['Unmodified MPL-2.0 source is available at: ' + r.sourceArchive] : []),
       ...(r.note ? [r.note] : []), ...r.texts.flatMap(t => ['\n--- ' + t.path + ' SHA256 ' + t.sha256 + ' ---\n', t.text])])].join('\n');
   const out = join(app, '.license-bundle');
   mkdirSync(out, { recursive: true });

@@ -20,6 +20,7 @@ pub mod transfer_runtime;
 pub mod transfer_sender;
 pub mod transfer_tasks;
 mod wake_shortcut;
+mod waveform;
 mod web_device;
 mod web_transfer_bridge;
 mod web_transfer_receive;
@@ -75,6 +76,7 @@ struct Runtime {
     store: Mutex<Store>,
     active: Mutex<Option<(i64, Arc<AtomicBool>)>>,
     thumbnail: Mutex<()>,
+    waveforms: waveform::Analysis,
     #[cfg(windows)]
     duplicate_scan: duplicate_control::ScanControl,
     data_root: PathBuf,
@@ -2161,6 +2163,7 @@ pub fn run() {
                 ),
                 active: Mutex::new(None),
                 thumbnail: Mutex::new(()),
+                waveforms: Default::default(),
                 #[cfg(windows)]
                 duplicate_scan: Default::default(),
                 data_root: root.clone(),
@@ -2221,6 +2224,7 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
+            if matches!(event, tauri::WindowEvent::Destroyed) {desktop_runtime::release_form(window.app_handle(),window.label());}
             if matches!(event, tauri::WindowEvent::Destroyed) && let Some(state) = window.app_handle().try_state::<Runtime>() {
                 state.previews.close_owner(window.label());
             }
@@ -2366,6 +2370,8 @@ pub fn run() {
             reorder,
             thumbnail,
             preview::preview_prepare,
+            waveform::waveform_prepare,
+            desktop_runtime::form_guard,
             preview::preview_release,
             begin_duplicate_scan,
             cancel_duplicate_scan,

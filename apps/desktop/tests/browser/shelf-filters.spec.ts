@@ -70,7 +70,7 @@ for(const [width,height,theme] of [[340,320,"light"],[420,520,"dark"],[640,720,"
     const results=dialog.getByRole("button",{name:"查看结果",exact:true});await results.focus();await expect(results).toBeInViewport();
     await page.keyboard.press("Escape");await expect(dialog).toHaveCount(0);
     await page.getByRole("button",{name:"选择 Alpha.txt",exact:true}).click();
-    await expect(page.getByRole("button",{name:"清除筛选",exact:true})).toBeVisible();await expect(page.getByText("仅保存引用",{exact:true})).not.toBeVisible();await expect(page.getByRole("button",{name:"添加引用",exact:true})).toBeVisible();await expect(page.getByRole("button",{name:"拖出复制",exact:true})).toHaveCount(0);
+    await expect(page.getByRole("button",{name:"清除筛选",exact:true})).toBeVisible();await expect(page.getByText("仅保存引用",{exact:true})).not.toBeVisible();await expect(page.getByRole("button",{name:"刷新当前文件架",exact:true})).toBeVisible();await expect(page.getByRole("button",{name:"拖出复制",exact:true})).toHaveCount(0);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await capture(page,`active-${width}-${theme}`);
   });
 }

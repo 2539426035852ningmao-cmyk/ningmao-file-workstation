@@ -96,3 +96,10 @@ M1-03 原生后端及模板源自本仓 M1-02，create-tauri-app/drag-rs MIT 全
 按官方[Messages请求](https://platform.claude.com/docs/en/api/http/messages/create)、[SSE说明](https://platform.claude.com/docs/en/build-with-claude/streaming)与[版本说明](https://platform.claude.com/docs/en/api/versioning)独立实现，使用2026-10-21版本头、x-api-key、max_tokens及文本增量/message_stop。查阅官方anthropic-sdk-typescript的Messages接口作为协议对照，未复制SDK代码、引入SDK或新增运行依赖。现有reqwest/serde_json、会话、DPAPI和取消逻辑复用；仅官方api.anthropic.com按Messages处理，其他地址继续既有OpenAI-compatible，自定义Anthropic网关尚未支持。
 
 LM Studio/Ollama地址建议仅按[LM Studio兼容文档](https://lmstudio.ai/docs/developer/openai-compat)和[Ollama兼容文档](https://docs.ollama.com/api/openai-compatibility)列举本机示例，端口可编辑，不表示服务或模型已验证。开发使用自建合成HTTP/SSE服务，不使用第三方OAuth、不下载/分发模型、不把网页会员当API额度。用户单独批准的一次已有本地GGUF测试，详情见ACTIVE-DELIVERY；许可清单原警告仍保留，不据此批准正式发行。
+
+## D10 真实音频波形（2026-11-18）
+
+- 直接依赖 Symphonia 精确锁定0.5.5，发布crate VCS提交6d533f26150953a882a6a111ebd13f0abf7129d5。上游 https://github.com/pdeljanov/Symphonia ，许可证MPL-2.0；通过公共API调用，未复制或修改依赖源文件。本仓库waveform.rs为独立实现，流式解码后仅保留有界PCM峰值，不改变既有React/Tauri框架。
+- Symphonia及同版本codec/format/core子crate的源代码可从 https://github.com/pdeljanov/Symphonia/tree/6d533f26150953a882a6a111ebd13f0abf7129d5 获取，精确发布包可用 https://crates.io/api/v1/crates/symphonia/0.5.5/download 获取；其余依赖以Cargo.lock的名称/版本从crates.io获取。MPL覆盖文件保持原许可，应用自有文件不因此改许可。完整原始LICENSE随现有许可归集打入预览包THIRD_PARTY_NOTICES，source/版本及原文SHA在license-manifest记录；新增运行依赖18包，不升级既有包。
+- 波形采样不依赖浏览器整文件decodeAudioData，不引入波形UI框架；浏览器只播放原有受限预览URL。单实例串行后台采样（若未来大批量长音频吞吐不足，再依据测量调整），32个原生/64个渲染器缓存，512MiB、2小时和12秒有界降级，支持情况以真实解码/运行时媒体能力为准。
+D10打包实测发现13个Symphonia发布crate均未附LICENSE原文，已逐个核验.cargo_vcs_info.json为同一提交，从该提交根LICENSE原样补齐；SHA256 c76f740d1521b9bed9ca7a04ad526c310493c62621b1341d623b431736533b30，13项精确映射写入licenses/package-overrides.json。没有用其他版本许可替代。归集440项、0缺失，保留原有1项react-remove-scroll-bar精确源码映射警告。

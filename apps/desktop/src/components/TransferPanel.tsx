@@ -1,3 +1,4 @@
+import {useDraftState} from "../drafts";
 import {useEffect,useRef,useState} from "react";
 import {X} from "lucide-react";
 import {DesktopWebInbox} from "./DesktopWebInbox";
@@ -5,7 +6,7 @@ import {DesktopWebOutbox} from "./DesktopWebOutbox";
 import {Button} from "./ui/button";
 import {Input} from "./ui/input";
 import {Tabs,TabsList,TabsTrigger,TabsContent} from "./ui/tabs";
-import {Sheet,SheetContent,SheetDescription,SheetHeader,SheetTitle} from "./ui/sheet";
+import {Sheet,SheetContent,SheetHeader,SheetTitle} from "./ui/sheet";
 import type {Shelf} from "../backend";
 import type {NearbyDevice,TransferBackend,TransferProgress,TransferResult,TransferView,WebDeviceStatus,WebSourceInfo} from "../transferBackend";
 
@@ -22,7 +23,7 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
   // The fixed error band reduces the viewport; keep the correction field visible.
   useEffect(()=>{if(error)content.current?.querySelector<HTMLElement>(":focus")?.scrollIntoView({block:"nearest"});},[error]);
   const [copied,setCopied]=useState("");
-  const [connection,setConnection]=useState("");
+  const [connection,setConnection,,draftWarning]=useDraftState("transfer-connection","");
   const [known,setKnown]=useState<string[]>([]);
   useEffect(()=>{if(open&&backend.peers)void backend.peers().then(peers=>setKnown(peers.map(peer=>peer.fingerprint))).catch(e=>setError(String(e)));},[backend,open]);
   const [devices,setDevices]=useState<NearbyDevice[]>([]),[finding,setFinding]=useState(false),[deviceName,setDeviceName]=useState("");
@@ -47,7 +48,7 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
     catch(e){setError(`Web 文件源预检失败：${String(e)}`);}
     finally{setWebChecking(false);}
   }
-  const [webEndpoint,setWebEndpoint]=useState(""),[webPairCode,setWebPairCode]=useState("");
+  const [webEndpoint,setWebEndpoint,,webEndpointWarning]=useDraftState("transfer-web-endpoint",""),[webPairCode,setWebPairCode]=useState("");
   const [webDevice,setWebDevice]=useState<WebDeviceStatus|null>(null);
   const [webPairBusy,setWebPairBusy]=useState(false),[webPairNotice,setWebPairNotice]=useState("");
   const statusReading=useRef(false);
@@ -105,7 +106,7 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
   const [browserReady,setBrowserReady]=useState(false),[browserBusy,setBrowserBusy]=useState(false),[browserCode,setBrowserCode]=useState(""),[browserStatus,setBrowserStatus]=useState("");
   useEffect(()=>{if(!open||!backend.browserAvailable)return;let live=true;void backend.browserAvailable().then(value=>{if(live)setBrowserReady(value);}).catch(()=>{if(live)setBrowserReady(false);});return()=>{live=false;};},[backend,open]);
   async function browserShare(){if(browserBusy||!backend.browserSend)return;const code=crypto.randomUUID();setBrowserCode(code);setBrowserBusy(true);setBrowserStatus("等待浏览器接收；最长十分钟，断线会提前结束");setError("");try{const result=await backend.browserSend(selection.shelf_id,selection.files.map(file=>file.id),code);setBrowserStatus(result.status==="completed"?"对方已确认内容校验":result.status==="cancelled"?"已停止，来源保留":"未确认完成，请核对接收结果");}catch(e){setError(String(e));setBrowserCode("");}finally{setBrowserBusy(false);}}
-  const [address,setAddress]=useState(""),[fingerprint,setFingerprint]=useState(""),[bindAddress,setBindAddress]=useState(""),[target,setTarget]=useState(0);
+  const [address,setAddress,,addressWarning]=useDraftState("transfer-address",""),[fingerprint,setFingerprint,,fingerprintWarning]=useDraftState("transfer-fingerprint",""),[bindAddress,setBindAddress,,bindAddressWarning]=useDraftState("transfer-bind",""),[target,setTarget,,targetWarning]=useDraftState("transfer-target",0);
   const [working,setWorking]=useState(false),[sending,setSending]=useState(false),[cancelling,setCancelling]=useState(false),[progress,setProgress]=useState<TransferProgress|null>(null),[result,setResult]=useState<TransferResult|null>(null);
   const pendingId=useRef<string|null>(null),live=useRef(true),show=useRef(onOpenChange);show.current=onOpenChange;
   const bound=shelves.filter(s=>s.kind==="bound"&&s.available);
@@ -117,8 +118,8 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
   async function copy(value:string,label:string){try{await navigator.clipboard.writeText(value);setCopied(`已复制${label}`);setError("");}catch{setError(`复制${label}失败，请手动选中文本复制。`);}}
   async function send(){if(sending||view.sending)return;setSending(true);setCancelling(false);setProgress(null);setResult(null);setError("");try{if(deviceName&&!known.includes(fingerprint)&&backend.pair){await backend.pair(deviceName,address.trim(),fingerprint.trim());setKnown(value=>[...value,fingerprint]);}const outcome=await backend.send(selection.shelf_id,selection.files.map(file=>file.id),address.trim(),fingerprint.trim());if(live.current)setResult(outcome);}catch(e){if(live.current)setError(String(e));}finally{if(live.current){setSending(false);setCancelling(false);void backend.view().then(setView).catch(e=>setError(String(e)));}}}
   const activeSend=sending||view.sending;
-  return <Sheet open={open} onOpenChange={onOpenChange}><SheetContent className="transfer-panel" showCloseButton={false}>
-    <SheetHeader><SheetTitle>文件互传</SheetTitle><SheetDescription>两台电脑连接同一 Wi-Fi 或局域网；原文件不会被移走</SheetDescription></SheetHeader>
+  return <Sheet protect open={open} onOpenChange={onOpenChange}><SheetContent className="transfer-panel" showCloseButton={false}>
+    {(draftWarning||webEndpointWarning||addressWarning||fingerprintWarning||bindAddressWarning||targetWarning)&&<p role="alert">草稿暂时无法保存，请保留当前窗口。</p>}<SheetHeader><SheetTitle>文件互传</SheetTitle></SheetHeader>
     <Button className="transfer-close" variant="ghost" size="icon" aria-label="关闭文件互传" onClick={()=>onOpenChange(false)}><X size={16}/></Button>
     {error&&<p className="transfer-error" role="alert">{error}</p>}
     <Tabs className="transfer-workspace" value={mode} onValueChange={value=>setMode(value as "send"|"receive")}>

@@ -26,6 +26,7 @@ pub struct Desktop {
     pub sense_enabled: AtomicBool,
     pub sense_running: AtomicBool,
     native_dialogs: AtomicUsize,
+    protected_forms: Mutex<std::collections::HashSet<String>>,
     close_epoch: AtomicUsize,
     close_requests: Mutex<HashMap<String, usize>>,
     peek_target: AtomicI64,
@@ -106,6 +107,7 @@ impl Desktop {
             sense_enabled: AtomicBool::new(false),
             sense_running: AtomicBool::new(false),
             native_dialogs: AtomicUsize::new(0),
+            protected_forms: Mutex::new(Default::default()),
             close_epoch: AtomicUsize::new(0),
             close_requests: Mutex::new(HashMap::new()),
             peek_target: AtomicI64::new(0),
@@ -414,6 +416,9 @@ pub fn present(app: &tauri::AppHandle, id: i64, kind: crate::entry::Kind) -> Res
     Ok(())
 }
 pub fn collapse(app: &tauri::AppHandle, id: i64) -> Result<()> {
+    if form_is_protected(app, "main")? {
+        return Err("请先关闭正在编辑的表单。".into());
+    }
     require_idle(app)?;
     known_shelf(app, id)?;
     let state = app.state::<Desktop>();
@@ -877,6 +882,9 @@ pub fn setup(app: &tauri::AppHandle, root: &Path) -> Result<()> {
     Ok(())
 }
 pub fn close_file_window(window: &tauri::Window) -> Result<()> {
+    if form_is_protected(window.app_handle(), window.label())? {
+        return Ok(());
+    }
     if let Some(id) = crate::desktop::detached_id(window.label()) {
         return crate::shelf_windows::merge(window.app_handle(), id);
     }
@@ -932,6 +940,39 @@ pub fn close_file_window(window: &tauri::Window) -> Result<()> {
             }
         });
     });
+    Ok(())
+}
+
+pub fn form_is_protected(app: &tauri::AppHandle, label: &str) -> Result<bool> {
+    let state = app.state::<Desktop>();
+    let forms = state.protected_forms.lock().map_err(error)?;
+    Ok(forms.contains(label) || (label == "main" && !forms.is_empty()))
+}
+pub fn release_form(app: &tauri::AppHandle, label: &str) {
+    if let Some(state) = app.try_state::<Desktop>()
+        && let Ok(mut forms) = state.protected_forms.lock()
+        && forms.remove(label)
+    {
+        state.native_dialogs.fetch_sub(1, Ordering::SeqCst);
+    }
+}
+#[tauri::command]
+pub fn form_guard(app: tauri::AppHandle, window: tauri::WebviewWindow, active: bool) -> Result<()> {
+    crate::trusted_native_origin(&window)?;
+    if !crate::desktop::permits(window.label(), crate::desktop::Scope::Desktop)
+        && crate::desktop::detached_id(window.label()).is_none()
+    {
+        return Err("未知表单窗口".into());
+    }
+    let state = app.state::<Desktop>();
+    let mut forms = state.protected_forms.lock().map_err(error)?;
+    if active {
+        if forms.insert(window.label().to_owned()) {
+            state.native_dialogs.fetch_add(1, Ordering::SeqCst);
+        }
+    } else if forms.remove(window.label()) {
+        state.native_dialogs.fetch_sub(1, Ordering::SeqCst);
+    }
     Ok(())
 }
 
