@@ -29,5 +29,9 @@ test("主子窗口底部保留空白横条，最小窗口不产生横向溢出",
     const bounds=await page.locator('.window-status-strip').boundingBox();
     expect(bounds!.y+bounds!.height).toBeLessThanOrEqual(320);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    if(url.includes('shelf=')){
+      const name=page.locator('.shelf-switch>span').last();
+      expect(await name.evaluate(e=>e.scrollWidth<=e.clientWidth)).toBe(true);
+    }
   }
 });

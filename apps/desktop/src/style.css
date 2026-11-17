@@ -496,3 +496,5 @@ html[data-reduce-motion="true"] :is(.workstation,.shelf-header,.shelf-search,.sh
 
 .window-status-strip{height:32px;flex:0 0 32px;background:var(--surface);border-radius:0 0 20px 20px;position:relative;z-index:1}
 .child-window-choice{display:flex;align-items:center;gap:4px}.child-window-choice>[role=menuitem]{flex:1;min-width:0;display:flex;gap:10px}.child-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.child-number{font-variant-numeric:tabular-nums;min-width:16px;text-align:center;color:var(--muted-foreground);flex-shrink:0}.child-window-choice>button{display:grid;place-items:center;width:28px;height:28px;border:0;border-radius:6px;background:transparent;color:inherit;flex-shrink:0}.child-window-choice>button:hover{background:var(--accent)}
+.shelf-switch>.child-number{flex:0 0 16px;min-width:16px;text-align:center;font-size:12px;font-weight:400}
+.workstation:has(.shelf-switch>.child-number) .titlebar-drag-space{min-width:8px}
