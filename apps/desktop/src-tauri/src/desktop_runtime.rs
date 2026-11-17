@@ -433,10 +433,8 @@ pub fn collapse(app: &tauri::AppHandle, id: i64) -> Result<()> {
             l.collapse(id);
         } else {
             l.enabled = true;
-            if !l.collapsed.contains(&id) {
-                l.collapsed.push(id);
-            }
-            l.page = l.collapsed.len().saturating_sub(1) / 5;
+            l.collapsed = vec![id];
+            l.page = 0;
             if let Some(record) = l.detached.iter_mut().find(|s| s.shelf_id == id) {
                 record.visible = false;
             }
@@ -509,7 +507,7 @@ pub fn open(app: &tauri::AppHandle, id: i64, focus: bool) -> Result<()> {
                 record.visible = true;
             }
             if focus {
-                layout.collapsed.retain(|value| *value != id);
+                layout.collapsed.clear();
             }
         } else if focus {
             layout.open(id);

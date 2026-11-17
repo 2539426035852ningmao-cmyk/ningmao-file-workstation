@@ -26,8 +26,8 @@ fn collect_request_requires_current_capsule_and_never_interrupts_native_drop() {
 #[test]
 fn presentation_and_native_drag_freeze_identity_and_geometry_until_cancel_or_drop() {
     let mut layout = Layout::default();
-    layout.collapse(4);
-    layout.collapse(7);
+    // Legacy layout decoding remains supported before startup normalizes it.
+    layout.collapsed = vec![4, 7];
     let mut entry = EntryState::default();
     entry.present(&layout, 4, Kind::Capsule).unwrap();
     assert_eq!(entry.geometry(&layout).slots[0].width, 320.0);
@@ -56,9 +56,8 @@ fn presentation_and_native_drag_freeze_identity_and_geometry_until_cancel_or_dro
 #[test]
 fn horizontal_vertical_and_hidden_edges_keep_real_targets_in_their_slots() {
     let mut layout = Layout::default();
-    for id in 1..=8 {
-        layout.collapse(id);
-    }
+    // Legacy multi-slot geometry still has bounded, correct drop regions.
+    layout.collapsed = (1..=8).collect();
     layout.page = 0;
     for edge in [Edge::Left, Edge::Right, Edge::Top, Edge::Bottom, Edge::Free] {
         layout.preferences.edge = edge;
