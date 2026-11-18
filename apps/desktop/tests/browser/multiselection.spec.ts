@@ -51,6 +51,7 @@ test("搜索隐藏的选中项不会被批量拖出或Delete，Shift按当前显
   await page.keyboard.press("Control+f");await page.getByRole("textbox",{name:"搜索文件",exact:true}).fill("Alpha");await file(page,"Alpha.txt").focus();await page.keyboard.press("Delete");
   expect(await page.evaluate(()=>window.testHarness.calls())).toEqual(["remove:1"]);expect(await page.evaluate(()=>JSON.parse(localStorage.getItem("test-state")!).items.map((i:{id:number})=>i.id))).toEqual([2,3]);
   await page.getByRole("textbox",{name:"搜索文件",exact:true}).press("Escape");await page.getByRole("button",{name:"更多操作",exact:true}).click();await expandDisplayOptions(page);await page.getByRole("menuitemradio",{name:"名称排序",exact:true}).click();
+  await page.keyboard.press("Escape");
   await file(page,"Gamma.txt").click();await file(page,"中文 文件.txt").click({modifiers:["Shift"]});await expect(selected(page)).toHaveCount(2);
   const card=await file(page,"Gamma.txt").boundingBox();if(!card)throw Error("missing card");await page.mouse.move(card.x+30,card.y+30);await page.mouse.down();await page.mouse.move(card.x+50,card.y+30,{steps:5});await page.mouse.up();
   expect(await page.evaluate(()=>window.testHarness.calls())).toEqual(["remove:1","drag:2,3"]);

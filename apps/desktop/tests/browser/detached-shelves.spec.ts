@@ -59,6 +59,7 @@ test("独立窗仅显示自己的文件，可跨架复制引用，各窗视图�
   await page.getByRole("button",{name:"更多操作",exact:true}).click();await expandDisplayOptions(page);await page.getByRole("menuitemradio",{name:"大缩略图",exact:true}).click();
   const prefs=await page.evaluate(()=>JSON.parse(localStorage.getItem("ningmao-shelf-views")!).shelves);
   expect(prefs["1"].size).toBe(120);expect(await own.evaluate(()=>JSON.parse(localStorage.getItem("ningmao-child-views")!).shelves["1"].list)).toBe(true);
+  await page.keyboard.press("Escape");await own.keyboard.press("Escape");
   await own.getByRole("button",{name:"选择 Alpha.txt",exact:true}).click();await more(own,"复制选中引用到其他架");
   await own.getByRole("combobox",{name:"目标文件架"}).selectOption("2");await own.getByRole("button",{name:"复制引用",exact:true}).click();
   await expect(page.getByRole("button",{name:"选择 Alpha.txt",exact:true})).toBeVisible();

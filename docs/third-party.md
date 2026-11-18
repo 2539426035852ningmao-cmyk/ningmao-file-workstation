@@ -103,3 +103,9 @@ LM Studio/Ollama地址建议仅按[LM Studio兼容文档](https://lmstudio.ai/do
 - Symphonia及同版本codec/format/core子crate的源代码可从 https://github.com/pdeljanov/Symphonia/tree/6d533f26150953a882a6a111ebd13f0abf7129d5 获取，精确发布包可用 https://crates.io/api/v1/crates/symphonia/0.5.5/download 获取；其余依赖以Cargo.lock的名称/版本从crates.io获取。MPL覆盖文件保持原许可，应用自有文件不因此改许可。完整原始LICENSE随现有许可归集打入预览包THIRD_PARTY_NOTICES，source/版本及原文SHA在license-manifest记录；新增运行依赖18包，不升级既有包。
 - 波形采样不依赖浏览器整文件decodeAudioData，不引入波形UI框架；浏览器只播放原有受限预览URL。单实例串行后台采样（若未来大批量长音频吞吐不足，再依据测量调整），32个原生/64个渲染器缓存，512MiB、2小时和12秒有界降级，支持情况以真实解码/运行时媒体能力为准。
 D10打包实测发现13个Symphonia发布crate均未附LICENSE原文，已逐个核验.cargo_vcs_info.json为同一提交，从该提交根LICENSE原样补齐；SHA256 c76f740d1521b9bed9ca7a04ad526c310493c62621b1341d623b431736533b30，13项精确映射写入licenses/package-overrides.json。没有用其他版本许可替代。归集440项、0缺失，保留原有1项react-remove-scroll-bar精确源码映射警告。
+
+## D11 文档预览依赖
+
+- [PDF.js](https://github.com/mozilla/pdf.js/tree/0a4153349dc473ba950fc17941c5ca7eda43c1de)，`pdfjs-dist@6.5.438`，Apache-2.0，原样使用浏览器包和本地 worker。可选 Node Canvas 是 Node 端依赖，浏览器产物不包含其原生二进制。
+- [fflate](https://github.com/101arrowz/fflate)，`fflate@0.8.3`，MIT，原样使用浏览器解压模块。只解压有限的 Office XML 部件，展现纯文本及表格值；不加载外部关系或执行公式。
+- 源码来源与包完整性见 npm 锁文件，原始许可证进入候选包的第三方声明。

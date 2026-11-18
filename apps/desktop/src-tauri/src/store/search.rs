@@ -68,9 +68,19 @@ impl Drop for ExtraWorker {
 
 fn probe_rows(rows: Vec<Row>, canceled: &AtomicBool) -> Result<Vec<ProbedRow>> {
     let mut result = Vec::with_capacity(rows.len());
+    let mut probes = HashMap::<String, (&'static str, String, String)>::new();
     for row in rows {
         if canceled.load(Ordering::Relaxed) {
             return Err("搜索已被更新的查询取代。".into());
+        }
+        if let Some((status, extension, key)) = probes.get(&row.path) {
+            result.push(ProbedRow {
+                row,
+                status,
+                extension: extension.clone(),
+                key: key.clone(),
+            });
+            continue;
         }
         let path = Path::new(&row.path);
         let meta = if local_metadata_allowed(path) {
@@ -104,6 +114,7 @@ fn probe_rows(rows: Vec<Row>, canceled: &AtomicBool) -> Result<Vec<ProbedRow>> {
         } else {
             format!("path:{}", row.path)
         };
+        probes.insert(row.path.clone(), (status, extension.clone(), key.clone()));
         result.push(ProbedRow {
             row,
             status,

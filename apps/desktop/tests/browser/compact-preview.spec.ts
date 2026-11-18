@@ -1,5 +1,50 @@
 import {test,expect} from '@playwright/test';
 
+test('预览滚动条只在滚动或右侧槽位显示，内容位置稳定',async({page})=>{
+ await page.setViewportSize({width:420,height:520});await page.goto('/tests/harness.html');
+ await page.evaluate(()=>{
+   const saved=localStorage.getItem('test-state');
+   const state=saved?JSON.parse(saved):{shelves:[{id:1,name:'灵感收集',kind:'persistent',available:true}],jobs:[],items:[{id:1,shelf_id:1,name:'Alpha.txt',kind:'txt',status:'normal',bytes:200,modified:1,tags:[]}]};
+   state.items[0].path='SYNTHETIC/'+('很长的原始路径/'.repeat(100))+'Alpha.txt';
+   localStorage.setItem('test-state',JSON.stringify(state));
+ });
+ await page.reload();
+ await page.evaluate(()=>localStorage.setItem('test-previews',JSON.stringify({1:{kind:'text',text:'长文本\n'.repeat(60)}})));
+ await page.getByRole('button',{name:'选择 Alpha.txt',exact:true}).click();await page.keyboard.press('Space');
+ const surface=page.locator('.preview-scroll');
+ await page.getByRole('button',{name:'原始位置',exact:true}).click();
+ await expect.poll(()=>surface.evaluate(node=>node.scrollHeight-node.clientHeight)).toBeGreaterThan(60);
+ const bounds=(await surface.boundingBox())!;
+ const color=()=>surface.evaluate(node=>getComputedStyle(node).scrollbarColor);
+ const width=()=>surface.evaluate(node=>node.clientWidth);
+ const before=await width();
+ await page.mouse.move(bounds.x+bounds.width/2,bounds.y+16);
+ await expect.poll(color).toBe('rgba(0, 0, 0, 0) rgba(0, 0, 0, 0)');
+ await page.mouse.move(bounds.x+bounds.width-4,bounds.y+16);
+ await expect.poll(color).not.toBe('rgba(0, 0, 0, 0) rgba(0, 0, 0, 0)');
+ expect(await width()).toBe(before);
+ await page.mouse.move(bounds.x+bounds.width/2,bounds.y+16);
+ await surface.evaluate(node=>{node.scrollTop=30;});
+ await expect.poll(color).not.toBe('rgba(0, 0, 0, 0) rgba(0, 0, 0, 0)');
+ await expect.poll(color).toBe('rgba(0, 0, 0, 0) rgba(0, 0, 0, 0)');
+ expect(await width()).toBe(before);
+});
+
+test('展开原始位置时标题固定、底边向下延展',async({page})=>{
+ await page.setViewportSize({width:420,height:520});await page.goto('/tests/harness.html');
+ await page.evaluate(()=>localStorage.setItem('test-previews',JSON.stringify({1:{kind:'text',text:'示例'}})));
+ await page.getByRole('button',{name:'选择 Alpha.txt',exact:true}).click();await page.keyboard.press('Space');
+ const preview=page.getByRole('dialog',{name:'快速预览',exact:true});
+ await expect(preview.getByLabel('文件内容')).toBeVisible();
+ const toggle=preview.getByRole('button',{name:'原始位置',exact:true});
+ await expect(toggle).toBeVisible();
+ await page.waitForTimeout(230);
+ const before=(await preview.boundingBox())!;
+ await toggle.click();
+ await expect.poll(async()=>Math.abs((await preview.boundingBox())!.y-before.y)).toBeLessThan(1);
+ await expect.poll(async()=>(await preview.boundingBox())!.height).toBeGreaterThan(before.height);
+});
+
 test('选中项不再挤出详情和拖出按钮 空格内容预览居中且保留输入语义',async({page})=>{
  await page.setViewportSize({width:420,height:520});await page.goto('/tests/harness.html');
  await page.evaluate(()=>localStorage.setItem('test-previews',JSON.stringify({1:{kind:'text',text:'合成正文 <script>不能执行</script>'}})));
@@ -10,7 +55,7 @@ test('选中项不再挤出详情和拖出按钮 空格内容预览居中且保�
  const preview=page.getByRole('dialog',{name:'快速预览',exact:true});await expect(preview).toBeVisible();
  await expect(preview.locator('.preview-content')).toBeVisible();
  await expect(preview.getByLabel('文件内容',{exact:true})).toContainText('合成正文 <script>不能执行</script>');
- const box=await preview.boundingBox();expect(Math.abs(box!.x+box!.width/2-210)).toBeLessThan(2);expect(Math.abs(box!.y+box!.height/2-260)).toBeLessThan(2);
+ await expect.poll(async()=>{const box=(await preview.boundingBox())!;return Math.max(Math.abs(box.x+box.width/2-210),Math.abs(box.y+box.height/2-260));}).toBeLessThan(2);
  await page.keyboard.press('Escape');await expect(preview).toBeHidden();
  const input=page.getByRole('textbox',{name:'搜索文件',exact:true});await input.fill('Alpha');await input.press('Space');await expect(input).toHaveValue('Alpha ');await expect(preview).toBeHidden();
 });

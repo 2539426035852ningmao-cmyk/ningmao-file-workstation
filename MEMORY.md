@@ -1,3 +1,7 @@
+# 2026-11-18 D11 快速预览候选
+
+D11 基于 D10 已构建独立便携测试包 Ningmao-D11-325261e.zip，Draft PR #101。实现详情向下展开、视频播放条布局、离线轻量文档预览、视频封面与缩略图调度优化、当前架名称和标签检索。验证及范围见 docs/execution/D11-QUICK-PREVIEW.md。正文检索仍未纳入。
+
 # 2026-11-18 当前批次 D10
 
 D10已完成：Draft PR #100；应用源码cdf453b73fddd6d6df115985370146a6f6989805，ZIP Ningmao-D10-cdf453b.zip。完整桌面213 PASS、播放竞态重复20 PASS、同源码Windows149 PASS/8 ignored、Desktop44142675485/Preview44142675516/Web44142675512均SUCCESS。原生隔离启动、独立草稿重启恢复、WAV定位/空格暂停恢复/Esc释放及正常退出已记录，源字节与库完整性保留；其他原生范围分层记录，不扩大为全DPI/多屏或真实互传通过。详细交付、SHA256、失败闭环和边界见docs/execution/D10-CENTERED-DRAFTS-WAVEFORMS-20261118.md。后续仅补文档，不重打相同应用包。

@@ -9,7 +9,7 @@ for(const theme of ["light","dark","blue"])test(`场景导航 ${theme} 最小窗
  const menu=page.getByRole("menu",{name:"更多操作",exact:true}),bounds=(await menu.boundingBox())!;
  expect(bounds.x).toBeGreaterThanOrEqual(0);expect(bounds.x+bounds.width).toBeLessThanOrEqual(340);expect(bounds.y+bounds.height).toBeLessThanOrEqual(320);
  await page.getByRole("menuitemradio",{name:"详细列表",exact:true}).click();await expect(page.locator(".asset-row").first()).toBeVisible();
- await page.getByRole("button",{name:"更多操作",exact:true}).click();await display.focus();await display.press("Enter");await expect(page.getByRole("menuitemradio",{name:"详细列表",exact:true})).toBeChecked();
+ await expect(page.getByRole("menuitemradio",{name:"详细列表",exact:true})).toBeChecked();
  await page.keyboard.press("Escape");await expect(page.getByRole("button",{name:"更多操作",exact:true})).toBeFocused();
  expect(await page.evaluate(()=>window.testHarness.calls())).toEqual([]);
 });
