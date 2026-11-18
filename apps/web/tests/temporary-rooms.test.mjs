@@ -41,6 +41,12 @@ test("two browsers can exchange files, with approval and revocation enforced by 
   assert.equal(member.status, "pending");
   assert.equal((await guest(path)).status, 403);
   assert.equal((await owner(path + "/decide", { id: member.id, accept: true })).status, 200);
+  const denied = browser();
+  const deniedMember = (await (await denied(path + "/join", { name: "未获批准" })).json()).member;
+  assert.equal((await owner(path + "/decide", { id: deniedMember.id, accept: false })).status, 200);
+  const deniedRoom = await denied(path);
+  assert.equal(deniedRoom.status, 403);
+  assert.equal((await deniedRoom.json()).status, "denied");
   const transfer = async (sender, receiver, text) => {
     const body = Buffer.from(text);
     const digest = createHash("sha256").update(body).digest("hex");
@@ -51,6 +57,14 @@ test("two browsers can exchange files, with approval and revocation enforced by 
     assert.equal(sent.status, 201);
     const file = await sent.json();
     assert.equal((await browser()(path + "/files/" + file.id)).status, 403);
+    assert.equal((await denied(path + "/files/" + file.id)).status, 403);
+    const listing = await (await sender(path)).json();
+    const initialExpiry = listing.files.find(item => item.id === file.id).expires;
+    const day = 24 * 60 * 60 * 1000;
+    for (let days = 1; days <= 3; days++) {
+      const extension = await sender(path + "/extend", { id: file.id, expires: initialExpiry + days * day });
+      assert.equal(extension.status, days <= 2 ? 200 : 409);
+    }
     const received = await receiver(path + "/files/" + file.id);
     assert.equal(received.status, 200);
     assert.deepEqual(Buffer.from(await received.arrayBuffer()), body);
