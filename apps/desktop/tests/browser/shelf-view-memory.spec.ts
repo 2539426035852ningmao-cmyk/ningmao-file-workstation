@@ -6,7 +6,7 @@ import path from "node:path";
 const key="ningmao-shelf-views";
 const evidence=process.env.VIEW_MEMORY_EVIDENCE;
 async function capture(page:Page,name:string){if(evidence){mkdirSync(evidence,{recursive:true});await page.screenshot({path:path.join(evidence,name+".png")});}}
-async function choose(page:Page,name:string){await page.getByRole("button",{name:"更多操作",exact:true}).click();await expandDisplayOptions(page);await (await displayOption(page,name)).click();}
+async function choose(page:Page,name:string){await page.getByRole("button",{name:"更多操作",exact:true}).click();await expandDisplayOptions(page);await (await displayOption(page,name)).click();await page.keyboard.press("Escape");await expect(page.getByRole("button",{name:"更多操作",exact:true})).toBeFocused();}
 async function shelf(page:Page,name:string){await page.getByRole("button",{name:"切换文件架",exact:true}).click();await page.getByRole("menuitemradio",{name,exact:true}).click();}
 async function checked(page:Page,names:string[],shot?:string){await page.getByRole("button",{name:"更多操作",exact:true}).click();await expandDisplayOptions(page);for(const name of names)await expect((await displayOption(page,name))).toHaveAttribute("aria-checked","true");if(shot)await capture(page,shot);await page.keyboard.press("Escape");}
 
