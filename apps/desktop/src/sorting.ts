@@ -1,5 +1,5 @@
 import type { Item } from "./backend";
-export const sortOptions=[{value:"manual",label:"手动顺序"},{value:"name",label:"名称排序"},{value:"modified",label:"最近修改"},{value:"type",label:"类型排序"},{value:"size",label:"大小从大到小"}] as const;
+export const sortOptions=[{value:"manual",label:"手动顺序"},{value:"name",label:"名称排序"},{value:"modified",label:"最近修改"},{value:"type",label:"类型排序"},{value:"size",label:"大小排序"}] as const;
 export type SortMode=typeof sortOptions[number]["value"];
 export const isSortMode=(value:unknown):value is SortMode=>sortOptions.some(option=>option.value===value);
 const collator=new Intl.Collator("zh-CN",{numeric:true,sensitivity:"base"});

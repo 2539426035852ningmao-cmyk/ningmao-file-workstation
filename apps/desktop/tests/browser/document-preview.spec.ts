@@ -58,7 +58,7 @@ test('本地 PDF worker 渲染并翻页',async({page})=>{
  await expect.poll(()=>pixels(2)).toBe(0);
 });
 
-test('视频卡片抽真实帧，窄窗播放条和元数据各占一行',async({page})=>{
+for(const stalled of [false,true])test(stalled?'视频封面定位超时时保留已解码的完整首帧':'视频卡片抽真实帧，窄窗播放条和元数据各占一行',async({page})=>{
  await page.setViewportSize({width:340,height:420});
  await page.goto('/tests/harness.html');
  await page.evaluate(async()=>{
@@ -77,9 +77,18 @@ test('视频卡片抽真实帧，窄窗播放条和元数据各占一行',async(
    localStorage.setItem('test-state',JSON.stringify({shelves:[{id:1,name:'灵感收集',kind:'persistent',available:true}],items:[{id:1,name:'竖屏.webm',kind:'webm',path:'SYNTHETIC/竖屏.webm',shelf_id:1,bytes:200,status:'normal',modified:1,tags:[]}],jobs:[]}));
    localStorage.setItem('test-previews',JSON.stringify({1:{kind:'video',url,ticket:'fixture-video'}}));
  });
+ if(stalled)await page.addInitScript(()=>{
+   const time=Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype,'currentTime')!;
+   const duration=Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype,'duration')!;
+   Object.defineProperty(HTMLMediaElement.prototype,'duration',{...duration,get(this:HTMLMediaElement){return this instanceof HTMLVideoElement&&!this.isConnected?10:duration.get!.call(this);}});
+   Object.defineProperty(HTMLMediaElement.prototype,'currentTime',{...time,set(this:HTMLMediaElement,value:number){if(!(this instanceof HTMLVideoElement)||this.isConnected)time.set!.call(this,value);}});
+ });
  await page.reload();
  const item=page.getByRole('button',{name:'选择 竖屏.webm',exact:true});
  await expect.poll(()=>page.locator('.thumb img[src^="data:image/jpeg"]').count()).toBeGreaterThan(0);
+ const frame=page.locator('.thumb img[src^="data:image/jpeg"]');
+ await expect.poll(()=>frame.evaluate((img:HTMLImageElement)=>[img.naturalWidth,img.naturalHeight,getComputedStyle(img).objectFit])).toEqual([80,160,'contain']);
+ if(stalled)return;
  await item.click();await page.keyboard.press('Space');
  const preview=page.getByRole('dialog',{name:'快速预览'});
  await expect(preview.getByText('80 × 160 px')).toBeVisible();

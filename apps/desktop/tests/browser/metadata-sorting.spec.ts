@@ -16,7 +16,7 @@ async function setup(page:Page){
   },{items,key});
   await page.goto("/tests/harness.html");await expect(page.locator("[data-item-id]")).toHaveCount(8);
 }
-async function choose(page:Page,name:string){await page.getByRole("button",{name:"更多操作",exact:true}).click();await expandDisplayOptions(page);await expect(page.getByRole("menuitemradio",{name,exact:true})).toBeVisible({timeout:3000});await page.getByRole("menuitemradio",{name,exact:true}).click();}
+async function choose(page:Page,name:string){await page.getByRole("button",{name:"更多操作",exact:true}).click();await expandDisplayOptions(page);const option=page.getByRole("menuitemradio",{name,exact:true});await option.click();await expect(option).toHaveAttribute("aria-checked","true");await closeMenu(page);}
 async function closeMenu(page:Page){
   await page.keyboard.press("Escape");
   await expect(page.getByRole("menu",{name:"更多操作",exact:true})).toBeHidden();
@@ -32,9 +32,9 @@ test("时间、大小、类型和自然名称排序只改变显示，失效元�
   await choose(page,"最近修改");expect((await order(page)).slice(0,5)).toEqual([45,43,42,46,41]);
   expect(new Set((await order(page)).slice(5))).toEqual(new Set([44,47,48]));
   await expect(page.locator(".drag-handle:enabled")).toHaveCount(0);
-  await choose(page,"大小从大到小");expect(await order(page)).toEqual([45,46,41,42,48,43,47,44]);
+  await choose(page,"大小排序");expect(await order(page)).toEqual([45,46,41,42,48,43,47,44]);
   await page.setViewportSize({width:420,height:520});
-  await page.getByRole("button",{name:"更多操作",exact:true}).click();await expandDisplayOptions(page);await page.getByRole("menuitemradio",{name:"大小从大到小",exact:true}).focus();await capture(page,"sort-420-dark");await page.keyboard.press("Escape");
+  await page.getByRole("button",{name:"更多操作",exact:true}).click();await expandDisplayOptions(page);await page.getByRole("menuitemradio",{name:"大小排序",exact:true}).focus();await capture(page,"sort-420-dark");await closeMenu(page);
   await page.setViewportSize({width:420,height:720});
   await choose(page,"类型排序");expect((await order(page)).slice(0,2)).toEqual([45,42]);expect(new Set((await order(page)).slice(-2))).toEqual(new Set([44,47]));
   await choose(page,"名称排序");expect((await order(page)).filter(id=>[41,42,46].includes(id))).toEqual([46,42,41]);
@@ -61,7 +61,7 @@ test("旧v1设置不在启动覆盖，修改后升到v2，切架和重载分别�
 });
 
 test("自动排序与搜索、刷新兼容，相同值按名称及稳定ID排序",async({page})=>{
-  await setup(page);await choose(page,"大小从大到小");
+  await setup(page);await choose(page,"大小排序");
   await page.keyboard.press("Control+f");const input=page.getByRole("textbox",{name:"搜索文件",exact:true});await input.fill("素材");
   expect(await order(page)).toEqual([46,41,42]);await expect(page.locator(".drag-handle:enabled")).toHaveCount(0);await input.press("Escape");
   const before=await order(page);
@@ -79,11 +79,10 @@ test("窄窗新增排序可用键盘选中且菜单末项仍可到达",async({pa
   // Scrolling a focused item under the pointer can make Radix's pointer-leave
   // return focus to the menu before Enter. Keep this keyboard check pointer-free.
   await page.mouse.move(0,0);
-  const option=page.getByRole("menuitemradio",{name:"大小从大到小",exact:true});
+  const option=page.getByRole("menuitemradio",{name:"大小排序",exact:true});
   await option.focus();await expect(option).toBeFocused();await option.press("Enter");
-  await expect(page.getByRole("menu",{name:"更多操作",exact:true})).toBeHidden();
-  await expect(page.getByRole("button",{name:"更多操作",exact:true})).toBeFocused();
-  await page.getByRole("button",{name:"更多操作",exact:true}).click();await expandDisplayOptions(page);await expect(option).toHaveAttribute("aria-checked","true");
+  await expect(option).toHaveAttribute("aria-checked","true");
+  await expect(page.getByRole("menu",{name:"更多操作",exact:true})).toBeVisible();
   await option.focus();await capture(page,"sort-340-light");
   const menu=page.getByRole("menu",{name:"更多操作",exact:true});await selectScene(page,"窗口与入口");await page.mouse.move(0,0);await menu.press("End");await expect(page.getByRole("menuitem",{name:"完整退出",exact:true})).toBeFocused();
   await page.keyboard.press("Escape");expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);

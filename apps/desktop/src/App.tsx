@@ -23,13 +23,12 @@ import { useWindowDrag } from "./orb/useWindowDrag";
 import { ShelfMenu } from "./components/ShelfMenu";
 import { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem, ContextMenuSeparator } from "./components/ui/context-menu";
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "./components/ui/sheet";
-import { FileThumb } from "./components/spaceui/FileThumb";
 import type { Backend, CatalogShelf, DesktopView, DuplicateReport, Item, Progress, Snapshot } from "./backend";
 import { applyTheme,defaultView,observeTheme,readTheme,readViewMemory,themes,writeTheme,writeShelfView,type ShelfView,type Theme } from "./preferences";
 import { isSortMode,sortItems,sortOptions } from "./sorting";
 import {ShelfFace} from "./orb/ShelfFace";
 import { defaultFilters,filterItems,type ShelfFilters } from "./filters";
-import {cachedThumbnail,documents,images,queueThumbnail,videos} from "./thumbnails";
+import {cachedThumbnail,documents,images,queueThumbnail,thumbnailKinds} from "./thumbnails";
 
 const collision: CollisionDetection = args => { const hits=pointerWithin(args); return hits.length ? hits : closestCenter(args); };
 const ChatPanel=lazy(()=>import("./components/ChatPanel").then(module=>({default:module.ChatPanel})));
@@ -44,17 +43,18 @@ function Thumb({item,backend,size=80}:{item:Item;backend:Backend;size?:number}) 
   const host=useRef<HTMLDivElement>(null);
   const thumb=cachedThumbnail(item)??(result?.item===item?result.url:null);
   useEffect(() => {
-    if(item.status!=="normal"||![...images,...videos,...documents].includes(item.kind)||cachedThumbnail(item)!==undefined)return;
-    const controller=new AbortController();
+    if(item.status!=="normal"||!thumbnailKinds.has(item.kind)||cachedThumbnail(item)!==undefined)return;
+    let controller:AbortController|null=null;
     const observer=new IntersectionObserver(entries=>{
-      if(!entries.some(entry=>entry.isIntersecting))return;
-      observer.disconnect();
-      void queueThumbnail(backend,item,controller.signal).then(url=>{if(!controller.signal.aborted)setResult({item,url});});
+      if(!entries[entries.length-1]?.isIntersecting){controller?.abort();controller=null;return;}
+      if(controller)return;
+      const request=controller=new AbortController();
+      void queueThumbnail(backend,item,request.signal).then(url=>{if(!request.signal.aborted&&url){setResult({item,url});observer.disconnect();}}).catch(()=>{});
     },{root:host.current?.closest(".file-scroll")??null,rootMargin:"80px"});
     if(host.current)observer.observe(host.current);
-    return ()=>{observer.disconnect();controller.abort();};
+    return ()=>{observer.disconnect();controller?.abort();};
   },[backend,item]);
-  return <div ref={host} className="thumb" style={{width:size,height:size}}>{thumb ? <FileThumb key={thumb} iconSrc={thumb} thumbnailSrc={thumb} size={size} frameClassName="rounded object-contain"/> : item.kind==="folder" ? <Folder size={size*.6}/> : documents.includes(item.kind)?<span className="document-icon" data-kind={item.kind}><File size={size*.6}/><b>{item.kind.toUpperCase()}</b></span>:<File size={size*.6}/>}</div>;
+  return <div ref={host} className="thumb" style={{width:size,height:size}}>{thumb ? <img className="asset-thumbnail" src={thumb} alt="" decoding="async"/> : item.kind==="folder" ? <Folder size={size*.6}/> : documents.includes(item.kind)?<span className="document-icon" data-kind={item.kind}><File size={size*.6}/><b>{item.kind.toUpperCase()}</b></span>:<File size={size*.6}/>}</div>;
 }
 type SelectionKeys={ctrlKey?:boolean;metaKey?:boolean;shiftKey?:boolean};
 function Asset({item,backend,selected,list,size,disabled,select,inspect,open,drag,tag,remove}:{item:Item;backend:Backend;selected:boolean;list:boolean;size:number;disabled:boolean;select:(keys:SelectionKeys)=>void;inspect:()=>void;open:()=>void;drag:()=>void;tag:()=>void;remove:()=>void;bound:boolean}) {
@@ -210,8 +210,8 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   const copyFinished=useRef(0);
   const sensors=useSensors(useSensor(PointerSensor,{activationConstraint:{distance:6}}),useSensor(KeyboardSensor,{coordinateGetter:sortableKeyboardCoordinates}));
   const shelf=data.shelves.find(s=>s.id===shelfId),bound=shelf?.kind==="bound";
-  const items=data.items.filter(item=>item.shelf_id===shelfId);
-  const visible=useMemo(()=>sortItems(filterItems(data.items.filter(i=>i.shelf_id===shelfId),query,filters),sort),[data.items,shelfId,query,filters,sort]);
+  const items=useMemo(()=>data.items.filter(item=>item.shelf_id===shelfId),[data.items,shelfId]);
+  const visible=useMemo(()=>sortItems(filterItems(items,query,filters),sort),[items,query,filters,sort]);
   const kinds=[...new Set([...items.map(i=>i.kind),filters.kind].filter(Boolean))].sort((a,b)=>a.localeCompare(b,"zh-CN"));
   const tags=[...new Set([...items.flatMap(i=>i.tags),filters.tag].filter(Boolean))].sort((a,b)=>a.localeCompare(b,"zh-CN"));
   const selectedIds=useMemo(()=>new Set(selection.ids),[selection.ids]);
@@ -418,9 +418,10 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
         <DropdownMenu.Group aria-label="浏览与整理">
 
 {displayOptions&&<DropdownMenu.Group id="shelf-display-options" aria-label="显示与排序">
-        <DropdownMenu.RadioGroup value={list?"list":"grid"} onValueChange={v=>setView({list:v==="list"})}><DropdownMenu.RadioItem value="grid"><Grid2X2 size={16}/>网格视图<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem><DropdownMenu.RadioItem value="list"><List size={16}/>详细列表<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem></DropdownMenu.RadioGroup>
-        <DropdownMenu.RadioGroup value={sort} onValueChange={v=>{if(isSortMode(v)){setView({sort:v});setMoreOpen(false);}}}>{sortOptions.map(option=><DropdownMenu.RadioItem key={option.value} value={option.value}>{option.label}<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>)}</DropdownMenu.RadioGroup>
-        <DropdownMenu.Label className="menu-label">缩略图大小</DropdownMenu.Label><DropdownMenu.RadioGroup className="thumbnail-choices" aria-label="缩略图大小" value={String(size)} onValueChange={v=>setView({size:v==="60"?60:v==="120"?120:80})}>{[[60,"小"],[80,"中"],[120,"大"]].map(([v,label])=><DropdownMenu.RadioItem key={v} aria-label={label+"缩略图"} value={String(v)}>{label}<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>)}</DropdownMenu.RadioGroup>
+        <DropdownMenu.RadioGroup value={list?"list":"grid"} onValueChange={v=>setView({list:v==="list"})}><DropdownMenu.RadioItem value="grid" onSelect={e=>e.preventDefault()}><Grid2X2 size={16}/>网格视图</DropdownMenu.RadioItem><DropdownMenu.RadioItem value="list" onSelect={e=>e.preventDefault()}><List size={16}/>详细列表</DropdownMenu.RadioItem></DropdownMenu.RadioGroup>
+        <DropdownMenu.RadioGroup value={sort} onValueChange={v=>{if(isSortMode(v))setView({sort:v});}}>{sortOptions.map(option=><DropdownMenu.RadioItem key={option.value} value={option.value} onSelect={e=>e.preventDefault()}>{option.label}</DropdownMenu.RadioItem>)}</DropdownMenu.RadioGroup>
+        <DropdownMenu.Separator className="thumbnail-divider"/>
+        <DropdownMenu.Label className="menu-label">缩略图大小</DropdownMenu.Label><DropdownMenu.RadioGroup className="thumbnail-choices" aria-label="缩略图大小" value={String(size)} onValueChange={v=>setView({size:v==="60"?60:v==="120"?120:80})}>{[[60,"小"],[80,"中"],[120,"大"]].map(([v,label])=><DropdownMenu.RadioItem key={v} aria-label={label+"缩略图"} value={String(v)} onSelect={e=>e.preventDefault()}>{label}</DropdownMenu.RadioItem>)}</DropdownMenu.RadioGroup>
         <DropdownMenu.Separator/>
 
         </DropdownMenu.Group>}
