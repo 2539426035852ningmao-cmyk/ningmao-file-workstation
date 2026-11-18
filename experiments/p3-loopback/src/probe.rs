@@ -1013,6 +1013,141 @@ mod tests {
 #[cfg(test)]
 mod direct_event_tests {
     use super::*;
+    use ningmao_transfer_receiver::{Confirmation, Receiver};
+
+    fn pinned_receiver(
+        directory: &Path,
+        journal: tasks::Journal,
+        confirm: Confirmation,
+    ) -> (Receiver, String) {
+        let (certificate, private_key) = keypair().unwrap();
+        let fingerprint = digest(&certificate);
+        let config = ServerConfig::builder()
+            .with_no_client_auth()
+            .with_single_cert(vec![CertificateDer::from(certificate)], key(&private_key))
+            .unwrap();
+        let receiver = Receiver::start(
+            "127.0.0.1:0".parse().unwrap(),
+            directory,
+            Arc::new(config),
+            journal,
+            confirm,
+        )
+        .unwrap();
+        (receiver, fingerprint)
+    }
+
+    #[test]
+    fn explicit_resend_after_an_unread_receipt_preserves_the_committed_file() {
+        let temp = tempfile::tempdir().unwrap();
+        let received = temp.path().join("received");
+        fs::create_dir(&received).unwrap();
+        let source = temp.path().join("sample.txt");
+        fs::write(&source, b"synthetic delivery with an unread receipt").unwrap();
+        let hash = hash_file(&source).unwrap();
+        let size = fs::metadata(&source).unwrap().len();
+        let (published, publication) = std::sync::mpsc::channel();
+        let (receiver, pin) = pinned_receiver(
+            &received,
+            Arc::new(move |event| {
+                if event.phase == ningmao_transfer_contract::Phase::Completed {
+                    published.send(())?;
+                }
+                Ok(())
+            }),
+            Arc::new(|_, _| true),
+        );
+        let client = LoopbackClient::pinned(receiver.address, &pin).unwrap();
+        let (status, plan) = client
+            .prepare(json!({"f": {"fileName": "sample.txt", "size": size, "sha256": hash}}))
+            .unwrap();
+        assert_eq!(status, 200);
+        let upload = client.upload_with_progress(
+            plan["sessionId"].as_str().unwrap(),
+            "f",
+            plan["files"]["f"].as_str().unwrap(),
+            size,
+            &mut fs::File::open(&source).unwrap(),
+            |bytes| {
+                if bytes == size {
+                    // After flushing the body and before consuming the final response.
+                    publication.recv_timeout(Duration::from_secs(5))?;
+                    return Err("synthetic unread receipt".into());
+                }
+                Ok(())
+            },
+        );
+        assert_eq!(upload.unwrap_err().to_string(), "synthetic unread receipt");
+        assert_eq!(hash_file(&received.join("sample.txt")).unwrap(), hash);
+        let sender = Mutex::new(store::Store::open(&temp.path().join("sender.db")).unwrap());
+        crate::transfer_sender::send_open_file(
+            &sender,
+            2,
+            &client,
+            &mut fs::File::open(&source).unwrap(),
+            "sample.txt",
+        )
+        .unwrap();
+        receiver.stop().unwrap();
+        for path in [
+            source,
+            received.join("sample.txt"),
+            received.join("sample (1).txt"),
+        ] {
+            assert_eq!(hash_file(&path).unwrap(), hash);
+        }
+        assert_eq!(fs::read_dir(&received).unwrap().count(), 2);
+    }
+
+    #[test]
+    fn cancelling_while_the_receiver_is_deciding_preserves_both_directories() {
+        let temp = tempfile::tempdir().unwrap();
+        let received = temp.path().join("received");
+        fs::create_dir(&received).unwrap();
+        let source = temp.path().join("sample.txt");
+        fs::write(&source, b"synthetic pending confirmation").unwrap();
+        let before = hash_file(&source).unwrap();
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let cancel_on_prompt = cancelled.clone();
+        let (terminal, wait_for_terminal) = std::sync::mpsc::channel();
+        let wait_for_terminal = Mutex::new(wait_for_terminal);
+        let confirm = Arc::new(
+            move |_: &ningmao_transfer_receiver::IncomingBatch, _: &AtomicBool| {
+                // The sender clicks cancel while the receiving user is reading the prompt.
+                cancel_on_prompt.store(true, Ordering::SeqCst);
+                let finished = wait_for_terminal
+                    .lock()
+                    .unwrap()
+                    .recv_timeout(Duration::from_millis(350))
+                    .is_ok();
+                eprintln!("sender_finished_while_decision_withheld_350ms={finished}");
+                true
+            },
+        );
+        let (receiver, pin) = pinned_receiver(&received, Arc::new(|_| Ok(())), confirm);
+        let client = LoopbackClient::pinned(receiver.address, &pin).unwrap();
+        let store = Mutex::new(store::Store::open(&temp.path().join("sender.db")).unwrap());
+        let mut file = fs::File::open(&source).unwrap();
+        let result = crate::transfer_sender::send_open_files(
+            &store,
+            2,
+            &client,
+            &mut [crate::transfer_sender::SendFile {
+                source: &mut file,
+                name: "sample.txt",
+            }],
+            &cancelled,
+            |_| {},
+        )
+        .unwrap();
+        let _ = terminal.send(());
+        receiver.stop().unwrap();
+        assert_eq!(result.status, "cancelled");
+        assert_eq!(result.files[0].bytes, 0);
+        assert_eq!(hash_file(&source).unwrap(), before);
+        assert_eq!(fs::read_dir(&received).unwrap().count(), 0);
+    }
+
     #[test]
     fn pinned_receiver_confirms_and_bound_snapshot_excludes_live_staging() {
         let temp = tempfile::tempdir().unwrap();
@@ -1051,28 +1186,16 @@ mod direct_event_tests {
             }
             Ok(())
         });
-        let certificate = rcgen::generate_simple_self_signed(vec!["localhost".into()]).unwrap();
-        let fingerprint = format!("{:x}", Sha256::digest(certificate.cert.der()));
-        let config = rustls::ServerConfig::builder()
-            .with_no_client_auth()
-            .with_single_cert(
-                vec![certificate.cert.der().clone()],
-                key(&certificate.signing_key.serialize_der()),
-            )
-            .unwrap();
         let accepted = Arc::new(AtomicBool::new(false));
         let decision = accepted.clone();
-        let receiver = ningmao_transfer_receiver::Receiver::start(
-            "127.0.0.1:0".parse().unwrap(),
+        let (receiver, fingerprint) = pinned_receiver(
             &received,
-            Arc::new(config),
             journal,
             Arc::new(move |batch, _| {
                 assert_eq!(batch.files.len(), 1);
                 decision.load(Ordering::SeqCst)
             }),
-        )
-        .unwrap();
+        );
         let wrong = LoopbackClient::pinned(receiver.address, &"f".repeat(64)).unwrap();
         assert!(wrong.prepare(json!({})).is_err());
         let client = LoopbackClient::pinned(receiver.address, &fingerprint).unwrap();
@@ -1306,6 +1429,29 @@ mod direct_event_tests {
             "cancelled"
         );
         reopened.integrity_check().unwrap();
+        // An explicit resend starts a fresh, confirmed delivery of the whole selection.
+        let resent = crate::transfer_sender::send_open_files(
+            &sender_store,
+            2,
+            &api,
+            &mut batch,
+            &AtomicBool::new(false),
+            |_| {},
+        )
+        .unwrap();
+        assert_ne!(resent.job_id, result.job_id);
+        assert_eq!(resent.status, "completed");
+        for name in ["before-cancel.txt", "before-cancel (1).txt"] {
+            assert_eq!(
+                fs::read(root.join("received").join(name)).unwrap(),
+                b"second synthetic file"
+            );
+        }
+        assert_eq!(
+            hash_file(&root.join("received/cancelled.bin")).unwrap(),
+            hash_file(&large).unwrap()
+        );
+        assert!(!root.join("received/cancelled (1).bin").exists());
         fs::write(root.join("decision.txt"), "reject").unwrap();
         let rejected_source = temp.path().join("rejected.txt");
         fs::write(&rejected_source, b"rejected synthetic source").unwrap();
