@@ -1,4 +1,5 @@
 import {test,expect,type Page} from '@playwright/test';
+import {expandDisplayOptions} from '../menu';
 test('重开直接恢复波形，只重新解析发生变化的同尺寸音频',async({page})=>{
  await page.addInitScript(()=>{
    if(localStorage.getItem('test-state'))return;
@@ -58,6 +59,33 @@ async function audioFixture(page:Page){await page.goto('/tests/harness.html');aw
  localStorage.setItem('test-previews',JSON.stringify({1:{kind:'audio',url,ticket:'audio-1'},2:{kind:'audio',url,ticket:'audio-2'}}));
  localStorage.setItem('test-waveforms',JSON.stringify({1:{duration:20,peaks:[0,0,.2,.6,.4,.3]},2:{duration:20,peaks:[.1,.4,.2,.6]}}));
  });await page.reload();}
+test('详细列表为波形保留宽轨道，长文件名在下方且仍可选中',async({page})=>{
+ await audioFixture(page);
+ const name='一段很长的素材文件名，用于验证窄窗口里的横向波形不会覆盖文件文字'.repeat(3)+'.wav';
+ await page.evaluate(name=>{
+   const state=JSON.parse(localStorage.getItem('test-state')!);
+   state.items[0].name=name;localStorage.setItem('test-state',JSON.stringify(state));
+ },name);
+ await page.setViewportSize({width:340,height:320});await page.reload();
+ await page.getByRole('button',{name:'更多操作',exact:true}).click();
+ await expandDisplayOptions(page);
+ await page.getByRole('menuitemradio',{name:'详细列表',exact:true}).click();await page.keyboard.press('Escape');
+ const file=page.getByRole('button',{name:`选择 ${name}`,exact:true});
+ const track=page.getByRole('slider',{name:`试听进度 ${name}`,exact:true});
+ await expect(track.locator('svg')).toBeVisible();
+ for(const width of [340,600]){
+   await page.setViewportSize({width,height:420});
+   const row=(await file.locator('..').boundingBox())!;
+   const wave=(await track.boundingBox())!, label=(await file.getByText(name,{exact:true}).boundingBox())!;
+   expect(wave.width).toBeGreaterThan(row.width*.65);
+   expect(wave.y+wave.height).toBeLessThanOrEqual(label.y);
+   expect(label.y+label.height).toBeLessThanOrEqual(row.y+row.height);
+ }
+ await file.click();await expect(file).toHaveAttribute('aria-pressed','true');
+ await track.click({position:{x:(await track.boundingBox())!.width*.75,y:10}});
+ const audio=page.getByLabel(`音频试听 ${name}`,{exact:true});
+ await expect.poll(()=>audio.evaluate((node:HTMLAudioElement)=>node.currentTime)).toBeGreaterThan(14);
+});
 test('卡片真实波形可定位试听，跨窗口独占，暂停恢复，预览也接续独占',async({page,context})=>{
  await audioFixture(page);const track=page.getByRole('slider',{name:'试听进度 试听1.wav',exact:true});await expect(track.locator('svg path').first()).toHaveAttribute('d',/M/);
  const first=page.getByLabel('音频试听 试听1.wav',{exact:true});expect(await first.evaluate((p:HTMLAudioElement)=>p.paused)).toBe(true);

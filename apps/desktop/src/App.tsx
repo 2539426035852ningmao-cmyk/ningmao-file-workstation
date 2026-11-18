@@ -440,8 +440,9 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
 
 {displayOptions&&<DropdownMenu.Group id="shelf-display-options" aria-label="显示与排序">
         <DropdownMenu.RadioGroup value={list?"list":"grid"} onValueChange={v=>setView({list:v==="list"})}><DropdownMenu.RadioItem value="grid" onSelect={e=>e.preventDefault()}><Grid2X2 size={16}/>网格视图</DropdownMenu.RadioItem><DropdownMenu.RadioItem value="list" onSelect={e=>e.preventDefault()}><List size={16}/>详细列表</DropdownMenu.RadioItem></DropdownMenu.RadioGroup>
+        <DropdownMenu.Separator className="display-divider"/>
         <DropdownMenu.RadioGroup value={sort} onValueChange={v=>{if(isSortMode(v))setView({sort:v});}}>{sortOptions.map(option=><DropdownMenu.RadioItem key={option.value} value={option.value} onSelect={e=>e.preventDefault()}>{option.label}</DropdownMenu.RadioItem>)}</DropdownMenu.RadioGroup>
-        <DropdownMenu.Separator className="thumbnail-divider"/>
+        <DropdownMenu.Separator className="display-divider"/>
         <DropdownMenu.Label className="menu-label">缩略图大小</DropdownMenu.Label><DropdownMenu.RadioGroup className="thumbnail-choices" aria-label="缩略图大小" value={String(size)} onValueChange={v=>setView({size:v==="60"?60:v==="120"?120:80})}>{[[60,"小"],[80,"中"],[120,"大"]].map(([v,label])=><DropdownMenu.RadioItem key={v} aria-label={label+"缩略图"} value={String(v)} onSelect={e=>e.preventDefault()}>{label}</DropdownMenu.RadioItem>)}</DropdownMenu.RadioGroup>
         <DropdownMenu.Separator/>
 
