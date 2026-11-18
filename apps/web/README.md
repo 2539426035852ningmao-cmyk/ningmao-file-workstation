@@ -1,5 +1,22 @@
 # 柠猫 Transfer · Web MVP (W0–W2 候选)
 
+## 自托管临时互传区
+
+用 Node.js 22.13+。在 `apps/web` 下执行以下命令，使用专用空目录保存房间、成员及临时文件。
+
+```powershell
+npm install --no-audit --no-fund
+npm run build
+$env:ROOM_DATA = Join-Path ([IO.Path]::GetTempPath()) ("ningmao-rooms-" + [guid]::NewGuid())
+npm run start:rooms
+```
+
+打开 `http://127.0.0.1:5176` 建区。第二个浏览器可通过邀请链接加入，开启审批时由群主批准。双方都可发给全区，接收方点击保存并校验文件。群主可设三位管理员，支持管理恢复码、延期和撤回。
+
+独立客户机测试时，为自托管站点配置两端信任的 TLS 证书。用 `ROOM_TLS_CERT`、`ROOM_TLS_KEY` 指定文件，`ROOM_HOST` 指定测试网卡监听地址，`ROOM_PORT` 选择端口。邀请链接用两端均能访问且证书匹配的站点地址生成。SQLite 文件留在专用数据目录，其访问权限由站点运营者负责。本站点首轮以独立隔离环境验收，现阶段文件存储为绑定站点的 SQLite 持久副本。
+
+当前每个文件最多 64 MiB，暂存总量 512 MiB，文件默认保留 24 小时并可延至最多 72 小时。指定成员密文分享、多来源、20 GB 和跨端续传按后续阶段实施。验收命令为 `npm test`、`npm run build` 和 `npm run test:browser -- temporary-rooms.spec.ts`。
+
 **设计规范：** [全项目 design.md](../../design.md) 为唯一规则源头；[Web UI/UX 实施指南](../../docs/design/WEB-UI-UX-GUIDE-2026-11-09.md) 用于本网页的组件选择、微交互和验收。未经检查不得自动引入展示模板或 Pro 代码。
 
 此目录是柠猫文件工作站的**独立浏览器前端与信令服务**，不修改桌面端的 Tauri/SQLite/文件安全逻辑。当前不代表已部署、正式发布或已通过真实双机测试。
