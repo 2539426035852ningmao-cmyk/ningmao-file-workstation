@@ -2,6 +2,7 @@ import {useCallback,useEffect,useRef,useState} from 'react';
 import {Pause,Play,Volume2,VolumeX} from 'lucide-react';
 import type {Backend,Item,PreviewFile,Waveform} from '../backend';
 import {claimPlayback,observePlayback,ownsPlayback} from '../mediaPlayback';
+import {thumbnailKey} from '../thumbnails';
 const cache=new Map<string,Waveform>();
 let queue=Promise.resolve();
 const time=(n:number)=>`${Math.floor(n/60)}:${String(Math.floor(n%60)).padStart(2,'0')}`;
@@ -10,7 +11,7 @@ export function AudioWaveform({item,backend,prepared,compact=false,onActivate}:{
  const playerRef=useCallback((node:HTMLAudioElement|null)=>{const previous=player.current;if(previous&&previous!==node){previous.pause();previous.removeAttribute("src");previous.load();}player.current=node;},[]);
  const ownedTicket=useRef<string|null>(null),generation=useRef(0),positionRef=useRef(0);
  const [wave,setWave]=useState<Waveform|null>(null),[error,setError]=useState(''),[playing,setPlaying]=useState(false),[position,setPosition]=useState(0),[duration,setDuration]=useState(0),[muted,setMuted]=useState(false);
- const cacheKey=`${item.id}:${item.modified}:${item.bytes}`;
+ const cacheKey=thumbnailKey(item);
  const stop=useCallback(()=>{generation.current++;const p=player.current;if(p){positionRef.current=p.currentTime||positionRef.current;p.pause();if(!prepared){p.removeAttribute('src');p.load();}}if(ownedTicket.current){void backend.previewRelease?.(ownedTicket.current).catch(()=>{});ownedTicket.current=null;}setPlaying(false);},[backend,prepared]);
  useEffect(()=>observePlayback(key.current,stop),[stop]);
  useEffect(()=>()=>stop(),[stop]);
@@ -21,7 +22,7 @@ export function AudioWaveform({item,backend,prepared,compact=false,onActivate}:{
      queue=queue.catch(()=>{}).then(async()=>{if(!live)return;if(!backend.waveformPrepare){if(live)setError('波形暂不可用');return;}try{const result=await backend.waveformPrepare(item.id);if(cache.size>=64)cache.delete(cache.keys().next().value!);cache.set(cacheKey,result);if(live)setWave(result);}catch(e){if(live)setError(String(e));}});
    };
    if(!compact)load();
-   const observer=new IntersectionObserver(entries=>{if(entries.some(e=>e.isIntersecting))load();},{rootMargin:'80px'});if(host.current)observer.observe(host.current);
+   const observer=new IntersectionObserver(entries=>{if(entries.some(e=>e.isIntersecting))load();});if(host.current)observer.observe(host.current);
    return()=>{live=false;observer.disconnect();};
  },[backend,cacheKey,compact,item.id,stop]);
  async function play(at?:number){

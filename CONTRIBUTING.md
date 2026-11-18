@@ -1,16 +1,16 @@
 # 贡献指南
 
-感谢参与柠猫文件工作站。先阅读 [43 项决策](docs/product-decisions.md)、[M1 基线](docs/m1-execution-baseline.md)与 [AGENTS.md](AGENTS.md)。当前在已批准主工程 apps/desktop 推进 M1-05 真实文件闭环。执行 scripts/build-desktop.ps1 -Native / -Browser 验证，原生体验单独实测。
+感谢参与柠猫文件工作站。先阅读 [开发入口](docs/codex-start-here.md)、[当前交付](docs/execution/ACTIVE-DELIVERY.md)与 [AGENTS.md](AGENTS.md)。原生体验须用隔离工作区单独实测。
 
 ## 工作流程
 
 1. 在 Issue 中关联明确任务；检查已有 Issue、源码及成熟开源实现，避免重复开发。
-2. 从最新 main 创建独立分支，一个 PR 尽量只解决一个可验收问题。
+2. 从最新 `develop` 创建独立分支，一个 PR 尽量只解决一个可验收问题。
 3. 使用合成文件验证，禁止提交私人素材、凭据、实际工作数据库和本地机密路径。
 4. 运行相关检查，填写 PR 模板并记录回滚方式。
 5. 经 CI 和适用的验收后合并。真实文件安全、架构调整、最终 UI 方向不得自动合并。
 
-main 要求 PR、基础检查和对话解决；初始化阶段不要求第二位审核人，避免单人维护无法自行批准 PR。后续增加协作者时再评估审核人数。
+提交 PR 时提供基础检查及适用的原生验证，不绕过 GitHub 分支与合并规则。
 
 ## 当前检查
 

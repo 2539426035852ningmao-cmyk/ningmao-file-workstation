@@ -2,7 +2,7 @@
 
 ## 需求与阶段
 
-- 2026-11-05接续优先读docs/execution/ACTIVE-DELIVERY.md与docs/project-status.md：当前r7/PR #62已有P3/P4候选能力，下方r21“仅规划”状态仅是历史；不重造主工程，也不把本机证据扩大为真实双设备/模型/稳定发布。主分支文档同步见PR #63，未合并前默认首页仍可能落后；安全和审批要求不变。
+- 从 `develop` 接续，先读 [当前交付](docs/execution/ACTIVE-DELIVERY.md)、[项目状态](docs/project-status.md) 和 [路线图](docs/roadmap.md)。历史 `main` 与旧候选只用于追溯，不把本机证据扩大为真实双设备、模型或稳定发布。
 
 - 中文名称：柠猫文件工作站；英文名称：Ningmao File Workstation。
 - 仅操作用户授权的本仓库 `2539426035852ningmao-cmyk/ningmao-file-workstation`；不得擅自修改其他项目。
@@ -10,9 +10,8 @@
 - UI 任务同时阅读根目录 `design.md`，遵循紧凑悬浮架、同心圆圆角与渐进式操作规范；其中草案尺寸需验收，不能以视觉改动破坏文件安全功能。
 - 所有 Codex 新任务先阅读 `docs/codex-start-here.md` 与 `docs/roadmap.md`，核对当前 PR/CI 状态，避免 README 落后导致重复建设。
 - Gemini 独立审查按 `GEMINI.md` 和 `docs/AI_REVIEW_WORKFLOW.md` 实施。先核验官方 CLI、费用设置和只读权限，不得因历史成功而宣称当前联调通过；Gemini 不得替代 Codex 实测或人工验收。
-- 已批准独立 Tauri 2 + Rust + React + TypeScript + SQLite 主工程，shadcn/ui 主设计系统，按需复用 SpaceUI FileThumb；最新应用代码目前在 #30→#32→#35→#36→#40 的堆叠候选PR中。每次开工实时核查分支和 CI，不以历史 PR #9/#11/#13 作为当前开发入口。
-- M1-01/02/03 已验收并合入。当前 P2 r21 候选已实现多项功能，浏览器/Rust/CI 有证据，但 Windows 原生总验收仍 PARTIAL，完整主工程未正式合入 main。阶段交付执行 `docs/execution/P2-to-P3-P4-sequential-delivery-2026-10-26.md`；P3/P4 仅规划与候选研究，不得冒称交付。
-- 采用独立功能分支和 PR，不向 main 直接推送功能修改，不绕过保护规则。
+- 桌面主工程为 Tauri 2 + Rust + React + TypeScript + SQLite，沿用现有组件和主题。每次开工实时核查分支和 CI；互传及账号的实际状态以项目状态页为准。
+- 从 `develop` 创建独立功能分支和 PR，不直接推送功能修改到默认分支，不绕过保护规则。
 - 普通、可逆且已授权的工作自主推进；真实文件高风险操作、重大架构和最终视觉方向需要用户验收。
 
 ## 复用和研究
