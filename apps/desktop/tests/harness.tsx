@@ -106,8 +106,8 @@ function trashItem(id:number){const item=state.items.find(i=>i.id===id)!;const s
 let maximized=false;
 let duplicateTicket=0,duplicateCanceled=false;
 const backend:Backend={
-  async waveformPrepare(id){const values=JSON.parse(localStorage.getItem("test-waveforms")||"{}");if(!values[id])throw Error("合成波形未设置");return values[id];},
-  async previewPrepare(id){const files=JSON.parse(localStorage.getItem('test-previews')||'{}');return files[id]??{kind:'unsupported'};},
+  async waveformPrepare(id){if(new URLSearchParams(location.search).has("trace-waveforms")){const calls=JSON.parse(sessionStorage.getItem("test-waveform-calls")||"[]");sessionStorage.setItem("test-waveform-calls",JSON.stringify([...calls,id]));await new Promise(resolve=>setTimeout(resolve,300));}const values=JSON.parse(localStorage.getItem("test-waveforms")||"{}");if(!values[id])throw Error("合成波形未设置");return values[id];},
+  async previewPrepare(id){const delay=Number(new URLSearchParams(location.search).get('preview-delay'));if(delay)await new Promise(resolve=>setTimeout(resolve,delay));const files=JSON.parse(localStorage.getItem('test-previews')||'{}');return files[id]??{kind:'unsupported'};},
   async previewRelease(ticket){localStorage.setItem('test-preview-released',ticket);},
   transfer:{
     async peers(){return JSON.parse(localStorage.getItem("test-transfer-peers")||"[]");},

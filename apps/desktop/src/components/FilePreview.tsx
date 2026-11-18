@@ -5,12 +5,15 @@ import {Dialog} from 'radix-ui';
 import {X,Play,Pause,Volume2,VolumeX} from 'lucide-react';
 import type {Backend,Item,PreviewFile} from '../backend';
 import {Button} from './ui/button';
-import {thumbnailKey} from '../thumbnails';
+import {images,readCachedThumbnail,thumbnailKey} from '../thumbnails';
 const DocumentPreview=lazy(()=>import('./DocumentPreview'));
 const imagePreviews=new Map<string,PreviewFile>();
 
 export function FilePreview({item,backend,onClose,placeholder}:{item:Item;backend:Backend;onClose:()=>void;placeholder?:string|null}){
  const [file,setFile]=useState<PreviewFile|null>(null),[error,setError]=useState(''),[dimensions,setDimensions]=useState('');
+ const [smallImage,setSmallImage]=useState(placeholder??null);
+ const [sharpImage,setSharpImage]=useState<string|null>(null);
+ const isImage=images.includes(item.kind)||file?.kind==='image';
  const [playing,setPlaying]=useState(false),[position,setPosition]=useState(0),[duration,setDuration]=useState(0),[muted,setMuted]=useState(false);
  const playbackKey=useRef(crypto.randomUUID());
  useEffect(()=>observePlayback(playbackKey.current,()=>media.current?.pause()),[]);
@@ -35,6 +38,22 @@ export function FilePreview({item,backend,onClose,placeholder}:{item:Item;backen
    }).catch(e=>{if(live)setError(String(e));});
    return()=>{live=false;const player=media.current;if(player){player.pause();player.removeAttribute('src');player.load();}if(ticket)void backend.previewRelease?.(ticket).catch(()=>{});};
  },[backend,item.id,item.path,item.status,item.modified,item.thumbnail_stamp,item.bytes]);
+ useEffect(()=>{
+   let live=true;
+   setSmallImage(placeholder??null);
+   if(!placeholder&&images.includes(item.kind))void readCachedThumbnail(item).then(url=>{if(live&&url)setSmallImage(url);});
+   return()=>{live=false;};
+ },[item.id,item.kind,item.path,item.modified,item.thumbnail_stamp,item.bytes,item.status,placeholder]);
+ useEffect(()=>{
+   const url=file?.kind==='image'?file.url:null;
+   if(!url)return;
+   let live=true;
+   const image=new Image();
+   image.src=url;
+   void image.decode().then(()=>{if(live)setSharpImage(url);},()=>{if(live)setError('当前图片暂时无法预览。');});
+   return()=>{live=false;};
+ },[file]);
+ const fullImage=file?.kind==='image'&&file.url===sharpImage?sharpImage:null;
  const failed=()=>setError('当前文件或编码暂时无法预览。');
  const toggle=()=>{const player=media.current;if(player){if(player.paused)void player.play().catch(failed);else player.pause();}};
  const time=(seconds:number)=>Number.isFinite(seconds)?`${Math.floor(seconds/60)}:${String(Math.floor(seconds%60)).padStart(2,'0')}`:'--:--';
@@ -55,9 +74,9 @@ export function FilePreview({item,backend,onClose,placeholder}:{item:Item;backen
    <Dialog.Overlay className="shelf-menu-backdrop preview-backdrop"/>
    <Dialog.Content ref={content} tabIndex={-1} className="file-preview-dialog" style={anchor===null?undefined:{top:anchor,transform:'translateX(-50%)',maxHeight:`calc(100dvh - ${anchor+20}px)`}} aria-describedby={undefined} onOpenAutoFocus={event=>{event.preventDefault();content.current?.focus();}}>
     <header><Dialog.Title className="sr-only">快速预览</Dialog.Title><h3 title={item.name}>{item.name}</h3><Dialog.Close asChild><Button variant="ghost" size="icon" aria-label="关闭预览"><X size={16}/></Button></Dialog.Close></header>
-    <div className="preview-scroll"><div className="preview-content" aria-busy={!file&&!error}>
-      {!file&&!error&&!placeholder&&<span role="status">正在读取…</span>}
-      {((file?.kind==='image'&&file.url)||(!file&&placeholder))&&<div className={placeholder?'preview-image-stage':undefined}><img alt={item.name} src={file?.url||placeholder||undefined} onError={file?failed:undefined}/></div>}
+    <div className="preview-scroll"><div className="preview-content" aria-busy={(!file||isImage&&!fullImage)&&!error}>
+      {!file&&!error&&!isImage&&<span role="status">正在读取…</span>}
+      {isImage&&<div className="preview-image-stage">{fullImage||smallImage?<img alt={item.name} src={fullImage??smallImage??undefined} data-preview-quality={fullImage?'full':'small'}/>:!error&&<span role="status">正在读取…</span>}</div>}
       {file?.kind==='text'&&<pre tabIndex={0} aria-label="文件内容">{file.text}</pre>}
       {file?.kind==='audio'&&file.url&&<AudioWaveform item={item} backend={backend} prepared={file}/>}
       {file?.kind==='video'&&file.url&&<video ref={playerRef} aria-label="视频预览" src={file.url} preload="metadata" playsInline {...mediaEvents}/>}

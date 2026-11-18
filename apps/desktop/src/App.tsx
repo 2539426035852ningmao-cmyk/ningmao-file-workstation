@@ -38,9 +38,10 @@ const activeStatus=(s:string) => ["queued","copying"].includes(s);
 const sizes=(n:number) => n>=1024*1024 ? `${(n/1024/1024).toFixed(1)} MB` : n>=1024 ? `${(n/1024).toFixed(1)} KB` : `${n} B`;
 const states: Record<string,string>={ normal:"正常",missing:"引用失效",unreadable:"无法读取",unsupported:"不支持的链接" };
 const jobStates: Record<string,string>={queued:"等待中",copying:"进行中",completed:"已完成",partial:"部分完成",failed:"失败",cancelled:"已取消",interrupted:"上次中断"};
-function Thumb({item,backend,paused=false,size=80}:{item:Item;backend:Backend;paused?:boolean;size?:number}) {
+function Thumb({item,backend,paused=false,selected=false,size=80}:{item:Item;backend:Backend;paused?:boolean;selected?:boolean;size?:number}) {
   const [result,setResult]=useState<{item:Item;url:string|null}|null>(null);
   const host=useRef<HTMLDivElement>(null);
+  const priority=useRef(0);priority.current=selected?2:item.tags.includes("精选")?1:0;
   const thumb=cachedThumbnail(item)??(result?.item===item?result.url:null);
   useEffect(() => {
     if(paused||item.status!=="normal"||!thumbnailKinds.has(item.kind)||cachedThumbnail(item)!==undefined)return;
@@ -49,7 +50,7 @@ function Thumb({item,backend,paused=false,size=80}:{item:Item;backend:Backend;pa
       if(!entries[entries.length-1]?.isIntersecting){controller?.abort();controller=null;return;}
       if(controller)return;
       const request=controller=new AbortController();
-      void queueThumbnail(backend,item,request.signal).then(url=>{if(!request.signal.aborted&&url){setResult({item,url});observer.disconnect();}}).catch(()=>{});
+      void queueThumbnail(backend,item,request.signal,false,()=>priority.current).then(url=>{if(!request.signal.aborted&&url){setResult({item,url});observer.disconnect();}}).catch(()=>{});
     },{root:host.current?.closest(".file-scroll")??null});
     if(host.current)observer.observe(host.current);
     return ()=>{observer.disconnect();controller?.abort();};
@@ -70,11 +71,11 @@ function Asset({item,backend,paused,selected,list,size,disabled,select,inspect,o
       onPointerMove={e=>{const start=press.current;if(!(e.buttons&1)){press.current=null;return;}if(start && Math.hypot(e.clientX-start.x,e.clientY-start.y)>=6){press.current=null;nativeDrag.current=true;e.preventDefault();if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);drag();}}}
       onPointerUp={()=>{press.current=null;}} onPointerCancel={()=>{press.current=null;}} onLostPointerCapture={()=>{press.current=null;}}
       onClick={e=>{if(nativeDrag.current){e.preventDefault();e.stopPropagation();}else select(e);}} onDoubleClick={()=>{if(!nativeDrag.current)open();}} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();if(!e.repeat)open();}}}>
-      {["wav","mp3","m4a","aac","ogg","flac"].includes(item.kind)?<div className="thumb audio-placeholder" style={{width:list?30:size,height:list?30:size}}/>:<Thumb item={item} backend={backend} paused={paused} size={list?30:size}/>}<span className="asset-name" aria-description={item.name}>{item.name}</span>
+      {["wav","mp3","m4a","aac","ogg","flac"].includes(item.kind)?<div className="thumb audio-placeholder" style={{width:list?30:size,height:list?30:size}}/>:<Thumb item={item} backend={backend} paused={paused} selected={selected} size={list?30:size}/>}<span className="asset-name" aria-description={item.name}>{item.name}</span>
       <span className="asset-meta">{item.status!=="normal" ? states[item.status] : item.kind.toUpperCase()}{item.tags.includes("精选") && <Star size={12}/>}</span>
       {list && <span className="asset-bytes">{sizes(item.bytes)}</span>}
     </button>
-    {["wav","mp3","m4a","aac","ogg","flac"].includes(item.kind)&&item.status==="normal"&&<AudioWaveform item={item} backend={backend} compact onActivate={()=>select({})}/>}
+    {["wav","mp3","m4a","aac","ogg","flac"].includes(item.kind)&&item.status==="normal"&&<AudioWaveform item={item} backend={backend} compact paused={paused} selected={selected} onActivate={()=>select({})}/>}
   </div></ContextMenuTrigger><ContextMenuContent>
     <ContextMenuItem onSelect={open}>用系统默认程序打开</ContextMenuItem>
     <ContextMenuItem onSelect={inspect}>文件详情与预览</ContextMenuItem>
@@ -95,7 +96,7 @@ function VirtualFiles(props:{items:Item[];backend:Backend;paused:boolean;selecte
   const nextRow=virtual.range?virtual.range.endIndex+1:null;
   useEffect(()=>{
     if(props.paused||virtual.isScrolling||nextRow===null)return;
-    const items=props.items.slice(nextRow*columns,(nextRow+1)*columns).filter(item=>item.status==="normal"&&images.includes(item.kind));
+    const items=props.items.slice(nextRow*columns,(nextRow+1)*columns).filter(item=>item.status==="normal"&&images.includes(item.kind)).sort((first,second)=>Number(second.tags.includes("精选"))-Number(first.tags.includes("精选")));
     if(!items.length)return;
     const controller=new AbortController();
     let idle:number|undefined,remaining=3,timer:number;
@@ -439,8 +440,9 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
 
 {displayOptions&&<DropdownMenu.Group id="shelf-display-options" aria-label="显示与排序">
         <DropdownMenu.RadioGroup value={list?"list":"grid"} onValueChange={v=>setView({list:v==="list"})}><DropdownMenu.RadioItem value="grid" onSelect={e=>e.preventDefault()}><Grid2X2 size={16}/>网格视图</DropdownMenu.RadioItem><DropdownMenu.RadioItem value="list" onSelect={e=>e.preventDefault()}><List size={16}/>详细列表</DropdownMenu.RadioItem></DropdownMenu.RadioGroup>
+        <DropdownMenu.Separator className="display-divider"/>
         <DropdownMenu.RadioGroup value={sort} onValueChange={v=>{if(isSortMode(v))setView({sort:v});}}>{sortOptions.map(option=><DropdownMenu.RadioItem key={option.value} value={option.value} onSelect={e=>e.preventDefault()}>{option.label}</DropdownMenu.RadioItem>)}</DropdownMenu.RadioGroup>
-        <DropdownMenu.Separator className="thumbnail-divider"/>
+        <DropdownMenu.Separator className="display-divider"/>
         <DropdownMenu.Label className="menu-label">缩略图大小</DropdownMenu.Label><DropdownMenu.RadioGroup className="thumbnail-choices" aria-label="缩略图大小" value={String(size)} onValueChange={v=>setView({size:v==="60"?60:v==="120"?120:80})}>{[[60,"小"],[80,"中"],[120,"大"]].map(([v,label])=><DropdownMenu.RadioItem key={v} aria-label={label+"缩略图"} value={String(v)} onSelect={e=>e.preventDefault()}>{label}</DropdownMenu.RadioItem>)}</DropdownMenu.RadioGroup>
         <DropdownMenu.Separator/>
 

@@ -1,4 +1,55 @@
 import {test,expect,type Page} from '@playwright/test';
+import {expandDisplayOptions} from '../menu';
+test('重开直接恢复波形，只重新解析发生变化的同尺寸音频',async({page})=>{
+ await page.addInitScript(()=>{
+   if(localStorage.getItem('test-state'))return;
+   localStorage.setItem('test-state',JSON.stringify({shelves:[{id:1,name:'合成音频',kind:'persistent',available:true}],jobs:[],items:[1,2].map(id=>({id,shelf_id:1,name:`合成${id}.wav`,kind:'wav',path:`SYNTHETIC/${id}.wav`,bytes:120,modified:1,thumbnail_stamp:'1001',status:'normal',tags:[]}))}));
+   localStorage.setItem('test-waveforms',JSON.stringify({1:{duration:2,peaks:[0,.4]},2:{duration:3,peaks:[.2,1]}}));
+ });
+ const calls=()=>page.evaluate(()=>JSON.parse(sessionStorage.getItem('test-waveform-calls')||'[]') as number[]);
+ const ready=()=>expect(page.locator('.audio-wave-track svg')).toHaveCount(2);
+ await page.goto('/tests/harness.html?trace-waveforms');await ready();
+ const initial=await calls();expect([...initial].sort()).toEqual([1,2]);
+ await page.reload();await ready();expect(await calls()).toEqual(initial);
+ await page.evaluate(()=>{
+   const state=JSON.parse(localStorage.getItem('test-state')!);
+   state.items[1].thumbnail_stamp='1002';localStorage.setItem('test-state',JSON.stringify(state));
+ });
+ await page.reload();await ready();expect(await calls()).toEqual([...initial,2]);
+});
+test('显式音频预览排在可见普通卡片之前，文件仍保持原顺序',async({page})=>{
+ await page.addInitScript(()=>{
+   localStorage.setItem('test-state',JSON.stringify({shelves:[{id:1,name:'合成架',kind:'persistent',available:true}],jobs:[],items:[1,2,3,4].map(id=>({id,shelf_id:1,name:`合成${id}.wav`,kind:'wav',path:`SYNTHETIC/${id}.wav`,bytes:120,modified:1,status:'normal',tags:id===3?['精选']:[]}))}));
+   localStorage.setItem('test-previews',JSON.stringify({4:{kind:'audio',url:'data:audio/wav;base64,AAAA'}}));
+   localStorage.setItem('test-waveforms',JSON.stringify(Object.fromEntries([1,2,3,4].map(id=>[id,{duration:2,peaks:[0,.4]}]))));
+ });
+ await page.setViewportSize({width:640,height:520});
+ await page.goto('/tests/harness.html?trace-waveforms');
+ const calls=()=>page.evaluate(()=>JSON.parse(sessionStorage.getItem('test-waveform-calls')||'[]') as number[]);
+ await expect.poll(async()=>(await calls())[0]).toBe(3);
+ await page.getByRole('button',{name:'选择 合成4.wav'}).click();await page.keyboard.press('Space');
+ await expect(page.getByRole('dialog',{name:'快速预览'}).locator('.audio-wave-track svg')).toBeVisible();
+ expect(await calls()).toEqual([3,4]);
+ await page.keyboard.press('Escape');
+ await expect.poll(()=>page.locator('[data-item-id]').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('data-item-id')))).toEqual(['1','2','3','4']);
+});
+test('大素材架只解析可见音频，滚走后跳过过期请求',async({page})=>{
+ await page.addInitScript(()=>{
+   const count=1000;
+   localStorage.setItem('test-state',JSON.stringify({shelves:[{id:1,name:'合成素材架',kind:'persistent',available:true}],jobs:[],items:Array.from({length:count},(_,index)=>({id:index+1,shelf_id:1,name:`合成${index+1}.wav`,kind:'wav',path:`SYNTHETIC/${index+1}.wav`,bytes:120,modified:1,status:'normal',tags:[]}))}));
+   localStorage.setItem('test-waveforms',JSON.stringify(Object.fromEntries(Array.from({length:count},(_,index)=>[index+1,{duration:2,peaks:[0,.4]}]))));
+ });
+ await page.setViewportSize({width:480,height:520});
+ await page.goto('/tests/harness.html?trace-waveforms');
+ const calls=()=>page.evaluate(()=>JSON.parse(sessionStorage.getItem('test-waveform-calls')||'[]') as number[]);
+ await expect.poll(async()=>(await calls()).length).toBeGreaterThan(0);
+ await page.getByTestId('file-scroll').evaluate(node=>{node.scrollTop=node.scrollHeight;});
+ await expect.poll(async()=>(await calls()).some(id=>id>975)).toBe(true);
+ await expect(page.locator('.audio-wave-track svg').last()).toBeVisible();
+ const requests=await calls();
+ expect(requests.length).toBeLessThan(36);
+ expect(requests.every(id=>id<40||id>975)).toBe(true);
+});
 async function audioFixture(page:Page){await page.goto('/tests/harness.html');await page.evaluate(()=>{
  const count=160000,bytes=new Uint8Array(44+count*2),v=new DataView(bytes.buffer),word=(o:number,s:string)=>{for(let i=0;i<s.length;i++)bytes[o+i]=s.charCodeAt(i)};
  word(0,'RIFF');v.setUint32(4,bytes.length-8,true);word(8,'WAVE');word(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,8000,true);v.setUint32(28,16000,true);v.setUint16(32,2,true);v.setUint16(34,16,true);word(36,'data');v.setUint32(40,count*2,true);
@@ -8,6 +59,33 @@ async function audioFixture(page:Page){await page.goto('/tests/harness.html');aw
  localStorage.setItem('test-previews',JSON.stringify({1:{kind:'audio',url,ticket:'audio-1'},2:{kind:'audio',url,ticket:'audio-2'}}));
  localStorage.setItem('test-waveforms',JSON.stringify({1:{duration:20,peaks:[0,0,.2,.6,.4,.3]},2:{duration:20,peaks:[.1,.4,.2,.6]}}));
  });await page.reload();}
+test('详细列表为波形保留宽轨道，长文件名在下方且仍可选中',async({page})=>{
+ await audioFixture(page);
+ const name='一段很长的素材文件名，用于验证窄窗口里的横向波形不会覆盖文件文字'.repeat(3)+'.wav';
+ await page.evaluate(name=>{
+   const state=JSON.parse(localStorage.getItem('test-state')!);
+   state.items[0].name=name;localStorage.setItem('test-state',JSON.stringify(state));
+ },name);
+ await page.setViewportSize({width:340,height:320});await page.reload();
+ await page.getByRole('button',{name:'更多操作',exact:true}).click();
+ await expandDisplayOptions(page);
+ await page.getByRole('menuitemradio',{name:'详细列表',exact:true}).click();await page.keyboard.press('Escape');
+ const file=page.getByRole('button',{name:`选择 ${name}`,exact:true});
+ const track=page.getByRole('slider',{name:`试听进度 ${name}`,exact:true});
+ await expect(track.locator('svg')).toBeVisible();
+ for(const width of [340,600]){
+   await page.setViewportSize({width,height:420});
+   const row=(await file.locator('..').boundingBox())!;
+   const wave=(await track.boundingBox())!, label=(await file.getByText(name,{exact:true}).boundingBox())!;
+   expect(wave.width).toBeGreaterThan(row.width*.65);
+   expect(wave.y+wave.height).toBeLessThanOrEqual(label.y);
+   expect(label.y+label.height).toBeLessThanOrEqual(row.y+row.height);
+ }
+ await file.click();await expect(file).toHaveAttribute('aria-pressed','true');
+ await track.click({position:{x:(await track.boundingBox())!.width*.75,y:10}});
+ const audio=page.getByLabel(`音频试听 ${name}`,{exact:true});
+ await expect.poll(()=>audio.evaluate((node:HTMLAudioElement)=>node.currentTime)).toBeGreaterThan(14);
+});
 test('卡片真实波形可定位试听，跨窗口独占，暂停恢复，预览也接续独占',async({page,context})=>{
  await audioFixture(page);const track=page.getByRole('slider',{name:'试听进度 试听1.wav',exact:true});await expect(track.locator('svg path').first()).toHaveAttribute('d',/M/);
  const first=page.getByLabel('音频试听 试听1.wav',{exact:true});expect(await first.evaluate((p:HTMLAudioElement)=>p.paused)).toBe(true);
