@@ -1522,8 +1522,25 @@ pub fn image_preview(path: &Path, size: u32) -> Result<Option<String>> {
     small
         .write_to(&mut bytes, image::ImageFormat::Png)
         .map_err(err)?;
+    let mut bytes = bytes.into_inner();
+    let mut mime = "image/png";
+    if size <= 320 && bytes.len() > 120 * 1024 {
+        if small.color().has_alpha() {
+            bytes.clear();
+            small
+                .thumbnail(128, 128)
+                .write_to(&mut Cursor::new(&mut bytes), image::ImageFormat::Png)
+                .map_err(err)?;
+        } else {
+            bytes.clear();
+            image::codecs::jpeg::JpegEncoder::new_with_quality(&mut bytes, 82)
+                .encode_image(&small)
+                .map_err(err)?;
+            mime = "image/jpeg";
+        }
+    }
     Ok(Some(format!(
-        "data:image/png;base64,{}",
-        base64::engine::general_purpose::STANDARD.encode(bytes.into_inner())
+        "data:{mime};base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(bytes)
     )))
 }
