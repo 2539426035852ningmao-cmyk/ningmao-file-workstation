@@ -73,6 +73,7 @@ pub struct Item {
     pub kind: String,
     pub bytes: u64,
     pub modified: u64,
+    pub thumbnail_stamp: Option<String>,
     pub status: String,
     pub tags: Vec<String>,
 }
@@ -1133,15 +1134,17 @@ impl Store {
             .filter(|(_, id, _, _, _)| allowed.contains(id))
             .map(|(id, shelf_id, path, name, tags)| {
                 let meta = fs::symlink_metadata(&path);
+                let modified_time = meta
+                    .as_ref()
+                    .ok()
+                    .filter(|m| !is_link(m))
+                    .and_then(|m| m.modified().ok())
+                    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok());
                 let (status, bytes, modified, kind) = match meta {
                     Ok(m) if !is_link(&m) => (
                         "normal",
                         m.len(),
-                        m.modified()
-                            .ok()
-                            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-                            .map(|d| d.as_secs())
-                            .unwrap_or(0),
+                        modified_time.map(|d| d.as_secs()).unwrap_or(0),
                         if m.is_dir() {
                             "folder".into()
                         } else {
@@ -1172,6 +1175,7 @@ impl Store {
                     kind,
                     bytes,
                     modified,
+                    thumbnail_stamp: modified_time.map(|d| d.as_nanos().to_string()),
                     status: status.into(),
                     tags: serde_json::from_str(&tags).map_err(err)?,
                 })

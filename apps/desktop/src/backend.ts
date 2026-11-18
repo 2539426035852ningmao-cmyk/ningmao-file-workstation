@@ -5,7 +5,7 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import {nativeChat,type ChatBackend} from "./chatBackend";
 import {nativeTransfer,type TransferBackend} from "./transferBackend";
 export type Shelf = { id: number; name: string; kind: "persistent" | "session" | "bound"; root: string | null; available: boolean };
-export type Item = { id: number; shelf_id: number; path: string; name: string; kind: string; bytes: number; modified: number; status: string; tags: string[] };
+export type Item = { id: number; shelf_id: number; path: string; name: string; kind: string; bytes: number; modified: number; thumbnail_stamp?:string|null; status: string; tags: string[] };
 export type Job = { id: number; shelf_id: number; status: string; message: string; staging: string | null };
 export type Snapshot = { shelves: Shelf[]; items: Item[]; jobs: Job[] };
 export type PreviewFile={kind:"image"|"text"|"audio"|"video"|"pdf"|"office"|"unsupported";url?:string|null;text?:string|null;ticket?:string|null;truncated?:boolean;dimensions?:[number,number]|null};

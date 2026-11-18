@@ -5,9 +5,9 @@ import {Dialog} from 'radix-ui';
 import {X,Play,Pause,Volume2,VolumeX} from 'lucide-react';
 import type {Backend,Item,PreviewFile} from '../backend';
 import {Button} from './ui/button';
+import {thumbnailKey} from '../thumbnails';
 const DocumentPreview=lazy(()=>import('./DocumentPreview'));
 const imagePreviews=new Map<string,PreviewFile>();
-const imageKey=(item:Item)=>JSON.stringify([item.id,item.path,item.modified,item.bytes]);
 
 export function FilePreview({item,backend,onClose,placeholder}:{item:Item;backend:Backend;onClose:()=>void;placeholder?:string|null}){
  const [file,setFile]=useState<PreviewFile|null>(null),[error,setError]=useState(''),[dimensions,setDimensions]=useState('');
@@ -23,7 +23,7 @@ export function FilePreview({item,backend,onClose,placeholder}:{item:Item;backen
  },[]);
  useEffect(()=>{
    let live=true,ticket:string|null=null;setFile(null);setError('');setDimensions('');setPlaying(false);setPosition(0);setDuration(0);setMuted(false);
-   const key=imageKey(item),cached=item.status==='normal'?imagePreviews.get(key):undefined;
+   const key=thumbnailKey(item),cached=item.status==='normal'?imagePreviews.get(key):undefined;
    void (cached?Promise.resolve(cached):backend.previewPrepare?.(item.id)??Promise.resolve<PreviewFile>({kind:'unsupported'})).then(value=>{
      if(!live){if(value.ticket)void backend.previewRelease?.(value.ticket).catch(()=>{});return;}
      ticket=value.ticket??null;setFile(value);if(value.dimensions)setDimensions(`${value.dimensions[0]} × ${value.dimensions[1]}`);
@@ -34,7 +34,7 @@ export function FilePreview({item,backend,onClose,placeholder}:{item:Item;backen
      }
    }).catch(e=>{if(live)setError(String(e));});
    return()=>{live=false;const player=media.current;if(player){player.pause();player.removeAttribute('src');player.load();}if(ticket)void backend.previewRelease?.(ticket).catch(()=>{});};
- },[backend,item.id,item.path,item.status,item.modified,item.bytes]);
+ },[backend,item.id,item.path,item.status,item.modified,item.thumbnail_stamp,item.bytes]);
  const failed=()=>setError('当前文件或编码暂时无法预览。');
  const toggle=()=>{const player=media.current;if(player){if(player.paused)void player.play().catch(failed);else player.pause();}};
  const time=(seconds:number)=>Number.isFinite(seconds)?`${Math.floor(seconds/60)}:${String(Math.floor(seconds%60)).padStart(2,'0')}`:'--:--';
