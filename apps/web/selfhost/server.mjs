@@ -76,6 +76,10 @@ export function createRoomServer(directory, tls) {
       name TEXT NOT NULL, size INTEGER NOT NULL, digest TEXT NOT NULL, expires INTEGER NOT NULL, retain_until INTEGER NOT NULL,
       data BLOB NOT NULL
     );
+      CREATE TABLE IF NOT EXISTS uploads (
+        room TEXT REFERENCES rooms ON DELETE CASCADE, id TEXT PRIMARY KEY,
+        name TEXT NOT NULL, digest TEXT NOT NULL
+      );
   `);
   const members = db.prepare("SELECT id, name, role, status FROM members WHERE room = ? AND session = ?");
   const addMember = db.prepare("INSERT INTO members VALUES (?, ?, ?, ?, ?, ?)");
@@ -208,6 +212,9 @@ export function createRoomServer(directory, tls) {
         requireValue(safeFileName(name), 400, "文件名无效，请先修改文件名。");
         const digest = request.headers["x-sha256"];
         requireValue(typeof digest === "string" && /^[a-f0-9]{64}$/.test(digest), 400, "缺少文件校验值。");
+        const uploadId = request.headers["x-upload-id"];
+        requireValue(uploadId === undefined || (typeof uploadId === "string" && /^[a-f0-9]{32}$/.test(uploadId)), 400, "发送编号无效。");
+        const id = uploadId ? sha(code + member.id + uploadId).slice(0, 32) : token(16);
         requireValue(uploads < 2, 429, "当前上传较多，请稍后重试。");
         uploads++;
         try {
@@ -215,11 +222,27 @@ export function createRoomServer(directory, tls) {
           requireValue(sha(data) === digest, 422, "文件校验失败，请重新选择。");
           requireValue(members.get(code, session)?.id === member.id, 403, "成员权限已变化。");
           purgeFiles.run(Date.now());
+          if (uploadId) {
+            const prior = db.prepare("SELECT name, digest FROM uploads WHERE room = ? AND id = ?").get(code, id);
+            if (prior) {
+              requireValue(prior.name === name && prior.digest === digest, 409, "待恢复任务对应的文件已变化。");
+              requireValue(db.prepare("SELECT 1 FROM files WHERE room = ? AND id = ?").get(code, id), 410, "该发送记录已撤回或到期。");
+              return json(200, { id });
+            }
+            requireValue(db.prepare("SELECT COUNT(*) AS count FROM uploads WHERE room = ?").get(code).count < 4096, 409, "互传区发送记录已满。");
+          }
           const usage = db.prepare("SELECT COALESCE(SUM(size), 0) AS bytes, COUNT(*) AS count FROM files").get();
           requireValue(usage.bytes + data.length <= STORAGE_LIMIT && usage.count < 2048, 409, "站点暂存空间不足。");
-          const id = token(16);
           const expires = Date.now() + DAY;
-          db.prepare("INSERT INTO files VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(code, id, member.id, name, data.length, digest, expires, expires + 2 * DAY, data);
+          db.exec("BEGIN");
+          try {
+            if (uploadId) db.prepare("INSERT INTO uploads VALUES (?, ?, ?, ?)").run(code, id, name, digest);
+            db.prepare("INSERT INTO files VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(code, id, member.id, name, data.length, digest, expires, expires + 2 * DAY, data);
+            db.exec("COMMIT");
+          } catch (error) {
+            db.exec("ROLLBACK");
+            throw error;
+          }
           return json(201, { id });
         } finally {
           uploads--;

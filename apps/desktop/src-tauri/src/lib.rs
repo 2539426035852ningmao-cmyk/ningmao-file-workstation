@@ -13,6 +13,7 @@ mod shelf_windows;
 pub mod store;
 use ningmao_transfer_client as loopback_transport;
 mod preview;
+mod temporary_room;
 mod transfer_desktop;
 mod transfer_discovery;
 mod transfer_identity;
@@ -72,6 +73,7 @@ struct Runtime {
     web_transfers: web_transfer_bridge::WebTransferBridge,
     web_receives: web_transfer_receive::WebReceiveControl,
     web_device: web_device::WebDeviceControl,
+    rooms: temporary_room::Rooms,
     chat: chat::ChatControl,
     store: Mutex<Store>,
     active: Mutex<Option<(i64, Arc<AtomicBool>)>>,
@@ -2171,6 +2173,7 @@ pub fn run() {
                 web_transfers: Default::default(),
                 web_receives: Default::default(),
                 web_device: Default::default(),
+                rooms: Default::default(),
                 chat: Default::default(),
                 store: Mutex::new(
                     Store::open(&root.join("workstation.sqlite3"))
@@ -2341,6 +2344,10 @@ pub fn run() {
             web_transfer_receive::web_receive_append,
             web_transfer_receive::web_receive_finish,
             web_transfer_receive::web_receive_abort,
+            temporary_room::room_join,
+            temporary_room::room_view,
+            temporary_room::room_upload,
+            temporary_room::room_download,
             web_device::web_device_claim,
             web_device::web_device_status,
             web_device::web_device_disconnect,
