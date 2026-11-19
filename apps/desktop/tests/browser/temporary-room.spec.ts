@@ -20,7 +20,12 @@ test("临时互传区使用已选文件和显式保存目录，刷新后旧收�
         if (command === "room_view") return { member: { name: "合成装机端" }, files: [{ id: "a".repeat(32), name: "received.txt", size: 2, digest }] };
         if (command === "web_transfer_prepare") return { ticket: args.ticket, bytes: 2, name: "selected.txt", sha256: digest };
         if (command === "room_download") return new Uint8Array([65, 66]).buffer;
-        if (command === "web_receive_prepare") return { ticket: args.ticket, job_id: 1, bytes: 2 };
+        if (command === "web_receive_prepare") {
+          if (calls.filter((call: { command: string }) => call.command === command).length === 1) {
+            throw "已拒绝接收，未创建本机文件";
+          }
+          return { ticket: args.ticket, job_id: 1, bytes: 2 };
+        }
         if (command === "web_receive_append") return { received: 2, total: 2 };
         if (command === "web_receive_finish") return { job_id: 1, bytes: 2, status: "completed", file_name: "received (1).txt" };
       },
@@ -38,11 +43,14 @@ test("临时互传区使用已选文件和显式保存目录，刷新后旧收�
   await expect(page.getByRole("button", { name: "保存", exact: true })).toBeDisabled();
   await page.getByLabel("保存到", { exact: true }).selectOption("3");
   await page.getByRole("button", { name: "保存", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("已拒绝接收");
+  await page.getByRole("button", { name: "保存", exact: true }).click();
   await expect(page.getByText("received (1).txt", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "刷新互传区" }).click();
   await expect(page.getByText("received (1).txt", { exact: true })).toBeVisible();
   const calls = await page.evaluate(() => JSON.parse(sessionStorage.getItem("room-test-calls") || "[]"));
-  expect(calls.filter((call: { command: string }) => call.command === "room_download")).toHaveLength(1);
+  expect(calls.filter((call: { command: string }) => call.command === "room_download")).toHaveLength(2);
+  expect(calls.filter((call: { command: string }) => call.command === "web_receive_finish")).toHaveLength(1);
   expect(calls.find((call: { command: string }) => call.command === "web_receive_prepare").args.shelfId).toBe(3);
   expect(calls.find((call: { command: string }) => call.command === "web_transfer_prepare").args.itemId).toBe(1);
 });
