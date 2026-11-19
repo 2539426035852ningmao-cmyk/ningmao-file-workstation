@@ -51,11 +51,17 @@ test("two browsers can exchange files, with approval and revocation enforced by 
     const body = Buffer.from(text);
     const digest = createHash("sha256").update(body).digest("hex");
     const sent = await sender(path + "/files", null, {
-      headers: { "X-File-Name": encodeURIComponent("合成.txt"), "X-SHA256": digest },
+      headers: { "X-File-Name": encodeURIComponent("合成.txt"), "X-SHA256": digest, "X-Upload-Id": digest.slice(0,32) },
       body,
     });
     assert.equal(sent.status, 201);
     const file = await sent.json();
+    const retry = await sender(path + "/files", null, {
+      headers: { "X-File-Name": encodeURIComponent("合成.txt"), "X-SHA256": digest, "X-Upload-Id": digest.slice(0,32) },
+      body,
+    });
+    assert.equal(retry.status, 200);
+    assert.equal((await retry.json()).id, file.id);
     assert.equal((await browser()(path + "/files/" + file.id)).status, 403);
     assert.equal((await denied(path + "/files/" + file.id)).status, 403);
     const listing = await (await sender(path)).json();
@@ -70,6 +76,11 @@ test("two browsers can exchange files, with approval and revocation enforced by 
     assert.deepEqual(Buffer.from(await received.arrayBuffer()), body);
     assert.equal((await sender(path + "/revoke", { id: file.id })).status, 200);
     assert.equal((await receiver(path + "/files/" + file.id)).status, 404);
+    const afterRevoke = await sender(path + "/files", null, {
+      headers: { "X-File-Name": encodeURIComponent("合成.txt"), "X-SHA256": digest, "X-Upload-Id": digest.slice(0,32) },
+      body,
+    });
+    assert.equal(afterRevoke.status, 410);
   };
   await transfer(owner, guest, "from browser A");
   await transfer(guest, owner, "from browser B");

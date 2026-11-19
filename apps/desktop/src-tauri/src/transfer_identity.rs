@@ -8,7 +8,7 @@ pub struct Identity {
     pub key: Vec<u8>,
 }
 
-fn save(path: &Path, value: &impl Serialize) -> Result<()> {
+pub(crate) fn save(path: &Path, value: &impl Serialize) -> Result<()> {
     let ciphertext = chat::protect(&serde_json::to_vec(value).map_err(error)?)?;
     let mut file =
         tempfile::NamedTempFile::new_in(path.parent().ok_or("数据目录无效")?).map_err(error)?;
@@ -17,7 +17,7 @@ fn save(path: &Path, value: &impl Serialize) -> Result<()> {
     file.persist(path).map_err(error)?;
     Ok(())
 }
-fn read<T: serde::de::DeserializeOwned>(path: &Path) -> Result<Option<T>> {
+pub(crate) fn read<T: serde::de::DeserializeOwned>(path: &Path) -> Result<Option<T>> {
     match fs::read(path) {
         Ok(bytes) => serde_json::from_slice(&chat::unprotect(&bytes)?)
             .map(Some)
