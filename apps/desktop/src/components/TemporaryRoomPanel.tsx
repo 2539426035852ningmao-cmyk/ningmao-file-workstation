@@ -3,6 +3,7 @@ import { useState } from "react";
 import type { Shelf } from "../backend";
 import { saveAcceptedWebFile } from "../webReceiveBackend";
 import { nativeWebTransferSource } from "../webTransferBackend";
+import { WEB_MAX_FILE_BYTES } from "../webFileRules";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import type { TransferSelection } from "./TransferPanel";
@@ -71,11 +72,10 @@ export function TemporaryRoomPanel({ selection, shelves }: { selection: Transfer
       return;
     }
     const bytes = await invoke<ArrayBuffer>("room_download", { invitation, fileId: file.id });
-    localStorage.setItem(key, "pending");
     const receipt = await saveAcceptedWebFile(shelf, {
       manifest: { id: file.id, name: file.name, size: file.size, mime: "application/octet-stream", sha256: file.digest },
       bytes,
-    });
+    }, undefined, () => localStorage.setItem(key, "pending"));
     localStorage.setItem(key, receipt.file_name);
     setSaved(value => ({ ...value, [file.id]: receipt.file_name }));
   }
@@ -107,8 +107,10 @@ export function TemporaryRoomPanel({ selection, shelves }: { selection: Transfer
         {room.files.length === 0 && <p className="transfer-note">区内还没有文件。</p>}
         <ul className="transfer-files">{room.files.map(file => <li key={file.id}>
           <div><strong>{file.name}</strong><small>{file.size.toLocaleString()} B</small></div>
-          {saved[file.id] ? <small>{saved[file.id]}</small> : <Button variant="outline" disabled={busy || !shelf}
-            onClick={() => void run(() => saveFile(file))}>保存</Button>}
+          {file.size > WEB_MAX_FILE_BYTES ? <small>超过 64 MiB，请在网页领取</small>
+            : saved[file.id] ? <small>{saved[file.id]}</small>
+            : <Button variant="outline" disabled={busy || !shelf}
+              onClick={() => void run(() => saveFile(file))}>保存</Button>}
         </li>)}</ul>
       </>}
       {busy && <p role="status">处理中…</p>}
