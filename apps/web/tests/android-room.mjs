@@ -98,21 +98,6 @@ try {
   await page.getByRole("button", { name: "加入互传区" }).click();
   await expect(page.getByRole("heading", { name: "共享文件" })).toBeVisible();
 
-  const fixture = Buffer.alloc(4 * 1024 * 1024 + 77, 61);
-  const hostPath = join(local, fromAndroid);
-  await writeFile(hostPath, fixture);
-  device("push", hostPath, sourcePath);
-  assert.equal(device("shell", "sha256sum", sourcePath).split(/\s+/)[0], sha(fixture));
-  await selectDeviceFile(page, fromAndroid);
-  await page.getByRole("button", { name: "发给全区 2 人" }).click();
-  await expect(page.getByRole("status")).toContainText("文件校验通过", { timeout: 60_000 });
-  const listing = await (await fetch(room, { headers: { Cookie: cookie } })).json();
-  const uploaded = listing.files.find(file => file.name === fromAndroid);
-  assert.equal(uploaded?.digest, sha(fixture));
-  const copied = await fetch(room + "/files/" + uploaded.id, { headers: { Cookie: cookie } });
-  assert.equal(sha(Buffer.from(await copied.arrayBuffer())), sha(fixture));
-  console.log("Android native picker upload verified:", sha(fixture));
-
   const androidFixture = Buffer.alloc(187, 28);
   const posted = await fetch(room + "/bulk", {
     method: "POST", headers: { "Content-Type": "application/json", Cookie: cookie },
@@ -126,46 +111,7 @@ try {
   })).status, 200);
   assert.equal((await fetch(upload + "/publish", { method: "POST", headers: { Cookie: cookie } })).status, 200);
 
-  const save = page.getByRole("button", { name: "保存 " + toAndroid });
-  await save.click();
-  await expect(page.getByRole("status")).toHaveText("文件校验通过，请点击保存。");
-  await save.click();
-  await expect.poll(() => {
-    const digest = device("shell", "if [ -f " + receivedPath + " ]; then sha256sum " + receivedPath + "; fi").split(/\s+/)[0];
-    if (digest) return digest;
-    {
-      const nodes = pickerNodes();
-      if (nodes.some(node => /Download file|Do you want to download|Download again/.test(node.text))) {
-        const confirm = nodes.find(node => node.text === "Download" && node.bounds);
-        if (confirm) tapNode(confirm);
-      }
-      return "";
-    }
-  }, { timeout: 45_000, intervals: [1000] }).toBe(sha(androidFixture));
-  console.log(JSON.stringify({ androidVersion: device("shell", "getprop", "ro.build.version.release"), fromAndroid: sha(fixture), toAndroid: sha(androidFixture) }));
-
-  const sourceCount = async () => {
-    const sources = await fetch(room + "/sources/" + uploaded.id + "?offset=0", { headers: { Cookie: cookie } });
-    assert.equal(sources.status, 200);
-    return (await sources.json()).sources.length;
-  };
-  await page.getByRole("button", { name: "开始供件 " + fromAndroid }).click();
-  await expect.poll(sourceCount).toBe(1);
-  device("shell", "input", "keyevent", "KEYCODE_SLEEP");
-  await expect.poll(() => device("shell", "dumpsys", "power").includes("mWakefulness=Asleep")).toBe(true);
-  await expect.poll(sourceCount, { timeout: 30_000, intervals: [500] }).toBe(0);
-  const fallback = await fetch(room + "/files/" + uploaded.id, { headers: { Cookie: cookie } });
-  assert.equal(fallback.status, 200);
-  assert.equal(sha(Buffer.from(await fallback.arrayBuffer())), sha(fixture));
-  console.log("Sleep: Android left the active source list; the station provided the identical file.");
-  device("shell", "input", "keyevent", "KEYCODE_WAKEUP");
-  device("shell", "wm", "dismiss-keyguard");
-  await expect.poll(() => page.evaluate(() => document.visibilityState), { timeout: 20_000 }).toBe("visible");
-  await expect.poll(sourceCount).toBe(0);
-  await page.getByRole("button", { name: "开始供件 " + fromAndroid }).click();
-  await expect.poll(sourceCount).toBe(1);
-  console.log("Wake: Android offered the verified file again after explicit activation.");
-
+  await expect(page.getByRole("button", { name: "保存 " + toAndroid })).toBeVisible();
   if (emulatorNetwork) {
     function activeTransport() {
       const output = device("shell", "dumpsys", "connectivity");
@@ -181,8 +127,8 @@ try {
         const bytes = await response.arrayBuffer();
         return Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)),
           byte => byte.toString(16).padStart(2, "0")).join("");
-      }, "/api/rooms/" + code + "/files/" + uploaded.id);
-      assert.equal(hash, sha(fixture));
+      }, "/api/rooms/" + code + "/files/" + id);
+      assert.equal(hash, sha(androidFixture));
       console.log("Android emulator active transport: " + transport + ", synthetic file hash verified.");
     }
     device("shell", "svc", "wifi", "enable");
@@ -195,6 +141,60 @@ try {
       device("shell", "svc", "wifi", "enable");
     }
     await checkTransport("WIFI");
+  } else {
+    const fixture = Buffer.alloc(4 * 1024 * 1024 + 77, 61);
+    const hostPath = join(local, fromAndroid);
+    await writeFile(hostPath, fixture);
+    device("push", hostPath, sourcePath);
+    assert.equal(device("shell", "sha256sum", sourcePath).split(/\s+/)[0], sha(fixture));
+    await selectDeviceFile(page, fromAndroid);
+    await page.getByRole("button", { name: "发给全区 2 人" }).click();
+    await expect(page.getByRole("status")).toContainText("文件校验通过", { timeout: 60_000 });
+    const listing = await (await fetch(room, { headers: { Cookie: cookie } })).json();
+    const uploaded = listing.files.find(file => file.name === fromAndroid);
+    assert.equal(uploaded?.digest, sha(fixture));
+    const copied = await fetch(room + "/files/" + uploaded.id, { headers: { Cookie: cookie } });
+    assert.equal(sha(Buffer.from(await copied.arrayBuffer())), sha(fixture));
+    console.log("Android native picker upload verified:", sha(fixture));
+
+    const save = page.getByRole("button", { name: "保存 " + toAndroid });
+    await save.click();
+    await expect(page.getByRole("status")).toHaveText("文件校验通过，请点击保存。");
+    await save.click();
+    await expect.poll(() => {
+      const digest = device("shell", "if [ -f " + receivedPath + " ]; then sha256sum " + receivedPath + "; fi").split(/\s+/)[0];
+      if (digest) return digest;
+      const nodes = pickerNodes();
+      if (nodes.some(node => /Download file|Do you want to download|Download again/.test(node.text))) {
+        const confirm = nodes.find(node => node.text === "Download" && node.bounds);
+        if (confirm) tapNode(confirm);
+      }
+      return "";
+    }, { timeout: 45_000, intervals: [1000] }).toBe(sha(androidFixture));
+    console.log(JSON.stringify({ androidVersion: device("shell", "getprop", "ro.build.version.release"), fromAndroid: sha(fixture), toAndroid: sha(androidFixture) }));
+
+    const sourceCount = async () => {
+      const sources = await fetch(room + "/sources/" + uploaded.id + "?offset=0", { headers: { Cookie: cookie } });
+      assert.equal(sources.status, 200);
+      return (await sources.json()).sources.length;
+    };
+    await page.getByRole("button", { name: "开始供件 " + fromAndroid }).click();
+    await expect.poll(sourceCount).toBe(1);
+    device("shell", "input", "keyevent", "KEYCODE_SLEEP");
+    await expect.poll(() => device("shell", "dumpsys", "power").includes("mWakefulness=Asleep")).toBe(true);
+    await expect.poll(sourceCount, { timeout: 30_000, intervals: [500] }).toBe(0);
+    const fallback = await fetch(room + "/files/" + uploaded.id, { headers: { Cookie: cookie } });
+    assert.equal(fallback.status, 200);
+    assert.equal(sha(Buffer.from(await fallback.arrayBuffer())), sha(fixture));
+    console.log("Sleep: Android left the active source list; the station provided the identical file.");
+    device("shell", "input", "keyevent", "KEYCODE_WAKEUP");
+    device("shell", "wm", "dismiss-keyguard");
+    await expect.poll(() => page.evaluate(() => document.visibilityState), { timeout: 20_000 }).toBe("visible");
+    await expect.poll(sourceCount).toBe(0);
+    await page.getByRole("button", { name: "开始供件 " + fromAndroid }).click();
+    await expect.poll(sourceCount).toBe(1);
+    console.log("Wake: Android offered the verified file again after explicit activation.");
+
   }
 } finally {
   await browser?.close();
