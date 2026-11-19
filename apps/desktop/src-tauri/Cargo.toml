@@ -42,6 +42,10 @@ uuid = { version = "=1.24.0", features = ["v4"] }
 futures-util = "=0.3.34"
 tokio-tungstenite = { version = "=0.28.0", default-features = false, features = ["connect", "rustls-tls-webpki-roots"] }
 
+# Windows preview packages use the dev profile. Keep large-file hashing practical.
+[profile.dev.package.sha2]
+opt-level = 3
+
 [profile.release]
 codegen-units = 1
 lto = true
