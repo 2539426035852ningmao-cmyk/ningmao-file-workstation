@@ -66,6 +66,7 @@ impl Invitation {
 }
 
 fn client() -> Result<Client> {
+    let _ = rustls::crypto::ring::default_provider().install_default();
     Client::builder()
         .no_proxy()
         .redirect(Policy::none())
