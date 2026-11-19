@@ -110,6 +110,7 @@ const backend:Backend={
   async previewPrepare(id){const delay=Number(new URLSearchParams(location.search).get('preview-delay'));if(delay)await new Promise(resolve=>setTimeout(resolve,delay));const files=JSON.parse(localStorage.getItem('test-previews')||'{}');return files[id]??{kind:'unsupported'};},
   async previewRelease(ticket){localStorage.setItem('test-preview-released',ticket);},
   transfer:{
+    roomAvailable:new URLSearchParams(location.search).has("temporary-room"),
     async peers(){return JSON.parse(localStorage.getItem("test-transfer-peers")||"[]");},
     async pair(name,address,fingerprint){transferCalls.push(`pair:${address}`);localStorage.setItem("test-transfer-peers",JSON.stringify([{name,fingerprint}]));},
     async devices(){transferReads.devices++;return new URLSearchParams(location.search).has("nearby")?[{name:"合成接收电脑",address:"127.0.0.1:53317",fingerprint:"a".repeat(64)}]:[];},

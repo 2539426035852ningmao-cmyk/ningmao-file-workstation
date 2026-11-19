@@ -40,7 +40,7 @@ export const nativeWebReceiver = {
  * through the native Store's unique-name copy and job terminal transitions.
  */
 export async function saveAcceptedWebFile(
-  shelfId:number, offer:DesktopWebRTCOffer, signal?:AbortSignal
+  shelfId:number, offer:DesktopWebRTCOffer, signal?:AbortSignal, beforePublish?:()=>void
 ):Promise<WindowsWebReceipt>{
   const {manifest,bytes}=offer;
   if(!Number.isSafeInteger(shelfId) || shelfId<=0 ||
@@ -69,6 +69,7 @@ export async function saveAcceptedWebFile(
         throw new Error("本机分块接收状态异常");
     }
     if(signal?.aborted)throw new Error("接收已取消");
+    beforePublish?.();
     const receipt=await nativeWebReceiver.finish(ticket);
     // Only a persisted native Store job may be called completed.
     if(receipt.status!=="completed" || receipt.job_id!==started.job_id ||
