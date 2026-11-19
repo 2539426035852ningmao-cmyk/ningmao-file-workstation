@@ -58,7 +58,8 @@ export function TemporaryRoomPanel({ selection, shelves }: { selection: Transfer
     const item = selection.files[0];
     if (!item || selection.files.length !== 1) return;
     if (room?.bulk) {
-      const key = JSON.stringify(["room-bulk-upload", invitation, selection.shelf_id, item.id]);
+      const url = new URL(invitation);
+      const key = JSON.stringify(["room-bulk-upload", url.origin, url.searchParams.get("code"), selection.shelf_id, item.id]);
       const uploadId = localStorage.getItem(key) ?? crypto.randomUUID().replace(/-/g, "");
       localStorage.setItem(key, uploadId);
       await invoke("room_bulk_upload", { invitation, shelfId: selection.shelf_id, itemId: item.id, uploadId, onProgress: progressChannel() });
@@ -138,7 +139,7 @@ export function TemporaryRoomPanel({ selection, shelves }: { selection: Transfer
         </select></label>
         {room.files.length === 0 && <p className="transfer-note">区内还没有文件。</p>}
         <ul className="transfer-files">{room.files.map(file => <li key={file.id}>
-          <div><strong>{file.name}</strong><small>{file.size.toLocaleString()} B</small></div>
+          <div><strong>{file.name}</strong><small> · {file.size.toLocaleString()} B</small></div>
           {!file.chunked && file.size > WEB_MAX_FILE_BYTES ? <small>超过 64 MiB，请在网页领取</small>
             : saved[file.id] ? <small>{saved[file.id]}</small>
             : <Button variant="outline" disabled={busy || !shelf} aria-label={`保存 ${file.name}`}
