@@ -19,6 +19,7 @@ use std::{
 use tauri::{Emitter, Manager};
 use tauri_plugin_dialog::DialogExt;
 
+pub(crate) const ROOM_MAX_BYTES: u64 = 20_000_000_000;
 const MAX_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_CHUNK: usize = 64 * 1024;
 const TTL: Duration = Duration::from_secs(600);
@@ -137,7 +138,7 @@ impl ReceiveSession {
         sha256: String,
     ) -> Result<Self> {
         if !safe_name(name)
-            || expected > MAX_BYTES
+            || expected > ROOM_MAX_BYTES
             || sha256.len() != 64
             || !sha256.bytes().all(|b| b.is_ascii_hexdigit())
         {
@@ -189,28 +190,36 @@ impl ReceiveSession {
             return Err("文件分块偏移量或长度不合法。".into());
         }
         let bytes = STANDARD.decode(encoded).map_err(|_| "文件分块编码无效")?;
-        if bytes.is_empty()
-            || bytes.len() > MAX_CHUNK
-            || self.written + bytes.len() as u64 > self.expected
-        {
+        if bytes.len() > MAX_CHUNK {
             return Err("文件分块超出已确认的容量。".into());
         }
-        self.file.write_all(&bytes).map_err(error)?;
-        self.hasher.update(&bytes);
-        self.written += bytes.len() as u64;
+        self.append_bytes(&bytes)?;
         Ok(ReceiveChunkStatus {
             received: self.written,
             total: self.expected,
         })
     }
-    fn verify(mut self) -> Result<VerifiedSession> {
+    fn append_bytes(&mut self, bytes: &[u8]) -> Result<()> {
+        if bytes.is_empty() || self.written + bytes.len() as u64 > self.expected {
+            return Err("文件分块超出已确认的容量。".into());
+        }
+        self.file.write_all(bytes).map_err(error)?;
+        self.hasher.update(bytes);
+        self.written += bytes.len() as u64;
+        Ok(())
+    }
+    fn check_complete(&self) -> Result<()> {
         if self.issued.elapsed() >= TTL || self.written != self.expected {
             return Err("文件未收齐或接收授权已过期，禁止保存。".into());
         }
-        let digest = format!("{:x}", self.hasher.finalize());
+        let digest = format!("{:x}", self.hasher.clone().finalize());
         if digest != self.sha256 {
             return Err("文件 SHA-256 校验失败，拒绝写入绑定目录。".into());
         }
+        Ok(())
+    }
+    fn verify(mut self) -> Result<VerifiedSession> {
+        self.check_complete()?;
         self.file.flush().map_err(error)?;
         self.file.sync_all().map_err(error)?;
         drop(self.file);
@@ -236,6 +245,15 @@ fn stage(
     root: &Path,
     request: StageRequest<'_>,
 ) -> Result<ReceiveStarted> {
+    stage_with_limit(control, store, root, request, MAX_BYTES)
+}
+fn stage_with_limit(
+    control: &WebReceiveControl,
+    store: &mut Store,
+    root: &Path,
+    request: StageRequest<'_>,
+    limit: u64,
+) -> Result<ReceiveStarted> {
     let StageRequest {
         owner,
         scope,
@@ -248,7 +266,7 @@ fn stage(
     scoped(scope, shelf)?;
     if !ticket_valid(ticket)
         || !safe_name(name)
-        || size > MAX_BYTES
+        || size > limit
         || sha256.len() != 64
         || !sha256.bytes().all(|b| b.is_ascii_hexdigit())
     {
@@ -386,30 +404,7 @@ pub async fn web_receive_prepare(
     {
         return Err("文件接收请求不安全，未进入确认步骤".into());
     }
-    // A trusted renderer cannot silently save a remote file: Windows owner
-    // must actively approve via the native dialog before any staging/job writes.
-    let confirmation_app = app.clone();
-    let confirmation_window = window.clone();
-    let prompt_name = name.clone();
-    let approved = tauri::async_runtime::spawn_blocking(move || {
-        confirmation_app
-            .dialog()
-            .message(format!(
-                "是否接收网页传来的文件？\n\n名称：{prompt_name}\n大小：{bytes} 字节\n保存位置：当前工作站绑定文件架（编号 {shelf_id}）\n\n文件会先进行 SHA-256 校验，保存时不会覆盖已有文件。"
-            ))
-            .title("确认接收网页文件")
-            .parent(&confirmation_window)
-            .buttons(tauri_plugin_dialog::MessageDialogButtons::OkCancelCustom(
-                "确认接收".into(),
-                "拒绝".into(),
-            ))
-            .blocking_show()
-    })
-    .await
-    .map_err(error)?;
-    if !approved {
-        return Err("已拒绝接收，未创建本机文件".into());
-    }
+    confirm(&app, &window, shelf_id, &name, bytes).await?;
     let owner = window.label().to_owned();
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<Runtime>();
@@ -431,6 +426,122 @@ pub async fn web_receive_prepare(
     })
     .await
     .map_err(error)?
+}
+async fn confirm(
+    app: &tauri::AppHandle,
+    window: &tauri::WebviewWindow,
+    shelf_id: i64,
+    name: &str,
+    bytes: u64,
+) -> Result<()> {
+    // A trusted renderer cannot silently save a remote file: Windows owner
+    // must actively approve via the native dialog before any staging/job writes.
+    let confirmation_app = app.clone();
+    let confirmation_window = window.clone();
+    let prompt_name = name.to_owned();
+    let approved = tauri::async_runtime::spawn_blocking(move || {
+        confirmation_app
+            .dialog()
+            .message(format!(
+                "是否接收网页传来的文件？\n\n名称：{prompt_name}\n大小：{bytes} 字节\n保存位置：当前工作站绑定文件架（编号 {shelf_id}）\n\n文件会先进行 SHA-256 校验，保存时不会覆盖已有文件。"
+            ))
+            .title("确认接收网页文件")
+            .parent(&confirmation_window)
+            .buttons(tauri_plugin_dialog::MessageDialogButtons::OkCancelCustom(
+                "确认接收".into(),
+                "拒绝".into(),
+            ))
+            .blocking_show()
+    })
+    .await
+    .map_err(error)?;
+    if !approved {
+        return Err("已拒绝接收，未创建本机文件".into());
+    }
+    Ok(())
+}
+pub(crate) struct RoomReceive {
+    pub shelf: i64,
+    pub ticket: String,
+    pub name: String,
+    pub size: u64,
+    pub digest: String,
+}
+pub(crate) async fn begin_room_receive(
+    app: &tauri::AppHandle,
+    window: &tauri::WebviewWindow,
+    input: RoomReceive,
+) -> Result<()> {
+    let scope = metadata_scope(window)?;
+    scoped(scope, input.shelf)?;
+    if !ticket_valid(&input.ticket)
+        || !safe_name(&input.name)
+        || input.size > ROOM_MAX_BYTES
+        || input.digest.len() != 64
+        || !input.digest.bytes().all(|b| b.is_ascii_hexdigit())
+    {
+        return Err("接收清单不合法，未创建文件。".into());
+    }
+    confirm(app, window, input.shelf, &input.name, input.size).await?;
+    let owner = window.label().to_owned();
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<Runtime>();
+        let mut store = state.store.lock().map_err(error)?;
+        stage_with_limit(
+            &state.web_receives,
+            &mut store,
+            &state.data_root,
+            StageRequest {
+                owner: &owner,
+                scope,
+                shelf: input.shelf,
+                ticket: &input.ticket,
+                name: &input.name,
+                size: input.size,
+                sha256: &input.digest,
+            },
+            ROOM_MAX_BYTES,
+        )?;
+        Ok(())
+    })
+    .await
+    .map_err(error)?
+}
+pub(crate) async fn append_room_bytes(
+    app: &tauri::AppHandle,
+    window: &tauri::WebviewWindow,
+    ticket: &str,
+    offset: u64,
+    bytes: Vec<u8>,
+) -> Result<()> {
+    let owner = window.label().to_owned();
+    let scope = metadata_scope(window)?;
+    let app = app.clone();
+    let ticket = ticket.to_owned();
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<Runtime>();
+        let mut sessions = state.web_receives.sessions.lock().map_err(error)?;
+        let session = owned(&mut sessions, &ticket, &owner, scope)?;
+        if offset != session.written || session.issued.elapsed() >= TTL {
+            return Err("接收偏移已变化或任务超时。".into());
+        }
+        session.append_bytes(&bytes)?;
+        session.issued = Instant::now();
+        Ok(())
+    })
+    .await
+    .map_err(error)?
+}
+pub(crate) fn check_room_receive(
+    app: &tauri::AppHandle,
+    window: &tauri::WebviewWindow,
+    ticket: &str,
+) -> Result<()> {
+    let scope = metadata_scope(window)?;
+    let state = app.state::<Runtime>();
+    let mut sessions = state.web_receives.sessions.lock().map_err(error)?;
+    owned(&mut sessions, ticket, window.label(), scope)?.check_complete()
 }
 #[tauri::command]
 pub async fn web_receive_append(

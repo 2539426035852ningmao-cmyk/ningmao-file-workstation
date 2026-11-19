@@ -10,6 +10,7 @@ test("临时互传区使用已选文件和显式保存目录，刷新后旧收�
       ], items: [source], jobs: [],
     }));
     Object.defineProperty(window, "__TAURI_INTERNALS__", { configurable: true, value: {
+      transformCallback: () => 42,
       invoke: async (command: string, args: Record<string, unknown>) => {
         const calls = JSON.parse(sessionStorage.getItem("room-test-calls") || "[]");
         calls.push({ command, args });
@@ -17,8 +18,9 @@ test("临时互传区使用已选文件和显式保存目录，刷新后旧收�
         const digest = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new Uint8Array([65, 66]))))
           .map(byte => byte.toString(16).padStart(2, "0")).join("");
         if (command === "room_join") return { member: { name: "合成装机端" } };
-        if (command === "room_view") return { member: { name: "合成装机端" }, files: [{ id: "a".repeat(32), name: "received.txt", size: 2, digest }] };
+        if (command === "room_view") return { member: { name: "合成装机端" }, bulk: true, files: [{ id: "a".repeat(32), name: "received.txt", size: 2, digest }, { id: "c".repeat(32), name: "large.bin", size: 80_000_000, digest, chunked: 1 }] };
         if (command === "web_transfer_prepare") return { ticket: args.ticket, bytes: 2, name: "selected.txt", sha256: digest };
+        if (command === "room_bulk_receive") return {};
         if (command === "room_download") return new Uint8Array([65, 66]).buffer;
         if (command === "web_receive_prepare") {
           if (calls.filter((call: { command: string }) => call.command === command).length === 1) {
@@ -40,17 +42,20 @@ test("临时互传区使用已选文件和显式保存目录，刷新后旧收�
   await page.getByLabel("显示名称").fill("合成装机端");
   await page.getByRole("button", { name: "加入互传区" }).click();
   await page.getByRole("button", { name: "将所选文件发给全区" }).click();
-  await expect(page.getByRole("button", { name: "保存", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "保存 received.txt", exact: true })).toBeDisabled();
   await page.getByLabel("保存到", { exact: true }).selectOption("3");
-  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await page.getByRole("button", { name: "保存 received.txt", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("已拒绝接收");
-  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await page.getByRole("button", { name: "保存 received.txt", exact: true }).click();
   await expect(page.getByText("received (1).txt", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "刷新互传区" }).click();
   await expect(page.getByText("received (1).txt", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "保存 large.bin", exact: true }).click();
+  await expect(page.getByText("received (1).txt", { exact: true })).toHaveCount(2);
   const calls = await page.evaluate(() => JSON.parse(sessionStorage.getItem("room-test-calls") || "[]"));
   expect(calls.filter((call: { command: string }) => call.command === "room_download")).toHaveLength(2);
-  expect(calls.filter((call: { command: string }) => call.command === "web_receive_finish")).toHaveLength(1);
+  expect(calls.filter((call: { command: string }) => call.command === "web_receive_finish")).toHaveLength(2);
+  expect(calls.filter((call: { command: string }) => call.command === "room_bulk_receive")).toHaveLength(1);
   expect(calls.find((call: { command: string }) => call.command === "web_receive_prepare").args.shelfId).toBe(3);
-  expect(calls.find((call: { command: string }) => call.command === "web_transfer_prepare").args.itemId).toBe(1);
+  expect(calls.find((call: { command: string }) => call.command === "room_bulk_upload").args.itemId).toBe(1);
 });

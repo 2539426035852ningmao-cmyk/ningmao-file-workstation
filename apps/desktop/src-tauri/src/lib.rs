@@ -2348,6 +2348,8 @@ pub fn run() {
             temporary_room::room_view,
             temporary_room::room_upload,
             temporary_room::room_download,
+            temporary_room::room_bulk_upload,
+            temporary_room::room_bulk_receive,
             web_device::web_device_claim,
             web_device::web_device_status,
             web_device::web_device_disconnect,

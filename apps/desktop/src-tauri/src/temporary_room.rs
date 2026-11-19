@@ -251,6 +251,248 @@ pub async fn room_download(
     ))
 }
 
+const ROOM_CHUNK: u64 = 4 * 1024 * 1024;
+#[derive(Clone, serde::Serialize)]
+pub struct RoomProgress {
+    phase: &'static str,
+    bytes: u64,
+    total: u64,
+}
+fn progress(
+    channel: &tauri::ipc::Channel<RoomProgress>,
+    phase: &'static str,
+    bytes: u64,
+    total: u64,
+) {
+    let _ = channel.send(RoomProgress {
+        phase,
+        bytes,
+        total,
+    });
+}
+
+fn range_matches(response: &Response, start: u64, end: u64, total: u64) -> bool {
+    response.status() == 206
+        && response
+            .headers()
+            .get(header::CONTENT_RANGE)
+            .and_then(|value| value.to_str().ok())
+            .is_some_and(|value| value == format!("bytes {start}-{end}/{total}"))
+}
+
+#[tauri::command]
+pub async fn room_bulk_receive(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    invitation: String,
+    file_id: String,
+    shelf_id: i64,
+    ticket: String,
+    on_progress: tauri::ipc::Channel<RoomProgress>,
+) -> Result<()> {
+    trusted_native_origin(&window)?;
+    metadata_scope(&window)?;
+    let invitation = Invitation::parse(&invitation)?;
+    if !hex(&file_id, 32) {
+        return Err("文件编号无效。".into());
+    }
+    let cookie =
+        transfer_identity::read::<String>(&invitation.cookie_path(&app.state::<Runtime>()))?;
+    let client = client()?;
+    let manifest = reply(
+        send(with_cookie(
+            client.get(invitation.endpoint("")?),
+            cookie.clone(),
+        ))
+        .await?,
+    )
+    .await?;
+    let entry = manifest["files"]
+        .as_array()
+        .and_then(|files| {
+            files.iter().find(|file| {
+                file["id"].as_str() == Some(&file_id) && file["chunked"].as_u64() == Some(1)
+            })
+        })
+        .ok_or("分块文件已撤回或到期。")?;
+    let size = entry["size"].as_u64().ok_or("文件大小无效。")?;
+    crate::web_transfer_receive::begin_room_receive(
+        &app,
+        &window,
+        crate::web_transfer_receive::RoomReceive {
+            shelf: shelf_id,
+            ticket: ticket.clone(),
+            size,
+            name: entry["name"].as_str().ok_or("文件名无效。")?.to_owned(),
+            digest: entry["digest"].as_str().ok_or("文件摘要无效。")?.to_owned(),
+        },
+    )
+    .await?;
+    let result = async {
+        let url = invitation.endpoint(&format!("/files/{file_id}"))?;
+        if size == 0 {
+            let response = send(with_cookie(client.get(url.clone()), cookie.clone())).await?;
+            if !response.status().is_success() || !bounded(response, 0).await?.is_empty() {
+                return Err("空文件不可下载。".into());
+            }
+        }
+        let mut offset = 0;
+        while offset < size {
+            let end = (offset + ROOM_CHUNK).min(size) - 1;
+            let fetch_block = || async {
+                let response = send(
+                    with_cookie(client.get(url.clone()), cookie.clone())
+                        .header(header::RANGE, format!("bytes={offset}-{end}")),
+                )
+                .await?;
+                if !range_matches(&response, offset, end, size) {
+                    return Err("站点返回的文件范围不匹配，或文件已撤回。".into());
+                }
+                let expected = (end - offset + 1) as usize;
+                let bytes = bounded(response, expected).await?;
+                if bytes.len() != expected {
+                    return Err("下载分块未收齐。".into());
+                }
+                Ok::<_, String>(bytes)
+            };
+            let bytes = match fetch_block().await {
+                Ok(bytes) => bytes,
+                Err(_) => fetch_block().await?,
+            };
+            crate::web_transfer_receive::append_room_bytes(&app, &window, &ticket, offset, bytes)
+                .await?;
+            offset = end + 1;
+            progress(&on_progress, "下载", offset, size);
+        }
+        crate::web_transfer_receive::check_room_receive(&app, &window, &ticket)
+    }
+    .await;
+    if result.is_err() {
+        let _ = crate::web_transfer_receive::web_receive_abort(app, window, ticket).await;
+    }
+    result
+}
+
+#[tauri::command]
+pub async fn room_bulk_upload(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    invitation: String,
+    shelf_id: i64,
+    item_id: i64,
+    upload_id: String,
+    on_progress: tauri::ipc::Channel<RoomProgress>,
+) -> Result<()> {
+    use tokio::io::{AsyncReadExt, AsyncSeekExt};
+    trusted_native_origin(&window)?;
+    let scope = metadata_scope(&window)?;
+    if scope.is_some_and(|id| id != shelf_id) || !hex(&upload_id, 32) {
+        return Err("只能发送当前文件架的所选文件。".into());
+    }
+    let invitation = Invitation::parse(&invitation)?;
+    let worker = app.clone();
+    let (name, source) = tauri::async_runtime::spawn_blocking(move || {
+        let state = worker.state::<Runtime>();
+        let store = state.store.lock().map_err(error)?;
+        store.validate_item_scope(Some(shelf_id), &[item_id])?;
+        let path = store.opening_target(item_id)?;
+        store.validate_opening_target(item_id, &path)?;
+        let name = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .ok_or("文件名称无效。")?
+            .to_owned();
+        Ok::<_, String>((name, crate::preview::open(&path)?))
+    })
+    .await
+    .map_err(error)??;
+    let mut source = tokio::fs::File::from_std(source);
+    let size = source.metadata().await.map_err(error)?.len();
+    if size > crate::web_transfer_receive::ROOM_MAX_BYTES {
+        return Err("临时互传单文件最多 20 GB。".into());
+    }
+    let mut hash = Sha256::new();
+    let mut part = vec![0; ROOM_CHUNK as usize];
+    let mut checked = 0;
+    while checked < size {
+        let length = ROOM_CHUNK.min(size - checked) as usize;
+        source
+            .read_exact(&mut part[..length])
+            .await
+            .map_err(error)?;
+        hash.update(&part[..length]);
+        checked += length as u64;
+        progress(&on_progress, "校验来源", checked, size);
+    }
+    let digest = format!("{:x}", hash.finalize());
+    let request = format!("{:x}", Sha256::digest(format!("{upload_id}:{digest}")));
+    let cookie =
+        transfer_identity::read::<String>(&invitation.cookie_path(&app.state::<Runtime>()))?;
+    let client = client()?;
+    let start = reply(
+        send(
+            with_cookie(client.post(invitation.endpoint("/bulk")?), cookie.clone()).json(
+                &json!({"name": name, "request": &request[..32], "size": size, "digest": digest}),
+            ),
+        )
+        .await?,
+    )
+    .await?;
+    let id = start["id"]
+        .as_str()
+        .filter(|id| hex(id, 32))
+        .ok_or("站点返回了无效文件编号。")?;
+    let mut offset = start["offset"]
+        .as_u64()
+        .filter(|n| *n <= size && (*n == size || n % ROOM_CHUNK == 0))
+        .ok_or("站点返回了无效上传偏移。")?;
+    if start["size"].as_u64() != Some(size) || start["chunkBytes"].as_u64() != Some(ROOM_CHUNK) {
+        return Err("站点返回了不匹配的分块参数。".into());
+    }
+    let tail = format!("/bulk/{id}");
+    let url = invitation.endpoint(&tail)?;
+    source
+        .seek(std::io::SeekFrom::Start(offset))
+        .await
+        .map_err(error)?;
+    while offset < size {
+        let length = ROOM_CHUNK.min(size - offset) as usize;
+        source
+            .read_exact(&mut part[..length])
+            .await
+            .map_err(error)?;
+        let digest = format!("{:x}", Sha256::digest(&part[..length]));
+        let next = reply(
+            send(
+                with_cookie(client.post(url.clone()), cookie.clone())
+                    .header("X-Offset", offset)
+                    .header("X-SHA256", digest)
+                    .body(part[..length].to_vec()),
+            )
+            .await?,
+        )
+        .await?;
+        offset += length as u64;
+        progress(&on_progress, "上传", offset, size);
+        if next["offset"].as_u64() != Some(offset) || next["id"].as_str() != Some(id) {
+            return Err("站点返回了不匹配的上传回执。".into());
+        }
+    }
+    progress(&on_progress, "站点校验", size, size);
+    let published = reply(
+        send(with_cookie(
+            client.post(invitation.endpoint(&format!("{tail}/publish"))?),
+            cookie,
+        ))
+        .await?,
+    )
+    .await?;
+    if published["id"].as_str() != Some(id) || published["expires"].as_u64().is_none() {
+        return Err("站点尚未确认发布。".into());
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
