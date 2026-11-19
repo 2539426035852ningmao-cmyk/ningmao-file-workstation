@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowDownToLine, FolderUp } from "lucide-react";
 import { MAX_BROWSER_TRANSFER_BYTES } from "./file-preparation.mjs";
 import { downloadBulk, FILE_MAX, uploadBulk } from "./bulkTransfer";
+import { RoomPeerSources } from "./roomPeerSources";
 import "./rooms.css";
 
 type Member = { id: string; name: string; role: "owner" | "admin" | "member"; status: "active" | "pending" };
@@ -43,6 +44,9 @@ export function TemporaryRoom() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [problem, setProblem] = useState("");
+  const peers = useRef<RoomPeerSources | null>(null);
+  const [seedCopies, setSeedCopies] = useState<Record<string, File>>({});
+  const [seeding, setSeeding] = useState<string[]>([]);
   const [verified, setVerified] = useState<Record<string, File>>({});
   const roomApi = `${api}/${encodeURIComponent(code)}`;
 
@@ -71,6 +75,36 @@ export function TemporaryRoom() {
     const timer = window.setInterval(update, 2000);
     return () => { controller.abort(); window.clearInterval(timer); };
   }, [code]);
+
+  const peerEnabled = Boolean(room?.bulk && room.member.status === "active" && window.RTCPeerConnection);
+  useEffect(() => {
+    if (!peerEnabled) return;
+    const client = new RoomPeerSources(roomApi);
+    peers.current = client;
+    return () => {
+      client.close();
+      peers.current = null;
+    };
+  }, [peerEnabled, roomApi]);
+
+  useEffect(() => {
+    const files = new Set(room?.files.map(item => item.id));
+    const expired = seeding.filter(id => !files.has(id));
+    if (!expired.length) return;
+    for (const id of expired) void peers.current?.share(id, null);
+    setSeeding(current => current.filter(id => files.has(id)));
+  }, [room, seeding]);
+
+  useEffect(() => {
+    if (!/Android/i.test(navigator.userAgent)) return;
+    const onVisibility = () => {
+      if (!document.hidden) return;
+      for (const id of seeding) void peers.current?.share(id, null);
+      setSeeding([]);
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [seeding]);
 
   function navigate(target: string) {
     const next = target.trim().toLowerCase();
@@ -191,7 +225,10 @@ export function TemporaryRoom() {
             if (source.size > (room.bulk ? FILE_MAX : MAX_BROWSER_TRANSFER_BYTES)) {
               throw new Error(room.bulk ? "单文件最多 20 GB。" : "此互传区单文件最多 64 MiB。");
             }
-            if (room.bulk) await uploadBulk(roomApi, source, progress);
+            if (room.bulk) {
+              const id = await uploadBulk(roomApi, source, progress);
+              setSeedCopies(current => ({ ...current, [id]: source }));
+            }
             else {
               const hash = await digest(await source.arrayBuffer());
               const response = await fetch(roomApi + "/files", {
@@ -220,7 +257,7 @@ export function TemporaryRoom() {
               if (item.chunked) {
                 const ready = verified[item.id];
                 if (ready) { saveFromBrowser(ready, item.name); return; }
-                const downloaded = await downloadBulk(roomApi + "/files/" + item.id, item, progress);
+                const downloaded = await downloadBulk(roomApi + "/files/" + item.id, item, progress, peers.current?.download(item.id));
                 setVerified(state => ({ ...state, [item.id]: downloaded }));
                 setMessage("文件校验通过，请点击保存。");
                 return;
@@ -231,6 +268,14 @@ export function TemporaryRoom() {
               if (body.byteLength !== item.size || await digest(body) !== item.digest) throw new Error("文件校验失败，未保存。");
               saveFromBrowser(new Blob([body]), item.name);
             })}><ArrowDownToLine size={16} aria-hidden /> {item.chunked && !verified[item.id] ? "下载并校验" : "保存"}</button>
+            {peerEnabled && item.chunked && item.size > 0 && (seedCopies[item.id] || verified[item.id]) &&
+              <button disabled={busy} aria-label={`${seeding.includes(item.id) ? "停止供件" : "开始供件"} ${item.name}`}
+                onClick={() => void perform(async () => {
+                  const active = seeding.includes(item.id);
+                  await peers.current?.share(item.id, active ? null : seedCopies[item.id] ?? verified[item.id]);
+                  setSeeding(current => active ? current.filter(id => id !== item.id) : [...current, item.id]);
+                  setMessage(active ? "本设备已停止供件。" : "本设备在线时，可向区内成员供件。");
+                })}>{seeding.includes(item.id) ? "停止供件" : "开始供件"}</button>}
             {(manage || item.sender === room.member.id) && <>
               {item.expires < item.retain_until && <button disabled={busy} onClick={() => {
                 const expires = item.expires + (item.size >= 10_000_000_000 ? day / 4 : day);

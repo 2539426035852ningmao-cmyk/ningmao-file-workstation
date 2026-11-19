@@ -51,18 +51,37 @@ export async function uploadBulk(api: string, file: File, report: Progress) {
   const published = await receiveReceipt(await fetch(path + "/publish", { method: "POST" }));
   if (published.id !== id || !published.expires) throw new Error("站点尚未确认发布。");
   localStorage.removeItem(storageKey);
+  return published.id;
 }
 
-export function downloadBulk(url: string, item: { id: string; digest: string; size: number }, report: Progress): Promise<File> {
+type OptionalSource = {
+  block: (offset: number, size: number) => Promise<ArrayBuffer | null>;
+  close: () => void;
+};
+export function downloadBulk(url: string, item: { id: string; digest: string; size: number }, report: Progress,
+  source?: OptionalSource): Promise<File> {
   return new Promise((resolve, reject) => {
     const worker = new Worker(new URL("./bulkDownload.worker.ts", import.meta.url), { type: "module" });
-    worker.onmessage = ({ data }) => {
-      if (typeof data.progress === "number") { report("下载", data.progress, item.size); return; }
+    const ports = source && new MessageChannel();
+    if (ports) ports.port1.onmessage = async ({ data }) => {
+      const bytes = await source!.block(data.offset, data.length).catch(() => null);
+      ports.port1.postMessage(bytes, bytes ? [bytes] : []);
+    };
+    const stop = () => {
       worker.terminate();
+      ports?.port1.close();
+      source?.close();
+    };
+    worker.onmessage = ({ data }) => {
+      if (typeof data.progress === "number") {
+        report(data.peer ? "从在线设备下载" : "从站点下载", data.progress, item.size);
+        return;
+      }
+      stop();
       if (data.file) resolve(data.file);
       else reject(new Error(data.error ?? "下载中断，请重试。"));
     };
-    worker.onerror = () => { worker.terminate(); reject(new Error("无法启动分块下载。")); };
-    worker.postMessage({ url, ...item });
+    worker.onerror = () => { stop(); reject(new Error("无法启动分块下载。")); };
+    worker.postMessage({ url, ...item, sourcePort: ports?.port2 }, ports ? [ports.port2] : []);
   });
 }

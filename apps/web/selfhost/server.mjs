@@ -8,6 +8,7 @@ import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { MAX_BROWSER_TRANSFER_BYTES, safeFileName } from "../src/file-preparation.mjs";
 import { CHUNK_BYTES, ChunkStore } from "./chunk-store.mjs";
+import { RoomSources } from "./room-sources.mjs";
 
 const DAY = 86_400_000;
 const STORAGE_LIMIT = 512 * 1024 * 1024;
@@ -40,10 +41,10 @@ async function readBody(request, limit) {
   return Buffer.concat(chunks, size);
 }
 
-async function readJson(request) {
+async function readJson(request, limit = 4096) {
   requireValue(request.headers["content-type"] === "application/json", 415, "请求格式无效。");
   try {
-    const data = JSON.parse(await readBody(request, 4096));
+    const data = JSON.parse(await readBody(request, limit));
     requireValue(data && typeof data === "object", 400, "请求内容无效。");
     return data;
   } catch (error) {
@@ -62,6 +63,7 @@ function validName(value) {
 export function createRoomServer(directory, tls, bulkQuota = 0) {
   mkdirSync(directory, { recursive: true, mode: 0o700 });
   const db = new DatabaseSync(resolve(directory, "rooms.sqlite"));
+  const sources = new RoomSources();
   const bulk = bulkQuota ? new ChunkStore(resolve(directory, "chunk-files"), bulkQuota) : null;
   db.exec(`
     PRAGMA foreign_keys = ON;
@@ -150,7 +152,7 @@ export function createRoomServer(directory, tls, bulkQuota = 0) {
         return json(201, { code, recovery });
       }
 
-      const match = /^\/api\/rooms\/([a-f0-9]{32})(?:\/(join|recover|decide|promote|files|revoke|extend|bulk)(?:\/([a-f0-9]{32}))?(?:\/(publish))?)?$/.exec(pathname);
+      const match = /^\/api\/rooms\/([a-f0-9]{32})(?:\/(join|recover|decide|promote|files|revoke|extend|bulk|peers|sources)(?:\/([a-f0-9]{32}))?(?:\/(publish))?)?$/.exec(pathname);
       requireValue(match, 404, "页面不存在。");
       const [, code, action, fileId, operation] = match;
       requireValue(!operation || action === "bulk" && fileId, 404, "操作不存在。");
@@ -198,6 +200,31 @@ export function createRoomServer(directory, tls, bulkQuota = 0) {
             ...db.prepare(`SELECT id, sender, name, size, digest, expires, retain_until FROM files
               WHERE room = ? AND expires > ? ORDER BY rowid DESC`).all(code, Date.now()),
           ],
+        });
+      }
+      if (action === "peers" && fileId && bulk) {
+        if (request.method === "GET") {
+          requireValue(sources.connect(code, member.id, session, fileId, response, () => members.get(code, session)?.status === "active"), 429, "在线供件连接已满。");
+          return;
+        }
+        if (post) {
+          const input = await readJson(request, 32 * 1024);
+          bulk.entry(input.file, code);
+          const accepted = typeof input.enabled === "boolean"
+            ? sources.advertise(code, session, fileId, input.file, input.enabled)
+            : sources.relay(code, session, fileId, input);
+          requireValue(accepted, 409, "当前供件来源不可用。");
+          return json(200, {});
+        }
+      }
+      if (action === "sources" && fileId && bulk && request.method === "GET") {
+        const item = bulk.entry(fileId, code);
+        const offset = Number(url.searchParams.get("offset"));
+        requireValue(Number.isSafeInteger(offset) && offset >= 0 && offset < item.size && offset % CHUNK_BYTES === 0,
+          400, "分块偏移无效。");
+        return json(200, {
+          sources: sources.list(code, fileId, url.searchParams.get("client")),
+          digest: bulk.checksum(fileId, offset) ?? null,
         });
       }
       if (action === "bulk") {
@@ -317,7 +344,10 @@ export function createRoomServer(directory, tls, bulkQuota = 0) {
         if (!file && bulk) {
           const row = bulk.entry(input.id, code);
           requireValue(manager || row.member === member.id, 403, "没有操作该文件的权限。");
-          if (action === "revoke") bulk.revoke(row);
+          if (action === "revoke") {
+            bulk.revoke(row);
+            sources.revoke(code, row.id);
+          }
           else bulk.extend(row, input.expires);
           return json(200, {});
         }
@@ -342,6 +372,8 @@ export function createRoomServer(directory, tls, bulkQuota = 0) {
     }
   };
   const server = tls ? createHttpsServer(tls, handle) : createServer(handle);
+  const close = server.close.bind(server);
+  server.close = callback => { sources.close(); return close(callback); };
   const cleanup = setInterval(purge, 60_000);
   cleanup.unref();
   server.once("close", () => { clearInterval(cleanup); bulk?.close(); db.close(); });

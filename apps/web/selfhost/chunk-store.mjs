@@ -46,6 +46,10 @@ export class ChunkStore {
         name TEXT NOT NULL, size INTEGER NOT NULL, digest TEXT NOT NULL,
         offset INTEGER NOT NULL DEFAULT 0,
         touched INTEGER NOT NULL, expires INTEGER, retain_until INTEGER, revoked INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE TABLE IF NOT EXISTS chunk_digests (
+        id TEXT NOT NULL, offset INTEGER NOT NULL, digest TEXT NOT NULL,
+        PRIMARY KEY (id, offset)
       )
     `);
   }
@@ -108,7 +112,7 @@ export class ChunkStore {
     check(!row.revoked && row.expires === null, 409, "文件已经发布或撤回。");
     check(offset === row.offset, 409, "上传偏移已变化，请查询进度后续传。");
     check(Buffer.isBuffer(bytes) && bytes.length > 0 && bytes.length <= CHUNK_BYTES
-      && bytes.length <= row.size - offset, 413, "分块长度超出允许范围。");
+      && bytes.length === Math.min(CHUNK_BYTES, row.size - offset), 413, "分块长度超出允许范围。");
     check(validDigest(digest) && hash(bytes) === digest, 422, "分块校验失败。");
     check(!this.#active.has(id), 409, "同一上传正在操作。");
     this.#active.add(id);
@@ -122,8 +126,16 @@ export class ChunkStore {
       } finally {
         await target.close();
       }
-      this.#db.prepare("UPDATE chunks SET offset = ?, touched = ? WHERE id = ?")
-        .run(offset + bytes.length, Date.now(), id);
+      this.#db.exec("BEGIN");
+      try {
+        this.#db.prepare("INSERT INTO chunk_digests VALUES (?,?,?)").run(id, offset, digest);
+        this.#db.prepare("UPDATE chunks SET offset = ?, touched = ? WHERE id = ?")
+          .run(offset + bytes.length, Date.now(), id);
+        this.#db.exec("COMMIT");
+      } catch (error) {
+        this.#db.exec("ROLLBACK");
+        throw error;
+      }
       return this.#row(id);
     } finally {
       this.#active.delete(id);
@@ -161,6 +173,10 @@ export class ChunkStore {
     const row = this.#row(id);
     check(!row.revoked && row.room === room && row.expires !== null && now < row.expires, 404, "文件尚不可下载或已到期。");
     return row;
+  }
+
+  checksum(id, offset) {
+    return this.#db.prepare("SELECT digest FROM chunk_digests WHERE id = ? AND offset = ?").get(id, offset)?.digest;
   }
 
   path(id, room, now = Date.now()) {
@@ -201,6 +217,7 @@ export class ChunkStore {
         if (!row.revoked && row.expires !== null) {
           this.#db.prepare("UPDATE chunks SET revoked = 1, touched = ? WHERE id = ?").run(now, row.id);
         } else if (!row.revoked || row.touched <= now - 7 * 24 * HOUR) {
+          this.#db.prepare("DELETE FROM chunk_digests WHERE id = ?").run(row.id);
           this.#db.prepare("DELETE FROM chunks WHERE id = ?").run(row.id);
         }
       } catch (error) {
