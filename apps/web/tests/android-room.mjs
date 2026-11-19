@@ -15,6 +15,42 @@ assert.match(serial ?? "", /^emulator-\d+$/, "A booted Android emulator is requi
 const device = (...args) => adb("-s", serial, ...args);
 assert.equal(device("shell", "getprop", "sys.boot_completed"), "1");
 assert.match(device("shell", "pm", "list", "packages", "com.android.chrome"), /package:com.android.chrome/);
+function pickerNodes() {
+  try {
+    device("shell", "uiautomator", "dump", "/data/local/tmp/ningmao-picker.xml");
+    const xml = device("shell", "cat", "/data/local/tmp/ningmao-picker.xml");
+    return [...xml.matchAll(/<node ([^>]+)>/g)].map(([, attributes]) => {
+      function attribute(name) { return new RegExp(`(?:^| )${name}="([^"]*)"`).exec(attributes)?.[1] ?? ""; }
+      return { text: attribute("text"), description: attribute("content-desc"), bounds: attribute("bounds") };
+    });
+  } catch { return []; }
+}
+
+function tapNode(node) {
+  const [left, top, right, bottom] = node.bounds.match(/\d+/g).map(Number);
+  device("shell", "input", "tap", String(Math.round((left + right) / 2)), String(Math.round((top + bottom) / 2)));
+}
+
+async function selectDeviceFile(page, name) {
+  await page.locator('input[type="file"]').click();
+  const used = new Set();
+  await expect.poll(() => {
+    const nodes = pickerNodes();
+    const find = value => nodes.find(node => (node.text === value || node.description === value) && node.bounds);
+    const selected = find(name);
+    if (selected) { tapNode(selected); return "Selected " + name; }
+    for (const label of ["Browse", "Files", "Downloads", "Show roots", "Open navigation drawer", "Download", "Internal shared storage"]) {
+      const node = find(label);
+      if (!node || used.has(label)) continue;
+      used.add(label);
+      tapNode(node);
+      break;
+    }
+    return nodes.map(node => node.text || node.description).filter(Boolean).join(" / ");
+  }, { timeout: 75_000, intervals: [700] }).toBe("Selected " + name);
+  await expect(page.getByText(new RegExp(name))).toBeVisible();
+}
+
 const sha = data => createHash("sha256").update(data).digest("hex");
 const tag = randomBytes(6).toString("hex");
 const local = await mkdtemp(join(tmpdir(), "ningmao-android-room-"));
@@ -62,11 +98,8 @@ try {
   const hostPath = join(local, fromAndroid);
   await writeFile(hostPath, fixture);
   device("push", hostPath, sourcePath);
-  const cdp = await context.newCDPSession(page);
-  const { root } = await cdp.send("DOM.getDocument");
-  const { nodeId } = await cdp.send("DOM.querySelector", { nodeId: root.nodeId, selector: 'input[type="file"]' });
-  assert.ok(nodeId);
-  await cdp.send("DOM.setFileInputFiles", { nodeId, files: [sourcePath] });
+  assert.equal(device("shell", "sha256sum", sourcePath).split(/\s+/)[0], sha(fixture));
+  await selectDeviceFile(page, fromAndroid);
   await page.getByRole("button", { name: "发给全区 2 人" }).click();
   await expect(page.getByRole("status")).toContainText("文件校验通过", { timeout: 60_000 });
   const listing = await (await fetch(room, { headers: { Cookie: cookie } })).json();
@@ -102,7 +135,7 @@ try {
   if (forwarded) device("forward", "--remove", forwarded);
   device("reverse", "--remove", port);
   device("shell", "am", "clear-debug-app");
-  device("shell", "rm", "-f", "/data/local/tmp/chrome-command-line", sourcePath, receivedPath);
+  device("shell", "rm", "-f", "/data/local/tmp/chrome-command-line", "/data/local/tmp/ningmao-picker.xml", sourcePath, receivedPath);
   station.closeAllConnections();
   await new Promise(done => station.close(done));
   await rm(local, { recursive: true, force: true });
