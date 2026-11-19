@@ -39,7 +39,7 @@ async function selectDeviceFile(page, name) {
     const find = value => nodes.find(node => (node.text === value || node.description === value) && node.bounds);
     const selected = find(name);
     if (selected) { tapNode(selected); return "Selected " + name; }
-    for (const label of ["Browse", "Files", "Downloads", "Show roots", "Open navigation drawer", "Download", "Internal shared storage"]) {
+    for (const label of ["Don’t allow", "Don't allow", "Browse", "Files", "Just once", "Show roots", "Open navigation drawer", "Downloads", "Download", "Internal shared storage", "Pixel 6"]) {
       const node = find(label);
       if (!node || used.has(label)) continue;
       used.add(label);
@@ -48,7 +48,7 @@ async function selectDeviceFile(page, name) {
     }
     return nodes.map(node => node.text || node.description).filter(Boolean).join(" / ");
   }, { timeout: 75_000, intervals: [700] }).toBe("Selected " + name);
-  await expect(page.getByText(new RegExp(name))).toBeVisible();
+  await expect(page.getByText(name, { exact: false })).toBeVisible();
 }
 
 const sha = data => createHash("sha256").update(data).digest("hex");
@@ -107,6 +107,7 @@ try {
   assert.equal(uploaded?.digest, sha(fixture));
   const copied = await fetch(room + "/files/" + uploaded.id, { headers: { Cookie: cookie } });
   assert.equal(sha(Buffer.from(await copied.arrayBuffer())), sha(fixture));
+  console.log("Android native picker upload verified:", sha(fixture));
 
   const androidFixture = Buffer.alloc(187, 28);
   const posted = await fetch(room + "/bulk", {
@@ -127,7 +128,14 @@ try {
   await save.click();
   await expect.poll(() => {
     try { return device("shell", "sha256sum", receivedPath).split(/\s+/)[0]; }
-    catch { return ""; }
+    catch {
+      const nodes = pickerNodes();
+      if (nodes.some(node => /Download file|Do you want to download|Download again/.test(node.text))) {
+        const confirm = nodes.find(node => node.text === "Download" && node.bounds);
+        if (confirm) tapNode(confirm);
+      }
+      return "";
+    }
   }, { timeout: 45_000, intervals: [1000] }).toBe(sha(androidFixture));
   console.log(JSON.stringify({ androidVersion: device("shell", "getprop", "ro.build.version.release"), fromAndroid: sha(fixture), toAndroid: sha(androidFixture) }));
 } finally {
