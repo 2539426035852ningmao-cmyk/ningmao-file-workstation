@@ -8,7 +8,7 @@
 
 在隔离 Windows 工作区用原生 EXE 实传 80,000,000 字节。对第二块分别注入一次上传与下载断开。重新发送复用任务编号，从 4,194,304 字节续传。接收通过 Windows 原生确认框，下载自动重试同一范围，保留目标原件并保存为 fixture (1).bin。落盘后重读的 SHA-256 为 b5a51e6313f77706992b93120c694c2c1a5b99159839ff7241e4cb1018b55e10。
 
-先构建桌面 EXE。在 apps/web 运行 node tests/native-bulk-room.mjs EXE STATION_DIRECTORY WORKSPACE_DIRECTORY [BYTES]。默认使用 80,000,000 字节，20 GB 验证建议站点与工作区使用不同卷，每卷准备至少 41 GB 可用空间。测试只操作自己创建的合成目录，结束后清理。桌面构建、严格 Clippy 和五项桌面界面专项已通过。两台独立 Windows 安装端互联仍待验收。
+先构建桌面 EXE。在 apps/web 运行 node tests/native-bulk-room.mjs EXE STATION_DIRECTORY WORKSPACE_DIRECTORY [BYTES]。默认使用 80,000,000 字节，20 GB 验证建议站点与工作区使用不同卷，每卷准备至少 41 GB 可用空间。测试只操作自己创建的合成目录，结束后清理。桌面构建、严格 Clippy 和五项桌面界面专项已通过。随后已完成[两台 Windows 虚拟机的安装端互传](TEMPORARY-ROOM-WINDOWS-GUEST-ACCEPTANCE.md)。
 
 ## D15 接续分支原生 20 GB 复测
 
