@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowDownToLine, FolderUp } from "lucide-react";
 import { MAX_BROWSER_TRANSFER_BYTES } from "./file-preparation.mjs";
+import { downloadBulk, FILE_MAX, uploadBulk } from "./bulkTransfer";
 import "./rooms.css";
 
 type Member = { id: string; name: string; role: "owner" | "admin" | "member"; status: "active" | "pending" };
-type RoomFile = { id: string; sender: string; name: string; size: number; digest: string; expires: number; retain_until: number };
-type Room = { code: string; member: Member; members: Member[]; files: RoomFile[]; inviteExpires: number };
+type RoomFile = { id: string; sender: string; name: string; size: number; digest: string; expires: number; retain_until: number; chunked?: number };
+type Room = { code: string; member: Member; members: Member[]; files: RoomFile[]; inviteExpires: number; bulk?: boolean };
 type Theme = "light" | "dark" | "blue";
 const day = 24 * 60 * 60 * 1000;
 const api = "/api/rooms";
@@ -42,6 +43,7 @@ export function TemporaryRoom() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [problem, setProblem] = useState("");
+  const [verified, setVerified] = useState<Record<string, File>>({});
   const roomApi = `${api}/${encodeURIComponent(code)}`;
 
   useEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
@@ -90,6 +92,20 @@ export function TemporaryRoom() {
     try { await action(); }
     catch (error) { setProblem(error instanceof Error ? error.message : "操作失败，请重试。"); }
     finally { setBusy(false); }
+  }
+
+  function progress(label: string, bytes: number, total: number) {
+    setMessage(`${label} ${formatSize(bytes)} / ${formatSize(total)}`);
+  }
+
+  function saveFromBrowser(file: Blob, name: string) {
+    const url = URL.createObjectURL(file);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = name;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    setMessage("校验通过，已交给浏览器保存。");
   }
 
   const manage = room?.member.role === "owner" || room?.member.role === "admin";
@@ -172,14 +188,19 @@ export function TemporaryRoom() {
           const source = file;
           if (!source) return;
           void perform(async () => {
-            if (source.size > MAX_BROWSER_TRANSFER_BYTES) throw new Error("本阶段单文件最多 64 MiB。");
-            const hash = await digest(await source.arrayBuffer());
-            const response = await fetch(roomApi + "/files", {
-              method: "POST",
-              headers: { "Content-Type": "application/octet-stream", "X-File-Name": encodeURIComponent(source.name), "X-SHA256": hash },
-              body: source,
-            });
-            if (!response.ok) throw new Error(await response.json());
+            if (source.size > (room.bulk ? FILE_MAX : MAX_BROWSER_TRANSFER_BYTES)) {
+              throw new Error(room.bulk ? "单文件最多 20 GB。" : "此互传区单文件最多 64 MiB。");
+            }
+            if (room.bulk) await uploadBulk(roomApi, source, progress);
+            else {
+              const hash = await digest(await source.arrayBuffer());
+              const response = await fetch(roomApi + "/files", {
+                method: "POST",
+                headers: { "Content-Type": "application/octet-stream", "X-File-Name": encodeURIComponent(source.name), "X-SHA256": hash },
+                body: source,
+              });
+              if (!response.ok) throw new Error(await response.json());
+            }
             setFile(null);
             if (fileInput.current) fileInput.current.value = "";
             setMessage("文件校验通过，已发到临时互传区。");
@@ -189,28 +210,30 @@ export function TemporaryRoom() {
           <label>选择文件 <input type="file" ref={fileInput} disabled={busy} onChange={event => setFile(event.target.files?.[0] ?? null)} /></label>
           {file && <p className="room-note">{file.name} · {formatSize(file.size)}</p>}
           <button type="submit" className="room-primary" disabled={busy || !file}>发给全区 {room.members.filter(member => member.status === "active").length} 人</button>
-          <p className="room-note">单文件最多 64 MiB，校验成功后保留 24 小时。</p>
+          <p className="room-note">{room.bulk ? "单文件最多 20 GB。中断后可重选原文件续传。" : "单文件最多 64 MiB，校验成功后保留 24 小时。"}</p>
         </form>
         {room.files.length === 0 && <p className="room-note">区内还没有文件。</p>}
         {room.files.map(item => <article key={item.id} className="room-file">
-          <div><strong>{item.name}</strong><p className="room-note">{formatSize(item.size)} · 可离线领取至 {formatDate(item.expires)}</p></div>
+          <div><strong>{item.name}</strong><p className="room-note">{formatSize(item.size)} · 领取期限 {formatDate(item.expires)}</p></div>
           <div className="room-row">
             <button disabled={busy} aria-label={`保存 ${item.name}`} onClick={() => void perform(async () => {
+              if (item.chunked) {
+                const ready = verified[item.id];
+                if (ready) { saveFromBrowser(ready, item.name); return; }
+                const downloaded = await downloadBulk(roomApi + "/files/" + item.id, item, progress);
+                setVerified(state => ({ ...state, [item.id]: downloaded }));
+                setMessage("文件校验通过，请点击保存。");
+                return;
+              }
               const response = await fetch(roomApi + "/files/" + item.id);
               if (!response.ok) throw new Error(await response.json());
               const body = await response.arrayBuffer();
               if (body.byteLength !== item.size || await digest(body) !== item.digest) throw new Error("文件校验失败，未保存。");
-              const url = URL.createObjectURL(new Blob([body]));
-              const link = document.createElement("a");
-              link.href = url;
-              link.download = item.name;
-              link.click();
-              window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
-              setMessage("校验通过，已交给浏览器保存。");
-            })}><ArrowDownToLine size={16} aria-hidden /> 保存</button>
+              saveFromBrowser(new Blob([body]), item.name);
+            })}><ArrowDownToLine size={16} aria-hidden /> {item.chunked && !verified[item.id] ? "下载并校验" : "保存"}</button>
             {(manage || item.sender === room.member.id) && <>
               {item.expires < item.retain_until && <button disabled={busy} onClick={() => {
-                const expires = item.expires + day;
+                const expires = item.expires + (item.size >= 10_000_000_000 ? day / 4 : day);
                 if (window.confirm(`延至 ${formatDate(expires)}？`)) void perform(async () => {
                   await jsonPost(roomApi + "/extend", { id: item.id, expires });
                   await refresh(roomApi);

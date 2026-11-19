@@ -1,11 +1,13 @@
 import { createHash, randomBytes } from "node:crypto";
 import { createServer } from "node:http";
 import { createServer as createHttpsServer } from "node:https";
-import { mkdirSync, readFileSync } from "node:fs";
+import { createReadStream, mkdirSync, readFileSync } from "node:fs";
+import { pipeline } from "node:stream/promises";
 import { resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { MAX_BROWSER_TRANSFER_BYTES, safeFileName } from "../src/file-preparation.mjs";
+import { CHUNK_BYTES, ChunkStore } from "./chunk-store.mjs";
 
 const DAY = 86_400_000;
 const STORAGE_LIMIT = 512 * 1024 * 1024;
@@ -57,9 +59,10 @@ function validName(value) {
   );
 }
 
-export function createRoomServer(directory, tls) {
+export function createRoomServer(directory, tls, bulkQuota = 0) {
   mkdirSync(directory, { recursive: true, mode: 0o700 });
   const db = new DatabaseSync(resolve(directory, "rooms.sqlite"));
+  const bulk = bulkQuota ? new ChunkStore(resolve(directory, "chunk-files"), bulkQuota) : null;
   db.exec(`
     PRAGMA foreign_keys = ON;
     PRAGMA secure_delete = ON;
@@ -84,10 +87,14 @@ export function createRoomServer(directory, tls) {
   const members = db.prepare("SELECT id, name, role, status FROM members WHERE room = ? AND session = ?");
   const addMember = db.prepare("INSERT INTO members VALUES (?, ?, ?, ?, ?, ?)");
   const purgeFiles = db.prepare("DELETE FROM files WHERE expires <= ?");
-  const purgeRooms = db.prepare("DELETE FROM rooms WHERE created < ? AND NOT EXISTS (SELECT 1 FROM files WHERE files.room = rooms.code)");
+  const oldRooms = db.prepare("SELECT code FROM rooms WHERE created < ? AND NOT EXISTS (SELECT 1 FROM files WHERE files.room = rooms.code)");
+  const deleteRoom = db.prepare("DELETE FROM rooms WHERE code = ?");
   function purge() {
     purgeFiles.run(Date.now());
-    purgeRooms.run(Date.now() - 7 * DAY);
+    bulk?.purge();
+    for (const { code } of oldRooms.all(Date.now() - 7 * DAY)) {
+      if (!bulk?.hasRoom(code)) deleteRoom.run(code);
+    }
   }
   purge();
   let uploads = 0;
@@ -143,9 +150,10 @@ export function createRoomServer(directory, tls) {
         return json(201, { code, recovery });
       }
 
-      const match = /^\/api\/rooms\/([a-f0-9]{32})(?:\/(join|recover|decide|promote|files|revoke|extend)(?:\/([a-f0-9]{32}))?)?$/.exec(pathname);
+      const match = /^\/api\/rooms\/([a-f0-9]{32})(?:\/(join|recover|decide|promote|files|revoke|extend|bulk)(?:\/([a-f0-9]{32}))?(?:\/(publish))?)?$/.exec(pathname);
       requireValue(match, 404, "页面不存在。");
-      const [, code, action, fileId] = match;
+      const [, code, action, fileId, operation] = match;
+      requireValue(!operation || action === "bulk" && fileId, 404, "操作不存在。");
       const room = requireValue(db.prepare("SELECT * FROM rooms WHERE code = ?").get(code), 404, "找不到这个互传区。");
       let member = members.get(code, session);
 
@@ -182,12 +190,44 @@ export function createRoomServer(directory, tls) {
       const manager = member.role === "owner" || member.role === "admin";
       if (!action && request.method === "GET") {
         return json(200, {
-          code, member, inviteExpires: room.created + DAY,
+          code, member, inviteExpires: room.created + DAY, bulk: Boolean(bulk),
           members: db.prepare(`SELECT id, name, role, status FROM members
             WHERE room = ? AND (status = 'active' OR ? AND status = 'pending') ORDER BY rowid`).all(code, Number(manager)),
-          files: db.prepare(`SELECT id, sender, name, size, digest, expires, retain_until FROM files
-            WHERE room = ? AND expires > ? ORDER BY rowid DESC`).all(code, Date.now()),
+          files: [
+            ...(bulk?.list(code) ?? []),
+            ...db.prepare(`SELECT id, sender, name, size, digest, expires, retain_until FROM files
+              WHERE room = ? AND expires > ? ORDER BY rowid DESC`).all(code, Date.now()),
+          ],
         });
+      }
+      if (action === "bulk") {
+        requireValue(bulk, 404, "站点尚未开启分块暂存。");
+        function uploadReceipt(row) {
+          return { id: row.id, size: row.size, offset: row.offset, expires: row.expires, chunkBytes: CHUNK_BYTES };
+        }
+        if (post && !fileId) {
+          const input = await readJson(request);
+          requireValue(safeFileName(input.name), 400, "文件名无效。");
+          return json(200, uploadReceipt(bulk.open({ room: code, member: member.id, name: input.name,
+            request: input.request, size: input.size, digest: input.digest })));
+        }
+        requireValue(fileId, 404, "文件编号不存在。");
+        const current = bulk.status(fileId, member.id);
+        requireValue(current.room === code, 404, "文件编号不存在。");
+        if (post && operation === "publish") return json(200, uploadReceipt(await bulk.publish(fileId, member.id)));
+        if (request.method === "GET" && !operation) return json(200, uploadReceipt(current));
+        if (post && !operation) {
+          requireValue(uploads < 2, 429, "当前上传较多，请稍后重试。");
+          uploads++;
+          try {
+            const bytes = await readBody(request, CHUNK_BYTES);
+            requireValue(members.get(code, session)?.id === member.id, 403, "成员权限已变化。");
+            return json(200, uploadReceipt(await bulk.append(fileId, member.id, Number(request.headers["x-offset"]),
+              bytes, request.headers["x-sha256"])));
+          } finally {
+            uploads--;
+          }
+        }
       }
       if (post && action === "decide" && !fileId) {
         requireValue(manager, 403, "只有群主或管理员可以批准加入。");
@@ -249,14 +289,39 @@ export function createRoomServer(directory, tls) {
         }
       }
       if (request.method === "GET" && action === "files" && fileId) {
-        const file = requireValue(db.prepare("SELECT data FROM files WHERE room = ? AND id = ? AND expires > ?").get(code, fileId, Date.now()), 404, "文件已撤回或到期。");
-        response.writeHead(200, { "Content-Type": "application/octet-stream", "Content-Length": file.data.length });
-        return response.end(file.data);
+        const file = db.prepare("SELECT data FROM files WHERE room = ? AND id = ? AND expires > ?").get(code, fileId, Date.now());
+        if (file) {
+          response.writeHead(200, { "Content-Type": "application/octet-stream", "Content-Length": file.data.length });
+          return response.end(file.data);
+        }
+        requireValue(bulk, 404, "文件已撤回或到期。");
+        const item = bulk.entry(fileId, code);
+        if (item.size === 0) {
+          response.writeHead(200, { "Content-Type": "application/octet-stream", "Content-Length": 0 });
+          return response.end();
+        }
+        const range = /^bytes=(\d+)-(\d+)$/.exec(request.headers.range ?? "");
+        const start = range ? Number(range[1]) : 0;
+        const end = range ? Number(range[2]) : item.size - 1;
+        requireValue((!request.headers.range || range) && start <= end && end < item.size, 416, "下载范围无效。");
+        const headers = { "Content-Type": "application/octet-stream", "Content-Length": end - start + 1, "Accept-Ranges": "bytes" };
+        if (range) headers["Content-Range"] = `bytes ${start}-${end}/${item.size}`;
+        response.writeHead(range ? 206 : 200, headers);
+        await pipeline(createReadStream(bulk.path(fileId, code), { start, end }), response);
+        return;
       }
       if (post && (action === "revoke" || action === "extend") && !fileId) {
         const input = await readJson(request);
         requireValue(typeof input.id === "string", 400, "文件标识无效。");
-        const file = requireValue(db.prepare("SELECT sender, expires, retain_until FROM files WHERE room = ? AND id = ? AND expires > ?").get(code, input.id, Date.now()), 404, "文件已撤回或到期。");
+        const file = db.prepare("SELECT sender, expires, retain_until FROM files WHERE room = ? AND id = ? AND expires > ?").get(code, input.id, Date.now());
+        if (!file && bulk) {
+          const row = bulk.entry(input.id, code);
+          requireValue(manager || row.member === member.id, 403, "没有操作该文件的权限。");
+          if (action === "revoke") bulk.revoke(row);
+          else bulk.extend(row, input.expires);
+          return json(200, {});
+        }
+        requireValue(file, 404, "文件已撤回或到期。");
         requireValue(manager || file.sender === member.id, 403, "没有操作该文件的权限。");
         if (action === "revoke") db.prepare("DELETE FROM files WHERE room = ? AND id = ?").run(code, input.id);
         else {
@@ -268,6 +333,7 @@ export function createRoomServer(directory, tls) {
       throw new RequestError(404, "操作不存在。");
     } catch (error) {
       if (response.destroyed) return;
+      if (response.headersSent) { response.destroy(); return; }
       if (!request.complete) {
         response.setHeader("Connection", "close");
         request.resume();
@@ -278,7 +344,7 @@ export function createRoomServer(directory, tls) {
   const server = tls ? createHttpsServer(tls, handle) : createServer(handle);
   const cleanup = setInterval(purge, 60_000);
   cleanup.unref();
-  server.once("close", () => { clearInterval(cleanup); db.close(); });
+  server.once("close", () => { clearInterval(cleanup); bulk?.close(); db.close(); });
   return server;
 }
 
@@ -289,7 +355,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     throw new Error("开放到其他设备前，请配置 ROOM_TLS_CERT 和 ROOM_TLS_KEY。");
   }
   const tls = ROOM_TLS_CERT && { cert: readFileSync(ROOM_TLS_CERT), key: readFileSync(ROOM_TLS_KEY) };
-  createRoomServer(ROOM_DATA, tls).listen(Number(ROOM_PORT), ROOM_HOST, () => {
+  createRoomServer(ROOM_DATA, tls, Number(process.env.ROOM_BULK_QUOTA_BYTES ?? 0)).listen(Number(ROOM_PORT), ROOM_HOST, () => {
     console.log(`柠猫临时互传区 ${tls ? "https" : "http"}://${ROOM_HOST}:${ROOM_PORT}/rooms`);
   });
 }
