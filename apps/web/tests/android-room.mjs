@@ -56,7 +56,9 @@ const tag = randomBytes(6).toString("hex");
 const local = await mkdtemp(join(tmpdir(), "ningmao-android-room-"));
 const station = createRoomServer(local, undefined, 32 * 1024 * 1024).listen(0, "127.0.0.1");
 await once(station, "listening");
+const emulatorNetwork = process.argv.includes("--emulator-network");
 const origin = "http://127.0.0.1:" + station.address().port;
+const androidOrigin = emulatorNetwork ? origin.replace("127.0.0.1", "10.0.2.2") : origin;
 const port = "tcp:" + station.address().port;
 const fromAndroid = "from-android-" + tag + ".bin";
 const toAndroid = "to-android-" + tag + ".bin";
@@ -65,11 +67,13 @@ const sourcePath = "/sdcard/Download/" + fromAndroid;
 let browser;
 let forwarded;
 try {
-  device("reverse", port, port);
+  if (!emulatorNetwork) device("reverse", port, port);
   device("shell", "am", "force-stop", "com.android.chrome");
   device("shell", "am", "set-debug-app", "--persistent", "com.android.chrome");
-  device("shell", "echo '_ --disable-fre --no-first-run --no-default-browser-check' > /data/local/tmp/chrome-command-line");
-  device("shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", origin + "/rooms", "com.android.chrome");
+  const secureOrigin = emulatorNetwork ? " --unsafely-treat-insecure-origin-as-secure=" + androidOrigin : "";
+  device("shell", "echo '_ --disable-fre --no-first-run --no-default-browser-check" + secureOrigin +
+    "' > /data/local/tmp/chrome-command-line");
+  device("shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", androidOrigin + "/rooms", "com.android.chrome");
   forwarded = "tcp:" + device("forward", "tcp:0", "localabstract:chrome_devtools_remote");
   await expect.poll(async () => {
     try {
@@ -79,7 +83,7 @@ try {
   browser = await chromium.connectOverCDP("http://127.0.0.1:" + forwarded.slice(4), { noDefaults: true, timeout: 30_000 });
   const [context] = browser.contexts();
   const page = context.pages()[0] ?? await context.newPage();
-  await page.goto(origin + "/rooms");
+  await page.goto(androidOrigin + "/rooms");
   assert.match(await page.evaluate(() => navigator.userAgent), /Android/);
 
   const created = await fetch(origin + "/api/rooms", {
@@ -89,7 +93,7 @@ try {
   const cookie = created.headers.get("set-cookie").split(";")[0];
   const { code } = await created.json();
   const room = origin + "/api/rooms/" + code;
-  await page.goto(origin + "/rooms?code=" + code);
+  await page.goto(androidOrigin + "/rooms?code=" + code);
   await page.getByLabel("显示名称").fill("Android 测试客户端");
   await page.getByRole("button", { name: "加入互传区" }).click();
   await expect(page.getByRole("heading", { name: "共享文件" })).toBeVisible();
@@ -127,8 +131,9 @@ try {
   await expect(page.getByRole("status")).toHaveText("文件校验通过，请点击保存。");
   await save.click();
   await expect.poll(() => {
-    try { return device("shell", "sha256sum", receivedPath).split(/\s+/)[0]; }
-    catch {
+    const digest = device("shell", "if [ -f " + receivedPath + " ]; then sha256sum " + receivedPath + "; fi").split(/\s+/)[0];
+    if (digest) return digest;
+    {
       const nodes = pickerNodes();
       if (nodes.some(node => /Download file|Do you want to download|Download again/.test(node.text))) {
         const confirm = nodes.find(node => node.text === "Download" && node.bounds);
@@ -160,10 +165,41 @@ try {
   await page.getByRole("button", { name: "开始供件 " + fromAndroid }).click();
   await expect.poll(sourceCount).toBe(1);
   console.log("Wake: Android offered the verified file again after explicit activation.");
+
+  if (emulatorNetwork) {
+    function activeTransport() {
+      const output = device("shell", "dumpsys", "connectivity");
+      const id = /Active default network: (\d+)/.exec(output)?.[1];
+      const active = output.split("\n").find(line => line.includes("network{" + id + "}") && line.includes("Transports:"));
+      return /Transports: (WIFI|CELLULAR)/.exec(active ?? "")?.[1] ?? "";
+    }
+    async function checkTransport(transport) {
+      await expect.poll(activeTransport, { timeout: 30_000, intervals: [1000] }).toBe(transport);
+      const hash = await page.evaluate(async path => {
+        const response = await fetch(path, { cache: "no-store", signal: AbortSignal.timeout(10_000) });
+        if (!response.ok) throw new Error("站点不可达");
+        const bytes = await response.arrayBuffer();
+        return Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)),
+          byte => byte.toString(16).padStart(2, "0")).join("");
+      }, "/api/rooms/" + code + "/files/" + uploaded.id);
+      assert.equal(hash, sha(fixture));
+      console.log("Android emulator active transport: " + transport + ", synthetic file hash verified.");
+    }
+    device("shell", "svc", "wifi", "enable");
+    await checkTransport("WIFI");
+    try {
+      device("shell", "svc", "data", "enable");
+      device("shell", "svc", "wifi", "disable");
+      await checkTransport("CELLULAR");
+    } finally {
+      device("shell", "svc", "wifi", "enable");
+    }
+    await checkTransport("WIFI");
+  }
 } finally {
   await browser?.close();
   if (forwarded) device("forward", "--remove", forwarded);
-  device("reverse", "--remove", port);
+  if (!emulatorNetwork) device("reverse", "--remove", port);
   device("shell", "am", "clear-debug-app");
   device("shell", "rm", "-f", "/data/local/tmp/chrome-command-line", "/data/local/tmp/ningmao-picker.xml", sourcePath, receivedPath);
   station.closeAllConnections();

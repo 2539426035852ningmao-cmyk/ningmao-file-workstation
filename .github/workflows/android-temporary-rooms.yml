@@ -31,4 +31,4 @@ jobs:
           arch: x86_64
           profile: pixel_6
           emulator-options: -no-window -gpu swiftshader -no-snapshot -no-audio -no-boot-anim -no-metrics
-          script: node apps/web/tests/android-room.mjs
+          script: node apps/web/tests/android-room.mjs && node apps/web/tests/android-room.mjs --emulator-network
