@@ -1,15 +1,15 @@
-import { invoke } from "@tauri-apps/api/core";
+import { Channel, invoke } from "@tauri-apps/api/core";
 import { useState } from "react";
 import type { Shelf } from "../backend";
-import { saveAcceptedWebFile } from "../webReceiveBackend";
+import { nativeWebReceiver, saveAcceptedWebFile } from "../webReceiveBackend";
 import { nativeWebTransferSource } from "../webTransferBackend";
 import { WEB_MAX_FILE_BYTES } from "../webFileRules";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import type { TransferSelection } from "./TransferPanel";
 
-type FileEntry = { id: string; name: string; size: number; digest: string; expires: number };
-type Room = { member: { name: string }; files: FileEntry[] };
+type FileEntry = { id: string; name: string; size: number; digest: string; expires: number; chunked?: number };
+type Room = { member: { name: string }; files: FileEntry[]; bulk?: boolean };
 type RoomView = Room | { status: "pending" | "denied" };
 
 export function TemporaryRoomPanel({ selection, shelves }: { selection: TransferSelection; shelves: Shelf[] }) {
@@ -46,9 +46,26 @@ export function TemporaryRoomPanel({ selection, shelves }: { selection: Transfer
     }
   }
 
+  function progressChannel() {
+    const channel = new Channel<{ phase: string; bytes: number; total: number }>();
+    channel.onmessage = ({ phase, bytes, total }) => {
+      setReport(`${phase} ${(bytes / 1024 ** 2).toFixed(1)} / ${(total / 1024 ** 2).toFixed(1)} MiB`);
+    };
+    return channel;
+  }
+
   async function sendSelected() {
     const item = selection.files[0];
     if (!item || selection.files.length !== 1) return;
+    if (room?.bulk) {
+      const key = JSON.stringify(["room-bulk-upload", invitation, selection.shelf_id, item.id]);
+      const uploadId = localStorage.getItem(key) ?? crypto.randomUUID().replace(/-/g, "");
+      localStorage.setItem(key, uploadId);
+      await invoke("room_bulk_upload", { invitation, shelfId: selection.shelf_id, itemId: item.id, uploadId, onProgress: progressChannel() });
+      localStorage.removeItem(key);
+      setReport("文件已发到临时互传区。");
+      return;
+    }
     const prepared = await nativeWebTransferSource.prepare(selection.shelf_id, item.id);
     try {
       const key = JSON.stringify(["room-upload", new URL(invitation).origin,
@@ -71,13 +88,28 @@ export function TemporaryRoomPanel({ selection, shelves }: { selection: Transfer
       setSaved(value => ({ ...value, [file.id]: existing === "pending" ? "未确认，请先到目标文件架核对" : existing }));
       return;
     }
-    const bytes = await invoke<ArrayBuffer>("room_download", { invitation, fileId: file.id });
-    const receipt = await saveAcceptedWebFile(shelf, {
-      manifest: { id: file.id, name: file.name, size: file.size, mime: "application/octet-stream", sha256: file.digest },
-      bytes,
-    }, undefined, () => localStorage.setItem(key, "pending"));
+    const receipt = await (async () => {
+      if (file.chunked) {
+        const ticket = crypto.randomUUID();
+        await invoke("room_bulk_receive", { invitation, fileId: file.id, shelfId: shelf, ticket, onProgress: progressChannel() });
+        try {
+          setReport("校验通过，正在写入绑定目录…");
+          localStorage.setItem(key, "pending");
+          return await nativeWebReceiver.finish(ticket);
+        } catch (error) {
+          await nativeWebReceiver.abort(ticket).catch(() => undefined);
+          throw error;
+        }
+      }
+      const bytes = await invoke<ArrayBuffer>("room_download", { invitation, fileId: file.id });
+      return saveAcceptedWebFile(shelf, {
+        manifest: { id: file.id, name: file.name, size: file.size, mime: "application/octet-stream", sha256: file.digest },
+        bytes,
+      }, undefined, () => localStorage.setItem(key, "pending"));
+    })();
     localStorage.setItem(key, receipt.file_name);
     setSaved(value => ({ ...value, [file.id]: receipt.file_name }));
+    setReport("");
   }
 
   return <details className="transfer-experiment">
@@ -98,7 +130,7 @@ export function TemporaryRoomPanel({ selection, shelves }: { selection: Transfer
         <Button disabled={busy || selection.files.length !== 1} onClick={() => void run(async () => {
           await sendSelected(); await refresh();
         })}>将所选文件发给全区</Button>
-        <p className="transfer-note">每次发送一个文件，最多 64 MiB。</p>
+        <p className="transfer-note">每次发送一个文件，最多 {room.bulk ? "20 GB" : "64 MiB"}。</p>
         <label>保存到<select aria-label="保存到" disabled={busy} value={shelf} onChange={event => { setShelf(Number(event.target.value)); setSaved({}); }}>
           <option value={0}>选择绑定目录</option>
           {shelves.filter(item => item.kind === "bound" && item.available).map(item =>
@@ -107,13 +139,13 @@ export function TemporaryRoomPanel({ selection, shelves }: { selection: Transfer
         {room.files.length === 0 && <p className="transfer-note">区内还没有文件。</p>}
         <ul className="transfer-files">{room.files.map(file => <li key={file.id}>
           <div><strong>{file.name}</strong><small>{file.size.toLocaleString()} B</small></div>
-          {file.size > WEB_MAX_FILE_BYTES ? <small>超过 64 MiB，请在网页领取</small>
+          {!file.chunked && file.size > WEB_MAX_FILE_BYTES ? <small>超过 64 MiB，请在网页领取</small>
             : saved[file.id] ? <small>{saved[file.id]}</small>
-            : <Button variant="outline" disabled={busy || !shelf}
+            : <Button variant="outline" disabled={busy || !shelf} aria-label={`保存 ${file.name}`}
               onClick={() => void run(() => saveFile(file))}>保存</Button>}
         </li>)}</ul>
       </>}
-      {busy && <p role="status">处理中…</p>}
+      {busy && !report && <p role="status">处理中…</p>}
       {report && <p role={failed ? "alert" : "status"}>{report}</p>}
     </div>
   </details>;
