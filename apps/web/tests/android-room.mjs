@@ -138,6 +138,28 @@ try {
     }
   }, { timeout: 45_000, intervals: [1000] }).toBe(sha(androidFixture));
   console.log(JSON.stringify({ androidVersion: device("shell", "getprop", "ro.build.version.release"), fromAndroid: sha(fixture), toAndroid: sha(androidFixture) }));
+
+  const sourceCount = async () => {
+    const sources = await fetch(room + "/sources/" + uploaded.id + "?offset=0", { headers: { Cookie: cookie } });
+    assert.equal(sources.status, 200);
+    return (await sources.json()).sources.length;
+  };
+  await page.getByRole("button", { name: "开始供件 " + fromAndroid }).click();
+  await expect.poll(sourceCount).toBe(1);
+  device("shell", "input", "keyevent", "KEYCODE_SLEEP");
+  await expect.poll(() => device("shell", "dumpsys", "power").includes("mWakefulness=Asleep")).toBe(true);
+  await expect.poll(sourceCount, { timeout: 30_000, intervals: [500] }).toBe(0);
+  const fallback = await fetch(room + "/files/" + uploaded.id, { headers: { Cookie: cookie } });
+  assert.equal(fallback.status, 200);
+  assert.equal(sha(Buffer.from(await fallback.arrayBuffer())), sha(fixture));
+  console.log("Sleep: Android left the active source list; the station provided the identical file.");
+  device("shell", "input", "keyevent", "KEYCODE_WAKEUP");
+  device("shell", "wm", "dismiss-keyguard");
+  await expect.poll(() => page.evaluate(() => document.visibilityState), { timeout: 20_000 }).toBe("visible");
+  await expect.poll(sourceCount).toBe(0);
+  await page.getByRole("button", { name: "开始供件 " + fromAndroid }).click();
+  await expect.poll(sourceCount).toBe(1);
+  console.log("Wake: Android offered the verified file again after explicit activation.");
 } finally {
   await browser?.close();
   if (forwarded) device("forward", "--remove", forwarded);
