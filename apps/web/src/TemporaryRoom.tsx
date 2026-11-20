@@ -10,6 +10,7 @@ type RoomFile = { id: string; sender: string; name: string; size: number; digest
 type Room = { code: string; member: Member; members: Member[]; files: RoomFile[]; inviteExpires: number; bulk?: boolean };
 type Theme = "light" | "dark" | "blue";
 const day = 24 * 60 * 60 * 1000;
+const retentionHours = (size: number) => size >= 10_000_000_000 ? 6 : 24;
 const api = "/api/rooms";
 const formatDate = (time: number) => new Date(time).toLocaleString("zh-CN", { dateStyle: "short", timeStyle: "short" });
 const formatSize = (bytes: number) => bytes < 1024 ? `${bytes} B` : bytes < 1024 ** 2 ? `${(bytes / 1024).toFixed(1)} KiB` : `${(bytes / 1024 ** 2).toFixed(1)} MiB`;
@@ -49,6 +50,7 @@ export function TemporaryRoom() {
   const [seeding, setSeeding] = useState<string[]>([]);
   const [verified, setVerified] = useState<Record<string, File>>({});
   const roomApi = `${api}/${encodeURIComponent(code)}`;
+  const tooLarge = !!file && file.size > (room?.bulk ? FILE_MAX : MAX_BROWSER_TRANSFER_BYTES);
 
   useEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
   async function refresh(path: string, signal?: AbortSignal) {
@@ -245,8 +247,8 @@ export function TemporaryRoom() {
           });
         }}>
           <label>选择文件 <input type="file" ref={fileInput} disabled={busy} onChange={event => setFile(event.target.files?.[0] ?? null)} /></label>
-          {file && <p className="room-note">{file.name} · {formatSize(file.size)}</p>}
-          <button type="submit" className="room-primary" disabled={busy || !file}>发给全区 {room.members.filter(member => member.status === "active").length} 人</button>
+          {file && <p className="room-note">{file.name}（{formatSize(file.size)}）　{tooLarge ? "超过单文件上限，请重新选择。" : `发布后可领取 ${retentionHours(file.size)} 小时`}</p>}
+          <button type="submit" className="room-primary" disabled={busy || !file || tooLarge}>发给全区 {room.members.filter(member => member.status === "active").length} 人</button>
           <p className="room-note">{room.bulk ? "单文件最多 20 GB。中断后可重选原文件续传。" : "单文件最多 64 MiB，校验成功后保留 24 小时。"}</p>
         </form>
         {room.files.length === 0 && <p className="room-note">区内还没有文件。</p>}
@@ -278,7 +280,7 @@ export function TemporaryRoom() {
                 })}>{seeding.includes(item.id) ? "停止供件" : "开始供件"}</button>}
             {(manage || item.sender === room.member.id) && <>
               {item.expires < item.retain_until && <button disabled={busy} onClick={() => {
-                const expires = item.expires + (item.size >= 10_000_000_000 ? day / 4 : day);
+                const expires = item.expires + retentionHours(item.size) * day / 24;
                 if (window.confirm(`延至 ${formatDate(expires)}？`)) void perform(async () => {
                   await jsonPost(roomApi + "/extend", { id: item.id, expires });
                   await refresh(roomApi);

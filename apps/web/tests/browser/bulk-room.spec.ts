@@ -22,6 +22,26 @@ test("网页上传中断后从已确认偏移续传，接收端校验后实际�
     await guestPage.goto(await hostPage.getByLabel("邀请链接").inputValue());
     await guestPage.getByLabel("显示名称").fill("乙");
     await guestPage.getByRole("button", { name: "加入互传区" }).click();
+    const picker = hostPage.getByLabel("选择文件");
+    const send = hostPage.getByRole("button", { name: "发给全区 2 人" });
+    // Exercise the size boundaries before upload without allocating large fixtures.
+    for (const [size, hint] of [
+      [9_999_999_999, "发布后可领取 24 小时"],
+      [10_000_000_000, "发布后可领取 6 小时"],
+      [20_000_000_000, "发布后可领取 6 小时"],
+      [20_000_000_001, "超过单文件上限，请重新选择。"],
+    ] as const) {
+      await picker.evaluate((input: HTMLInputElement, bytes) => {
+        const file = new File(["x"], "合成边界样本.bin");
+        Object.defineProperty(file, "size", { value: bytes });
+        const selection = new DataTransfer();
+        selection.items.add(file);
+        input.files = selection.files;
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+      }, size);
+      await expect(hostPage.getByText(hint, { exact: false })).toBeVisible();
+      await expect(send).toBeEnabled({ enabled: size <= 20_000_000_000 });
+    }
     const offsets: number[] = [];
     let interrupted = false;
     await hostPage.route(/\/bulk\/[a-f0-9]{32}$/, async route => {
@@ -31,7 +51,6 @@ test("网页上传中断后从已确认偏移续传，接收端校验后实际�
       else await route.continue();
     });
     await hostPage.getByLabel("选择文件").setInputFiles({ name: "分块.txt", mimeType: "text/plain", buffer: source });
-    const send = hostPage.getByRole("button", { name: "发给全区 2 人" });
     await send.click();
     await expect(hostPage.getByRole("alert")).toBeVisible();
     await expect(guestPage.getByRole("button", { name: "保存 分块.txt" })).toHaveCount(0);
