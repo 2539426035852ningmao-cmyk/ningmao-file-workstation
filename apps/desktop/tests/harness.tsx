@@ -30,7 +30,7 @@ let browserFinish:((value:{job_id:number;status:string})=>void)|undefined;
 const chatCalls:string[]=[];
 declare global{interface Window{chatHarness:{calls:()=>string[]}}}
 window.chatHarness={calls:()=>chatCalls};
-declare global{interface Window{verifyTransferIPC:()=>Promise<{command:string;args:unknown}[]>;transferHarness:{reads:()=>{devices:number;status:number;inFlight:number;maxInFlight:number};calls:()=>string[];pending:()=>void;progress:(value:TransferProgress)=>void;finish:(status:string)=>void;webSignal:(message:DesktopWebSignal)=>void;onWebOutbound:(fn:(message:DesktopWebMessage)=>void)=>void;installSyntheticBrowserReceiver:()=>void;receivedBrowserFile:()=>string|null;mockWebNativeSave:()=>void;nativeWebCalls:()=>string[]}}}
+declare global{interface Window{verifyTransferIPC:()=>Promise<{command:string;args:unknown}[]>;transferHarness:{reads:()=>{devices:number;status:number;inFlight:number;maxInFlight:number};calls:()=>string[];pending:()=>void;progress:(value:TransferProgress)=>void;finish:(status:string,files?:TransferResult["files"])=>void;webSignal:(message:DesktopWebSignal)=>void;onWebOutbound:(fn:(message:DesktopWebMessage)=>void)=>void;installSyntheticBrowserReceiver:()=>void;receivedBrowserFile:()=>string|null;mockWebNativeSave:()=>void;nativeWebCalls:()=>string[]}}}
 window.verifyTransferIPC=async()=>{const calls:{command:string;args:unknown}[]=[];mockIPC((command,args)=>{calls.push({command,args});return null;});try{await nativeTransfer.receive(3,"127.0.0.1:0");await nativeTransfer.decide("synthetic-batch",false);await nativeTransfer.send(1,[1,2],"127.0.0.1:53317","a".repeat(64));await nativeTransfer.cancelSend();return calls;}finally{clearMocks();}};
 window.transferHarness={reads:()=>({...transferReads}),calls:()=>transferCalls,webSignal:message=>webSignalHandler?.(message),
   onWebOutbound:fn=>{webOutboundHandler=fn;},
@@ -92,7 +92,7 @@ window.transferHarness={reads:()=>({...transferReads}),calls:()=>transferCalls,w
       throw Error("Unexpected native web receive command: "+command);
     });
   },
-  pending:()=>{transferView.pending={id:"synthetic-batch",alias:"合成发送端",files:[{name:"中文 文件.txt",size:42}],total:42};transferEvents?.changed();},progress:value=>transferEvents?.progress(value),finish:status=>{transferView.sending=false;transferEvents?.changed();transferFinish?.({job_id:17,status,message:"受控接口终态",files:[{index:0,status:"completed",bytes:100},{index:1,status,bytes:64}]});transferFinish=undefined;}};
+  pending:()=>{transferView.pending={id:"synthetic-batch",alias:"合成发送端",files:[{name:"中文 文件.txt",size:42}],total:42};transferEvents?.changed();},progress:value=>transferEvents?.progress(value),finish:(status,files=[{index:0,status:"completed",bytes:100},{index:1,status,bytes:64}])=>{transferView.sending=false;transferEvents?.changed();transferFinish?.({job_id:17,status,message:"受控接口终态",files});transferFinish=undefined;}};
 let wakeConfig=JSON.parse(localStorage.getItem("test-wake-shortcut")||'{"version":1,"enabled":true,"accelerator":"Ctrl+Alt+Space"}'),wakePaused=false,wakeAvailable=true;
 let state:Snapshot=JSON.parse(localStorage.getItem("test-state") || JSON.stringify(initial));
 const ownShelf=Number(new URLSearchParams(location.search).get("shelf")) || undefined;
