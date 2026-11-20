@@ -50,7 +50,7 @@ jobs:
         shell: pwsh
         run: ./scripts/build-portable-preview.ps1 -PackageDirectory apps/desktop/preview-package -OutputDirectory apps/desktop/portable-preview
       - name: Upload temporary preview artifacts
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ningmao-preview-windows-x64
           path: |
