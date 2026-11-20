@@ -1,6 +1,6 @@
 # 项目状态
 
-当前开发分支为 `develop`，Windows 候选 D13 从 D12 接续。具体包、源码和检查结果以[当前交付](execution/ACTIVE-DELIVERY.md)为准。历史 `main` 及堆叠 PR 保留，未执行历史候选的正式集成合并。
+互传与同步开发以「工作01」已验收的 D15（`459558c1aad1861f418b244002f76630bcc7ff6c`）为桌面基线，从 `codex/d15-transfer-baseline` 接续。2026-11-20 核对 GitHub，`develop` 仍记录 D13，[D15 交接 PR #103](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/103)与[互传 PR #111](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/111)均处于草稿。D13 的包、源码和检查结果见[当前交付](execution/ACTIVE-DELIVERY.md)。
 
 | 能力 | 实际状态 |
 | --- | --- |
@@ -8,8 +8,8 @@
 | 预览与缩略图 | 图片、可播放音视频、文本、PDF 和简化 Office 内容。D12 Windows 实测竖屏 MP4、横屏 WebM 封面；D13 验证当前素材架、独立子窗和图片预览。 |
 | 加载与检索 | 首屏优先，空闲预取下一行图片，缓存较小的缩略图与视频封面。名称/标签检索已实现；正文检索未实现。 |
 | 局域网互传 | 已有显式接收、设备发现、核对、任务进度和校验。历史上测试了回环与本机私有网卡子集；仍需真实双机、重连和兼容性验收。 |
-| 跨网与浏览器互传 | 有浏览器、WebRTC/WSS 与桌面桥接候选；真实跨网络、移动端及服务可用性待验证。 |
+| 跨网与浏览器互传 | 已有浏览器、WebRTC/WSS、桌面桥接和自建 HTTPS 临时互传区。通过[Windows 原生回环](execution/TEMPORARY-ROOM-NATIVE-BULK-ACCEPTANCE.md)、[两台 Windows 虚拟机安装版](execution/TEMPORARY-ROOM-WINDOWS-GUEST-ACCEPTANCE.md)和[Android 模拟器](execution/TEMPORARY-ROOM-ANDROID-ACCEPTANCE.md)验收。不同真实网络和实体移动设备待验。 |
 | 账户与同步 | 登录、设备绑定、跨账号分享和持续同步未交付。 |
-| 发行 | Windows 候选供测试，MSI 仅作结构核验。正式发行、安装升级/卸载与全 DPI、多屏矩阵待验。 |
+| 发行 | Windows 候选供测试。临时互传预览 MSI 已在两台 Windows 虚拟机运行并互传。正式发行、物理设备的安装升级/卸载与全 DPI、多屏矩阵待验。 |
 
 下一阶段顺序见[路线图](roadmap.md)。历史批次及旧页面见[历史索引](archive/README.md)。
