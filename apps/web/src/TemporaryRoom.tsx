@@ -1,0 +1,320 @@
+import { useEffect, useRef, useState } from "react";
+import { ArrowDownToLine, FolderUp } from "lucide-react";
+import { MAX_BROWSER_TRANSFER_BYTES } from "./file-preparation.mjs";
+import { downloadBulk, FILE_MAX, uploadBulk } from "./bulkTransfer";
+import { RoomPeerSources } from "./roomPeerSources";
+import "./rooms.css";
+
+type Member = { id: string; name: string; role: "owner" | "admin" | "member"; status: "active" | "pending" };
+type RoomFile = { id: string; sender: string; name: string; size: number; digest: string; expires: number; retain_until: number; chunked?: number };
+type Room = { code: string; member: Member; members: Member[]; files: RoomFile[]; inviteExpires: number; bulk?: boolean };
+type Theme = "light" | "dark" | "blue";
+const day = 24 * 60 * 60 * 1000;
+const retentionHours = (size: number) => size >= 10_000_000_000 ? 6 : 24;
+const api = "/api/rooms";
+const formatDate = (time: number) => new Date(time).toLocaleString("zh-CN", { dateStyle: "short", timeStyle: "short" });
+const formatSize = (bytes: number) => bytes < 1024 ? `${bytes} B` : bytes < 1024 ** 2 ? `${(bytes / 1024).toFixed(1)} KiB` : `${(bytes / 1024 ** 2).toFixed(1)} MiB`;
+
+async function jsonPost<T>(path: string, data: object): Promise<T> {
+  const response = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) throw new Error(await response.json());
+  return response.json();
+}
+
+async function digest(data: ArrayBuffer) {
+  const bytes = new Uint8Array(await crypto.subtle.digest("SHA-256", data));
+  return Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
+}
+
+export function TemporaryRoom() {
+  const [code, setCode] = useState(() => new URLSearchParams(location.search).get("code") ?? "");
+  const [draftCode, setDraftCode] = useState(code);
+  const [theme, setTheme] = useState<Theme>("light");
+  const [name, setName] = useState("");
+  const [requireApproval, setRequireApproval] = useState(false);
+  const [room, setRoom] = useState<Room | null>(null);
+  const [membership, setMembership] = useState("");
+  const [recovery, setRecovery] = useState("");
+  const [recoveryInput, setRecoveryInput] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [problem, setProblem] = useState("");
+  const [stationOffline, setStationOffline] = useState(false);
+  const peers = useRef<RoomPeerSources | null>(null);
+  const [seedCopies, setSeedCopies] = useState<Record<string, File>>({});
+  const [seeding, setSeeding] = useState<string[]>([]);
+  const [verified, setVerified] = useState<Record<string, File>>({});
+  const roomApi = `${api}/${encodeURIComponent(code)}`;
+  const tooLarge = !!file && file.size > (room?.bulk ? FILE_MAX : MAX_BROWSER_TRANSFER_BYTES);
+  const remoteBlocked = busy || stationOffline;
+
+  useEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
+  async function refresh(path: string, signal?: AbortSignal) {
+    const response = await fetch(path, { signal, cache: "no-store" });
+    if (signal?.aborted) return;
+    if (!response.ok && response.status !== 403 && response.status !== 404) {
+      throw new Error("暂时无法读取互传区，请稍后重试。");
+    }
+    if (response.ok) {
+      const current = await response.json();
+      if (!signal?.aborted) { setRoom(current); setMembership("active"); }
+    } else {
+      const details = await response.json();
+      if (!signal?.aborted) {
+        setRoom(null);
+        setMembership(response.status === 404 ? "missing" : details.status ?? "");
+      }
+    }
+  }
+  useEffect(() => {
+    if (!code) return;
+    let active = true;
+    let request: AbortController;
+    let timer: number;
+    const update = async () => {
+      request = new AbortController();
+      const timeout = window.setTimeout(() => request.abort(), 8000);
+      try {
+        const signal = request.signal;
+        await refresh(`${api}/${encodeURIComponent(code)}`, signal);
+        if (active) setStationOffline(signal.aborted);
+      } catch {
+        if (active) setStationOffline(true);
+      } finally {
+        window.clearTimeout(timeout);
+      }
+      if (active) timer = window.setTimeout(update, 2000);
+    };
+    void update();
+    return () => { active = false; request.abort(); window.clearTimeout(timer); };
+  }, [code]);
+
+  const peerEnabled = Boolean(room?.bulk && room.member.status === "active" && window.RTCPeerConnection);
+  useEffect(() => {
+    if (!peerEnabled) return;
+    const client = new RoomPeerSources(roomApi);
+    peers.current = client;
+    return () => {
+      client.close();
+      peers.current = null;
+    };
+  }, [peerEnabled, roomApi]);
+
+  useEffect(() => {
+    const files = new Set(room?.files.map(item => item.id));
+    const expired = seeding.filter(id => !files.has(id));
+    if (!expired.length) return;
+    for (const id of expired) void peers.current?.share(id, null);
+    setSeeding(current => current.filter(id => files.has(id)));
+  }, [room, seeding]);
+
+  useEffect(() => {
+    if (!/Android/i.test(navigator.userAgent)) return;
+    const onVisibility = () => {
+      if (!document.hidden) return;
+      for (const id of seeding) void peers.current?.share(id, null);
+      setSeeding([]);
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [seeding]);
+
+  function navigate(target: string) {
+    const next = target.trim().toLowerCase();
+    if (!/^[a-f0-9]{32}$/.test(next)) throw new Error("请输入完整的邀请码。");
+    history.replaceState(null, "", `/rooms?code=${next}`);
+    setDraftCode(next);
+    if (next !== code) {
+      setRoom(null);
+      setMembership("");
+      setStationOffline(false);
+      setCode(next);
+    }
+    return next;
+  }
+
+  async function perform(action: () => Promise<void>) {
+    setProblem("");
+    setMessage("");
+    setBusy(true);
+    try { await action(); }
+    catch (error) { setProblem(error instanceof Error ? error.message : "操作失败，请重试。"); }
+    finally { setBusy(false); }
+  }
+
+  function progress(label: string, bytes: number, total: number) {
+    setMessage(`${label} ${formatSize(bytes)} / ${formatSize(total)}`);
+  }
+
+  function saveFromBrowser(file: Blob, name: string) {
+    const url = URL.createObjectURL(file);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = name;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    setMessage("校验通过，已交给浏览器保存。");
+  }
+
+  const manage = room?.member.role === "owner" || room?.member.role === "admin";
+  return <main className="room-page">
+    <header className="room-header">
+      <strong><FolderUp size={21} aria-hidden /> 柠猫文件工作站</strong>
+      <label>主题 <select value={theme} onChange={event => setTheme(event.target.value as Theme)}>
+        <option value="light">浅白</option><option value="dark">深蓝</option><option value="blue">亮蓝</option>
+      </select></label>
+    </header>
+    <h1>临时互传区</h1>
+    {stationOffline && <p className="room-feedback" role="alert">互传站点暂时无法连接，恢复后会自动刷新。</p>}
+    {problem && <p className="room-feedback" role="alert">{problem}</p>}
+    {message && <p className="room-feedback" role="status">{message}</p>}
+    {!room ? <section className="room-card">
+      {membership === "pending" && <p role="status">等待群主或管理员批准加入。</p>}
+      {membership === "denied" && <p role="status">加入申请未获批准。</p>}
+      {membership === "missing" && <p role="status">找不到这个互传区，请检查邀请码。</p>}
+      <fieldset disabled={busy}>
+        <label>显示名称 <input value={name} maxLength={100} onChange={event => setName(event.target.value)} /></label>
+        <form onSubmit={event => {
+          event.preventDefault();
+          void perform(async () => {
+            const created = await jsonPost<{ code: string; recovery: string }>(api, { name, approval: requireApproval });
+            setRecovery(created.recovery);
+            navigate(created.code);
+          });
+        }}>
+          <label className="room-choice"><input type="checkbox" checked={requireApproval} onChange={event => setRequireApproval(event.target.checked)} /> 入区需批准</label>
+          <button type="submit" className="room-primary" disabled={!name.trim()}>创建互传区</button>
+        </form>
+        <form onSubmit={event => {
+          event.preventDefault();
+          void perform(async () => {
+            const target = navigate(draftCode);
+            const result = await jsonPost<{ member: Member }>(`${api}/${target}/join`, { name });
+            setMembership(result.member.status);
+            await refresh(`${api}/${target}`);
+          });
+        }}>
+          <label>邀请码 <input value={draftCode} maxLength={32} onChange={event => setDraftCode(event.target.value)} /></label>
+          <button type="submit" disabled={!name.trim() || !draftCode.trim()}>加入互传区</button>
+        </form>
+        <details><summary>恢复群主管理权限</summary><form onSubmit={event => {
+          event.preventDefault();
+          void perform(async () => {
+            const target = navigate(draftCode);
+            await jsonPost(`${api}/${target}/recover`, { recovery: recoveryInput.trim() });
+            setRecoveryInput("");
+            await refresh(`${api}/${target}`);
+          });
+        }}>
+          <label>管理恢复码 <input type="password" value={recoveryInput} onChange={event => setRecoveryInput(event.target.value)} /></label>
+          <button type="submit" disabled={!draftCode || !recoveryInput}>恢复管理权限</button>
+        </form></details>
+      </fieldset>
+    </section> : <>
+      <section className="room-card">
+        <h2>{room.member.name} <small>{room.member.role === "owner" ? "群主" : room.member.role === "admin" ? "管理员" : "成员"}</small></h2>
+        <label>邀请链接 <input readOnly value={location.href} onFocus={event => event.target.select()} /></label>
+        <p className="room-note">邀请有效至 {formatDate(room.inviteExpires)}</p>
+        {recovery && <details open><summary>保存管理恢复码</summary><label>管理恢复码 <input readOnly value={recovery} onFocus={event => event.target.select()} /></label></details>}
+        {manage && room.members.filter(member => member.id !== room.member.id).map(member => (
+          <div className="room-row" key={member.id}>
+            <span>{member.name} <small>{member.status === "pending" ? "待批准" : member.role === "admin" ? "管理员" : "成员"}</small></span>
+            {member.status === "pending" ? [true, false].map(accept => <button key={String(accept)} disabled={remoteBlocked} onClick={() => void perform(async () => {
+              await jsonPost(roomApi + "/decide", { id: member.id, accept });
+              await refresh(roomApi);
+            })}>{accept ? "批准" : "拒绝"}</button>) : room.member.role === "owner" &&
+              <button disabled={remoteBlocked} onClick={() => void perform(async () => {
+                await jsonPost(roomApi + "/promote", { id: member.id, enabled: member.role !== "admin" });
+                await refresh(roomApi);
+              })}>{member.role === "admin" ? "取消管理员" : "设为管理员"}</button>}
+          </div>
+        ))}
+      </section>
+      <section className="room-card">
+        <h2>共享文件</h2>
+        <form onSubmit={event => {
+          event.preventDefault();
+          const source = file;
+          if (!source) return;
+          void perform(async () => {
+            if (source.size > (room.bulk ? FILE_MAX : MAX_BROWSER_TRANSFER_BYTES)) {
+              throw new Error(room.bulk ? "单文件最多 20 GB。" : "此互传区单文件最多 64 MiB。");
+            }
+            if (room.bulk) {
+              const id = await uploadBulk(roomApi, source, progress);
+              setSeedCopies(current => ({ ...current, [id]: source }));
+            }
+            else {
+              const hash = await digest(await source.arrayBuffer());
+              const response = await fetch(roomApi + "/files", {
+                method: "POST",
+                headers: { "Content-Type": "application/octet-stream", "X-File-Name": encodeURIComponent(source.name), "X-SHA256": hash },
+                body: source,
+              });
+              if (!response.ok) throw new Error(await response.json());
+            }
+            setFile(null);
+            if (fileInput.current) fileInput.current.value = "";
+            setMessage("文件校验通过，已发到临时互传区。");
+            await refresh(roomApi);
+          });
+        }}>
+          <label>选择文件 <input type="file" ref={fileInput} disabled={busy} onChange={event => setFile(event.target.files?.[0] ?? null)} /></label>
+          {file && <p className="room-note">{file.name}（{formatSize(file.size)}）　{tooLarge ? "超过单文件上限，请重新选择。" : `发布后可领取 ${retentionHours(file.size)} 小时`}</p>}
+          <button type="submit" className="room-primary" disabled={remoteBlocked || !file || tooLarge}>发给全区 {room.members.filter(member => member.status === "active").length} 人</button>
+          <p className="room-note">{room.bulk ? "单文件最多 20 GB。中断后可重选原文件续传。" : "单文件最多 64 MiB，校验成功后保留 24 小时。"}</p>
+        </form>
+        {room.files.length === 0 && <p className="room-note">区内还没有文件。</p>}
+        {room.files.map(item => <article key={item.id} className="room-file">
+          <div><strong>{item.name}</strong><p className="room-note">{formatSize(item.size)} · 领取期限 {formatDate(item.expires)}</p></div>
+          <div className="room-row">
+            <button disabled={busy || (stationOffline && !verified[item.id])} aria-label={`保存 ${item.name}`} onClick={() => void perform(async () => {
+              if (item.chunked) {
+                const ready = verified[item.id];
+                if (ready) { saveFromBrowser(ready, item.name); return; }
+                const downloaded = await downloadBulk(roomApi + "/files/" + item.id, item, progress, peers.current?.download(item.id));
+                setVerified(state => ({ ...state, [item.id]: downloaded }));
+                setMessage("文件校验通过，请点击保存。");
+                return;
+              }
+              const response = await fetch(roomApi + "/files/" + item.id);
+              if (!response.ok) throw new Error(await response.json());
+              const body = await response.arrayBuffer();
+              if (body.byteLength !== item.size || await digest(body) !== item.digest) throw new Error("文件校验失败，未保存。");
+              saveFromBrowser(new Blob([body]), item.name);
+            })}><ArrowDownToLine size={16} aria-hidden /> {item.chunked && !verified[item.id] ? "下载并校验" : "保存"}</button>
+            {peerEnabled && item.chunked && item.size > 0 && (seedCopies[item.id] || verified[item.id]) &&
+              <button disabled={busy || (stationOffline && !seeding.includes(item.id))} aria-label={`${seeding.includes(item.id) ? "停止供件" : "开始供件"} ${item.name}`}
+                onClick={() => void perform(async () => {
+                  const active = seeding.includes(item.id);
+                  await peers.current?.share(item.id, active ? null : seedCopies[item.id] ?? verified[item.id]);
+                  setSeeding(current => active ? current.filter(id => id !== item.id) : [...current, item.id]);
+                  setMessage(active ? "本设备已停止供件。" : "本设备在线时，可向区内成员供件。");
+                })}>{seeding.includes(item.id) ? "停止供件" : "开始供件"}</button>}
+            {(manage || item.sender === room.member.id) && <>
+              {item.expires < item.retain_until && <button disabled={remoteBlocked} onClick={() => {
+                const expires = item.expires + retentionHours(item.size) * day / 24;
+                if (window.confirm(`延至 ${formatDate(expires)}？`)) void perform(async () => {
+                  await jsonPost(roomApi + "/extend", { id: item.id, expires });
+                  await refresh(roomApi);
+                });
+              }}>延期</button>}
+              <button disabled={remoteBlocked} onClick={() => {
+                if (window.confirm(`撤回「${item.name}」？`)) void perform(async () => {
+                  await jsonPost(roomApi + "/revoke", { id: item.id });
+                  await refresh(roomApi);
+                });
+              }}>撤回</button>
+            </>}
+          </div>
+        </article>)}
+      </section>
+    </>}
+  </main>;
+}

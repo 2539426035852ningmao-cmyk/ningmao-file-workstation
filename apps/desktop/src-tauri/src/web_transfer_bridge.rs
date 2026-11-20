@@ -100,6 +100,40 @@ fn native_origin(window: &tauri::WebviewWindow) -> Result<()> {
     crate::trusted_native_origin(window)
 }
 impl WebTransferBridge {
+    pub fn room_file(
+        &self,
+        ticket: &str,
+        owner: &str,
+        scope: Option<i64>,
+        store: &Mutex<crate::store::Store>,
+    ) -> Result<(String, String, Vec<u8>)> {
+        let permit = self.permit(ticket, owner, scope)?;
+        let (size, modified) = inspect(&permit.path)?;
+        if size != permit.size || modified != permit.modified {
+            return Err("源文件已变化，请重新选择。".into());
+        }
+        let mut data = Vec::with_capacity(size as usize);
+        let source = {
+            let store = store.lock().map_err(error)?;
+            store.validate_item_scope(Some(permit.shelf_id), &[permit.item_id])?;
+            store.validate_opening_target(permit.item_id, &permit.path)?;
+            crate::preview::open(&permit.path)?
+        };
+        source
+            .take(size + 1)
+            .read_to_end(&mut data)
+            .map_err(error)?;
+        if data.len() as u64 != size || inspect(&permit.path)? != (size, modified) {
+            return Err("源文件已变化，请重新选择。".into());
+        }
+        let name = permit
+            .path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .ok_or("文件名称无效。")?;
+        let digest = format!("{:x}", Sha256::digest(&data));
+        Ok((name.to_string(), digest, data))
+    }
     fn issue(
         &self,
         ticket: &str,

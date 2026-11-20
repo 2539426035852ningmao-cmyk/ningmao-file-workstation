@@ -12,6 +12,7 @@ export type WebDeviceStatus={device_id:string;name:string;endpoint:string;expire
 export type DesktopWebSignal={type:string;from?:string;to?:string;id?:string;payload?:Record<string,unknown>;};
 export type DesktopWebMessage={type:"invite"|"decision"|"description"|"candidate"|"receipt"|"cancel";to:string;payload:Record<string,unknown>;};
 export interface TransferBackend{
+  roomAvailable?: boolean;
   devices?():Promise<NearbyDevice[]>;
   peers?():Promise<{name:string;fingerprint:string}[]>;
   pair?(name:string,address:string,fingerprint:string):Promise<void>;
@@ -36,6 +37,7 @@ export interface TransferBackend{
   subscribe(events:{changed:()=>void;progress:(value:TransferProgress)=>void}):Promise<()=>void>;
 }
 export const nativeTransfer:TransferBackend={
+  roomAvailable: true,
   devices:()=>invoke("transfer_devices"),
   peers:()=>invoke("transfer_peers"),
   pair:(name,address,fingerprint)=>invoke("transfer_pair",{name,address,fingerprint}),

@@ -85,3 +85,32 @@ test("选中项发送使用固定ID，进度与取消等待以真实终态为准
   await expect(panel.getByRole("status")).toContainText("已取消");
   expect(await page.evaluate(()=>window.transferHarness.calls())).toEqual([`send:1:1,2:127.0.0.1:53317:${"a".repeat(64)}`,"cancel-send"]);
 });
+
+test("中断后仅重试未发送的文件，保留已完成及待核对的结果", async ({page}) => {
+  await page.goto("/tests/harness.html");
+  await page.getByRole("button", {name:"选择 Alpha.txt",exact:true}).click();
+  await page.getByRole("button", {name:"选择 中文 文件.txt",exact:true}).click({modifiers:["Control"]});
+  await page.getByRole("button", {name:"选择 Gamma.txt",exact:true}).click({modifiers:["Control"]});
+  await page.getByRole("button", {name:"更多操作",exact:true}).click();
+  await page.getByRole("menuitem", {name:"发送到设备",exact:true}).click();
+  const panel = page.getByRole("dialog", {name:"文件互传",exact:true});
+  const fingerprint = "a".repeat(64);
+  await panel.getByLabel("粘贴对方的连接信息").fill(`ningmao://receive?address=127.0.0.1%3A53317&fingerprint=${fingerprint}`);
+  await panel.getByRole("button", {name:"发送文件",exact:true}).click();
+  await page.evaluate(() => window.transferHarness.finish("interrupted", [
+    {index:0,status:"completed",bytes:200},
+    {index:1,status:"unconfirmed",bytes:200},
+    {index:2,status:"not_sent",bytes:0},
+  ]));
+  await expect(panel.getByText("中文 文件.txt 接收结果未确认", {exact:true})).toBeVisible();
+  await expect(panel.getByRole("button", {name:"发送文件",exact:true})).toHaveCount(0);
+  await panel.getByRole("button", {name:"重试未送达文件（1）",exact:true}).click();
+  expect(await page.evaluate(() => window.transferHarness.calls())).toEqual([
+    `send:1:1,2,3:127.0.0.1:53317:${fingerprint}`,
+    `send:1:3:127.0.0.1:53317:${fingerprint}`,
+  ]);
+  await page.evaluate(() => window.transferHarness.finish("completed", [{index:0,status:"completed",bytes:200}]));
+  await expect(panel.getByText("Gamma.txt 已完成", {exact:true})).toBeVisible();
+  await expect(panel.getByText("中文 文件.txt 接收结果未确认", {exact:true})).toBeVisible();
+  await expect(panel.getByRole("button", {name:"重试未送达文件（1）",exact:true})).toHaveCount(0);
+});

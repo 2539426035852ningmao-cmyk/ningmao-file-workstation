@@ -1,0 +1,283 @@
+import { Channel, invoke } from "@tauri-apps/api/core";
+import { useState, type Dispatch, type SetStateAction } from "react";
+import type { Shelf } from "../backend";
+import { nativeWebReceiver, saveAcceptedWebFile } from "../webReceiveBackend";
+import { nativeWebTransferSource } from "../webTransferBackend";
+import { WEB_MAX_FILE_BYTES } from "../webFileRules";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import type { TransferSelection } from "./TransferPanel";
+
+type FileEntry = { id: string; name: string; size: number; digest: string; expires: number; chunked?: number };
+type RoomMember = { id: string; name: string; status: "active" | "pending" };
+type Room = { member: { name: string; role?: "owner" | "admin" | "member" }; members?: RoomMember[]; files: FileEntry[]; bulk?: boolean };
+type RoomView = Room | { status: "pending" | "denied" };
+type CreatedRoom = { invitation: string; recovery: string };
+export type RoomSession = { link: string; name: string; station: string; recovery: string; room: Room | null; shelf: number; saved: Record<string, string> };
+
+export function TemporaryRoomPanel({ selection, shelves, session, setSession, chooseReceiveFolder, returnToShelf }: {
+  selection: TransferSelection;
+  shelves: Shelf[];
+  session: RoomSession;
+  setSession: Dispatch<SetStateAction<RoomSession>>;
+  chooseReceiveFolder?: () => Promise<number | null>;
+  returnToShelf: () => void;
+}) {
+  const { link, name, station, recovery, room, saved } = session;
+  const [approval, setApproval] = useState(true);
+  const [entry, setEntry] = useState<"join" | "create">("join");
+  const [changingRoom, setChangingRoom] = useState(false);
+  const [draftLink, setDraftLink] = useState(link);
+  const [busy, setBusy] = useState(false);
+  const [report, setReport] = useState("");
+  const [failed, setFailed] = useState(false);
+  const invitation = link.trim();
+  const shelf = shelves.some(item => item.id === session.shelf) ? session.shelf : 0;
+  const pending = room?.members?.filter(member => member.status === "pending") ?? [];
+  const selected = selection.files.length === 1 ? selection.files[0] : null;
+
+  function selectShelf(target: number) {
+    setSession(current => ({ ...current, shelf: target, saved: {} }));
+  }
+
+  async function refresh(target = invitation) {
+    const view = await invoke<RoomView>("room_view", { invitation: target });
+    if ("status" in view) {
+      setSession(current => current.link.trim() === target ? { ...current, room: null } : current);
+      setReport(view.status === "pending" ? "等待群主或管理员批准。批准后点击刷新。" : "加入申请未获批准。");
+    } else {
+      setSession(current => current.link.trim() === target ? { ...current, room: view } : current);
+      setChangingRoom(false);
+    }
+  }
+
+  async function createRoom() {
+    const created = await invoke<CreatedRoom>("room_create", { station: station.trim(), name, approval });
+    setSession(current => ({ ...current, link: created.invitation, recovery: created.recovery, room: null, saved: {} }));
+    setDraftLink(created.invitation);
+    setEntry("join");
+    await refresh(created.invitation);
+    setReport("已创建互传区，可以复制邀请链接。");
+  }
+
+  async function copy(value: string, label: string) {
+    await run(async () => {
+      try {
+        await navigator.clipboard.writeText(value);
+        setReport(`已复制${label}。`);
+      } catch {
+        throw new Error(`无法复制${label}，请选中文本手动复制。`);
+      }
+    });
+  }
+
+  async function run(task: () => Promise<void>) {
+    setBusy(true);
+    setFailed(false);
+    setReport("");
+    try { await task(); }
+    catch (error) {
+      setFailed(true);
+      setReport(String(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function progressChannel() {
+    const channel = new Channel<{ phase: string; bytes: number; total: number }>();
+    channel.onmessage = ({ phase, bytes, total }) => {
+      setReport(`${phase} ${(bytes / 1024 ** 2).toFixed(1)} / ${(total / 1024 ** 2).toFixed(1)} MiB`);
+    };
+    return channel;
+  }
+
+  async function sendSelected() {
+    const item = selection.files[0];
+    if (!item || selection.files.length !== 1) return;
+    if (room?.bulk) {
+      const url = new URL(invitation);
+      const key = JSON.stringify(["room-bulk-upload", url.origin, url.searchParams.get("code"), selection.shelf_id, item.id]);
+      const uploadId = localStorage.getItem(key) ?? crypto.randomUUID().replace(/-/g, "");
+      localStorage.setItem(key, uploadId);
+      await invoke("room_bulk_upload", { invitation, shelfId: selection.shelf_id, itemId: item.id, uploadId, onProgress: progressChannel() });
+      localStorage.removeItem(key);
+      setReport("文件已发到临时互传区。");
+      return;
+    }
+    const prepared = await nativeWebTransferSource.prepare(selection.shelf_id, item.id);
+    try {
+      const key = JSON.stringify(["room-upload", new URL(invitation).origin,
+        new URL(invitation).searchParams.get("code"), item.id, prepared.sha256]);
+      const uploadId = localStorage.getItem(key) ?? crypto.randomUUID().replace(/-/g, "");
+      localStorage.setItem(key, uploadId);
+      await invoke("room_upload", { invitation, ticket: prepared.ticket, uploadId, expected: prepared.sha256 });
+      localStorage.removeItem(key);
+      setReport("文件已发到临时互传区。");
+    } finally {
+      await nativeWebTransferSource.release(prepared.ticket).catch(() => undefined);
+    }
+  }
+
+  async function saveFile(file: FileEntry) {
+    const key = JSON.stringify(["room-download", new URL(invitation).origin,
+      new URL(invitation).searchParams.get("code"), shelf, file.id]);
+    const existing = localStorage.getItem(key);
+    if (existing) {
+      rememberSaved(file.id, existing === "pending" ? "未确认，请先到目标文件架核对" : existing);
+      return;
+    }
+    const receipt = await (async () => {
+      if (file.chunked) {
+        const ticket = crypto.randomUUID();
+        await invoke("room_bulk_receive", { invitation, fileId: file.id, shelfId: shelf, ticket, onProgress: progressChannel() });
+        try {
+          setReport("校验通过，正在写入绑定目录…");
+          localStorage.setItem(key, "pending");
+          return await nativeWebReceiver.finish(ticket);
+        } catch (error) {
+          await nativeWebReceiver.abort(ticket).catch(() => undefined);
+          throw error;
+        }
+      }
+      const bytes = await invoke<ArrayBuffer>("room_download", { invitation, fileId: file.id });
+      return saveAcceptedWebFile(shelf, {
+        manifest: { id: file.id, name: file.name, size: file.size, mime: "application/octet-stream", sha256: file.digest },
+        bytes,
+      }, undefined, () => localStorage.setItem(key, "pending"));
+    })();
+    localStorage.setItem(key, receipt.file_name);
+    rememberSaved(file.id, receipt.file_name);
+    setReport("");
+  }
+
+  function rememberSaved(id: string, filename: string) {
+    setSession(current => current.link.trim() === invitation && current.shelf === shelf
+      ? { ...current, saved: { ...current.saved, [id]: filename } } : current);
+  }
+
+  return <section className="room-desktop" aria-label="临时互传区">
+    {!room || changingRoom ? <div className="room-desktop-card transfer-form">
+      <div className="room-desktop-heading">
+        <h3>{room ? "切换互传区" : "开始互传"}</h3>
+        {room && <Button size="sm" variant="ghost" disabled={busy} onClick={() => setChangingRoom(false)}>返回当前互传区</Button>}
+      </div>
+      <div className="room-entry" role="group" aria-label="进入方式">
+        <Button size="sm" variant={entry === "join" ? "secondary" : "ghost"} aria-pressed={entry === "join"}
+          disabled={busy} onClick={() => setEntry("join")}>有邀请链接</Button>
+        <Button size="sm" variant={entry === "create" ? "secondary" : "ghost"} aria-pressed={entry === "create"}
+          disabled={busy} onClick={() => setEntry("create")}>发起新区</Button>
+      </div>
+      {entry === "join" ? <label>邀请链接<Input disabled={busy} value={draftLink} placeholder="粘贴对方发来的邀请链接" onChange={event => {
+        setDraftLink(event.target.value); setReport("");
+      }} /></label> : <label>互传站点地址<Input disabled={busy} value={station} placeholder="粘贴自托管站点的 HTTPS 地址" onChange={event => {
+        const next = event.target.value;
+        setSession(current => ({ ...current, station: next }));
+      }} /></label>}
+      <label>显示名称<Input disabled={busy} value={name} maxLength={100} onChange={event => {
+        const next = event.target.value;
+        setSession(current => ({ ...current, name: next }));
+      }} /></label>
+      {entry === "create" && <label className="transfer-room-approval">
+        <input type="checkbox" checked={approval} disabled={busy} onChange={event => setApproval(event.target.checked)} />
+        入区需批准
+      </label>}
+      <div className="transfer-receive-actions">
+        {entry === "create" ? <Button disabled={busy || !station.trim() || !name.trim()}
+          onClick={() => void run(createRoom)}>创建互传区</Button> : <Button disabled={busy || !draftLink.trim() || !name.trim()}
+          onClick={() => void run(async () => {
+            const target = draftLink.trim();
+            await invoke("room_join", { invitation: target, name });
+            if (target !== invitation) {
+              setSession(current => ({ ...current, link: target, room: null, recovery: "", saved: {} }));
+            }
+            await refresh(target);
+          })}>加入互传区</Button>}
+        {entry === "join" && invitation && draftLink.trim() === invitation && <Button variant="outline" disabled={busy}
+          onClick={() => void run(refresh)}>刷新互传区</Button>}
+        {entry === "join" && recovery && draftLink.trim() === invitation && <Button variant="outline" disabled={busy}
+          onClick={() => void copy(invitation, "邀请链接")}>复制邀请链接</Button>}
+      </div>
+    </div> : <>
+      <div className="room-desktop-card transfer-form">
+        <div className="room-desktop-heading">
+          <h3>{room.member.name}</h3>
+          <span>{room.member.role === "owner" ? "群主" : room.member.role === "admin" ? "管理员" : "成员"}</span>
+        </div>
+        <label>邀请链接<Input readOnly value={link} onFocus={event => event.target.select()} /></label>
+        <div className="transfer-receive-actions">
+          <Button variant="outline" size="sm" disabled={busy} aria-label="复制邀请链接"
+            onClick={() => void copy(invitation, "邀请链接")}>复制邀请</Button>
+          <Button variant="ghost" size="sm" disabled={busy} aria-label="刷新互传区"
+            onClick={() => void run(refresh)}>刷新</Button>
+          <Button variant="ghost" size="sm" disabled={busy} aria-label="切换互传区" onClick={() => {
+            setDraftLink("");
+            setEntry("join");
+            setChangingRoom(true);
+          }}>切换</Button>
+        </div>
+        {recovery && <details className="room-recovery">
+          <summary>管理恢复码</summary>
+          <div className="transfer-form">
+            <label>管理恢复码<Input readOnly value={recovery} onFocus={event => event.target.select()} /></label>
+            <Button variant="outline" size="sm" disabled={busy} onClick={() => void copy(recovery, "管理恢复码")}>复制管理恢复码</Button>
+          </div>
+        </details>}
+      </div>
+      {!!pending.length && <div className="room-desktop-card transfer-form">
+        <h3>待批准访客</h3>
+        {pending.map(member => <div className="room-person" key={member.id}>
+          <span>{member.name}</span>
+          <div className="transfer-receive-actions">
+            {[true, false].map(accept => {
+              const label = accept ? "批准" : "拒绝";
+              return <Button key={label} size="sm" variant="outline" disabled={busy} aria-label={`${label} ${member.name}`}
+                onClick={() => void run(async () => {
+                  await invoke("room_decide", { invitation, memberId: member.id, accept });
+                  await refresh();
+                })}>{label}</Button>;
+            })}
+          </div>
+        </div>)}
+      </div>}
+      <div className="room-desktop-card transfer-form">
+        <h3>发送文件</h3>
+        {selected ? <p className="room-selected" title={selected.name}>{selected.name}</p> :
+          <p className="room-caption">{selection.files.length > 1 ? "请选择一个文件发送。" : "请在文件架选择一个文件。"}</p>}
+        <div className="transfer-receive-actions">
+          {selected && <Button disabled={busy} onClick={() => void run(async () => {
+            await sendSelected(); await refresh();
+          })}>将所选文件发给全区</Button>}
+          <Button variant={selected ? "ghost" : "outline"} disabled={busy} onClick={returnToShelf}>
+            {selected ? "更换文件" : "返回文件架选文件"}
+          </Button>
+        </div>
+        <p className="room-caption">单文件最多 {room.bulk ? "20 GB" : "64 MiB"}</p>
+      </div>
+      <div className="room-desktop-card transfer-form">
+        <h3>接收文件</h3>
+        <label>保存到<select aria-label="保存到" disabled={busy} value={shelf}
+          onChange={event => selectShelf(Number(event.target.value))}>
+          <option value={0}>选择绑定目录</option>
+          {shelves.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+        </select></label>
+        {chooseReceiveFolder && <Button size="sm" variant="outline" disabled={busy} onClick={() => void run(async () => {
+          const target = await chooseReceiveFolder();
+          if (target !== null) selectShelf(target);
+        })}>{shelf ? "更换保存文件夹" : "选择保存文件夹"}</Button>}
+        {room.files.length === 0 ? <p className="room-caption">区内还没有文件。</p> :
+          <ul className="room-file-list" aria-label="区内文件">{room.files.map(file => <li key={file.id}>
+            <div className="room-file-name">
+              <strong title={file.name}>{file.name}</strong>
+              <small>{file.size.toLocaleString()} B</small>
+            </div>
+            {!file.chunked && file.size > WEB_MAX_FILE_BYTES ? <small>请在网页领取</small>
+              : saved[file.id] ? <small className="room-saved">{saved[file.id]}</small>
+              : <Button size="sm" variant="outline" disabled={busy || !shelf} aria-label={`保存 ${file.name}`}
+                onClick={() => void run(() => saveFile(file))}>保存</Button>}
+          </li>)}</ul>}
+      </div>
+    </>}
+    {(report || busy) && <p className="room-desktop-feedback" role={failed ? "alert" : "status"}>{report || "处理中…"}</p>}
+  </section>;
+}
