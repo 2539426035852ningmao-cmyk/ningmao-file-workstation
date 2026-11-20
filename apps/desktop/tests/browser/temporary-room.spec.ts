@@ -18,6 +18,15 @@ test("临时互传区使用已选文件和显式保存目录，刷新后旧收�
         const digest = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new Uint8Array([65, 66]))))
           .map(byte => byte.toString(16).padStart(2, "0")).join("");
         if (command === "room_join") return { member: { name: "合成装机端" } };
+        if (command === "room_create") return { invitation: "https://example.test/rooms?code=" + "d".repeat(32), recovery: "e".repeat(48) };
+        if (command === "room_decide") return {};
+        if (command === "room_view" && String(args.invitation).endsWith("d".repeat(32))) {
+          return {
+            member: { name: "合成装机端" }, bulk: true, files: [],
+            members: calls.some((call: { command: string }) => call.command === "room_decide")
+              ? [] : [{ id: "f".repeat(24), name: "网页访客", status: "pending" }],
+          };
+        }
         if (command === "room_view") return { member: { name: "合成装机端" }, bulk: true, files: [{ id: "a".repeat(32), name: "received.txt", size: 2, digest }, { id: "c".repeat(32), name: "large.bin", size: 80_000_000, digest, chunked: 1 }] };
         if (command === "web_transfer_prepare") return { ticket: args.ticket, bytes: 2, name: "selected.txt", sha256: digest };
         if (command === "room_bulk_receive") return {};
@@ -58,4 +67,25 @@ test("临时互传区使用已选文件和显式保存目录，刷新后旧收�
   expect(calls.filter((call: { command: string }) => call.command === "room_bulk_receive")).toHaveLength(1);
   expect(calls.find((call: { command: string }) => call.command === "web_receive_prepare").args.shelfId).toBe(3);
   expect(calls.find((call: { command: string }) => call.command === "room_bulk_upload").args.itemId).toBe(1);
+
+  await page.getByText("发起临时互传区", { exact: true }).click();
+  await page.getByLabel("互传站点地址").fill("https://example.test");
+  await expect(page.getByLabel("入区需批准")).toBeChecked();
+  await page.getByRole("button", { name: "创建互传区", exact: true }).click();
+  await expect(page.getByLabel("邀请链接")).toHaveValue("https://example.test/rooms?code=" + "d".repeat(32));
+  await page.evaluate(() => {
+    Object.defineProperty(navigator.clipboard, "writeText", {
+      value: async (link: string) => sessionStorage.setItem("copied-invitation", link),
+    });
+  });
+  await page.getByRole("button", { name: "复制邀请链接" }).click();
+  expect(await page.evaluate(() => sessionStorage.getItem("copied-invitation")))
+    .toBe("https://example.test/rooms?code=" + "d".repeat(32));
+  await page.getByRole("button", { name: "批准 网页访客" }).click();
+  await expect(page.getByText("网页访客", { exact: true })).toHaveCount(0);
+  const ownerCalls = await page.evaluate(() => JSON.parse(sessionStorage.getItem("room-test-calls") || "[]"));
+  expect(ownerCalls.find((call: { command: string }) => call.command === "room_create").args)
+    .toEqual({ station: "https://example.test", name: "合成装机端", approval: true });
+  expect(ownerCalls.find((call: { command: string }) => call.command === "room_decide").args)
+    .toEqual({ invitation: "https://example.test/rooms?code=" + "d".repeat(32), memberId: "f".repeat(24), accept: true });
 });

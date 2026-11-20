@@ -28,19 +28,24 @@ fn hex(value: &str, size: usize) -> bool {
             .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
 }
 
+fn station_url(value: &str) -> Result<Url> {
+    let parsed = Url::parse(value.trim()).map_err(|_| "请检查互传站点地址。")?;
+    let trusted_scheme = parsed.scheme() == "https"
+        || (parsed.scheme() == "http" && parsed.host_str() == Some("127.0.0.1"));
+    if !trusted_scheme
+        || !parsed.username().is_empty()
+        || parsed.password().is_some()
+        || parsed.fragment().is_some()
+        || !matches!(parsed.path(), "/" | "/rooms")
+    {
+        return Err("请输入互传站点的 HTTPS 地址。".into());
+    }
+    Ok(parsed)
+}
+
 impl Invitation {
     fn parse(value: &str) -> Result<Self> {
-        let parsed = Url::parse(value.trim()).map_err(|_| "邀请链接无效。")?;
-        let trusted_scheme = parsed.scheme() == "https"
-            || (parsed.scheme() == "http" && parsed.host_str() == Some("127.0.0.1"));
-        if !trusted_scheme
-            || !parsed.username().is_empty()
-            || parsed.password().is_some()
-            || parsed.fragment().is_some()
-            || !matches!(parsed.path(), "/" | "/rooms")
-        {
-            return Err("请粘贴互传区的 HTTPS 邀请链接。".into());
-        }
+        let parsed = station_url(value).map_err(|_| "请粘贴互传区的 HTTPS 邀请链接。")?;
         let mut params = parsed.query_pairs();
         let (name, code) = params.next().ok_or("邀请链接缺少邀请码。")?;
         if name != "code" || !hex(&code, 32) || params.next().is_some() {
@@ -60,9 +65,24 @@ impl Invitation {
     }
 
     fn cookie_path(&self, state: &Runtime) -> PathBuf {
-        let hash = Sha256::digest(self.origin.as_str().as_bytes());
-        state.data_root.join(format!("room-session-{hash:x}.bin"))
+        cookie_path(&self.origin, state)
     }
+}
+
+fn cookie_path(origin: &Url, state: &Runtime) -> PathBuf {
+    let hash = Sha256::digest(origin.as_str().as_bytes());
+    state.data_root.join(format!("room-session-{hash:x}.bin"))
+}
+
+fn response_token(response: &Response) -> Option<String> {
+    response
+        .headers()
+        .get(header::SET_COOKIE)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.split(';').next())
+        .and_then(|value| value.strip_prefix("ningmao_room="))
+        .filter(|value| hex(value, 48))
+        .map(str::to_owned)
 }
 
 fn client() -> Result<Client> {
@@ -130,6 +150,50 @@ async fn reply(response: Response) -> Result<Value> {
 }
 
 #[tauri::command]
+pub async fn room_create(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    station: String,
+    name: String,
+    approval: bool,
+) -> Result<Value> {
+    trusted_native_origin(&window)?;
+    metadata_scope(&window)?;
+    let address = station_url(&station)?;
+    if address.query().is_some() {
+        return Err("请输入站点地址。已有邀请请使用加入入口。".into());
+    }
+    let origin = Url::parse(&address.origin().ascii_serialization()).map_err(error)?;
+    let state = app.state::<Runtime>();
+    let _guard = state.rooms.joining.lock().await;
+    let path = cookie_path(&origin, &state);
+    let cookie = transfer_identity::read::<String>(&path)?.filter(|value| hex(value, 48));
+    let response = send(
+        with_cookie(
+            client()?.post(origin.join("api/rooms").map_err(error)?),
+            cookie.clone(),
+        )
+        .json(&json!({ "name": name, "approval": approval })),
+    )
+    .await?;
+    let token = response_token(&response).or(cookie);
+    let created = reply(response).await?;
+    let code = created["code"]
+        .as_str()
+        .filter(|code| hex(code, 32))
+        .ok_or("站点返回的邀请码无效。")?;
+    let recovery = created["recovery"]
+        .as_str()
+        .filter(|code| hex(code, 48))
+        .ok_or("站点返回的管理恢复码无效。")?;
+    let token = token.ok_or("站点未返回群主授权。")?;
+    transfer_identity::save(&path, &token)?;
+    let mut invitation = origin.join("rooms").map_err(error)?;
+    invitation.query_pairs_mut().append_pair("code", code);
+    Ok(json!({ "invitation": invitation.as_str(), "recovery": recovery }))
+}
+
+#[tauri::command]
 pub async fn room_join(
     app: tauri::AppHandle,
     window: tauri::WebviewWindow,
@@ -148,19 +212,39 @@ pub async fn room_join(
             .json(&json!({ "name": name })),
     )
     .await?;
-    let token = response
-        .headers()
-        .get(header::SET_COOKIE)
-        .and_then(|value| value.to_str().ok())
-        .and_then(|value| value.split(';').next())
-        .and_then(|value| value.strip_prefix("ningmao_room="))
-        .filter(|value| hex(value, 48))
-        .map(str::to_owned);
+    let token = response_token(&response);
     let result = reply(response).await?;
     if let Some(token) = token {
         transfer_identity::save(&path, &token)?;
     }
     Ok(result)
+}
+
+#[tauri::command]
+pub async fn room_decide(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    invitation: String,
+    member_id: String,
+    accept: bool,
+) -> Result<()> {
+    trusted_native_origin(&window)?;
+    metadata_scope(&window)?;
+    let invitation = Invitation::parse(&invitation)?;
+    if !hex(&member_id, 24) {
+        return Err("成员编号无效。".into());
+    }
+    let cookie =
+        transfer_identity::read::<String>(&invitation.cookie_path(&app.state::<Runtime>()))?;
+    reply(
+        send(
+            with_cookie(client()?.post(invitation.endpoint("/decide")?), cookie)
+                .json(&json!({ "id": member_id, "accept": accept })),
+        )
+        .await?,
+    )
+    .await?;
+    Ok(())
 }
 
 #[tauri::command]

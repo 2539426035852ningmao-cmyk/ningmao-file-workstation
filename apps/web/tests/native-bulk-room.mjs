@@ -102,7 +102,32 @@ try {
     }
     return window.__TAURI_INTERNALS__.invoke(command, args);
   }, { command, args }).catch(error => { throw new Error(String(error)); });
+  const created = await invoke("room_create", { station: origin, name: "合成 Windows 群主", approval: true });
+  assert.match(created.recovery, /^[a-f0-9]{48}$/);
+  const createdCode = new URL(created.invitation).searchParams.get("code");
+  assert.match(createdCode, /^[a-f0-9]{32}$/);
+  const createdApi = origin + "/api/rooms/" + createdCode;
+  assert.equal(new URL(created.invitation).origin, origin);
+  const entrant = await fetch(createdApi + "/join", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: "合成访客" }),
+  });
+  assert.equal(entrant.status, 200);
+  const entrantCookie = entrant.headers.get("set-cookie").split(";")[0];
+  const { member } = await entrant.json();
+  assert.equal(member.status, "pending");
+  assert.equal((await fetch(createdApi, { headers: { Cookie: entrantCookie } })).status, 403);
+  const roomView = await invoke("room_view", { invitation: created.invitation });
+  assert.equal(roomView.member.role, "owner");
+  assert.equal(roomView.members.find(candidate => candidate.id === member.id)?.status, "pending");
+  await invoke("room_decide", { invitation: created.invitation, memberId: member.id, accept: true });
+  const admitted = await fetch(createdApi, { headers: { Cookie: entrantCookie } });
+  assert.equal(admitted.status, 200);
+  assert.equal((await admitted.json()).member.status, "active");
+  console.log("Native room created, pending guest approved");
+
   await invoke("room_join", { invitation, name: "合成 Windows" });
+  assert.equal((await invoke("room_view", { invitation: created.invitation })).member.role, "owner");
   const db = new DatabaseSync(join(workspace, "workstation.sqlite3"));
   const shelf = db.prepare("UPDATE record_ids SET next_id=next_id+1 WHERE entity='shelf' RETURNING next_id-1 AS id").get().id;
   const item = db.prepare("UPDATE record_ids SET next_id=next_id+1 WHERE entity='item' RETURNING next_id-1 AS id").get().id;
@@ -166,6 +191,22 @@ try {
   assert.deepEqual((await readdir(bound)).sort(), ["fixture (1).bin", "fixture.bin"]);
   assert.equal(await readFile(join(bound, "fixture.bin"), "utf8"), "existing synthetic file");
   console.log("Revoked file: partial stage removed and existing files kept.");
+
+  const ownerSource = join(workspace, "owner-proof.txt");
+  const ownerBytes = Buffer.from("Synthetic file from the Windows room owner");
+  await writeFile(ownerSource, ownerBytes);
+  const ownerDb = new DatabaseSync(join(workspace, "workstation.sqlite3"));
+  const ownerItem = ownerDb.prepare("UPDATE record_ids SET next_id=next_id+1 WHERE entity='item' RETURNING next_id-1 AS id").get().id;
+  ownerDb.prepare("INSERT INTO items (id,shelf_id,path,name,position) VALUES (?,1,?,'owner-proof.txt',1)").run(ownerItem, ownerSource);
+  ownerDb.close();
+  await invoke("room_bulk_upload", { invitation: created.invitation, shelfId: 1, itemId: ownerItem, uploadId: randomUUID().replace(/-/g, "") });
+  const entrantFiles = await fetch(createdApi, { headers: { Cookie: entrantCookie } }).then(response => response.json());
+  const delivered = entrantFiles.files.find(file => file.name === "owner-proof.txt");
+  assert.ok(delivered);
+  const saved = await fetch(createdApi + "/files/" + delivered.id, { headers: { Cookie: entrantCookie } });
+  assert.equal(saved.status, 200);
+  assert.deepEqual(Buffer.from(await saved.arrayBuffer()), ownerBytes);
+  console.log("Admitted guest received the file published by the Windows room owner");
 } finally {
   if (app.exitCode === null) { const exit = once(app, "exit"); app.kill(); await exit; }
   server.closeAllConnections();

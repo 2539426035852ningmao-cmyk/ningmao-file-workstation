@@ -9,12 +9,17 @@ import { Input } from "./ui/input";
 import type { TransferSelection } from "./TransferPanel";
 
 type FileEntry = { id: string; name: string; size: number; digest: string; expires: number; chunked?: number };
-type Room = { member: { name: string }; files: FileEntry[]; bulk?: boolean };
+type RoomMember = { id: string; name: string; status: "active" | "pending" };
+type Room = { member: { name: string }; members?: RoomMember[]; files: FileEntry[]; bulk?: boolean };
 type RoomView = Room | { status: "pending" | "denied" };
+type CreatedRoom = { invitation: string; recovery: string };
 
 export function TemporaryRoomPanel({ selection, shelves }: { selection: TransferSelection; shelves: Shelf[] }) {
   const [link, setLink] = useState("");
   const [name, setName] = useState("");
+  const [station, setStation] = useState("");
+  const [approval, setApproval] = useState(true);
+  const [recovery, setRecovery] = useState("");
   const [room, setRoom] = useState<Room | null>(null);
   const [shelf, setShelf] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -23,14 +28,35 @@ export function TemporaryRoomPanel({ selection, shelves }: { selection: Transfer
   const [saved, setSaved] = useState<Record<string, string>>({});
   const invitation = link.trim();
 
-  async function refresh() {
-    const view = await invoke<RoomView>("room_view", { invitation });
+  async function refresh(target = invitation) {
+    const view = await invoke<RoomView>("room_view", { invitation: target });
     if ("status" in view) {
       setRoom(null);
       setReport(view.status === "pending" ? "等待群主或管理员批准。批准后点击刷新。" : "加入申请未获批准。");
     } else {
       setRoom(view);
     }
+  }
+
+  async function createRoom() {
+    const created = await invoke<CreatedRoom>("room_create", { station: station.trim(), name, approval });
+    setLink(created.invitation);
+    setSaved({});
+    setRoom(null);
+    setRecovery(created.recovery);
+    await refresh(created.invitation);
+    setReport("已创建互传区，可以复制邀请链接。");
+  }
+
+  async function copy(value: string, label: string) {
+    await run(async () => {
+      try {
+        await navigator.clipboard.writeText(value);
+        setReport(`已复制${label}。`);
+      } catch {
+        throw new Error(`无法复制${label}，请选中文本手动复制。`);
+      }
+    });
   }
 
   async function run(task: () => Promise<void>) {
@@ -117,7 +143,7 @@ export function TemporaryRoomPanel({ selection, shelves }: { selection: Transfer
     <summary>临时互传区</summary>
     <div className="transfer-form">
       <label>邀请链接<Input disabled={busy} value={link} onChange={event => {
-        setLink(event.target.value); setRoom(null); setSaved({}); setReport("");
+        setLink(event.target.value); setRoom(null); setSaved({}); setRecovery(""); setReport("");
       }} /></label>
       <label>显示名称<Input disabled={busy} value={name} maxLength={100} onChange={event => setName(event.target.value)} /></label>
       <div className="transfer-receive-actions">
@@ -125,9 +151,46 @@ export function TemporaryRoomPanel({ selection, shelves }: { selection: Transfer
           await invoke("room_join", { invitation, name }); await refresh();
         })}>加入互传区</Button>
         <Button variant="outline" disabled={busy || !invitation} onClick={() => void run(refresh)}>刷新互传区</Button>
+        {(room || recovery) && <Button variant="outline" disabled={busy}
+          onClick={() => void copy(invitation, "邀请链接")}>复制邀请链接</Button>}
       </div>
+      <details className="transfer-experiment">
+        <summary>发起临时互传区</summary>
+        <div className="transfer-form">
+          <label>互传站点地址<Input disabled={busy} value={station} placeholder="粘贴自托管站点的 HTTPS 地址"
+            onChange={event => setStation(event.target.value)} /></label>
+          <label className="transfer-room-approval">
+            <input type="checkbox" checked={approval} disabled={busy} onChange={event => setApproval(event.target.checked)} />
+            入区需批准
+          </label>
+          <div className="transfer-receive-actions">
+            <Button disabled={busy || !station.trim() || !name.trim()}
+              onClick={() => void run(createRoom)}>创建互传区</Button>
+          </div>
+        </div>
+      </details>
+      {recovery && <details className="transfer-experiment">
+        <summary>保存管理恢复码</summary>
+        <div className="transfer-form">
+          <label>管理恢复码<Input readOnly value={recovery} /></label>
+          <div className="transfer-receive-actions">
+            <Button variant="outline" disabled={busy} onClick={() => void copy(recovery, "管理恢复码")}>复制管理恢复码</Button>
+          </div>
+        </div>
+      </details>}
       {room && <>
-        <p className="transfer-note">已加入 · {room.member.name}</p>
+        <p className="transfer-note">已加入（{room.member.name}）</p>
+        {room.members?.filter(member => member.status === "pending").map(member => <div className="transfer-receive-actions" key={member.id}>
+          <span>{member.name}</span>
+          {[true, false].map(accept => {
+            const label = accept ? "批准" : "拒绝";
+            return <Button key={label} variant="outline" disabled={busy} aria-label={`${label} ${member.name}`}
+              onClick={() => void run(async () => {
+                await invoke("room_decide", { invitation, memberId: member.id, accept });
+                await refresh();
+              })}>{label}</Button>;
+          })}
+        </div>)}
         <Button disabled={busy || selection.files.length !== 1} onClick={() => void run(async () => {
           await sendSelected(); await refresh();
         })}>将所选文件发给全区</Button>
