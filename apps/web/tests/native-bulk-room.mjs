@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { once } from "node:events";
 import { createReadStream } from "node:fs";
-import { mkdir, mkdtemp, open, readFile, rm, stat, statfs, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, open, readFile, readdir, rm, stat, statfs, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -43,7 +43,8 @@ const uploads = [];
 const downloads = [];
 let failUpload = true;
 let failDownload = true;
-server.on("request", (req, res) => {
+let revokeOnSecondRange;
+server.on("request", async (req, res) => {
   if (req.headers["x-offset"] !== undefined) {
     const offset = Number(req.headers["x-offset"]);
     uploads.push(offset);
@@ -53,6 +54,12 @@ server.on("request", (req, res) => {
     const range = req.headers.range;
     downloads.push(range);
     if (range.startsWith("bytes=" + chunk + "-") && failDownload) { failDownload = false; res.destroy(); return; }
+    if (range.startsWith("bytes=" + chunk + "-") && revokeOnSecondRange) {
+      const revoke = revokeOnSecondRange;
+      revokeOnSecondRange = undefined;
+      try { await revoke(); }
+      catch { res.writeHead(500).end(); return; }
+    }
   }
   void serve(req, res);
 });
@@ -63,7 +70,9 @@ const room = await fetch(origin + "/api/rooms", {
   method: "POST", headers: { "Content-Type": "application/json" }, body: '{"name":"合成群主"}',
 });
 assert.equal(room.status, 201);
-const invitation = origin + "/rooms?code=" + (await room.json()).code;
+const ownerCookie = room.headers.get("set-cookie").split(";")[0];
+const code = (await room.json()).code;
+const invitation = origin + "/rooms?code=" + code;
 const app = spawn(resolve(exe), [], { windowsHide: true, stdio: "ignore", env: {
   ...process.env, NINGMAO_DATA_DIR: workspace, WEBVIEW2_USER_DATA_FOLDER: join(workspace, "webview"),
   WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: "--remote-debugging-port=" + port + " --remote-debugging-address=127.0.0.1",
@@ -112,10 +121,12 @@ try {
   assert.equal(files.length, 1);
   assert.equal(files[0].size, size);
   const ticket = randomUUID();
-  const dialog = confirm(app.pid);
-  await invoke("room_bulk_receive", { invitation, fileId: files[0].id, shelfId: shelf, ticket });
+  const receiver = { invitation, fileId: files[0].id, shelfId: shelf, ticket };
+  await Promise.all([
+    confirm(app.pid).then(code => assert.equal(code, 0, "Native file confirmation title and body")),
+    invoke("room_bulk_receive", receiver),
+  ]);
   console.log("Native staged and verified", size, "bytes");
-  assert.equal(await dialog, 0);
   const receipt = await invoke("web_receive_finish", { ticket });
   assert.equal(receipt.file_name, "fixture (1).bin");
   assert.equal(await readFile(join(bound, "fixture.bin"), "utf8"), "existing synthetic file");
@@ -127,6 +138,34 @@ try {
   }
   assert.deepEqual(downloads.slice(0, 3), ["bytes=0-4194303", "bytes=4194304-8388607", "bytes=4194304-8388607"]);
   console.log(JSON.stringify({ size, sha256: files[0].digest, uploadResumed: chunk, downloadRetried: chunk, saved: receipt.file_name }));
+
+  const revocation = { ...receiver, ticket: randomUUID() };
+  const before = downloads.length;
+  revokeOnSecondRange = async () => {
+    const response = await fetch(origin + "/api/rooms/" + code + "/revoke", {
+      method: "POST", headers: { Cookie: ownerCookie, "Content-Type": "application/json" },
+      body: JSON.stringify({ id: files[0].id }),
+    });
+    assert.equal(response.status, 200);
+  };
+  await Promise.all([
+    confirm(app.pid).then(code => assert.equal(code, 0, "Native file confirmation after first receive")),
+    assert.rejects(invoke("room_bulk_receive", revocation), /文件已撤回或到期/),
+  ]);
+  assert.deepEqual(downloads.slice(before), ["bytes=0-4194303", "bytes=4194304-8388607"]);
+  await assert.rejects(invoke("web_receive_finish", { ticket: revocation.ticket }), /已结束|不存在/);
+  assert.deepEqual(await readdir(join(workspace, "web-receive-staging")), []);
+  const history = new DatabaseSync(join(workspace, "workstation.sqlite3"), { readOnly: true });
+  try {
+    const latest = history.prepare("SELECT status, staging FROM jobs WHERE shelf_id = ? ORDER BY id DESC LIMIT 1").get(shelf);
+    assert.equal(latest.status, "interrupted");
+    assert.equal(latest.staging, null);
+  } finally {
+    history.close();
+  }
+  assert.deepEqual((await readdir(bound)).sort(), ["fixture (1).bin", "fixture.bin"]);
+  assert.equal(await readFile(join(bound, "fixture.bin"), "utf8"), "existing synthetic file");
+  console.log("Revoked file: partial stage removed and existing files kept.");
 } finally {
   if (app.exitCode === null) { const exit = once(app, "exit"); app.kill(); await exit; }
   server.closeAllConnections();
@@ -135,7 +174,7 @@ try {
   await rm(workspace, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 });
 }
 function confirm(pid) {
-const ps="Add-Type -AssemblyName UIAutomationClient,UIAutomationTypes\nAdd-Type @'\nusing System;\nusing System.Runtime.InteropServices;\npublic static class TestDialogClick {\n [DllImport(\"user32.dll\",SetLastError=true)] public static extern bool PostMessage(IntPtr hwnd,uint msg,IntPtr w,IntPtr l);\n}\n'@\n$app=Get-Process -Id __LAB_PID__ -ErrorAction SilentlyContinue\nif (-not $app) { exit 1 }\n$root=[Windows.Automation.AutomationElement]::RootElement\n$own=[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ProcessIdProperty,[int]$app.Id)\nfor($i=0;$i -lt 60;$i++){ \n$windows=$root.FindAll([Windows.Automation.TreeScope]::Children,$own)\nforeach ($win in $windows) {\n if ($win.Current.Name -ne '确认接收网页文件') {continue}\n foreach ($el in $win.FindAll([Windows.Automation.TreeScope]::Descendants,[Windows.Automation.Condition]::TrueCondition)) {\n   if ($el.Current.Name -eq '确认接收' -and $el.Current.ClassName -eq 'CCPushButton' -and $el.Current.NativeWindowHandle) {\n      [TestDialogClick]::PostMessage([IntPtr]$el.Current.NativeWindowHandle,0x00F5,[IntPtr]::Zero,[IntPtr]::Zero)\n      exit\n   }\n }\n}\nStart-Sleep -Milliseconds 500\n}\nexit 2".replace("__LAB_PID__",String(pid));
+const ps="Add-Type -AssemblyName UIAutomationClient,UIAutomationTypes\nAdd-Type @'\nusing System;\nusing System.Runtime.InteropServices;\npublic static class TestDialogClick {\n [DllImport(\"user32.dll\",SetLastError=true)] public static extern bool PostMessage(IntPtr hwnd,uint msg,IntPtr w,IntPtr l);\n}\n'@\n$app=Get-Process -Id __LAB_PID__ -ErrorAction SilentlyContinue\nif (-not $app) { exit 1 }\n$root=[Windows.Automation.AutomationElement]::RootElement\n$own=[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ProcessIdProperty,[int]$app.Id)\nfor($i=0;$i -lt 60;$i++){ \n$windows=$root.FindAll([Windows.Automation.TreeScope]::Children,$own)\nforeach ($win in $windows) {\n if ($win.Current.Name -ne '确认接收文件') {continue}\n $body=$win.FindAll([Windows.Automation.TreeScope]::Descendants,[Windows.Automation.Condition]::TrueCondition) | ForEach-Object { $_.Current.Name }\n if (($body -join ' ') -notmatch '是否接收此文件' -or ($body -join ' ') -notmatch '不会覆盖已有文件') {continue}\n foreach ($el in $win.FindAll([Windows.Automation.TreeScope]::Descendants,[Windows.Automation.Condition]::TrueCondition)) {\n   if ($el.Current.Name -eq '确认接收' -and $el.Current.ClassName -eq 'CCPushButton' -and $el.Current.NativeWindowHandle) {\n      [TestDialogClick]::PostMessage([IntPtr]$el.Current.NativeWindowHandle,0x00F5,[IntPtr]::Zero,[IntPtr]::Zero)\n      exit\n   }\n }\n}\nStart-Sleep -Milliseconds 500\n}\nexit 2".replace("__LAB_PID__",String(pid));
  const dialog = spawn("powershell.exe",["-NoProfile","-EncodedCommand",Buffer.from(ps,"utf16le").toString("base64")],{windowsHide:true,stdio:"inherit"});
  return once(dialog, "exit").then(([code]) => code);
 }

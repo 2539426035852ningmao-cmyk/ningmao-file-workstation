@@ -443,9 +443,9 @@ async fn confirm(
         confirmation_app
             .dialog()
             .message(format!(
-                "是否接收网页传来的文件？\n\n名称：{prompt_name}\n大小：{bytes} 字节\n保存位置：当前工作站绑定文件架（编号 {shelf_id}）\n\n文件会先进行 SHA-256 校验，保存时不会覆盖已有文件。"
+                "是否接收此文件？\n\n名称：{prompt_name}\n大小：{bytes} 字节\n保存位置：当前工作站绑定文件架（编号 {shelf_id}）\n\n文件会先进行 SHA-256 校验，保存时不会覆盖已有文件。"
             ))
-            .title("确认接收网页文件")
+            .title("确认接收文件")
             .parent(&confirmation_window)
             .buttons(tauri_plugin_dialog::MessageDialogButtons::OkCancelCustom(
                 "确认接收".into(),
@@ -592,6 +592,36 @@ pub async fn web_receive_abort(
     window: tauri::WebviewWindow,
     ticket: String,
 ) -> Result<()> {
+    abort_receive(
+        app,
+        window,
+        ticket,
+        "cancelled",
+        "网页接收已取消，未保存到绑定目录",
+    )
+    .await
+}
+pub(crate) async fn interrupt_room_receive(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    ticket: String,
+) -> Result<()> {
+    abort_receive(
+        app,
+        window,
+        ticket,
+        "interrupted",
+        "临时互传区接收中断，未保存到绑定目录",
+    )
+    .await
+}
+async fn abort_receive(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    ticket: String,
+    status: &'static str,
+    message: &'static str,
+) -> Result<()> {
     native_origin(&window)?;
     let scope = metadata_scope(&window)?;
     let owner = window.label().to_owned();
@@ -603,12 +633,7 @@ pub async fn web_receive_abort(
             sessions.remove(&ticket).ok_or("任务已结束")?
         };
         let mut store = state.store.lock().map_err(error)?;
-        store.finish_transfer_job(
-            cancelled.job,
-            cancelled.shelf,
-            "cancelled",
-            "网页接收已取消，未保存到绑定目录",
-        )?;
+        store.finish_transfer_job(cancelled.job, cancelled.shelf, status, message)?;
         drop(cancelled);
         let _ = app.emit("workstation-changed", ());
         Ok(())

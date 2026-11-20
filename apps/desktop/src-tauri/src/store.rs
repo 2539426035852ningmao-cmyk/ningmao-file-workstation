@@ -1246,7 +1246,7 @@ impl Store {
         let changed = self
             .db
             .execute(
-                "UPDATE jobs SET status=?1,message=?2 WHERE id=?3 AND shelf_id=?4 AND status IN ('queued','copying')",
+                "UPDATE jobs SET status=?1,message=?2,staging=NULL WHERE id=?3 AND shelf_id=?4 AND status IN ('queued','copying')",
                 params![status, message, id, shelf],
             )
             .map_err(err)?;

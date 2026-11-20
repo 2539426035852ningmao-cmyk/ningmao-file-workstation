@@ -332,6 +332,9 @@ pub async fn room_bulk_receive(
         let url = invitation.endpoint(&format!("/files/{file_id}"))?;
         if size == 0 {
             let response = send(with_cookie(client.get(url.clone()), cookie.clone())).await?;
+            if matches!(response.status().as_u16(), 404 | 410) {
+                return Err("文件已撤回或到期。".into());
+            }
             if !response.status().is_success() || !bounded(response, 0).await?.is_empty() {
                 return Err("空文件不可下载。".into());
             }
@@ -345,20 +348,24 @@ pub async fn room_bulk_receive(
                         .header(header::RANGE, format!("bytes={offset}-{end}")),
                 )
                 .await?;
+                if matches!(response.status().as_u16(), 404 | 410) {
+                    return Ok(None);
+                }
                 if !range_matches(&response, offset, end, size) {
-                    return Err("站点返回的文件范围不匹配，或文件已撤回。".into());
+                    return Err("站点返回的文件范围不匹配。".into());
                 }
                 let expected = (end - offset + 1) as usize;
                 let bytes = bounded(response, expected).await?;
                 if bytes.len() != expected {
                     return Err("下载分块未收齐。".into());
                 }
-                Ok::<_, String>(bytes)
+                Ok::<_, String>(Some(bytes))
             };
             let bytes = match fetch_block().await {
                 Ok(bytes) => bytes,
                 Err(_) => fetch_block().await?,
-            };
+            }
+            .ok_or("文件已撤回或到期。")?;
             crate::web_transfer_receive::append_room_bytes(&app, &window, &ticket, offset, bytes)
                 .await?;
             offset = end + 1;
@@ -368,7 +375,7 @@ pub async fn room_bulk_receive(
     }
     .await;
     if result.is_err() {
-        let _ = crate::web_transfer_receive::web_receive_abort(app, window, ticket).await;
+        let _ = crate::web_transfer_receive::interrupt_room_receive(app, window, ticket).await;
     }
     result
 }
