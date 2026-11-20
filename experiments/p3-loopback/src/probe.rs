@@ -1111,6 +1111,51 @@ mod direct_event_tests {
         guard.0.integrity_check().unwrap();
     }
     #[test]
+    fn desktop_upload_waits_for_slow_receiver_receipt() {
+        let destination = tempfile::tempdir().unwrap();
+        let (cert, private_key) = keypair().unwrap();
+        let fingerprint = digest(&cert);
+        let config = ServerConfig::builder()
+            .with_no_client_auth()
+            .with_single_cert(vec![CertificateDer::from(cert)], key(&private_key))
+            .unwrap();
+        let receiver = ningmao_transfer_receiver::Receiver::start(
+            "127.0.0.1:0".parse().unwrap(),
+            destination.path(),
+            Arc::new(config),
+            Arc::new(|event| {
+                if event.phase == ningmao_transfer_contract::Phase::Completed {
+                    std::thread::sleep(Duration::from_secs(7));
+                }
+                Ok(())
+            }),
+            Arc::new(|_, _| true),
+        )
+        .unwrap();
+        let client = LoopbackClient::pinned(receiver.address, &fingerprint).unwrap();
+        let bytes = b"synthetic delayed receipt";
+        let (status, plan) = client
+            .prepare(
+                json!({"f":{"fileName":"receipt.txt","size":bytes.len(),"sha256":digest(bytes)}}),
+            )
+            .unwrap();
+        assert_eq!(status, 200);
+        let response = client.upload(
+            plan["sessionId"].as_str().unwrap(),
+            "f",
+            plan["files"]["f"].as_str().unwrap(),
+            bytes.len() as u64,
+            &mut io::Cursor::new(bytes),
+        );
+        receiver.stop().unwrap();
+        assert_eq!(
+            fs::read(destination.path().join("receipt.txt")).unwrap(),
+            bytes
+        );
+        assert_eq!(response.unwrap().0, 200);
+    }
+
+    #[test]
     fn actual_loopback_receiver_persists_direct_events_before_reporting_success() {
         let temp = tempfile::tempdir().unwrap();
         let root = temp.path().join("synthetic-only");
