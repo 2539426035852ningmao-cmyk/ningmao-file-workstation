@@ -88,4 +88,12 @@ test("临时互传区使用已选文件和显式保存目录，刷新后旧收�
     .toEqual({ station: "https://example.test", name: "合成装机端", approval: true });
   expect(ownerCalls.find((call: { command: string }) => call.command === "room_decide").args)
     .toEqual({ invitation: "https://example.test/rooms?code=" + "d".repeat(32), memberId: "f".repeat(24), accept: true });
+
+  await page.getByRole("button", { name: "关闭文件互传" }).click();
+  await page.getByRole("button", { name: "更多操作", exact: true }).click();
+  await page.getByRole("menuitem", { name: "发送到设备", exact: true }).click();
+  await page.getByText("临时互传区", { exact: true }).click();
+  await expect(page.getByLabel("邀请链接")).toHaveValue("https://example.test/rooms?code=" + "d".repeat(32));
+  await page.getByRole("button", { name: "刷新互传区" }).click();
+  await expect(page.getByText("已加入（合成装机端）", { exact: true })).toBeVisible();
 });

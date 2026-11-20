@@ -3,7 +3,7 @@ import {useEffect,useRef,useState} from "react";
 import {X} from "lucide-react";
 import {DesktopWebInbox} from "./DesktopWebInbox";
 import {DesktopWebOutbox} from "./DesktopWebOutbox";
-import {TemporaryRoomPanel} from "./TemporaryRoomPanel";
+import {TemporaryRoomPanel,type RoomSession} from "./TemporaryRoomPanel";
 import {Button} from "./ui/button";
 import {Input} from "./ui/input";
 import {Tabs,TabsList,TabsTrigger,TabsContent} from "./ui/tabs";
@@ -20,6 +20,7 @@ type SendBatchResult={selection:TransferSelection;fingerprint:string;last:Transf
 
 export function TransferPanel({backend,open,onOpenChange,initialMode,selection,shelves,chooseReceiveFolder}:{backend:TransferBackend;open:boolean;onOpenChange:(value:boolean)=>void;initialMode:"send"|"receive";selection:TransferSelection;shelves:Shelf[];chooseReceiveFolder?:()=>Promise<number|null>}){
   const [mode,setMode]=useState(initialMode),[view,setView]=useState(empty),[error,setError]=useState("");
+  const [roomSession,setRoomSession]=useState<RoomSession>({link:"",name:"",station:"",recovery:""});
   const content=useRef<HTMLDivElement>(null);
   const connectionInput=useRef<HTMLInputElement>(null);
   useEffect(()=>{if(open&&mode==="receive")content.current?.scrollTo(0,0);},[open,mode,view.receiving]);
@@ -229,7 +230,7 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
       </form>}
       {view.pending&&<section className="transfer-request" aria-label="待确认接收"><h3>接收请求 {view.pending.alias}</h3><ul className="transfer-files">{view.pending.files.map((file,index)=><li key={index}><span aria-description={file.name}>{file.name}</span><small>{sizes(file.size)}</small></li>)}</ul><p>{view.pending.files.length}项 {sizes(view.pending.total)}</p><div><Button variant="outline" disabled={working} onClick={()=>void action(()=>backend.decide(view.pending!.id,false))}>拒绝接收</Button><Button disabled={working} onClick={()=>void action(()=>backend.decide(view.pending!.id,true))}>接受文件</Button></div></section>}
     </>}
-    {backend.roomAvailable && <TemporaryRoomPanel selection={selection} shelves={shelves} />}
+    {backend.roomAvailable && <TemporaryRoomPanel selection={selection} shelves={shelves} session={roomSession} setSession={setRoomSession} />}
     {backend.webDeviceClaim&&<details className="transfer-experiment" data-testid="w1-device-pair">
       <summary>连接网页 / 手机 Windows 设备授权（W1）</summary>
       <section className="connection-fields" aria-label="Windows 联网身份授权">

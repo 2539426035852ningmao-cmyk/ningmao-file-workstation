@@ -1,5 +1,5 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
-import { useState } from "react";
+import { useState, type Dispatch, type SetStateAction } from "react";
 import type { Shelf } from "../backend";
 import { nativeWebReceiver, saveAcceptedWebFile } from "../webReceiveBackend";
 import { nativeWebTransferSource } from "../webTransferBackend";
@@ -13,13 +13,16 @@ type RoomMember = { id: string; name: string; status: "active" | "pending" };
 type Room = { member: { name: string }; members?: RoomMember[]; files: FileEntry[]; bulk?: boolean };
 type RoomView = Room | { status: "pending" | "denied" };
 type CreatedRoom = { invitation: string; recovery: string };
+export type RoomSession = { link: string; name: string; station: string; recovery: string };
 
-export function TemporaryRoomPanel({ selection, shelves }: { selection: TransferSelection; shelves: Shelf[] }) {
-  const [link, setLink] = useState("");
-  const [name, setName] = useState("");
-  const [station, setStation] = useState("");
+export function TemporaryRoomPanel({ selection, shelves, session, setSession }: {
+  selection: TransferSelection;
+  shelves: Shelf[];
+  session: RoomSession;
+  setSession: Dispatch<SetStateAction<RoomSession>>;
+}) {
+  const { link, name, station, recovery } = session;
   const [approval, setApproval] = useState(true);
-  const [recovery, setRecovery] = useState("");
   const [room, setRoom] = useState<Room | null>(null);
   const [shelf, setShelf] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -40,10 +43,9 @@ export function TemporaryRoomPanel({ selection, shelves }: { selection: Transfer
 
   async function createRoom() {
     const created = await invoke<CreatedRoom>("room_create", { station: station.trim(), name, approval });
-    setLink(created.invitation);
+    setSession(current => ({ ...current, link: created.invitation, recovery: created.recovery }));
     setSaved({});
     setRoom(null);
-    setRecovery(created.recovery);
     await refresh(created.invitation);
     setReport("已创建互传区，可以复制邀请链接。");
   }
@@ -143,9 +145,14 @@ export function TemporaryRoomPanel({ selection, shelves }: { selection: Transfer
     <summary>临时互传区</summary>
     <div className="transfer-form">
       <label>邀请链接<Input disabled={busy} value={link} onChange={event => {
-        setLink(event.target.value); setRoom(null); setSaved({}); setRecovery(""); setReport("");
+        const next = event.target.value;
+        setSession(current => ({ ...current, link: next, recovery: "" }));
+        setRoom(null); setSaved({}); setReport("");
       }} /></label>
-      <label>显示名称<Input disabled={busy} value={name} maxLength={100} onChange={event => setName(event.target.value)} /></label>
+      <label>显示名称<Input disabled={busy} value={name} maxLength={100} onChange={event => {
+        const next = event.target.value;
+        setSession(current => ({ ...current, name: next }));
+      }} /></label>
       <div className="transfer-receive-actions">
         <Button disabled={busy || !invitation || !name.trim()} onClick={() => void run(async () => {
           await invoke("room_join", { invitation, name }); await refresh();
@@ -158,7 +165,10 @@ export function TemporaryRoomPanel({ selection, shelves }: { selection: Transfer
         <summary>发起临时互传区</summary>
         <div className="transfer-form">
           <label>互传站点地址<Input disabled={busy} value={station} placeholder="粘贴自托管站点的 HTTPS 地址"
-            onChange={event => setStation(event.target.value)} /></label>
+            onChange={event => {
+              const next = event.target.value;
+              setSession(current => ({ ...current, station: next }));
+            }} /></label>
           <label className="transfer-room-approval">
             <input type="checkbox" checked={approval} disabled={busy} onChange={event => setApproval(event.target.checked)} />
             入区需批准
