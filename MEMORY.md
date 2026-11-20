@@ -6,4 +6,4 @@
 
 近期任务按顺序是局域网与跨网互传的连接、核对及恢复，再讨论账户设备绑定、跨端共享与同步。遵守独立合成工作区及真实文件、网络的授权范围。
 
-D15 原生 20 GB 回环与全量界面回归已经通过，详见[Windows 原生分块验收](docs/execution/TEMPORARY-ROOM-NATIVE-BULK-ACCEPTANCE.md)。两台独立 Windows 虚拟机可以计入双机验收，已分别通过自建 HTTPS 临时互传和[原生局域网顺序双向直传](docs/execution/TEMPORARY-ROOM-WINDOWS-GUEST-ACCEPTANCE.md)。局域网接着补主动取消、断链恢复与并发压力，跨网与移动端各自保留场景证据。
+D15 原生 20 GB 回环与全量界面回归已经通过，详见[Windows 原生分块验收](docs/execution/TEMPORARY-ROOM-NATIVE-BULK-ACCEPTANCE.md)。两台独立 Windows 虚拟机可以计入双机验收，已分别通过自建 HTTPS 临时互传、[原生局域网顺序双向直传、断链、主动取消及安全重试](docs/execution/TEMPORARY-ROOM-WINDOWS-GUEST-ACCEPTANCE.md)。局域网接着补双向并发压力，跨网与移动端各自保留场景证据。

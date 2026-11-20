@@ -7,7 +7,7 @@
 | 文件架与工作区 | 支持引用收集、绑定目录复制、悬浮球、独立子架、撤销重做与工作区自动接续。D13 迁移后已正常启动，并核对数据库关键记录。 |
 | 预览与缩略图 | 图片、可播放音视频、文本、PDF 和简化 Office 内容。D12 Windows 实测竖屏 MP4、横屏 WebM 封面；D13 验证当前素材架、独立子窗和图片预览。 |
 | 加载与检索 | 首屏优先，空闲预取下一行图片，缓存较小的缩略图与视频封面。名称/标签检索已实现；正文检索未实现。 |
-| 局域网互传 | 两台 Windows 虚拟机已通过隔离网段的原生发现、证书核对、拒收后重试、双向校验和同名保留。[双机实测](execution/TEMPORARY-ROOM-WINDOWS-GUEST-ACCEPTANCE.md)记录了证据。浏览器回归已验证断线后的逐项重试和未发现设备时的连接入口。链路中途断开、主动取消和并发双向压力待补双机实测。 |
+| 局域网互传 | 两台 Windows 虚拟机已通过隔离网段的原生发现、证书核对、拒收后重试、顺序双向校验、断链、主动取消和重试后的同名保护。浏览器回归已验证断线后的逐项重试和未发现设备时的连接入口。双向并发压力待验。[双机实测](execution/TEMPORARY-ROOM-WINDOWS-GUEST-ACCEPTANCE.md) |
 | 跨网与浏览器互传 | 已有浏览器、WebRTC/WSS、桌面桥接和自建 HTTPS 临时互传区。通过[Windows 原生回环](execution/TEMPORARY-ROOM-NATIVE-BULK-ACCEPTANCE.md)、[两台 Windows 虚拟机安装版](execution/TEMPORARY-ROOM-WINDOWS-GUEST-ACCEPTANCE.md)和[Android 模拟器](execution/TEMPORARY-ROOM-ANDROID-ACCEPTANCE.md)验收。不同真实网络和实体移动设备待验。 |
 | 账户与同步 | 登录、设备绑定、跨账号分享和持续同步未交付。 |
 | 发行 | Windows 候选供测试。临时互传预览 MSI 已在两台 Windows 虚拟机运行并互传。正式发行、物理设备的安装升级/卸载与全 DPI、多屏矩阵待验。 |

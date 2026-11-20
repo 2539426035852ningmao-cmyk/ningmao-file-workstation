@@ -6,10 +6,12 @@ const { mkdir, readFile, readdir, writeFile } = require("node:fs/promises");
 const { join } = require("node:path");
 const { DatabaseSync } = require("node:sqlite");
 const assert = require("node:assert/strict");
-const [role, executable, expectedHash, cache] = process.argv.slice(2);
+const [role, executable, expectedHash, cache, scenario] = process.argv.slice(2);
 assert.ok(role === "a" || role === "b", "Supply the isolated Windows guest role a or b");
 assert.equal(hostname().toLowerCase(), "ningmao-lab-" + role);
 assert.match(expectedHash || "", /^[a-f0-9]{64}$/);
+assert.ok(scenario === undefined || scenario === "faults");
+const faults = scenario === "faults";
 const data = require("node:fs").mkdtempSync(join(tmpdir(), "ningmao-lan-" + role + "-"));
 const bound = join(data, "bound");
 const sourceDir = join(data, "source");
@@ -19,17 +21,80 @@ const peerIp = "192.168.253." + (role === "a" ? "11" : "10");
 const peerRole = role === "a" ? "b" : "a";
 const addr = ip + ":53317";
 const peerAddr = peerIp + ":53317";
-const bytes = role => Buffer.alloc(4194577, role === "a" ? 41 : 71);
+const size = faults ? 16 * 1024 * 1024 + 273 : 4194577;
+const bytes = role => Buffer.alloc(size, role === "a" ? 41 : 71);
 const hash = value => createHash("sha256").update(value).digest("hex");
-const wait = async (check, timeout, label) => {
+const wait = async (check, timeout, label, interval = 700) => {
   const until = Date.now() + timeout;
   while (Date.now() < until) {
     const result = await check();
     if (result) return result;
-    await new Promise(done => setTimeout(done, 700));
+    await new Promise(done => setTimeout(done, interval));
   }
   throw new Error("Timed out: " + label);
 };
+
+async function exerciseFaults({call, shelf, items, peer}) {
+  const db = new DatabaseSync(join(data, "workstation.sqlite3"), {readOnly:true});
+  const job = db.prepare("SELECT id, status, message FROM jobs WHERE shelf_id = ? ORDER BY id DESC LIMIT 1");
+  const send = () => call("transfer_send", {shelfId:1, ids:items, address:peerAddr, fingerprint:peer.fingerprint});
+  const accept = async () => {
+    const pending = await wait(() => call("transfer_view").then(v => v.pending), 150000, "new acceptance");
+    assert.equal(pending.files.length, 2);
+    await call("transfer_decide", {id:pending.id, accept:true});
+  };
+  try {
+    if (role === "a") {
+      const disconnected = await send();
+      console.log("DISCONNECTED", disconnected.status, disconnected.files);
+      assert.equal(disconnected.status, "interrupted");
+      assert.deepEqual(disconnected.files.map(file => file.status), ["unconfirmed", "not_sent"]);
+      assert.ok(disconnected.files[0].bytes < size);
+      await wait(() => call("transfer_pair", peer).then(() => true, () => false), 150000, "restored link and pinned peer");
+
+      const previous = job.get(1).id;
+      const cancelling = send();
+      const progress = await wait(() => {
+        const row = job.get(1);
+        const match = row?.message.match(/ (\d+)\/(\d+) B$/);
+        if (row?.id !== previous && row?.status === "copying" && match && Number(match[1]) > 0 && Number(match[1]) < size) {
+          return Number(match[1]);
+        }
+      }, 90000, "partial sender progress", 150);
+      await call("transfer_cancel_send");
+      const cancelled = await cancelling;
+      console.log("CANCELLED_AT", progress, cancelled.status, cancelled.files);
+      assert.equal(cancelled.status, "cancelled");
+      assert.deepEqual(cancelled.files.map(file => file.status), ["cancelled", "cancelled"]);
+
+      const receipt = await send();
+      assert.equal(receipt.status, "completed");
+      console.log("FINAL_RECEIPT", receipt.status, receipt.files);
+      assert.equal(hash(await readFile(join(sourceDir, "fixture.bin"))), hash(bytes("a")));
+      assert.equal(await readFile(join(sourceDir, "later.txt"), "utf8"), "second synthetic file");
+    } else {
+      for (const status of ["failed", "cancelled", "completed"]) {
+        const previous = job.get(shelf)?.id;
+        await accept();
+        await wait(() => {
+          const row = job.get(shelf);
+          return row?.id !== previous && row?.status === status;
+        }, 120000, "receiver task " + status, 200);
+        const names = (await readdir(bound)).sort();
+        assert.deepEqual(names, status === "completed" ? ["fixture (1).bin", "fixture.bin", "later.txt"] : ["fixture.bin"]);
+        assert.equal(await readFile(join(bound, "fixture.bin"), "utf8"), "original synthetic file");
+        console.log("RECEIVER", status, names.join(", "));
+      }
+      const savedHash = hash(await readFile(join(bound, "fixture (1).bin")));
+      assert.equal(savedHash, hash(bytes("a")));
+      assert.equal(await readFile(join(bound, "later.txt"), "utf8"), "second synthetic file");
+      console.log("RECEIVED_SHA256", savedHash);
+    }
+  } finally {
+    db.close();
+  }
+}
+
 async function run() {
   await mkdir(bound, { recursive: true });
   await mkdir(sourceDir, { recursive: true });
@@ -65,9 +130,18 @@ async function run() {
     assert.equal((await call("transfer_view")).receiving, false);
     const db = new DatabaseSync(join(data, "workstation.sqlite3"));
     const shelf = db.prepare("UPDATE record_ids SET next_id=next_id+1 WHERE entity='shelf' RETURNING next_id-1 AS id").get().id;
-    const item = db.prepare("UPDATE record_ids SET next_id=next_id+1 WHERE entity='item' RETURNING next_id-1 AS id").get().id;
+    const nextItem = db.prepare("UPDATE record_ids SET next_id=next_id+1 WHERE entity='item' RETURNING next_id-1 AS id");
+    const item = nextItem.get().id;
     db.prepare("INSERT INTO shelves (id,name,kind,root) VALUES (?,?,'bound',?)").run(shelf, "Synthetic target", bound);
-    db.prepare("INSERT INTO items (id,shelf_id,path,name,position) VALUES (?,1,?,?,0)").run(item, source, "fixture.bin");
+    const insertItem = db.prepare("INSERT INTO items (id,shelf_id,path,name,position) VALUES (?,1,?,?,?)");
+    insertItem.run(item, source, "fixture.bin", 0);
+    const items = [item];
+    if (faults && role === "a") {
+      const later = join(sourceDir, "later.txt");
+      await writeFile(later, "second synthetic file");
+      items.push(nextItem.get().id);
+      insertItem.run(items[1], later, "later.txt", 1);
+    }
     db.close();
     await call("transfer_receive", { shelfId:shelf, bindAddress:addr });
     console.log("Started receiver at " + addr);
@@ -81,6 +155,13 @@ async function run() {
     await call("transfer_pair", peer);
     assert.equal((await call("transfer_peers"))[0].fingerprint, peer.fingerprint);
     console.log("Verified matching device certificate and rejected incorrect fingerprint");
+    if (faults) {
+      await exerciseFaults({call, shelf, items, peer});
+      await call("transfer_stop_receive");
+      assert.equal((await call("transfer_view")).receiving, false);
+      console.log("FAULT_SCENARIO_PASSED", role);
+      return;
+    }
     const send = () => call("transfer_send", { shelfId:1, ids:[item], address:peerAddr, fingerprint:peer.fingerprint });
     const receive = async () => {
       const pending = () => call("transfer_view").then(v => v.pending);
