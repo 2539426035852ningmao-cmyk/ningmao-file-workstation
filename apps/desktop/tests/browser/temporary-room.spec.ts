@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("临时互传区使用已选文件和显式保存目录，刷新后旧收件不会再写入", async ({ page }) => {
+test("临时互传区直达建区、接续文件架与显式保存", async ({ page }, testInfo) => {
   await page.addInitScript(() => {
     const source = { id: 1, name: "selected.txt", shelf_id: 1, path: "SYNTHETIC/selected.txt", kind: "txt", bytes: 2, modified: 1, status: "normal", tags: [] };
     localStorage.setItem("test-state", JSON.stringify({
@@ -22,7 +22,7 @@ test("临时互传区使用已选文件和显式保存目录，刷新后旧收�
         if (command === "room_decide") return {};
         if (command === "room_view" && String(args.invitation).endsWith("d".repeat(32))) {
           return {
-            member: { name: "合成装机端" }, bulk: true, files: [],
+            member: { name: "合成装机端", role: "owner" }, bulk: true, files: [],
             members: calls.some((call: { command: string }) => call.command === "room_decide")
               ? [] : [{ id: "f".repeat(24), name: "网页访客", status: "pending" }],
           };
@@ -43,13 +43,20 @@ test("临时互传区使用已选文件和显式保存目录，刷新后旧收�
     }});
   });
   await page.goto("/tests/harness.html?temporary-room");
-  await page.getByRole("button", { name: "选择 selected.txt", exact: true }).click();
-  await page.getByRole("button", { name: "更多操作", exact: true }).click();
-  await page.getByRole("menuitem", { name: "发送到设备", exact: true }).click();
-  await page.getByText("临时互传区", { exact: true }).click();
-  await page.getByLabel("邀请链接").fill("https://example.test/rooms?code=" + "b".repeat(32));
+  const openRoom = async () => {
+    await page.getByRole("button", { name: "更多操作", exact: true }).click();
+    await page.getByRole("menuitem", { name: "临时互传区", exact: true }).click();
+    await expect(page.getByRole("tab", { name: "临时互传区" })).toHaveAttribute("aria-selected", "true");
+  };
+  await openRoom();
+  await expect(page.getByLabel("互传站点地址")).toHaveCount(0);
+  await page.getByRole("textbox", { name: "邀请链接", exact: true }).fill("https://example.test/rooms?code=" + "b".repeat(32));
   await page.getByLabel("显示名称").fill("合成装机端");
-  await page.getByRole("button", { name: "加入互传区" }).click();
+  await page.getByRole("button", { name: "加入互传区", exact: true }).click();
+  await page.getByRole("button", { name: "返回文件架选文件" }).click();
+  await page.getByRole("button", { name: "选择 selected.txt", exact: true }).click();
+  await openRoom();
+  await expect(page.getByText("selected.txt", { exact: true }).last()).toBeVisible();
   await page.getByRole("button", { name: "将所选文件发给全区" }).click();
   await expect(page.getByRole("button", { name: "保存 received.txt", exact: true })).toBeDisabled();
   await page.getByLabel("保存到", { exact: true }).selectOption("3");
@@ -68,11 +75,13 @@ test("临时互传区使用已选文件和显式保存目录，刷新后旧收�
   expect(calls.find((call: { command: string }) => call.command === "web_receive_prepare").args.shelfId).toBe(3);
   expect(calls.find((call: { command: string }) => call.command === "room_bulk_upload").args.itemId).toBe(1);
 
-  await page.getByText("发起临时互传区", { exact: true }).click();
+  await page.getByRole("button", { name: "切换互传区" }).click();
+  await page.getByRole("button", { name: "发起新区", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "邀请链接", exact: true })).toHaveCount(0);
   await page.getByLabel("互传站点地址").fill("https://example.test");
   await expect(page.getByLabel("入区需批准")).toBeChecked();
   await page.getByRole("button", { name: "创建互传区", exact: true }).click();
-  await expect(page.getByLabel("邀请链接")).toHaveValue("https://example.test/rooms?code=" + "d".repeat(32));
+  await expect(page.getByRole("textbox", { name: "邀请链接", exact: true })).toHaveValue("https://example.test/rooms?code=" + "d".repeat(32));
   await page.evaluate(() => {
     Object.defineProperty(navigator.clipboard, "writeText", {
       value: async (link: string) => sessionStorage.setItem("copied-invitation", link),
@@ -90,10 +99,22 @@ test("临时互传区使用已选文件和显式保存目录，刷新后旧收�
     .toEqual({ invitation: "https://example.test/rooms?code=" + "d".repeat(32), memberId: "f".repeat(24), accept: true });
 
   await page.getByRole("button", { name: "关闭文件互传" }).click();
-  await page.getByRole("button", { name: "更多操作", exact: true }).click();
-  await page.getByRole("menuitem", { name: "发送到设备", exact: true }).click();
-  await page.getByText("临时互传区", { exact: true }).click();
-  await expect(page.getByLabel("邀请链接")).toHaveValue("https://example.test/rooms?code=" + "d".repeat(32));
-  await page.getByRole("button", { name: "刷新互传区" }).click();
-  await expect(page.getByText("已加入（合成装机端）", { exact: true })).toBeVisible();
+  await openRoom();
+  await expect(page.getByRole("textbox", { name: "邀请链接", exact: true })).toHaveValue("https://example.test/rooms?code=" + "d".repeat(32));
+  await expect(page.getByLabel("保存到", { exact: true })).toHaveValue("3");
+  await expect(page.getByRole("button", { name: "将所选文件发给全区" })).toBeEnabled();
+  await page.setViewportSize({ width: 340, height: 440 });
+  const panel = page.getByRole("tabpanel");
+  const fitsViewport = () => panel.evaluate(element => element.scrollWidth <= element.clientWidth + 1);
+  expect(await fitsViewport()).toBe(true);
+  await page.getByRole("button", { name: "切换互传区" }).click();
+  await page.getByRole("textbox", { name: "邀请链接", exact: true }).fill("https://example.test/rooms?code=" + "a".repeat(32));
+  await page.getByRole("button", { name: "返回当前互传区" }).click();
+  await expect(page.getByRole("textbox", { name: "邀请链接", exact: true })).toHaveValue("https://example.test/rooms?code=" + "d".repeat(32));
+  await page.getByRole("button", { name: "切换互传区" }).click();
+  await page.getByRole("button", { name: "发起新区", exact: true }).click();
+  expect(await fitsViewport()).toBe(true);
+  if (process.env.NINGMAO_ROOM_QA) await page.screenshot({ path: testInfo.outputPath("room-create.png"), animations: "disabled" });
+  await page.getByRole("button", { name: "返回当前互传区" }).click();
+  if (process.env.NINGMAO_ROOM_QA) await page.screenshot({ path: testInfo.outputPath("room-connected.png"), animations: "disabled" });
 });
