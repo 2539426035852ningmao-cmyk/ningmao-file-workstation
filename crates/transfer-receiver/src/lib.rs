@@ -437,12 +437,18 @@ fn handle_upload(
         Ok((sha == f.sha256.to_lowercase()).then_some(temp))
     })();
     let mut guard = session.lock().map_err(|_| "session lock")?;
+    let mut abandoned = 0;
     let outcome = (|| -> Result<(u16, Value)> {
         let current = guard.as_mut().filter(|s| s.id == session_id);
         if let Some(s) = current {
             s.in_flight -= 1;
             if cancelled.load(Ordering::SeqCst) {
                 return Ok((409, json!({"status":"cancelled"})));
+            }
+            if staged.is_err() {
+                // A lost upload may never send a cancel request. Release its unopened files.
+                abandoned = s.files.len() as u32;
+                s.files.clear();
             }
             let Some(temp) = staged? else {
                 return Ok((422, json!({})));
@@ -460,7 +466,7 @@ fn handle_upload(
     // The closure has dropped every uncommitted staging handle before terminal publication.
     task.lock()
         .map_err(|_| "task lock")?
-        .finish(matches!(outcome, Ok((200, _))))?;
+        .finish(matches!(outcome, Ok((200, _))), abandoned)?;
     outcome
 }
 

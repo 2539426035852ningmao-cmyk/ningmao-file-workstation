@@ -625,7 +625,7 @@ fn in_process_worker_events_reach_store_and_persistence_failure_is_not_success()
     task.verifying().unwrap();
     let db = rusqlite::Connection::open(&path).unwrap();
     db.execute_batch("CREATE TRIGGER fail_terminal BEFORE UPDATE OF status ON jobs WHEN NEW.status='completed' BEGIN SELECT RAISE(FAIL, 'synthetic'); END;").unwrap();
-    assert!(task.finish(true).is_err());
+    assert!(task.finish(true, 0).is_err());
     let mut guard = shared.lock().unwrap();
     let (store, runtime) = &mut *guard;
     assert_eq!(
