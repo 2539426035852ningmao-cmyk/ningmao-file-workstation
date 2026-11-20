@@ -74,20 +74,25 @@ export function TemporaryRoom() {
   }
   useEffect(() => {
     if (!code) return;
-    const controller = new AbortController();
+    let active = true;
+    let request: AbortController;
     let timer: number;
     const update = async () => {
+      request = new AbortController();
+      const timeout = window.setTimeout(() => request.abort(), 8000);
       try {
-        const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(8000)]);
+        const signal = request.signal;
         await refresh(`${api}/${encodeURIComponent(code)}`, signal);
-        if (!controller.signal.aborted) setStationOffline(signal.aborted);
+        if (active) setStationOffline(signal.aborted);
       } catch {
-        if (!controller.signal.aborted) setStationOffline(true);
+        if (active) setStationOffline(true);
+      } finally {
+        window.clearTimeout(timeout);
       }
-      if (!controller.signal.aborted) timer = window.setTimeout(update, 2000);
+      if (active) timer = window.setTimeout(update, 2000);
     };
     void update();
-    return () => { controller.abort(); window.clearTimeout(timer); };
+    return () => { active = false; request.abort(); window.clearTimeout(timer); };
   }, [code]);
 
   const peerEnabled = Boolean(room?.bulk && room.member.status === "active" && window.RTCPeerConnection);

@@ -15,6 +15,10 @@ test("两份独立浏览器配置经自托管站点双向收发并校验落盘",
   try {
     const hostPage = await owner.newPage();
     const guestPage = await guest.newPage();
+    // The Android test image can ship Chrome without AbortSignal.any.
+    await guestPage.addInitScript(() => {
+      Object.defineProperty(AbortSignal, "any", { value: undefined });
+    });
     await hostPage.goto(`http://127.0.0.1:${server.address().port}`);
     await hostPage.getByLabel("显示名称").fill("甲");
     await hostPage.getByLabel("入区需批准").check();
