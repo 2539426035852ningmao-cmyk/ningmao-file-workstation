@@ -10,8 +10,9 @@ const [role, executable, expectedHash, cache, scenario] = process.argv.slice(2);
 assert.ok(role === "a" || role === "b", "Supply the isolated Windows guest role a or b");
 assert.equal(hostname().toLowerCase(), "ningmao-lab-" + role);
 assert.match(expectedHash || "", /^[a-f0-9]{64}$/);
-assert.ok(scenario === undefined || scenario === "faults");
+assert.ok(scenario === undefined || scenario === "faults" || scenario === "parallel");
 const faults = scenario === "faults";
+const parallel = scenario === "parallel";
 const data = require("node:fs").mkdtempSync(join(tmpdir(), "ningmao-lan-" + role + "-"));
 const bound = join(data, "bound");
 const sourceDir = join(data, "source");
@@ -21,7 +22,8 @@ const peerIp = "192.168.253." + (role === "a" ? "11" : "10");
 const peerRole = role === "a" ? "b" : "a";
 const addr = ip + ":53317";
 const peerAddr = peerIp + ":53317";
-const size = faults ? 16 * 1024 * 1024 + 273 : 4194577;
+const fixtureMiB = faults ? 16 : parallel ? 8 : 4;
+const size = fixtureMiB * 1024 * 1024 + 273;
 const bytes = role => Buffer.alloc(size, role === "a" ? 41 : 71);
 const hash = value => createHash("sha256").update(value).digest("hex");
 const wait = async (check, timeout, label, interval = 700) => {
@@ -191,12 +193,17 @@ async function run() {
       assert.equal(received.status, "completed");
       assert.equal(hash(await readFile(source)), hash(payload));
     };
-    if (role === "a") await sendAndRetry();
-    const savedHash = await receive();
-    if (role === "b") await sendAndRetry();
+    let savedHash;
+    if (parallel) {
+      [savedHash] = await Promise.all([receive(), sendAndRetry()]);
+    } else {
+      if (role === "a") await sendAndRetry();
+      savedHash = await receive();
+      if (role === "b") await sendAndRetry();
+    }
     await call("transfer_stop_receive");
     assert.equal((await call("transfer_view")).receiving, false);
-    console.log(JSON.stringify({ role, addr, savedHash, size:payload.length, acceptedAfterReject:true, sourceUnchanged:true, stopped:true }));
+    console.log(JSON.stringify({ role, addr, savedHash, size, parallel, acceptedAfterReject:true, sourceUnchanged:true, stopped:true }));
   } finally {
     app.kill();
   }
