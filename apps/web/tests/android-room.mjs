@@ -15,10 +15,10 @@ assert.match(serial ?? "", /^emulator-\d+$/, "A booted Android emulator is requi
 const device = (...args) => adb("-s", serial, ...args);
 assert.equal(device("shell", "getprop", "sys.boot_completed"), "1");
 assert.match(device("shell", "pm", "list", "packages", "com.android.chrome"), /package:com.android.chrome/);
+const pickerPath = "/data/local/tmp/ningmao-picker.xml";
 function pickerNodes() {
   try {
-    device("shell", "uiautomator", "dump", "/data/local/tmp/ningmao-picker.xml");
-    const xml = device("shell", "cat", "/data/local/tmp/ningmao-picker.xml");
+    const xml = device("shell", `rm -f ${pickerPath} && uiautomator dump ${pickerPath} && cat ${pickerPath}`);
     return [...xml.matchAll(/<node ([^>]+)>/g)].map(([, attributes]) => {
       function attribute(name) { return new RegExp(`(?:^| )${name}="([^"]*)"`).exec(attributes)?.[1] ?? ""; }
       return { text: attribute("text"), description: attribute("content-desc"), bounds: attribute("bounds") };
@@ -32,13 +32,15 @@ function tapNode(node) {
 }
 
 async function selectDeviceFile(page, name) {
-  await page.locator('input[type="file"]').click();
+  const input = page.locator('input[type="file"]');
+  await input.click();
   const used = new Set();
-  await expect.poll(() => {
+  await expect.poll(async () => {
+    if (await input.evaluate(element => element.files?.[0]?.name) === name) return "Selected " + name;
     const nodes = pickerNodes();
     const find = value => nodes.find(node => (node.text === value || node.description === value) && node.bounds);
     const selected = find(name);
-    if (selected) { tapNode(selected); return "Selected " + name; }
+    if (selected) { tapNode(selected); return "Tapped " + name; }
     for (const label of ["Don’t allow", "Don't allow", "Browse", "Files", "Just once", "Show roots", "Open navigation drawer", "Downloads", "Download", "Internal shared storage", "Pixel 6"]) {
       const node = find(label);
       if (!node || used.has(label)) continue;
@@ -202,7 +204,7 @@ try {
   if (forwarded) device("forward", "--remove", forwarded);
   if (!emulatorNetwork) device("reverse", "--remove", port);
   device("shell", "am", "clear-debug-app");
-  device("shell", "rm", "-f", "/data/local/tmp/chrome-command-line", "/data/local/tmp/ningmao-picker.xml", sourcePath, receivedPath);
+  device("shell", "rm", "-f", "/data/local/tmp/chrome-command-line", pickerPath, sourcePath, receivedPath);
   station.closeAllConnections();
   await new Promise(done => station.close(done));
   await rm(local, { recursive: true, force: true });
