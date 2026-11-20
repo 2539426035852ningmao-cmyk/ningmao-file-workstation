@@ -45,17 +45,22 @@ export function TemporaryRoom() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [problem, setProblem] = useState("");
+  const [stationOffline, setStationOffline] = useState(false);
   const peers = useRef<RoomPeerSources | null>(null);
   const [seedCopies, setSeedCopies] = useState<Record<string, File>>({});
   const [seeding, setSeeding] = useState<string[]>([]);
   const [verified, setVerified] = useState<Record<string, File>>({});
   const roomApi = `${api}/${encodeURIComponent(code)}`;
   const tooLarge = !!file && file.size > (room?.bulk ? FILE_MAX : MAX_BROWSER_TRANSFER_BYTES);
+  const remoteBlocked = busy || stationOffline;
 
   useEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
   async function refresh(path: string, signal?: AbortSignal) {
     const response = await fetch(path, { signal, cache: "no-store" });
     if (signal?.aborted) return;
+    if (!response.ok && response.status !== 403 && response.status !== 404) {
+      throw new Error("暂时无法读取互传区，请稍后重试。");
+    }
     if (response.ok) {
       const current = await response.json();
       if (!signal?.aborted) { setRoom(current); setMembership("active"); }
@@ -70,12 +75,19 @@ export function TemporaryRoom() {
   useEffect(() => {
     if (!code) return;
     const controller = new AbortController();
-    const update = () => void refresh(`${api}/${encodeURIComponent(code)}`, controller.signal).catch(() => {
-      if (!controller.signal.aborted) setProblem("暂时无法连接互传区，请稍后重试。");
-    });
-    update();
-    const timer = window.setInterval(update, 2000);
-    return () => { controller.abort(); window.clearInterval(timer); };
+    let timer: number;
+    const update = async () => {
+      try {
+        const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(8000)]);
+        await refresh(`${api}/${encodeURIComponent(code)}`, signal);
+        if (!controller.signal.aborted) setStationOffline(signal.aborted);
+      } catch {
+        if (!controller.signal.aborted) setStationOffline(true);
+      }
+      if (!controller.signal.aborted) timer = window.setTimeout(update, 2000);
+    };
+    void update();
+    return () => { controller.abort(); window.clearTimeout(timer); };
   }, [code]);
 
   const peerEnabled = Boolean(room?.bulk && room.member.status === "active" && window.RTCPeerConnection);
@@ -116,6 +128,7 @@ export function TemporaryRoom() {
     if (next !== code) {
       setRoom(null);
       setMembership("");
+      setStationOffline(false);
       setCode(next);
     }
     return next;
@@ -153,6 +166,7 @@ export function TemporaryRoom() {
       </select></label>
     </header>
     <h1>临时互传区</h1>
+    {stationOffline && <p className="room-feedback" role="alert">互传站点暂时无法连接，恢复后会自动刷新。</p>}
     {problem && <p className="room-feedback" role="alert">{problem}</p>}
     {message && <p className="room-feedback" role="status">{message}</p>}
     {!room ? <section className="room-card">
@@ -206,11 +220,11 @@ export function TemporaryRoom() {
         {manage && room.members.filter(member => member.id !== room.member.id).map(member => (
           <div className="room-row" key={member.id}>
             <span>{member.name} <small>{member.status === "pending" ? "待批准" : member.role === "admin" ? "管理员" : "成员"}</small></span>
-            {member.status === "pending" ? [true, false].map(accept => <button key={String(accept)} disabled={busy} onClick={() => void perform(async () => {
+            {member.status === "pending" ? [true, false].map(accept => <button key={String(accept)} disabled={remoteBlocked} onClick={() => void perform(async () => {
               await jsonPost(roomApi + "/decide", { id: member.id, accept });
               await refresh(roomApi);
             })}>{accept ? "批准" : "拒绝"}</button>) : room.member.role === "owner" &&
-              <button disabled={busy} onClick={() => void perform(async () => {
+              <button disabled={remoteBlocked} onClick={() => void perform(async () => {
                 await jsonPost(roomApi + "/promote", { id: member.id, enabled: member.role !== "admin" });
                 await refresh(roomApi);
               })}>{member.role === "admin" ? "取消管理员" : "设为管理员"}</button>}
@@ -248,14 +262,14 @@ export function TemporaryRoom() {
         }}>
           <label>选择文件 <input type="file" ref={fileInput} disabled={busy} onChange={event => setFile(event.target.files?.[0] ?? null)} /></label>
           {file && <p className="room-note">{file.name}（{formatSize(file.size)}）　{tooLarge ? "超过单文件上限，请重新选择。" : `发布后可领取 ${retentionHours(file.size)} 小时`}</p>}
-          <button type="submit" className="room-primary" disabled={busy || !file || tooLarge}>发给全区 {room.members.filter(member => member.status === "active").length} 人</button>
+          <button type="submit" className="room-primary" disabled={remoteBlocked || !file || tooLarge}>发给全区 {room.members.filter(member => member.status === "active").length} 人</button>
           <p className="room-note">{room.bulk ? "单文件最多 20 GB。中断后可重选原文件续传。" : "单文件最多 64 MiB，校验成功后保留 24 小时。"}</p>
         </form>
         {room.files.length === 0 && <p className="room-note">区内还没有文件。</p>}
         {room.files.map(item => <article key={item.id} className="room-file">
           <div><strong>{item.name}</strong><p className="room-note">{formatSize(item.size)} · 领取期限 {formatDate(item.expires)}</p></div>
           <div className="room-row">
-            <button disabled={busy} aria-label={`保存 ${item.name}`} onClick={() => void perform(async () => {
+            <button disabled={busy || (stationOffline && !verified[item.id])} aria-label={`保存 ${item.name}`} onClick={() => void perform(async () => {
               if (item.chunked) {
                 const ready = verified[item.id];
                 if (ready) { saveFromBrowser(ready, item.name); return; }
@@ -271,7 +285,7 @@ export function TemporaryRoom() {
               saveFromBrowser(new Blob([body]), item.name);
             })}><ArrowDownToLine size={16} aria-hidden /> {item.chunked && !verified[item.id] ? "下载并校验" : "保存"}</button>
             {peerEnabled && item.chunked && item.size > 0 && (seedCopies[item.id] || verified[item.id]) &&
-              <button disabled={busy} aria-label={`${seeding.includes(item.id) ? "停止供件" : "开始供件"} ${item.name}`}
+              <button disabled={busy || (stationOffline && !seeding.includes(item.id))} aria-label={`${seeding.includes(item.id) ? "停止供件" : "开始供件"} ${item.name}`}
                 onClick={() => void perform(async () => {
                   const active = seeding.includes(item.id);
                   await peers.current?.share(item.id, active ? null : seedCopies[item.id] ?? verified[item.id]);
@@ -279,14 +293,14 @@ export function TemporaryRoom() {
                   setMessage(active ? "本设备已停止供件。" : "本设备在线时，可向区内成员供件。");
                 })}>{seeding.includes(item.id) ? "停止供件" : "开始供件"}</button>}
             {(manage || item.sender === room.member.id) && <>
-              {item.expires < item.retain_until && <button disabled={busy} onClick={() => {
+              {item.expires < item.retain_until && <button disabled={remoteBlocked} onClick={() => {
                 const expires = item.expires + retentionHours(item.size) * day / 24;
                 if (window.confirm(`延至 ${formatDate(expires)}？`)) void perform(async () => {
                   await jsonPost(roomApi + "/extend", { id: item.id, expires });
                   await refresh(roomApi);
                 });
               }}>延期</button>}
-              <button disabled={busy} onClick={() => {
+              <button disabled={remoteBlocked} onClick={() => {
                 if (window.confirm(`撤回「${item.name}」？`)) void perform(async () => {
                   await jsonPost(roomApi + "/revoke", { id: item.id });
                   await refresh(roomApi);

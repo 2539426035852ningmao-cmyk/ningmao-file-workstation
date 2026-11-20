@@ -46,6 +46,24 @@ test("两份独立浏览器配置经自托管站点双向收发并校验落盘",
       await sender.locator("article").filter({ hasText: name }).getByRole("button", { name: "撤回" }).click();
       await expect(recipient.getByRole("button", { name: `保存 ${name}` })).toHaveCount(0);
     }
+
+    const roomPath = /\/api\/rooms\/[a-f0-9]{32}$/;
+    const send = guestPage.getByRole("button", { name: "发给全区 2 人" });
+    await guestPage.getByLabel("选择文件").setInputFiles({
+      name: "重连后发送.txt", mimeType: "text/plain", buffer: Buffer.from("待发送的合成文件"),
+    });
+    for (const outage of ["unreachable", "maintenance"]) {
+      await guestPage.route(roomPath, route => outage === "unreachable"
+        ? route.abort() : route.fulfill({ status: 503, body: "maintenance" }));
+      await expect(guestPage.getByRole("alert")).toContainText("互传站点暂时无法连接");
+      await expect(guestPage.getByRole("heading", { name: "共享文件" })).toBeVisible();
+      await expect(send).toBeDisabled();
+      await guestPage.unroute(roomPath);
+      await expect(guestPage.getByRole("alert")).toHaveCount(0);
+      await expect(send).toBeEnabled();
+    }
+    await send.click();
+    await expect(hostPage.getByRole("button", { name: "保存 重连后发送.txt" })).toBeVisible();
   } finally {
     await Promise.all([owner.close(), guest.close()]);
     await new Promise<void>(resolve => server.close(() => resolve()));
