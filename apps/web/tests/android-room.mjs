@@ -82,7 +82,8 @@ try {
   }, { timeout: 60_000, intervals: [1000] }).toBe(200);
   browser = await chromium.connectOverCDP("http://127.0.0.1:" + forwarded.slice(4), { noDefaults: true, timeout: 30_000 });
   const [context] = browser.contexts();
-  const page = context.pages()[0] ?? await context.newPage();
+  const page = context.pages().find(tab => tab.url().startsWith(androidOrigin + "/")) ?? await context.newPage();
+  await page.bringToFront();
   await page.goto(androidOrigin + "/rooms");
   assert.match(await page.evaluate(() => navigator.userAgent), /Android/);
 
