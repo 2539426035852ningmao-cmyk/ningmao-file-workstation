@@ -70,13 +70,12 @@ test("网页上传中断后从已确认偏移续传，接收端校验后实际�
     const save = guestPage.getByRole("button", { name: "保存 分块.txt" });
     await save.click();
     await expect(guestPage.getByRole("alert")).toBeVisible();
-    await save.click();
-    await expect(guestPage.getByRole("status")).toHaveText("文件校验通过，请点击保存。");
-    expect(ranges).toEqual(["bytes=0-4194303", "bytes=4194304-4194423", "bytes=4194304-4194423"]);
     const download = guestPage.waitForEvent("download");
     await save.click();
     const path = join(root, "received.txt");
     await (await download).saveAs(path);
+    await expect(guestPage.getByRole("status")).toHaveText("校验通过，已交给浏览器保存。");
+    expect(ranges).toEqual(["bytes=0-4194303", "bytes=4194304-4194423", "bytes=4194304-4194423"]);
     const saved = await readFile(path);
     expect(saved.length).toBe(source.length);
     expect(createHash("sha256").update(saved).digest("hex")).toBe(createHash("sha256").update(source).digest("hex"));
@@ -113,8 +112,9 @@ test("已完成的成员接手供件，两个来源离线后由站点从同一�
     await host.getByLabel("选择文件").setInputFiles({ name: file, mimeType: "text/plain", buffer: fixture });
     await host.getByRole("button", { name: "发给全区 3 人" }).click();
     await expect(host.getByRole("status")).toContainText("文件校验通过");
+    const seedDownload = seed.waitForEvent("download");
     await source(seed, "保存").click();
-    await expect(seed.getByRole("status")).toHaveText("文件校验通过，请点击保存。");
+    await seedDownload;
     await source(host, "开始供件").click();
     await expect(source(host, "停止供件")).toBeVisible();
     await source(seed, "开始供件").click();
@@ -136,15 +136,13 @@ test("已完成的成员接手供件，两个来源离线后由站点从同一�
       await route.fulfill({ response: result, json: details });
     });
     const save = source(receiver, "保存");
-    await save.click();
-    await expect(receiver.getByRole("status")).toHaveText("文件校验通过，请点击保存。", { timeout: 40_000 });
-    expect(online.map(peers => peers.length)).toEqual([2, 1, 0]);
-    expect(online[1][0]).toBe(online[0][1]);
-    expect(originRanges).toEqual(["bytes=8388608-8388727"]);
-    const download = receiver.waitForEvent("download");
+    const download = receiver.waitForEvent("download", { timeout: 40_000 });
     await save.click();
     const path = join(root, "switched.txt");
     await (await download).saveAs(path);
+    expect(online.map(peers => peers.length)).toEqual([2, 1, 0]);
+    expect(online[1][0]).toBe(online[0][1]);
+    expect(originRanges).toEqual(["bytes=8388608-8388727"]);
     expect(createHash("sha256").update(await readFile(path)).digest("hex")).toBe(createHash("sha256").update(fixture).digest("hex"));
   } finally {
     await Promise.all(contexts.map(context => context.close()));

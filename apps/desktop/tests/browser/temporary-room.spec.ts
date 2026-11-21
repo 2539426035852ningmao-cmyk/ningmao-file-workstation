@@ -22,12 +22,17 @@ test("临时互传区直达建区、接续文件架与显式保存", async ({ pa
         if (command === "room_decide") return {};
         if (command === "room_view" && String(args.invitation).endsWith("d".repeat(32))) {
           return {
-            member: { name: "合成装机端", role: "owner" }, bulk: true, files: [],
+            member: { name: "合成装机端", role: "owner" }, bulk: true,
+            files: sessionStorage.getItem("room-new-file") === "yes"
+              ? [{ id: "g".repeat(32), name: "new.txt", size: 2, digest }] : [],
             members: calls.some((call: { command: string }) => call.command === "room_decide")
               ? [] : [{ id: "f".repeat(24), name: "网页访客", status: "pending" }],
           };
         }
-        if (command === "room_view") return { member: { name: "合成装机端" }, bulk: true, files: [{ id: "a".repeat(32), name: "received.txt", size: 2, digest }, { id: "c".repeat(32), name: "large.bin", size: 80_000_000, digest, chunked: 1 }] };
+        if (command === "room_view") {
+          if (sessionStorage.getItem("room-approved") !== "yes") return { status: "pending" };
+          return { member: { name: "合成装机端" }, bulk: true, files: [{ id: "a".repeat(32), name: "received.txt", size: 2, digest }, { id: "c".repeat(32), name: "large.bin", size: 80_000_000, digest, chunked: 1 }] };
+        }
         if (command === "web_transfer_prepare") return { ticket: args.ticket, bytes: 2, name: "selected.txt", sha256: digest };
         if (command === "room_bulk_receive") return {};
         if (command === "room_download") return new Uint8Array([65, 66]).buffer;
@@ -53,6 +58,10 @@ test("临时互传区直达建区、接续文件架与显式保存", async ({ pa
   await page.getByRole("textbox", { name: "邀请链接", exact: true }).fill("https://example.test/rooms?code=" + "b".repeat(32));
   await page.getByLabel("显示名称").fill("合成装机端");
   await page.getByRole("button", { name: "加入互传区", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "获批后会自动进入" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "加入互传区", exact: true })).toBeDisabled();
+  await page.evaluate(() => sessionStorage.setItem("room-approved", "yes"));
+  await expect(page.getByRole("button", { name: "返回文件架选文件" })).toBeVisible();
   await page.getByRole("button", { name: "返回文件架选文件" }).click();
   await page.getByRole("button", { name: "选择 selected.txt", exact: true }).click();
   await openRoom();
@@ -103,6 +112,8 @@ test("临时互传区直达建区、接续文件架与显式保存", async ({ pa
   await expect(page.getByRole("textbox", { name: "邀请链接", exact: true })).toHaveValue("https://example.test/rooms?code=" + "d".repeat(32));
   await expect(page.getByLabel("保存到", { exact: true })).toHaveValue("3");
   await expect(page.getByRole("button", { name: "将所选文件发给全区" })).toBeEnabled();
+  await page.evaluate(() => sessionStorage.setItem("room-new-file", "yes"));
+  await expect(page.getByRole("button", { name: "保存 new.txt", exact: true })).toBeEnabled();
   await page.setViewportSize({ width: 340, height: 440 });
   const panel = page.getByRole("tabpanel");
   const fitsViewport = () => panel.evaluate(element => element.scrollWidth <= element.clientWidth + 1);

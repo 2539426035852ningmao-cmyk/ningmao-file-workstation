@@ -14,6 +14,23 @@ const retentionHours = (size: number) => size >= 10_000_000_000 ? 6 : 24;
 const api = "/api/rooms";
 const formatDate = (time: number) => new Date(time).toLocaleString("zh-CN", { dateStyle: "short", timeStyle: "short" });
 const formatSize = (bytes: number) => bytes < 1024 ? `${bytes} B` : bytes < 1024 ** 2 ? `${(bytes / 1024).toFixed(1)} KiB` : `${(bytes / 1024 ** 2).toFixed(1)} MiB`;
+const needsSaveClick = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+  || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+function invitationCode(text: string) {
+  const value = text.trim();
+  if (/^[a-f0-9]{32}$/i.test(value)) return value.toLowerCase();
+  let url: URL;
+  try { url = new URL(value); }
+  catch { throw new Error("请粘贴本站的邀请链接或完整邀请码。"); }
+  const code = url.searchParams.get("code");
+  if (url.origin !== location.origin || !["/", "/rooms"].includes(url.pathname)
+      || url.username || url.password || url.hash || [...url.searchParams].length !== 1
+      || !code || !/^[a-f0-9]{32}$/i.test(code)) {
+    throw new Error("请粘贴本站的邀请链接或完整邀请码。");
+  }
+  return code.toLowerCase();
+}
 
 async function jsonPost<T>(path: string, data: object): Promise<T> {
   const response = await fetch(path, {
@@ -33,6 +50,7 @@ async function digest(data: ArrayBuffer) {
 export function TemporaryRoom() {
   const [code, setCode] = useState(() => new URLSearchParams(location.search).get("code") ?? "");
   const [draftCode, setDraftCode] = useState(code);
+  const [entry, setEntry] = useState<"create" | "join">(code ? "join" : "create");
   const [theme, setTheme] = useState<Theme>("light");
   const [name, setName] = useState("");
   const [requireApproval, setRequireApproval] = useState(false);
@@ -126,8 +144,7 @@ export function TemporaryRoom() {
   }, [seeding]);
 
   function navigate(target: string) {
-    const next = target.trim().toLowerCase();
-    if (!/^[a-f0-9]{32}$/.test(next)) throw new Error("请输入完整的邀请码。");
+    const next = invitationCode(target);
     history.replaceState(null, "", `/rooms?code=${next}`);
     setDraftCode(next);
     if (next !== code) {
@@ -162,6 +179,17 @@ export function TemporaryRoom() {
     setMessage("校验通过，已交给浏览器保存。");
   }
 
+  async function copyInvitation() {
+    try {
+      await navigator.clipboard.writeText(location.href);
+      setProblem("");
+      setMessage("邀请链接已复制。");
+    } catch {
+      setMessage("");
+      setProblem("无法复制邀请链接，请选中链接手动复制。");
+    }
+  }
+
   const manage = room?.member.role === "owner" || room?.member.role === "admin";
   return <main className="room-page">
     <header className="room-header">
@@ -179,8 +207,12 @@ export function TemporaryRoom() {
       {membership === "denied" && <p role="status">加入申请未获批准。</p>}
       {membership === "missing" && <p role="status">找不到这个互传区，请检查邀请码。</p>}
       <fieldset disabled={busy}>
+        <div className="room-entry-tabs" role="group" aria-label="进入方式">
+          <button type="button" aria-pressed={entry === "create"} onClick={() => setEntry("create")}>发起新区</button>
+          <button type="button" aria-pressed={entry === "join"} onClick={() => setEntry("join")}>有邀请链接</button>
+        </div>
         <label>显示名称 <input value={name} maxLength={100} onChange={event => setName(event.target.value)} /></label>
-        <form onSubmit={event => {
+        {entry === "create" ? <form onSubmit={event => {
           event.preventDefault();
           void perform(async () => {
             const created = await jsonPost<{ code: string; recovery: string }>(api, { name, approval: requireApproval });
@@ -190,7 +222,7 @@ export function TemporaryRoom() {
         }}>
           <label className="room-choice"><input type="checkbox" checked={requireApproval} onChange={event => setRequireApproval(event.target.checked)} /> 入区需批准</label>
           <button type="submit" className="room-primary" disabled={!name.trim()}>创建互传区</button>
-        </form>
+        </form> : <>
         <form onSubmit={event => {
           event.preventDefault();
           void perform(async () => {
@@ -200,8 +232,8 @@ export function TemporaryRoom() {
             await refresh(`${api}/${target}`);
           });
         }}>
-          <label>邀请码 <input value={draftCode} maxLength={32} onChange={event => setDraftCode(event.target.value)} /></label>
-          <button type="submit" disabled={!name.trim() || !draftCode.trim()}>加入互传区</button>
+          <label>邀请链接或邀请码 <input value={draftCode} maxLength={2048} onChange={event => setDraftCode(event.target.value)} /></label>
+          <button type="submit" className="room-primary" disabled={!name.trim() || !draftCode.trim() || (membership === "pending" && draftCode === code)}>加入互传区</button>
         </form>
         <details><summary>恢复群主管理权限</summary><form onSubmit={event => {
           event.preventDefault();
@@ -214,14 +246,17 @@ export function TemporaryRoom() {
         }}>
           <label>管理恢复码 <input type="password" value={recoveryInput} onChange={event => setRecoveryInput(event.target.value)} /></label>
           <button type="submit" disabled={!draftCode || !recoveryInput}>恢复管理权限</button>
-        </form></details>
+        </form></details></>}
       </fieldset>
     </section> : <>
       <section className="room-card">
         <h2>{room.member.name} <small>{room.member.role === "owner" ? "群主" : room.member.role === "admin" ? "管理员" : "成员"}</small></h2>
         <label>邀请链接 <input readOnly value={location.href} onFocus={event => event.target.select()} /></label>
-        <p className="room-note">邀请有效至 {formatDate(room.inviteExpires)}</p>
-        {recovery && <details open><summary>保存管理恢复码</summary><label>管理恢复码 <input readOnly value={recovery} onFocus={event => event.target.select()} /></label></details>}
+        <div className="room-row room-invite-actions">
+          <button type="button" onClick={() => void copyInvitation()}>复制邀请链接</button>
+          <span className="room-note">邀请有效至 {formatDate(room.inviteExpires)}</span>
+        </div>
+        {recovery && <details><summary>保存管理恢复码</summary><label>管理恢复码 <input readOnly value={recovery} onFocus={event => event.target.select()} /></label></details>}
         {manage && room.members.filter(member => member.id !== room.member.id).map(member => (
           <div className="room-row" key={member.id}>
             <span>{member.name} <small>{member.status === "pending" ? "待批准" : member.role === "admin" ? "管理员" : "成员"}</small></span>
@@ -237,7 +272,7 @@ export function TemporaryRoom() {
         ))}
       </section>
       <section className="room-card">
-        <h2>共享文件</h2>
+        <h2>发送文件</h2>
         <form onSubmit={event => {
           event.preventDefault();
           const source = file;
@@ -270,17 +305,21 @@ export function TemporaryRoom() {
           <button type="submit" className="room-primary" disabled={remoteBlocked || !file || tooLarge}>发给全区 {room.members.filter(member => member.status === "active").length} 人</button>
           <p className="room-note">{room.bulk ? "单文件最多 20 GB。中断后可重选原文件续传。" : "单文件最多 64 MiB，校验成功后保留 24 小时。"}</p>
         </form>
+      </section>
+      <section className="room-card">
+        <h2>共享文件</h2>
         {room.files.length === 0 && <p className="room-note">区内还没有文件。</p>}
         {room.files.map(item => <article key={item.id} className="room-file">
           <div><strong>{item.name}</strong><p className="room-note">{formatSize(item.size)} · 领取期限 {formatDate(item.expires)}</p></div>
           <div className="room-row">
-            <button disabled={busy || (stationOffline && !verified[item.id])} aria-label={`保存 ${item.name}`} onClick={() => void perform(async () => {
+            <button className="room-primary" disabled={busy || (stationOffline && !verified[item.id])} aria-label={`保存 ${item.name}`} onClick={() => void perform(async () => {
               if (item.chunked) {
                 const ready = verified[item.id];
                 if (ready) { saveFromBrowser(ready, item.name); return; }
                 const downloaded = await downloadBulk(roomApi + "/files/" + item.id, item, progress, peers.current?.download(item.id));
                 setVerified(state => ({ ...state, [item.id]: downloaded }));
-                setMessage("文件校验通过，请点击保存。");
+                if (needsSaveClick) setMessage("文件校验通过，请点击保存。");
+                else saveFromBrowser(downloaded, item.name);
                 return;
               }
               const response = await fetch(roomApi + "/files/" + item.id);
@@ -288,7 +327,7 @@ export function TemporaryRoom() {
               const body = await response.arrayBuffer();
               if (body.byteLength !== item.size || await digest(body) !== item.digest) throw new Error("文件校验失败，未保存。");
               saveFromBrowser(new Blob([body]), item.name);
-            })}><ArrowDownToLine size={16} aria-hidden /> {item.chunked && !verified[item.id] ? "下载并校验" : "保存"}</button>
+            })}><ArrowDownToLine size={16} aria-hidden /> {item.chunked && verified[item.id] ? "保存" : "下载"}</button>
             {peerEnabled && item.chunked && item.size > 0 && (seedCopies[item.id] || verified[item.id]) &&
               <button disabled={busy || (stationOffline && !seeding.includes(item.id))} aria-label={`${seeding.includes(item.id) ? "停止供件" : "开始供件"} ${item.name}`}
                 onClick={() => void perform(async () => {

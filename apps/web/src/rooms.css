@@ -34,6 +34,9 @@
 .room-card label { width: 100%; }
 .room-card form, .room-card details { margin: 12px 0; }
 .room-card .room-choice { display: flex; align-items: center; }
+.room-entry-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.room-entry-tabs button[aria-pressed="true"] { border-color: var(--primary); }
+.room-invite-actions { margin-top: 10px; }
 .room-page button, .room-page input, .room-page select {
   color: var(--text);
   background: var(--surface2);

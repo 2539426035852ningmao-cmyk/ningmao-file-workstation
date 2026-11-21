@@ -21,7 +21,7 @@ type SendBatchResult={selection:TransferSelection;fingerprint:string;last:Transf
 
 export function TransferPanel({backend,open,onOpenChange,initialMode,selection,shelves,chooseReceiveFolder}:{backend:TransferBackend;open:boolean;onOpenChange:(value:boolean)=>void;initialMode:TransferMode;selection:TransferSelection;shelves:Shelf[];chooseReceiveFolder?:()=>Promise<number|null>}){
   const [mode,setMode]=useState(initialMode),[view,setView]=useState(empty),[error,setError]=useState("");
-  const [roomSession,setRoomSession]=useState<RoomSession>({link:"",name:"",station:"",recovery:"",room:null,shelf:0,saved:{}});
+  const [roomSession,setRoomSession]=useState<RoomSession>({link:"",name:"",station:"",recovery:"",room:null,admission:null,shelf:0,saved:{}});
   const content=useRef<HTMLDivElement>(null);
   const connectionInput=useRef<HTMLInputElement>(null);
   useEffect(()=>{if(open&&mode==="receive")content.current?.scrollTo(0,0);},[open,mode,view.receiving]);

@@ -23,7 +23,17 @@ test("两份独立浏览器配置经自托管站点双向收发并校验落盘",
     await hostPage.getByLabel("显示名称").fill("甲");
     await hostPage.getByLabel("入区需批准").check();
     await hostPage.getByRole("button", { name: "创建互传区" }).click();
-    await guestPage.goto(await hostPage.getByLabel("邀请链接").inputValue());
+    const invitation = await hostPage.getByLabel("邀请链接", { exact: true }).inputValue();
+    await hostPage.evaluate(() => {
+      Object.defineProperty(navigator.clipboard, "writeText", {
+        value: async (value: string) => sessionStorage.setItem("room-invitation-copy", value),
+      });
+    });
+    await hostPage.getByRole("button", { name: "复制邀请链接" }).click();
+    expect(await hostPage.evaluate(() => sessionStorage.getItem("room-invitation-copy"))).toBe(invitation);
+    await guestPage.goto(new URL("/rooms", invitation).href);
+    await guestPage.getByRole("button", { name: "有邀请链接" }).click();
+    await guestPage.getByLabel("邀请链接或邀请码").fill(invitation);
     await guestPage.getByLabel("显示名称").fill("乙");
     await guestPage.getByRole("button", { name: "加入互传区" }).click();
     await expect(guestPage.getByText("等待群主或管理员批准加入。")).toBeVisible();

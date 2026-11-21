@@ -1,5 +1,5 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
-import { useState, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import type { Shelf } from "../backend";
 import { nativeWebReceiver, saveAcceptedWebFile } from "../webReceiveBackend";
 import { nativeWebTransferSource } from "../webTransferBackend";
@@ -13,7 +13,7 @@ type RoomMember = { id: string; name: string; status: "active" | "pending" };
 type Room = { member: { name: string; role?: "owner" | "admin" | "member" }; members?: RoomMember[]; files: FileEntry[]; bulk?: boolean };
 type RoomView = Room | { status: "pending" | "denied" };
 type CreatedRoom = { invitation: string; recovery: string };
-export type RoomSession = { link: string; name: string; station: string; recovery: string; room: Room | null; shelf: number; saved: Record<string, string> };
+export type RoomSession = { link: string; name: string; station: string; recovery: string; room: Room | null; admission: "pending" | "denied" | null; shelf: number; saved: Record<string, string> };
 
 export function TemporaryRoomPanel({ selection, shelves, session, setSession, chooseReceiveFolder, returnToShelf }: {
   selection: TransferSelection;
@@ -23,7 +23,7 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
   chooseReceiveFolder?: () => Promise<number | null>;
   returnToShelf: () => void;
 }) {
-  const { link, name, station, recovery, room, saved } = session;
+  const { link, name, station, recovery, room, admission, saved } = session;
   const [approval, setApproval] = useState(true);
   const [entry, setEntry] = useState<"join" | "create">("join");
   const [changingRoom, setChangingRoom] = useState(false);
@@ -31,6 +31,7 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
   const [busy, setBusy] = useState(false);
   const [report, setReport] = useState("");
   const [failed, setFailed] = useState(false);
+  const [offline, setOffline] = useState(false);
   const invitation = link.trim();
   const shelf = shelves.some(item => item.id === session.shelf) ? session.shelf : 0;
   const pending = room?.members?.filter(member => member.status === "pending") ?? [];
@@ -40,20 +41,56 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
     setSession(current => ({ ...current, shelf: target, saved: {} }));
   }
 
+  const applyView = useCallback((target: string, view: RoomView) => {
+    setSession(current => {
+      if (current.link.trim() !== target) return current;
+      return "status" in view
+        ? { ...current, room: null, admission: view.status }
+        : { ...current, room: view, admission: null };
+    });
+    setOffline(false);
+  }, [setSession]);
+
   async function refresh(target = invitation) {
     const view = await invoke<RoomView>("room_view", { invitation: target });
-    if ("status" in view) {
-      setSession(current => current.link.trim() === target ? { ...current, room: null } : current);
-      setReport(view.status === "pending" ? "等待群主或管理员批准。批准后点击刷新。" : "加入申请未获批准。");
-    } else {
-      setSession(current => current.link.trim() === target ? { ...current, room: view } : current);
-      setChangingRoom(false);
-    }
+    applyView(target, view);
+    if (!("status" in view)) setChangingRoom(false);
   }
+
+  useEffect(() => {
+    if (!invitation || admission === "denied" || busy || changingRoom) return;
+    let timer: number;
+    let disposed = false;
+    let running = false;
+    const update = async () => {
+      if (disposed || running || document.hidden) return;
+      running = true;
+      try {
+        const view = await invoke<RoomView>("room_view", { invitation });
+        if (!disposed && !document.hidden) applyView(invitation, view);
+      } catch {
+        if (!disposed && !document.hidden) setOffline(true);
+      } finally {
+        running = false;
+        if (!disposed && !document.hidden) timer = window.setTimeout(update, 2000);
+      }
+    };
+    const visibility = () => {
+      window.clearTimeout(timer);
+      if (!document.hidden) void update();
+    };
+    timer = window.setTimeout(update, 2000);
+    document.addEventListener("visibilitychange", visibility);
+    return () => {
+      disposed = true;
+      window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", visibility);
+    };
+  }, [admission, applyView, busy, changingRoom, invitation]);
 
   async function createRoom() {
     const created = await invoke<CreatedRoom>("room_create", { station: station.trim(), name, approval });
-    setSession(current => ({ ...current, link: created.invitation, recovery: created.recovery, room: null, saved: {} }));
+    setSession(current => ({ ...current, link: created.invitation, recovery: created.recovery, room: null, admission: null, saved: {} }));
     setDraftLink(created.invitation);
     setEntry("join");
     await refresh(created.invitation);
@@ -157,11 +194,15 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
   }
 
   return <section className="room-desktop" aria-label="临时互传区">
+    {offline && !changingRoom && <p className="room-caption" role="status">站点暂时无法连接，恢复后自动更新。</p>}
     {!room || changingRoom ? <div className="room-desktop-card transfer-form">
       <div className="room-desktop-heading">
         <h3>{room ? "切换互传区" : "开始互传"}</h3>
         {room && <Button size="sm" variant="ghost" disabled={busy} onClick={() => setChangingRoom(false)}>返回当前互传区</Button>}
       </div>
+      {admission && !changingRoom && <p className="room-caption" role="status">
+        {admission === "pending" ? "等待批准，获批后会自动进入。" : "加入申请未获批准。"}
+      </p>}
       <div className="room-entry" role="group" aria-label="进入方式">
         <Button size="sm" variant={entry === "join" ? "secondary" : "ghost"} aria-pressed={entry === "join"}
           disabled={busy} onClick={() => setEntry("join")}>有邀请链接</Button>
@@ -184,13 +225,14 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
       </label>}
       <div className="transfer-receive-actions">
         {entry === "create" ? <Button disabled={busy || !station.trim() || !name.trim()}
-          onClick={() => void run(createRoom)}>创建互传区</Button> : <Button disabled={busy || !draftLink.trim() || !name.trim()}
+          onClick={() => void run(createRoom)}>创建互传区</Button> : <Button disabled={busy || !draftLink.trim() || !name.trim() || (admission === "pending" && draftLink.trim() === invitation)}
           onClick={() => void run(async () => {
             const target = draftLink.trim();
             await invoke("room_join", { invitation: target, name });
             if (target !== invitation) {
-              setSession(current => ({ ...current, link: target, room: null, recovery: "", saved: {} }));
+              setSession(current => ({ ...current, link: target, room: null, recovery: "", admission: null, saved: {} }));
             }
+            setChangingRoom(false);
             await refresh(target);
           })}>加入互传区</Button>}
         {entry === "join" && invitation && draftLink.trim() === invitation && <Button variant="outline" disabled={busy}
