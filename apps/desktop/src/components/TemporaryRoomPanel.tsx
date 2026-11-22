@@ -1,5 +1,5 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
-import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type { Shelf } from "../backend";
 import { nativeWebReceiver, saveAcceptedWebFile } from "../webReceiveBackend";
 import { nativeWebTransferSource } from "../webTransferBackend";
@@ -35,6 +35,7 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
   const [offline, setOffline] = useState(false);
   const [host, setHost] = useState<StationView>();
   const [quota, setQuota] = useState(512);
+  const hostPanel = useRef<HTMLDetailsElement>(null);
   const hostRunning = host?.running === true;
   const invitation = link.trim();
   const shelf = shelves.some(item => item.id === session.shelf) ? session.shelf : 0;
@@ -143,6 +144,7 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
     if (address) {
       setSession(current => ({ ...current, station: address }));
       setEntry("create");
+      if (!room && hostPanel.current) hostPanel.current.open = false;
       setReport(room ? "本机站点已恢复。换区可使用本机站点创建新区。" : "本机站点已启动。填写显示名称后即可创建互传区。");
     }
   }
@@ -234,7 +236,7 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
 
   return <section className="room-desktop" aria-label="临时互传区">
     {offline && !changingRoom && <p className="room-caption" role="status">站点暂时无法连接，恢复后自动更新。</p>}
-    {host?.available && <details className="room-desktop-card room-station">
+    {host?.available && <details ref={hostPanel} className="room-desktop-card room-station">
       <summary>本机互传站点 <span>{host.running ? "运行中" : "已停止"}</span></summary>
       <div className="transfer-form">
         <p className="room-caption">仅供这台电脑上的软件和网页使用。停站后，访客要等站点重启才能继续访问。</p>

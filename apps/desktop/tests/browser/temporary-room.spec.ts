@@ -27,14 +27,17 @@ test("本机站点需显式启停，启动后将地址填入建区入口", async
   await expect(page.getByRole("button", { name: "启动站点" })).toBeDisabled();
   await page.getByRole("button", { name: "选择暂存位置" }).click();
   await expect(page.getByLabel("暂存位置", { exact: true })).toHaveValue("SYNTHETIC/柠猫互传暂存");
-  await page.getByLabel("文件暂存配额", { exact: true }).selectOption("2048");
+  const quota = page.getByRole("combobox", { name: "文件暂存配额", exact: true });
+  await quota.selectOption("2048");
   await page.getByRole("button", { name: "启动站点" }).click();
   await expect(page.getByLabel("互传站点地址", { exact: true })).toHaveValue("http://127.0.0.1:5192/rooms");
-  await expect(page.getByLabel("文件暂存配额", { exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "停止站点" })).toBeHidden();
+  await page.getByText("本机互传站点", { exact: false }).click();
+  await expect(quota).toBeDisabled();
   await expect(page.getByLabel("入区需批准")).toBeChecked();
   await page.getByRole("button", { name: "停止站点" }).click();
   await expect(page.getByLabel("本机访问地址", { exact: true })).toHaveCount(0);
-  await expect(page.getByLabel("文件暂存配额", { exact: true })).toHaveValue("2048");
+  await expect(quota).toHaveValue("2048");
 });
 
 test("临时互传区直达建区、接续文件架与显式保存", async ({ page }, testInfo) => {
