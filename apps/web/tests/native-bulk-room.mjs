@@ -9,6 +9,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { chromium } from "playwright";
+import { confirm } from "./native-room-confirm.mjs";
 import { createRoomServer } from "../selfhost/server.mjs";
 
 const [exe, stationBase = tmpdir(), workspaceBase = tmpdir(), count = "80000000"] = process.argv.slice(2);
@@ -213,9 +214,4 @@ try {
   await new Promise(done => server.close(done));
   await rm(station, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 });
   await rm(workspace, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 });
-}
-function confirm(pid) {
-const ps="Add-Type -AssemblyName UIAutomationClient,UIAutomationTypes\nAdd-Type @'\nusing System;\nusing System.Runtime.InteropServices;\npublic static class TestDialogClick {\n [DllImport(\"user32.dll\",SetLastError=true)] public static extern bool PostMessage(IntPtr hwnd,uint msg,IntPtr w,IntPtr l);\n}\n'@\n$app=Get-Process -Id __LAB_PID__ -ErrorAction SilentlyContinue\nif (-not $app) { exit 1 }\n$root=[Windows.Automation.AutomationElement]::RootElement\n$own=[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ProcessIdProperty,[int]$app.Id)\nfor($i=0;$i -lt 60;$i++){ \n$windows=$root.FindAll([Windows.Automation.TreeScope]::Children,$own)\nforeach ($win in $windows) {\n if ($win.Current.Name -ne '确认接收文件') {continue}\n $body=$win.FindAll([Windows.Automation.TreeScope]::Descendants,[Windows.Automation.Condition]::TrueCondition) | ForEach-Object { $_.Current.Name }\n if (($body -join ' ') -notmatch '是否接收此文件' -or ($body -join ' ') -notmatch '不会覆盖已有文件') {continue}\n foreach ($el in $win.FindAll([Windows.Automation.TreeScope]::Descendants,[Windows.Automation.Condition]::TrueCondition)) {\n   if ($el.Current.Name -eq '确认接收' -and $el.Current.ClassName -eq 'CCPushButton' -and $el.Current.NativeWindowHandle) {\n      [TestDialogClick]::PostMessage([IntPtr]$el.Current.NativeWindowHandle,0x00F5,[IntPtr]::Zero,[IntPtr]::Zero)\n      exit\n   }\n }\n}\nStart-Sleep -Milliseconds 500\n}\nexit 2".replace("__LAB_PID__",String(pid));
- const dialog = spawn("powershell.exe",["-NoProfile","-EncodedCommand",Buffer.from(ps,"utf16le").toString("base64")],{windowsHide:true,stdio:"inherit"});
- return once(dialog, "exit").then(([code]) => code);
 }
