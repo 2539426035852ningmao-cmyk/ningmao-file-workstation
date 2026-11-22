@@ -1,5 +1,7 @@
 # 当前交付 · D13
 
+本页记录 `develop` 的 D13 交付。已验收的 D15 和互传分支见[项目状态](../project-status.md)与[开发接续](../codex-start-here.md)。
+
 开发基线：`develop`。应用源 `01f99f273e4011f34c39b3b2b288bb24935ee672`，基于 D12。审查及 CI 入口：[PR #102](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/102)。文档更新提交不会冒充应用构建提交。
 
 | 交付文件 | SHA-256 |

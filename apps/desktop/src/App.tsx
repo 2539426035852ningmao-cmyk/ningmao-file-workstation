@@ -5,7 +5,7 @@ import {FilePreview} from "./components/FilePreview";
 import {shapeShelf,stopShelfMotion} from "./orb/shelfMotion";
 import {WindowControls} from "./components/WindowControls";
 import {GlobalSearch,openGlobalSearch} from "./components/GlobalSearch";
-import type {TransferSelection} from "./components/TransferPanel";
+import type {TransferMode,TransferSelection} from "./components/TransferPanel";
 import {SystemRecycle} from "./components/SystemRecycle";
 import {RecycleDrawer} from "./components/RecycleDrawer";
 import {ScrollActivity} from "./components/ScrollActivity";
@@ -156,7 +156,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   const [displayOptions,setDisplayOptions]=useState(false),[moreOpen,setMoreOpen]=useState(false);
   const [chatOpen,setChatOpen]=useState(false);
   const [chatLoaded,setChatLoaded]=useState(false);
-  const [transferLoaded,setTransferLoaded]=useState(false),[transfer,setTransfer]=useState<{open:boolean;mode:"send"|"receive";selection:TransferSelection}>({open:false,mode:"receive",selection:{shelf_id:0,files:[]}});
+  const [transferLoaded,setTransferLoaded]=useState(false),[transfer,setTransfer]=useState<{open:boolean;mode:TransferMode;selection:TransferSelection}>({open:false,mode:"receive",selection:{shelf_id:0,files:[]}});
   const [revealItem,setRevealItem]=useState<number|null>(null);
   const searchInput=useRef<HTMLInputElement>(null),moreButton=useRef<HTMLButtonElement>(null);
   const [shaping,setShaping]=useState(false);
@@ -428,6 +428,11 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
         <DropdownMenu.Group aria-label="收集与搜索"><DropdownMenu.Item disabled={!native||loading||!shelf||busy||!!running} onSelect={()=>void perform(async()=>receive(await backend.chooseFiles()))}><Plus size={16}/><span>添加文件</span></DropdownMenu.Item>
 <DropdownMenu.Item onSelect={()=>openGlobalSearch(moreButton.current)}><Search size={16}/><span>{detachedShelfId!==undefined?"搜索当前文件架":"跨文件架搜索"}</span><kbd aria-hidden="true">Ctrl+K</kbd></DropdownMenu.Item>
 <DropdownMenu.Item disabled={!native || loading || !shelf || busy || !!running || !backend.clipboardFiles} aria-description="粘贴资源管理器中复制的文件；截图请按 Ctrl+V" onSelect={()=>void pasteFiles()}><ClipboardPaste size={16}/><span>粘贴文件</span><kbd aria-hidden="true">Ctrl+V</kbd></DropdownMenu.Item>
+{backend.transfer?.roomAvailable&&<DropdownMenu.Item onSelect={()=>{
+  const files=chosen.every(item=>item.status==="normal"&&item.kind!=="folder")?chosen.map(({id,name})=>({id,name})):[];
+  setTransferLoaded(true);
+  setTransfer({open:true,mode:"room",selection:{shelf_id:shelfId,files}});
+}}>临时互传区</DropdownMenu.Item>}
 </DropdownMenu.Group>
         {chosen.length>0&&<><DropdownMenu.Separator/><DropdownMenu.Group aria-label="选中文件">
 {backend.transfer&&chosen.length>0&&<DropdownMenu.Item disabled={chosen.length>16||chosen.some(item=>item.status!=="normal"||item.kind==="folder")} onSelect={()=>{setTransferLoaded(true);setTransfer({open:true,mode:"send",selection:{shelf_id:shelfId,files:chosen.map(({id,name})=>({id,name}))}});}}>发送到设备</DropdownMenu.Item>}

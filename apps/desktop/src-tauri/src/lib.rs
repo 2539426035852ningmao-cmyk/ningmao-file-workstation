@@ -13,6 +13,8 @@ mod shelf_windows;
 pub mod store;
 use ningmao_transfer_client as loopback_transport;
 mod preview;
+mod room_station;
+mod temporary_room;
 mod transfer_desktop;
 mod transfer_discovery;
 mod transfer_identity;
@@ -72,6 +74,8 @@ struct Runtime {
     web_transfers: web_transfer_bridge::WebTransferBridge,
     web_receives: web_transfer_receive::WebReceiveControl,
     web_device: web_device::WebDeviceControl,
+    rooms: temporary_room::Rooms,
+    room_station: room_station::RoomStation,
     chat: chat::ChatControl,
     store: Mutex<Store>,
     active: Mutex<Option<(i64, Arc<AtomicBool>)>>,
@@ -1340,6 +1344,7 @@ fn clean_quit(app: tauri::AppHandle) -> Result<()> {
     if state.active.lock().map_err(error)?.is_some() {
         return Err("复制尚未结束，请先等待完成或取消。".into());
     }
+    state.room_station.stop()?;
     state.store.lock().map_err(error)?.clean_exit()?;
     shelf_windows::capture_all(&app);
     let _ = app.state::<desktop_runtime::Desktop>().save();
@@ -2171,6 +2176,8 @@ pub fn run() {
                 web_transfers: Default::default(),
                 web_receives: Default::default(),
                 web_device: Default::default(),
+                rooms: Default::default(),
+                room_station: Default::default(),
                 chat: Default::default(),
                 store: Mutex::new(
                     Store::open(&root.join("workstation.sqlite3"))
@@ -2341,6 +2348,18 @@ pub fn run() {
             web_transfer_receive::web_receive_append,
             web_transfer_receive::web_receive_finish,
             web_transfer_receive::web_receive_abort,
+            temporary_room::room_create,
+            room_station::room_station_view,
+            room_station::room_station_choose,
+            room_station::room_station_start,
+            room_station::room_station_stop,
+            temporary_room::room_join,
+            temporary_room::room_decide,
+            temporary_room::room_view,
+            temporary_room::room_upload,
+            temporary_room::room_download,
+            temporary_room::room_bulk_upload,
+            temporary_room::room_bulk_receive,
             web_device::web_device_claim,
             web_device::web_device_status,
             web_device::web_device_disconnect,
