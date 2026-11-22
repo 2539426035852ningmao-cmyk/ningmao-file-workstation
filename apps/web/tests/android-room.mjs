@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { once } from "node:events";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as pause } from "node:timers/promises";
+import { getCACertificates, setDefaultCACertificates } from "node:tls";
 import { chromium, expect } from "@playwright/test";
 import { createRoomServer } from "../selfhost/server.mjs";
+import { createTestTls } from "./room-test-tls.mjs";
 
 const adb = (...args) => execFileSync(process.env.ADB ?? "adb", args, { encoding: "utf8", timeout: 15_000 }).trim();
 const serial = process.env.ANDROID_SERIAL ?? adb("devices").match(/^(emulator-\d+)\s+device\s*$/m)?.[1];
@@ -29,6 +31,41 @@ function pickerNodes() {
 function tapNode(node) {
   const [left, top, right, bottom] = node.bounds.match(/\d+/g).map(Number);
   device("shell", "input", "tap", String(Math.round((left + right) / 2)), String(Math.round((top + bottom) / 2)));
+}
+
+async function installTestCa(ca, name) {
+  device("push", ca, "/sdcard/Download/" + name);
+  device("shell", "locksettings", "set-pin", "1234");
+  device("shell", "am", "start", "-a", "android.settings.SECURITY_SETTINGS");
+  async function follow(...labels) {
+    const seen = new Set();
+    await expect.poll(() => {
+      const nodes = pickerNodes();
+      for (const label of labels) {
+        const node = nodes.find(n => (label === n.text || label === n.description) && n.bounds);
+        if (!node || seen.has(label)) continue;
+        seen.add(label);
+        tapNode(node);
+        if (label === labels.at(-1)) return label;
+        return "Tapped " + label;
+      }
+      if (nodes.some(node => /Enter your PIN|Confirm your PIN/i.test(node.text))) {
+        device("shell", "input", "text", "1234");
+        device("shell", "input", "keyevent", "KEYCODE_ENTER");
+      } else {
+        const screen = device("shell", "wm", "size").match(/(\d+)x(\d+)\s*$/);
+        if (screen) {
+          const [, w, h] = screen.map(Number);
+          device("shell", "input", "swipe", String(w >> 1), String(Math.floor(h * .75)), String(w >> 1), String(Math.floor(h * .35)), "360");
+        }
+      }
+      return nodes.map(node => node.text || node.description).filter(Boolean).join(" / ");
+    }, { timeout: 60_000, intervals: [700] }).toBe(labels.at(-1));
+  }
+  await follow("More security & privacy", "More security settings", "Encryption & credentials");
+  await follow("Install a certificate", "CA certificate");
+  await follow("Install anyway", "Show roots", "Open navigation drawer", "Downloads", "Download", name);
+  console.log("Android Settings imported the disposable HTTPS authority.");
 }
 
 async function selectDeviceFile(page, name) {
@@ -56,10 +93,27 @@ async function selectDeviceFile(page, name) {
 const sha = data => createHash("sha256").update(data).digest("hex");
 const tag = randomBytes(6).toString("hex");
 const local = await mkdtemp(join(tmpdir(), "ningmao-android-room-"));
-const station = createRoomServer(local, undefined, 32 * 1024 * 1024).listen(0, "127.0.0.1");
-await once(station, "listening");
-const emulatorNetwork = process.argv.includes("--emulator-network");
-const origin = "http://127.0.0.1:" + station.address().port;
+const httpsEmulator = process.argv.includes("--https-emulator");
+const emulatorNetwork = httpsEmulator || process.argv.includes("--emulator-network");
+const tls = httpsEmulator ? await createTestTls(local, ["127.0.0.1", "10.0.2.2"]) : undefined;
+const caName = "ningmao-" + tag + ".crt";
+if (tls) setDefaultCACertificates([...getCACertificates("default"), await readFile(tls.ca, "utf8")]);
+let station;
+async function start(port = 0) {
+  station = createRoomServer(local, tls, 32 * 1024 * 1024).listen(port, "127.0.0.1");
+  await once(station, "listening");
+  return station.address().port;
+}
+async function stop() {
+  if (!station) return;
+  await new Promise(resolve => {
+    station.close(resolve);
+    station.closeAllConnections();
+  });
+  station = undefined;
+}
+const stationPort = await start();
+const origin = (tls ? "https" : "http") + "://127.0.0.1:" + stationPort;
 const androidOrigin = emulatorNetwork ? origin.replace("127.0.0.1", "10.0.2.2") : origin;
 const port = "tcp:" + station.address().port;
 const fromAndroid = "from-android-" + tag + ".bin";
@@ -69,10 +123,11 @@ const sourcePath = "/sdcard/Download/" + fromAndroid;
 let browser;
 let forwarded;
 try {
+  if (tls) await installTestCa(tls.ca, caName);
   if (!emulatorNetwork) device("reverse", port, port);
   device("shell", "am", "force-stop", "com.android.chrome");
   device("shell", "am", "set-debug-app", "--persistent", "com.android.chrome");
-  const secureOrigin = emulatorNetwork ? " --unsafely-treat-insecure-origin-as-secure=" + androidOrigin : "";
+  const secureOrigin = emulatorNetwork && !tls ? " --unsafely-treat-insecure-origin-as-secure=" + androidOrigin : "";
   device("shell", "echo '_ --disable-fre --no-first-run --no-default-browser-check" + secureOrigin +
     "' > /data/local/tmp/chrome-command-line");
   device("shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", androidOrigin + "/rooms", "com.android.chrome");
@@ -88,6 +143,7 @@ try {
   await page.bringToFront();
   await page.goto(androidOrigin + "/rooms");
   assert.match(await page.evaluate(() => navigator.userAgent), /Android/);
+  assert.equal(await page.evaluate(() => window.isSecureContext), true);
 
   const created = await fetch(origin + "/api/rooms", {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "站点测试客户端" }),
@@ -144,7 +200,8 @@ try {
       device("shell", "svc", "wifi", "enable");
     }
     await checkTransport("WIFI");
-  } else {
+  }
+  if (!emulatorNetwork || httpsEmulator) {
     const fixture = Buffer.alloc(4 * 1024 * 1024 + 77, 61);
     const hostPath = join(local, fromAndroid);
     await writeFile(hostPath, fixture);
@@ -192,20 +249,45 @@ try {
     console.log("Sleep: Android left the active source list; the station provided the identical file.");
     device("shell", "input", "keyevent", "KEYCODE_WAKEUP");
     device("shell", "wm", "dismiss-keyguard");
+    if (httpsEmulator && /mShowingLockscreen=true|mShowing=true/.test(device("shell", "dumpsys", "window", "policy"))) {
+      device("shell", "input", "keyevent", "KEYCODE_MENU");
+      device("shell", "input", "text", "1234");
+      device("shell", "input", "keyevent", "KEYCODE_ENTER");
+    }
     await expect.poll(() => page.evaluate(() => document.visibilityState), { timeout: 20_000 }).toBe("visible");
     await expect.poll(sourceCount).toBe(0);
     await page.getByRole("button", { name: "开始供件 " + fromAndroid }).click();
     await expect.poll(sourceCount).toBe(1);
     console.log("Wake: Android offered the verified file again after explicit activation.");
 
+    if (httpsEmulator) {
+      try {
+        device("shell", "svc", "data", "disable");
+        device("shell", "svc", "wifi", "disable");
+        await expect(page.getByRole("alert")).toContainText("互传站点暂时无法连接", { timeout: 40_000 });
+        await expect.poll(sourceCount, { timeout: 40_000 }).toBe(0);
+      } finally {
+        device("shell", "svc", "data", "enable");
+        device("shell", "svc", "wifi", "enable");
+      }
+      await expect(page.getByRole("alert")).toHaveCount(0, { timeout: 40_000 });
+      await expect(page.getByRole("heading", { name: /Android 测试客户端/ })).toBeVisible();
+      console.log("Android radio outage: source went offline, room returned under the existing HTTPS invite.");
+
+      await stop();
+      await expect(page.getByRole("alert")).toContainText("互传站点暂时无法连接", { timeout: 40_000 });
+      await start(stationPort);
+      await expect(page.getByRole("alert")).toHaveCount(0, { timeout: 40_000 });
+      await expect(page.getByRole("button", { name: "保存 " + toAndroid })).toBeVisible();
+      console.log("Host stopped and restarted: original HTTPS invite and staged file recovered.");
+    }
   }
 } finally {
   await browser?.close();
   if (forwarded) device("forward", "--remove", forwarded);
   if (!emulatorNetwork) device("reverse", "--remove", port);
   device("shell", "am", "clear-debug-app");
-  device("shell", "rm", "-f", "/data/local/tmp/chrome-command-line", pickerPath, sourcePath, receivedPath);
-  station.closeAllConnections();
-  await new Promise(done => station.close(done));
+  device("shell", "rm", "-f", "/data/local/tmp/chrome-command-line", pickerPath, sourcePath, receivedPath, "/sdcard/Download/" + caName);
+  await stop();
   await rm(local, { recursive: true, force: true });
 }
