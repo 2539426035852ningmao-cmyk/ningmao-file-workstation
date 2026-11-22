@@ -22,7 +22,10 @@ function pickerNodes() {
   try {
     const xml = device("shell", `rm -f ${pickerPath} && uiautomator dump ${pickerPath} && cat ${pickerPath}`);
     return [...xml.matchAll(/<node ([^>]+)>/g)].map(([, attributes]) => {
-      function attribute(name) { return new RegExp(`(?:^| )${name}="([^"]*)"`).exec(attributes)?.[1] ?? ""; }
+      function attribute(name) {
+        const value = new RegExp(`(?:^| )${name}="([^"]*)"`).exec(attributes)?.[1] ?? "";
+        return value.replaceAll("&amp;", "&").replaceAll("&apos;", "'").replaceAll("&quot;", '"');
+      }
       return { text: attribute("text"), description: attribute("content-desc"), bounds: attribute("bounds") };
     });
   } catch { return []; }
@@ -146,7 +149,8 @@ try {
   assert.equal(await page.evaluate(() => window.isSecureContext), true);
 
   const created = await fetch(origin + "/api/rooms", {
-    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "站点测试客户端" }),
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: "站点测试客户端", approval: httpsEmulator }),
   });
   assert.equal(created.status, 201);
   const cookie = created.headers.get("set-cookie").split(";")[0];
@@ -155,6 +159,18 @@ try {
   await page.goto(androidOrigin + "/rooms?code=" + code);
   await page.getByLabel("显示名称").fill("Android 测试客户端");
   await page.getByRole("button", { name: "加入互传区" }).click();
+  if (httpsEmulator) {
+    await expect(page.getByText("等待群主或管理员批准加入。")).toBeVisible();
+    const listing = await fetch(room, { headers: { Cookie: cookie } });
+    assert.equal(listing.status, 200);
+    const member = (await listing.json()).members.find(item => item.name === "Android 测试客户端");
+    assert.equal(member?.status, "pending");
+    const approved = await fetch(room + "/decide", {
+      method: "POST", headers: { "Content-Type": "application/json", Cookie: cookie },
+      body: JSON.stringify({ id: member.id, accept: true }),
+    });
+    assert.equal(approved.status, 200);
+  }
   await expect(page.getByRole("heading", { name: "共享文件" })).toBeVisible();
 
   const androidFixture = Buffer.alloc(187, 28);
