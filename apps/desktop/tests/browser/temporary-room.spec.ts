@@ -1,5 +1,42 @@
 import { expect, test } from "@playwright/test";
 
+test("本机站点需显式启停，启动后将地址填入建区入口", async ({ page }) => {
+  await page.addInitScript(() => {
+    const address = "http://127.0.0.1:5192/rooms";
+    const host = { available: true, running: false, folder: null as string | null, quota_mib: 512, address: null as string | null };
+    Object.defineProperty(window, "__TAURI_INTERNALS__", { configurable: true, value: {
+      transformCallback: () => 42,
+      invoke: async (command: string, args: Record<string, unknown>) => {
+        if (command === "room_station_view") return { ...host };
+        if (command === "room_station_choose") host.folder = "SYNTHETIC/柠猫互传暂存";
+        else if (command === "room_station_start") {
+          if (!host.folder || args.quotaMib !== 2048) throw new Error("意外的启动参数");
+          Object.assign(host, { address, running: true, quota_mib: args.quotaMib });
+        } else if (command === "room_station_stop") {
+          Object.assign(host, { address: null, running: false });
+        } else return;
+        return { ...host };
+      },
+    }});
+  });
+  await page.goto("/tests/harness.html?temporary-room");
+  await page.getByRole("button", { name: "更多操作", exact: true }).click();
+  await page.getByRole("menuitem", { name: "临时互传区", exact: true }).click();
+  await page.getByText("本机互传站点", { exact: false }).click();
+  await expect(page.getByText("已停止", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "启动站点" })).toBeDisabled();
+  await page.getByRole("button", { name: "选择暂存位置" }).click();
+  await expect(page.getByLabel("暂存位置", { exact: true })).toHaveValue("SYNTHETIC/柠猫互传暂存");
+  await page.getByLabel("文件暂存配额", { exact: true }).selectOption("2048");
+  await page.getByRole("button", { name: "启动站点" }).click();
+  await expect(page.getByLabel("互传站点地址", { exact: true })).toHaveValue("http://127.0.0.1:5192/rooms");
+  await expect(page.getByLabel("文件暂存配额", { exact: true })).toBeDisabled();
+  await expect(page.getByLabel("入区需批准")).toBeChecked();
+  await page.getByRole("button", { name: "停止站点" }).click();
+  await expect(page.getByLabel("本机访问地址", { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel("文件暂存配额", { exact: true })).toHaveValue("2048");
+});
+
 test("临时互传区直达建区、接续文件架与显式保存", async ({ page }, testInfo) => {
   await page.addInitScript(() => {
     const source = { id: 1, name: "selected.txt", shelf_id: 1, path: "SYNTHETIC/selected.txt", kind: "txt", bytes: 2, modified: 1, status: "normal", tags: [] };

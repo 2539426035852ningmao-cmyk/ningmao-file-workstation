@@ -10,6 +10,7 @@ await mkdir(data, { recursive: true });
 const log = message => appendFile(join(data, "launch.log"), `${new Date().toISOString()} ${message}\n`);
 const origin = "http://127.0.0.1:5186";
 let station, desktop;
+const desktopOnly = process.argv.includes("--desktop-only");
 
 try {
   const executable = join(root, "app", "Ningmao-Preview-0.1.0-x64.exe");
@@ -27,11 +28,13 @@ try {
     if (error.code !== "EEXIST") throw error;
   });
 
-  const { createRoomServer } = await import("./web/selfhost/server.mjs");
-  station = createRoomServer(join(data, "station"), undefined, 512 * 1024 * 1024);
-  station.listen(5186, "127.0.0.1");
-  await once(station, "listening");
-  await log("Station listening at " + origin + "/rooms");
+  if (!desktopOnly) {
+    const { createRoomServer } = await import("./web/selfhost/server.mjs");
+    station = createRoomServer(join(data, "station"), undefined, 512 * 1024 * 1024);
+    station.listen(5186, "127.0.0.1");
+    await once(station, "listening");
+    await log("Station listening at " + origin + "/rooms");
+  }
 
   desktop = spawn(executable, [], {
     cwd: join(root, "app"), windowsHide: true, stdio: "ignore",
@@ -41,15 +44,19 @@ try {
   void exit.catch(() => undefined);
   await once(desktop, "spawn");
 
-  const browser = join(process.env["ProgramFiles(x86)"] ?? "C:/Program Files (x86)", "Microsoft/Edge/Application/msedge.exe");
-  await access(browser);
-  const web = spawn(browser, [
-    `--user-data-dir=${profile}`, "--no-first-run", "--no-default-browser-check", "--disable-extensions",
-    "--disable-sync", "--disable-background-networking", "--new-window", origin + "/rooms",
-  ], { stdio: "ignore", detached: true, windowsHide: true });
-  await once(web, "spawn");
-  web.unref();
-  await log("Desktop and isolated Edge profile started.");
+  if (desktopOnly) {
+    await log("Desktop started. Start the room station manually in the app.");
+  } else {
+    const browser = join(process.env["ProgramFiles(x86)"] ?? "C:/Program Files (x86)", "Microsoft/Edge/Application/msedge.exe");
+    await access(browser);
+    const web = spawn(browser, [
+      `--user-data-dir=${profile}`, "--no-first-run", "--no-default-browser-check", "--disable-extensions",
+      "--disable-sync", "--disable-background-networking", "--new-window", origin + "/rooms",
+    ], { stdio: "ignore", detached: true, windowsHide: true });
+    await once(web, "spawn");
+    web.unref();
+    await log("Desktop and isolated Edge profile started.");
+  }
   const [code] = await exit;
   if (code !== 0) throw new Error("Desktop exited with code " + code);
 } catch (error) {

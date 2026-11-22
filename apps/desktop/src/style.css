@@ -23,6 +23,9 @@
 .room-recovery{border-top:.5px solid var(--border);padding-top:8px}
 .room-recovery summary{cursor:pointer;color:var(--muted-foreground)}
 .room-recovery[open]>.transfer-form{margin-top:8px}
+.room-station>summary{cursor:pointer;font-weight:650}
+.room-station>summary>span{margin-inline-start:6px;color:var(--muted-foreground);font-weight:400}
+.room-station[open]>.transfer-form{margin-top:10px}
 .room-selected{border-radius:8px;padding:7px 9px;background:var(--secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .room-file-list{padding:0;margin:0;list-style:none;min-width:0}
 .room-file-list li{display:flex;gap:8px;justify-content:space-between;align-items:center;padding:7px 0;border-top:.5px solid var(--border)}

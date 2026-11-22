@@ -60,7 +60,7 @@ function validName(value) {
   );
 }
 
-export function createRoomServer(directory, tls, bulkQuota = 0) {
+export function createRoomServer(directory, tls, bulkQuota = 0, { managed = false } = {}) {
   mkdirSync(directory, { recursive: true, mode: 0o700 });
   const db = new DatabaseSync(resolve(directory, "rooms.sqlite"));
   const sources = new RoomSources();
@@ -110,6 +110,9 @@ export function createRoomServer(directory, tls, bulkQuota = 0) {
     response.setHeader("Referrer-Policy", "no-referrer");
     response.setHeader("X-Content-Type-Options", "nosniff");
     try {
+      if (managed) {
+        requireValue(request.headers.host === `127.0.0.1:${request.socket.localPort}`, 403, "此站点仅供本机使用。");
+      }
       const url = new URL(request.url, "http://localhost");
       const { pathname } = url;
       if (!pathname.startsWith("/api/")) {
@@ -273,6 +276,7 @@ export function createRoomServer(directory, tls, bulkQuota = 0) {
         return json(200, {});
       }
       if (post && action === "files" && !fileId) {
+        requireValue(!managed, 409, "请使用支持暂存配额的客户端发送文件。");
         let name;
         try { name = validName(decodeURIComponent(request.headers["x-file-name"] ?? "")); }
         catch (error) { if (error instanceof URIError) throw new RequestError(400, "文件名无效。"); throw error; }

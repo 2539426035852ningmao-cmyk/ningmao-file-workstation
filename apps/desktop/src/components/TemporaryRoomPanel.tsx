@@ -13,6 +13,7 @@ type RoomMember = { id: string; name: string; status: "active" | "pending" };
 type Room = { member: { name: string; role?: "owner" | "admin" | "member" }; members?: RoomMember[]; files: FileEntry[]; bulk?: boolean };
 type RoomView = Room | { status: "pending" | "denied" };
 type CreatedRoom = { invitation: string; recovery: string };
+type StationView = { available: boolean; running: boolean; folder: string | null; quota_mib: number; address: string | null };
 export type RoomSession = { link: string; name: string; station: string; recovery: string; room: Room | null; admission: "pending" | "denied" | null; shelf: number; saved: Record<string, string> };
 
 export function TemporaryRoomPanel({ selection, shelves, session, setSession, chooseReceiveFolder, returnToShelf }: {
@@ -32,10 +33,37 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
   const [report, setReport] = useState("");
   const [failed, setFailed] = useState(false);
   const [offline, setOffline] = useState(false);
+  const [host, setHost] = useState<StationView>();
+  const [quota, setQuota] = useState(512);
+  const hostRunning = host?.running === true;
   const invitation = link.trim();
   const shelf = shelves.some(item => item.id === session.shelf) ? session.shelf : 0;
   const pending = room?.members?.filter(member => member.status === "pending") ?? [];
   const selected = selection.files.length === 1 ? selection.files[0] : null;
+
+  useEffect(() => {
+    let active = true;
+    void invoke<StationView>("room_station_view").then(view => {
+      if (active && view) { setHost(view); setQuota(view.quota_mib); }
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!hostRunning || busy) return;
+    let active = true;
+    const interval = window.setInterval(() => {
+      if (document.hidden) return;
+      void invoke<StationView>("room_station_view").then(view => {
+        if (active && view && !view.running) {
+          setHost(view);
+          setFailed(true);
+          setReport("本机站点已退出，可重新启动后继续使用。");
+        }
+      }).catch(() => undefined);
+    }, 3000);
+    return () => { active = false; window.clearInterval(interval); };
+  }, [hostRunning, busy]);
 
   function selectShelf(target: number) {
     setSession(current => ({ ...current, shelf: target, saved: {} }));
@@ -106,6 +134,17 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
         throw new Error(`无法复制${label}，请选中文本手动复制。`);
       }
     });
+  }
+
+  async function startStation() {
+    const view = await invoke<StationView>("room_station_start", { quotaMib: quota });
+    setHost(view);
+    const address = view.address;
+    if (address) {
+      setSession(current => ({ ...current, station: address }));
+      setEntry("create");
+      setReport(room ? "本机站点已恢复。换区可使用本机站点创建新区。" : "本机站点已启动。填写显示名称后即可创建互传区。");
+    }
   }
 
   async function run(task: () => Promise<void>) {
@@ -195,6 +234,33 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
 
   return <section className="room-desktop" aria-label="临时互传区">
     {offline && !changingRoom && <p className="room-caption" role="status">站点暂时无法连接，恢复后自动更新。</p>}
+    {host?.available && <details className="room-desktop-card room-station">
+      <summary>本机互传站点 <span>{host.running ? "运行中" : "已停止"}</span></summary>
+      <div className="transfer-form">
+        <p className="room-caption">仅供这台电脑上的软件和网页使用。停站后，访客要等站点重启才能继续访问。</p>
+        <label>暂存位置<Input readOnly value={host.folder ?? ""} placeholder="请选择暂存位置"
+          onFocus={event => event.target.select()} /></label>
+        <label>文件暂存配额<select value={quota} disabled={busy || host.running} onChange={event => setQuota(Number(event.target.value))}>
+          <option value={512}>512 MiB</option>
+          <option value={2048}>2 GiB</option>
+          <option value={8192}>8 GiB</option>
+          <option value={20480}>20 GiB</option>
+        </select></label>
+        {host.address && <label>本机访问地址<Input readOnly value={host.address}
+          onFocus={event => event.target.select()} /></label>}
+        <div className="transfer-receive-actions">
+          {host.running ? <Button variant="outline" size="sm" disabled={busy} onClick={() => void run(async () => {
+            setHost(await invoke<StationView>("room_station_stop"));
+            setReport("本机站点已停止，暂存文件仍按有效期保留。");
+          })}>停止站点</Button> : <>
+            <Button variant="outline" size="sm" disabled={busy} onClick={() => void run(async () => {
+              setHost(await invoke<StationView>("room_station_choose"));
+            })}>选择暂存位置</Button>
+            <Button size="sm" disabled={busy || !host.folder} onClick={() => void run(startStation)}>启动站点</Button>
+          </>}
+        </div>
+      </div>
+    </details>}
     {!room || changingRoom ? <div className="room-desktop-card transfer-form">
       <div className="room-desktop-heading">
         <h3>{room ? "切换互传区" : "开始互传"}</h3>
