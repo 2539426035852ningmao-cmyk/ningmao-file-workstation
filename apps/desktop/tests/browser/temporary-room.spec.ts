@@ -141,6 +141,8 @@ test("临时互传区直达建区、接续文件架与显式保存", async ({ pa
       value: async (link: string) => sessionStorage.setItem("copied-invitation", link),
     });
   });
+  await page.getByText("手机扫码加入", { exact: true }).click();
+  await expect(page.getByRole("img", { name: "互传区邀请二维码" })).toBeVisible();
   await page.getByRole("button", { name: "复制邀请链接" }).click();
   expect(await page.evaluate(() => sessionStorage.getItem("copied-invitation")))
     .toBe("https://example.test/rooms?code=" + "d".repeat(32));

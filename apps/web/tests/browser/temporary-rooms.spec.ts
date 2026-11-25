@@ -3,7 +3,9 @@ import { once } from "node:events";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { expect, test } from "@playwright/test";
+import { chromium, expect, test } from "@playwright/test";
+import { decodeRoomInvitation } from "../room-test-qr.mjs";
+import { createTestTls } from "../room-test-tls.mjs";
 import { createRoomServer } from "../../selfhost/server.mjs";
 
 test("两份独立浏览器配置经自托管站点双向收发并校验落盘", async ({ browser }) => {
@@ -24,6 +26,9 @@ test("两份独立浏览器配置经自托管站点双向收发并校验落盘",
     await hostPage.getByLabel("入区需批准").check();
     await hostPage.getByRole("button", { name: "创建互传区" }).click();
     const invitation = await hostPage.getByLabel("邀请链接", { exact: true }).inputValue();
+    await hostPage.getByText("手机扫码加入", { exact: true }).click();
+    await expect(hostPage.getByText("请用手机可访问的 HTTPS 站点创建互传区。")).toBeVisible();
+    await expect(hostPage.getByRole("img", { name: "互传区邀请二维码" })).toHaveCount(0);
     await hostPage.evaluate(() => {
       Object.defineProperty(navigator.clipboard, "writeText", {
         value: async (value: string) => sessionStorage.setItem("room-invitation-copy", value),
@@ -94,6 +99,38 @@ test("两份独立浏览器配置经自托管站点双向收发并校验落盘",
     await expect(hostPage.getByText("文件群成员 1 / 5 人")).toBeVisible();
   } finally {
     await Promise.all([owner.close(), guest.close()]);
+    await new Promise<void>(resolve => server.close(() => resolve()));
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("电脑显示的二维码可解出原邀请，手机视口使用同一地址申请并获批", async () => {
+  const root = await mkdtemp(join(tmpdir(), "ningmao-browser-scan-"));
+  const tls = await createTestTls(root, ["room.test"]);
+  const server = createRoomServer(root, tls, 512 * 1024 * 1024).listen(0, "127.0.0.1");
+  await once(server, "listening");
+  let browser;
+  try {
+    browser = await chromium.launch({
+      proxy: { server: "http://127.0.0.1:1", bypass: "room.test" },
+      args: ["--host-resolver-rules=MAP room.test 127.0.0.1"],
+    });
+    const host = await browser.newPage({ ignoreHTTPSErrors: true });
+    const phone = await browser.newPage({ ignoreHTTPSErrors: true, isMobile: true, hasTouch: true, viewport: { width: 390, height: 844 } });
+    await host.goto(`https://room.test:${server.address().port}/rooms`);
+    await host.getByLabel("显示名称").fill("电脑房主");
+    await host.getByLabel("入区需批准").check();
+    await host.getByRole("button", { name: "创建互传区" }).click();
+    const invitation = await decodeRoomInvitation(host);
+    await phone.goto(invitation);
+    await phone.getByLabel("显示名称").fill("手机访客");
+    await phone.getByRole("button", { name: "加入互传区" }).click();
+    await expect(phone.getByText("等待群主或管理员批准加入。")).toBeVisible();
+    await expect(phone.getByRole("heading", { name: "共享文件" })).toHaveCount(0);
+    await host.getByRole("button", { name: "批准", exact: true }).click();
+    await expect(phone.getByText("文件群成员 2 / 5 人")).toBeVisible();
+  } finally {
+    await browser?.close();
     await new Promise<void>(resolve => server.close(() => resolve()));
     await rm(root, { recursive: true, force: true });
   }

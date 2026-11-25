@@ -109,3 +109,7 @@ D10打包实测发现13个Symphonia发布crate均未附LICENSE原文，已逐个
 - [PDF.js](https://github.com/mozilla/pdf.js/tree/0a4153349dc473ba950fc17941c5ca7eda43c1de)，`pdfjs-dist@6.5.438`，Apache-2.0，原样使用浏览器包和本地 worker。可选 Node Canvas 是 Node 端依赖，浏览器产物不包含其原生二进制。
 - [fflate](https://github.com/101arrowz/fflate)，`fflate@0.8.3`，MIT，原样使用浏览器解压模块。只解压有限的 Office XML 部件，展现纯文本及表格值；不加载外部关系或执行公式。
 - 源码来源与包完整性见 npm 锁文件，原始许可证进入候选包的第三方声明。
+
+## 临时互传区邀请二维码
+
+网页和 Windows 直接引用 [qrcode.react 4.2.0](https://github.com/zpao/qrcode.react/tree/f91d2bdcc39def6c5c77178743a44f935a740992)，采用发布包 ISC 原文。内置 Project Nayuki 编码器的 [MIT 原文](../licenses/qrcode-react-qrcodegen-MIT.txt) 来自同一提交。应用只将现有邀请链接交给组件在本机绘制。网页入口和桌面打包归集随产物提供这两份许可。测试使用 [jsQR 1.4.0](https://github.com/cozmo/jsQR/tree/49a9633931fb8030ac2fc9cecc121d6e5a19f9a3) 通过像素反查，Apache-2.0，只在测试环境使用。

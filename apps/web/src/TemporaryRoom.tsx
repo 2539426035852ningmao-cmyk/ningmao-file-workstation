@@ -1,3 +1,4 @@
+import { QRCodeCanvas } from "qrcode.react";
 import { useEffect, useRef, useState } from "react";
 import { ArrowDownToLine, FolderUp } from "lucide-react";
 import { MAX_BROWSER_TRANSFER_BYTES } from "./file-preparation.mjs";
@@ -195,6 +196,8 @@ export function TemporaryRoom() {
   const pendingMembers = room?.members.filter(member => member.status === "pending") ?? [];
   const memberLimit = room?.memberLimit;
   const roomFull = memberLimit !== undefined && activeMembers.length >= memberLimit;
+  const mobileInvite = location.protocol === "https:"
+    && !/^(?:(?:.+\.)?localhost\.?$|127\.|\[::1\]$)/i.test(location.hostname);
 
   function depart(member?: Member) {
     if (!window.confirm(member ? `将「${member.name}」移出文件群？` : "退出这个文件群？")) return;
@@ -273,6 +276,13 @@ export function TemporaryRoom() {
           {memberLimit !== undefined && room.member.role !== "owner" &&
             <button type="button" disabled={remoteBlocked} onClick={() => depart()}>退出文件群</button>}
         </div>
+        <details key={code}>
+          <summary>手机扫码加入</summary>
+          {mobileInvite ? <>
+            <QRCodeCanvas value={location.href} size={192} marginSize={4} role="img" aria-label="互传区邀请二维码" />
+            <p className="room-note">用手机相机扫码，打开邀请后申请加入。</p>
+          </> : <p className="room-note">请用手机可访问的 HTTPS 站点创建互传区。</p>}
+        </details>
         {recovery && <details><summary>保存管理恢复码</summary><label>管理恢复码 <input readOnly value={recovery} onFocus={event => event.target.select()} /></label></details>}
         <details className="room-members">
           <summary>{memberLimit === undefined ? `文件群成员 ${activeMembers.length} 人` : `文件群成员 ${activeMembers.length} / ${memberLimit} 人`}</summary>

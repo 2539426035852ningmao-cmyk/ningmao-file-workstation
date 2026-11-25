@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, X509Certificate } from "node:crypto";
 import { once } from "node:events";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -9,6 +9,7 @@ import { setTimeout as pause } from "node:timers/promises";
 import { getCACertificates, setDefaultCACertificates } from "node:tls";
 import { chromium, expect as playwrightExpect } from "@playwright/test";
 import { createRoomServer } from "../selfhost/server.mjs";
+import { decodeRoomInvitation } from "./room-test-qr.mjs";
 import { createTestTls } from "./room-test-tls.mjs";
 
 const adb = (...args) => execFileSync(process.env.ADB ?? "adb", args, { encoding: "utf8", timeout: 15_000 }).trim();
@@ -107,7 +108,7 @@ const local = await mkdtemp(join(tmpdir(), "ningmao-android-room-"));
 const httpsEmulator = process.argv.includes("--https-emulator");
 console.log(httpsEmulator ? "Android HTTPS virtual network test" : "Android HTTP test");
 const emulatorNetwork = httpsEmulator || process.argv.includes("--emulator-network");
-const tls = httpsEmulator ? await createTestTls(local, ["127.0.0.1", "10.0.2.2"]) : undefined;
+const tls = httpsEmulator ? await createTestTls(local, ["127.0.0.1", "room.test"]) : undefined;
 const caName = "ningmao-" + tag + ".crt";
 if (tls) setDefaultCACertificates([...getCACertificates("default"), await readFile(tls.ca, "utf8")]);
 let station;
@@ -126,13 +127,15 @@ async function stop() {
 }
 const stationPort = await start();
 const origin = (tls ? "https" : "http") + "://127.0.0.1:" + stationPort;
-const androidOrigin = emulatorNetwork ? origin.replace("127.0.0.1", "10.0.2.2") : origin;
+const androidOrigin = httpsEmulator ? origin.replace("127.0.0.1", "room.test")
+  : emulatorNetwork ? origin.replace("127.0.0.1", "10.0.2.2") : origin;
 const port = "tcp:" + station.address().port;
 const fromAndroid = "from-android-" + tag + ".bin";
 const toAndroid = "to-android-" + tag + ".bin";
 const receivedPath = "/sdcard/Download/" + toAndroid;
 const sourcePath = "/sdcard/Download/" + fromAndroid;
 let browser;
+let hostBrowser;
 let forwarded;
 try {
   if (tls) await installTestCa(tls.ca, caName);
@@ -140,7 +143,8 @@ try {
   device("shell", "am", "force-stop", "com.android.chrome");
   device("shell", "am", "set-debug-app", "--persistent", "com.android.chrome");
   const secureOrigin = emulatorNetwork && !tls ? " --unsafely-treat-insecure-origin-as-secure=" + androidOrigin : "";
-  device("shell", "echo '_ --disable-fre --no-first-run --no-default-browser-check" + secureOrigin +
+  const qrHost = httpsEmulator ? ' --no-proxy-server --host-resolver-rules="MAP room.test 10.0.2.2"' : "";
+  device("shell", "echo '_ --disable-fre --no-first-run --no-default-browser-check" + secureOrigin + qrHost +
     "' > /data/local/tmp/chrome-command-line");
   device("shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", androidOrigin + "/rooms", "com.android.chrome");
   forwarded = "tcp:" + device("forward", "tcp:0", "localabstract:chrome_devtools_remote");
@@ -158,43 +162,60 @@ try {
   assert.equal(await page.evaluate(() => window.isSecureContext), true);
   if (tls) console.log("Android Chrome accepted the HTTPS certificate at the emulator gateway.");
 
-  const created = await fetch(origin + "/api/rooms", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name: "站点测试客户端", approval: httpsEmulator }),
-  });
-  assert.equal(created.status, 201);
-  const cookie = created.headers.get("set-cookie").split(";")[0];
-  const { code } = await created.json();
-  const room = origin + "/api/rooms/" + code;
-  await page.goto(androidOrigin + "/rooms?code=" + code);
+  let owner, cookie, invitation;
+  if (tls) {
+    const pin = createHash("sha256").update(new X509Certificate(tls.cert).publicKey.export({ type: "spki", format: "der" })).digest("base64");
+    hostBrowser = await chromium.launch({
+      proxy: { server: "http://127.0.0.1:1", bypass: "room.test" },
+      args: ["--host-resolver-rules=MAP room.test 127.0.0.1", "--ignore-certificate-errors-spki-list=" + pin],
+    });
+    owner = await hostBrowser.newPage();
+    await owner.goto(androidOrigin + "/rooms");
+    await owner.getByLabel("显示名称").fill("电脑房主");
+    await owner.getByLabel("入区需批准").check();
+    await owner.getByRole("button", { name: "创建互传区" }).click();
+    invitation = await decodeRoomInvitation(owner);
+    const [session] = await owner.context().cookies(androidOrigin + "/api/rooms");
+    cookie = session.name + "=" + session.value;
+    console.log("The desktop browser created the room and its displayed QR decoded to the same invitation URL.");
+  } else {
+    const created = await fetch(origin + "/api/rooms", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "站点测试客户端", approval: false }),
+    });
+    assert.equal(created.status, 201);
+    cookie = created.headers.get("set-cookie").split(";")[0];
+    invitation = androidOrigin + "/rooms?code=" + (await created.json()).code;
+  }
+  const room = origin + "/api/rooms/" + new URL(invitation).searchParams.get("code");
+  await page.goto(invitation);
   await page.getByLabel("显示名称").fill("Android 测试客户端");
   await page.getByRole("button", { name: "加入互传区" }).click();
-  if (httpsEmulator) {
+  if (owner) {
     await expect(page.getByText("等待群主或管理员批准加入。")).toBeVisible();
-    const listing = await fetch(room, { headers: { Cookie: cookie } });
-    assert.equal(listing.status, 200);
-    const member = (await listing.json()).members.find(item => item.name === "Android 测试客户端");
-    assert.equal(member?.status, "pending");
-    const approved = await fetch(room + "/decide", {
-      method: "POST", headers: { "Content-Type": "application/json", Cookie: cookie },
-      body: JSON.stringify({ id: member.id, accept: true }),
-    });
-    assert.equal(approved.status, 200);
+    await expect(page.getByRole("heading", { name: "共享文件" })).toHaveCount(0);
+    await owner.getByRole("button", { name: "批准", exact: true }).click();
   }
   await expect(page.getByRole("heading", { name: "共享文件" })).toBeVisible();
 
   const androidFixture = Buffer.alloc(187, 28);
-  const posted = await fetch(room + "/bulk", {
-    method: "POST", headers: { "Content-Type": "application/json", Cookie: cookie },
-    body: JSON.stringify({ name: toAndroid, size: androidFixture.length, digest: sha(androidFixture), request: randomBytes(16).toString("hex") }),
-  });
-  assert.equal(posted.status, 200);
-  const { id } = await posted.json();
-  const upload = room + "/bulk/" + id;
-  assert.equal((await fetch(upload, {
-    method: "POST", headers: { Cookie: cookie, "X-Offset": "0", "X-SHA256": sha(androidFixture) }, body: androidFixture,
-  })).status, 200);
-  assert.equal((await fetch(upload + "/publish", { method: "POST", headers: { Cookie: cookie } })).status, 200);
+  if (owner) {
+    await owner.getByLabel("选择文件").setInputFiles({ name: toAndroid, mimeType: "application/octet-stream", buffer: androidFixture });
+    await owner.getByRole("button", { name: "发给全区 2 人" }).click();
+  } else {
+    const posted = await fetch(room + "/bulk", {
+      method: "POST", headers: { "Content-Type": "application/json", Cookie: cookie },
+      body: JSON.stringify({ name: toAndroid, size: androidFixture.length, digest: sha(androidFixture), request: randomBytes(16).toString("hex") }),
+    });
+    assert.equal(posted.status, 200);
+    const { id } = await posted.json();
+    const upload = room + "/bulk/" + id;
+    assert.equal((await fetch(upload, {
+      method: "POST", headers: { Cookie: cookie, "X-Offset": "0", "X-SHA256": sha(androidFixture) }, body: androidFixture,
+    })).status, 200);
+    assert.equal((await fetch(upload + "/publish", { method: "POST", headers: { Cookie: cookie } })).status, 200);
+
+  }
 
   await expect(page.getByRole("button", { name: "保存 " + toAndroid })).toBeVisible();
   if (emulatorNetwork) {
@@ -245,6 +266,12 @@ try {
     assert.equal(uploaded?.digest, sha(fixture));
     const copied = await fetch(room + "/files/" + uploaded.id, { headers: { Cookie: cookie } });
     assert.equal(sha(Buffer.from(await copied.arrayBuffer())), sha(fixture));
+    if (owner) {
+      const downloading = owner.waitForEvent("download");
+      await owner.getByRole("button", { name: "保存 " + fromAndroid }).click();
+      const saved = await downloading;
+      assert.equal(sha(await readFile(await saved.path())), sha(fixture));
+    }
     console.log("Android native picker upload verified:", sha(fixture));
 
     const save = page.getByRole("button", { name: "保存 " + toAndroid });
@@ -309,6 +336,7 @@ try {
   }
 } finally {
   await browser?.close();
+  await hostBrowser?.close();
   if (forwarded) device("forward", "--remove", forwarded);
   if (!emulatorNetwork) device("reverse", "--remove", port);
   device("shell", "am", "clear-debug-app");

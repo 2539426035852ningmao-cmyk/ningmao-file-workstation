@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
+import { isIP } from "node:net";
 import { join } from "node:path";
 
 export async function createTestTls(directory, addresses) {
@@ -19,7 +20,7 @@ export async function createTestTls(directory, addresses) {
     "basicConstraints=critical,CA:FALSE",
     "keyUsage=critical,digitalSignature,keyEncipherment",
     "extendedKeyUsage=serverAuth",
-    "subjectAltName=" + addresses.map(address => "IP:" + address).join(","),
+    "subjectAltName=" + addresses.map(address => (isIP(address) ? "IP:" : "DNS:") + address).join(","),
   ].join("\n"));
   openssl("x509", "-req", "-in", request, "-CA", ca, "-CAkey", caKey, "-CAcreateserial",
     "-days", "2", "-extfile", extensions, "-out", cert);
