@@ -138,7 +138,12 @@ async fn reply(response: Response) -> Result<Value> {
     if status.is_success() {
         return Ok(data);
     }
-    if status == 403 && matches!(data["status"].as_str(), Some("pending" | "denied")) {
+    if status == 403
+        && matches!(
+            data["status"].as_str(),
+            Some("pending" | "denied" | "left" | "removed")
+        )
+    {
         return Ok(data);
     }
     Err(data
@@ -242,6 +247,31 @@ pub async fn room_decide(
                 .json(&json!({ "id": member_id, "accept": accept })),
         )
         .await?,
+    )
+    .await?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn room_depart(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    invitation: String,
+    member_id: Option<String>,
+) -> Result<()> {
+    trusted_native_origin(&window)?;
+    metadata_scope(&window)?;
+    let invitation = Invitation::parse(&invitation)?;
+    let (endpoint, payload) = match member_id {
+        Some(id) if hex(&id, 24) => ("/remove", json!({ "id": id })),
+        Some(_) => return Err("成员编号无效。".into()),
+        None => ("/leave", json!({})),
+    };
+    let cookie =
+        transfer_identity::read::<String>(&invitation.cookie_path(&app.state::<Runtime>()))?;
+    reply(
+        send(with_cookie(client()?.post(invitation.endpoint(endpoint)?), cookie).json(&payload))
+            .await?,
     )
     .await?;
     Ok(())

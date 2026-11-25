@@ -142,7 +142,7 @@ export class ChunkStore {
     }
   }
 
-  async publish(id, member, now = Date.now()) {
+  async publish(id, member, now = Date.now(), authorize = () => {}) {
     const row = this.#own(id, member);
     if (row.expires !== null) {
       check(!row.revoked && now < row.expires, 410, "文件已撤回或到期。");
@@ -160,6 +160,7 @@ export class ChunkStore {
         digest.update(bytes);
       }
       check(count === row.size && digest.digest("hex") === row.digest, 422, "完整文件校验失败。");
+      authorize();
       const { hours, maxHours } = retention(row.size);
       this.#db.prepare("UPDATE chunks SET expires = ?, retain_until = ? WHERE id = ?")
         .run(now + hours * HOUR, now + maxHours * HOUR, id);

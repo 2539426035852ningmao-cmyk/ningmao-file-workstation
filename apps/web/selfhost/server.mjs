@@ -12,6 +12,8 @@ import { RoomSources } from "./room-sources.mjs";
 
 const DAY = 86_400_000;
 const STORAGE_LIMIT = 512 * 1024 * 1024;
+const MEMBER_LIMIT = 5;
+const FULL_ROOM = "文件群已满（最多 5 人，含群主）。";
 const dist = fileURLToPath(new URL("../dist/", import.meta.url));
 const token = (size = 24) => randomBytes(size).toString("hex");
 const sha = value => createHash("sha256").update(value).digest("hex");
@@ -60,6 +62,8 @@ function validName(value) {
   );
 }
 
+const managesRoom = member => member.role === "owner" || member.role === "admin";
+
 export function createRoomServer(directory, tls, bulkQuota = 0, { managed = false } = {}) {
   mkdirSync(directory, { recursive: true, mode: 0o700 });
   const db = new DatabaseSync(resolve(directory, "rooms.sqlite"));
@@ -88,6 +92,9 @@ export function createRoomServer(directory, tls, bulkQuota = 0, { managed = fals
   `);
   const members = db.prepare("SELECT id, name, role, status FROM members WHERE room = ? AND session = ?");
   const addMember = db.prepare("INSERT INTO members VALUES (?, ?, ?, ?, ?, ?)");
+  const activeCount = db.prepare("SELECT COUNT(*) AS count FROM members WHERE room = ? AND status = 'active'");
+  const memberById = db.prepare("SELECT role, status FROM members WHERE room = ? AND id = ?");
+  const changeStatus = db.prepare("UPDATE members SET status = ?, role = 'member' WHERE room = ? AND id = ?");
   const purgeFiles = db.prepare("DELETE FROM files WHERE expires <= ?");
   const oldRooms = db.prepare("SELECT code FROM rooms WHERE created < ? AND NOT EXISTS (SELECT 1 FROM files WHERE files.room = rooms.code)");
   const deleteRoom = db.prepare("DELETE FROM rooms WHERE code = ?");
@@ -155,7 +162,7 @@ export function createRoomServer(directory, tls, bulkQuota = 0, { managed = fals
         return json(201, { code, recovery });
       }
 
-      const match = /^\/api\/rooms\/([a-f0-9]{32})(?:\/(join|recover|decide|promote|files|revoke|extend|bulk|peers|sources)(?:\/([a-f0-9]{32}))?(?:\/(publish))?)?$/.exec(pathname);
+      const match = /^\/api\/rooms\/([a-f0-9]{32})(?:\/(join|recover|decide|promote|leave|remove|files|revoke|extend|bulk|peers|sources)(?:\/([a-f0-9]{32}))?(?:\/(publish))?)?$/.exec(pathname);
       requireValue(match, 404, "页面不存在。");
       const [, code, action, fileId, operation] = match;
       requireValue(!operation || action === "bulk" && fileId, 404, "操作不存在。");
@@ -164,11 +171,21 @@ export function createRoomServer(directory, tls, bulkQuota = 0, { managed = fals
 
       if (post && action === "join" && !fileId) {
         const input = await readJson(request);
-        if (!member) {
+        member = members.get(code, session);
+        requireValue(member?.status !== "removed", 403, "你已被移出这个文件群。");
+        if (!member || member.status === "left") {
           requireValue(Date.now() < room.created + DAY, 410, "邀请码已过期。");
-          requireValue(db.prepare("SELECT COUNT(*) AS count FROM members WHERE room = ?").get(code).count < 64, 409, "互传区人数已满。");
-          const joiningSession = identify();
-          addMember.run(code, joiningSession, token(12), validName(input.name), "member", room.approval ? "pending" : "active");
+          requireValue(activeCount.get(code).count < MEMBER_LIMIT, 409, FULL_ROOM);
+          const name = validName(input.name);
+          const status = room.approval ? "pending" : "active";
+          let joiningSession = session;
+          if (member) {
+            db.prepare("UPDATE members SET status = ?, name = ? WHERE room = ? AND session = ?").run(status, name, code, session);
+          } else {
+            requireValue(db.prepare("SELECT COUNT(*) AS count FROM members WHERE room = ?").get(code).count < 64, 409, "加入记录已满，请联系群主。");
+            joiningSession = identify();
+            addMember.run(code, joiningSession, token(12), name, "member", status);
+          }
           member = members.get(code, joiningSession);
         }
         return json(200, { member });
@@ -191,13 +208,16 @@ export function createRoomServer(directory, tls, bulkQuota = 0, { managed = fals
       if (!action && request.method === "GET" && member?.status !== "active") {
         return json(403, { status: member?.status, message: "请先加入互传区。" });
       }
+      const currentMember = () => {
+        const current = members.get(code, session);
+        return requireValue(current?.id === member?.id && current?.status === "active" && current, 403, "成员权限已变化。");
+      };
       requireValue(member?.status === "active", 403, "请先加入互传区。");
-      const manager = member.role === "owner" || member.role === "admin";
       if (!action && request.method === "GET") {
         return json(200, {
-          code, member, inviteExpires: room.created + DAY, bulk: Boolean(bulk),
+          code, member, memberLimit: MEMBER_LIMIT, inviteExpires: room.created + DAY, bulk: Boolean(bulk),
           members: db.prepare(`SELECT id, name, role, status FROM members
-            WHERE room = ? AND (status = 'active' OR ? AND status = 'pending') ORDER BY rowid`).all(code, Number(manager)),
+            WHERE room = ? AND (status = 'active' OR ? AND status = 'pending') ORDER BY rowid`).all(code, Number(managesRoom(member))),
           files: [
             ...(bulk?.list(code) ?? []),
             ...db.prepare(`SELECT id, sender, name, size, digest, expires, retain_until FROM files
@@ -212,6 +232,7 @@ export function createRoomServer(directory, tls, bulkQuota = 0, { managed = fals
         }
         if (post) {
           const input = await readJson(request, 32 * 1024);
+          currentMember();
           if (input.heartbeat === true) {
             requireValue(sources.heartbeat(code, session, fileId), 409, "当前供件来源不可用。");
             return json(200, {});
@@ -241,6 +262,7 @@ export function createRoomServer(directory, tls, bulkQuota = 0, { managed = fals
         }
         if (post && !fileId) {
           const input = await readJson(request);
+          currentMember();
           requireValue(safeFileName(input.name), 400, "文件名无效。");
           return json(200, uploadReceipt(bulk.open({ room: code, member: member.id, name: input.name,
             request: input.request, size: input.size, digest: input.digest })));
@@ -248,14 +270,14 @@ export function createRoomServer(directory, tls, bulkQuota = 0, { managed = fals
         requireValue(fileId, 404, "文件编号不存在。");
         const current = bulk.status(fileId, member.id);
         requireValue(current.room === code, 404, "文件编号不存在。");
-        if (post && operation === "publish") return json(200, uploadReceipt(await bulk.publish(fileId, member.id)));
+        if (post && operation === "publish") return json(200, uploadReceipt(await bulk.publish(fileId, member.id, Date.now(), currentMember)));
         if (request.method === "GET" && !operation) return json(200, uploadReceipt(current));
         if (post && !operation) {
           requireValue(uploads < 2, 429, "当前上传较多，请稍后重试。");
           uploads++;
           try {
             const bytes = await readBody(request, CHUNK_BYTES);
-            requireValue(members.get(code, session)?.id === member.id, 403, "成员权限已变化。");
+            currentMember();
             return json(200, uploadReceipt(await bulk.append(fileId, member.id, Number(request.headers["x-offset"]),
               bytes, request.headers["x-sha256"])));
           } finally {
@@ -264,19 +286,39 @@ export function createRoomServer(directory, tls, bulkQuota = 0, { managed = fals
         }
       }
       if (post && action === "decide" && !fileId) {
-        requireValue(manager, 403, "只有群主或管理员可以批准加入。");
         const input = await readJson(request);
+        requireValue(managesRoom(currentMember()), 403, "只有群主或管理员可以批准加入。");
         requireValue(typeof input.id === "string" && typeof input.accept === "boolean", 400, "请求内容无效。");
+        if (input.accept && memberById.get(code, input.id)?.status === "pending") {
+          requireValue(activeCount.get(code).count < MEMBER_LIMIT, 409, FULL_ROOM);
+        }
         db.prepare("UPDATE members SET status = ? WHERE room = ? AND id = ? AND status = 'pending'").run(input.accept ? "active" : "denied", code, input.id);
         return json(200, {});
       }
       if (post && action === "promote" && !fileId) {
-        requireValue(member.role === "owner", 403, "只有群主可以调整管理员。");
         const input = await readJson(request);
+        requireValue(currentMember().role === "owner", 403, "只有群主可以调整管理员。");
         requireValue(typeof input.id === "string" && typeof input.enabled === "boolean", 400, "请求内容无效。");
         const count = db.prepare("SELECT COUNT(*) AS count FROM members WHERE room = ? AND role = 'admin'").get(code).count;
         requireValue(!input.enabled || count < 3, 409, "最多可以指定三名管理员。");
         db.prepare("UPDATE members SET role = ? WHERE room = ? AND id = ? AND role <> 'owner' AND status = 'active'").run(input.enabled ? "admin" : "member", code, input.id);
+        return json(200, {});
+      }
+      if (post && !fileId && action === "leave") {
+        requireValue(member.role !== "owner", 403, "群主须保留管理权限。");
+        changeStatus.run("left", code, member.id);
+        return json(200, {});
+      }
+      if (post && !fileId && action === "remove") {
+        const input = await readJson(request);
+        const actor = currentMember();
+        requireValue(managesRoom(actor), 403, "只有群主或管理员可以移出成员。");
+        requireValue(typeof input.id === "string", 400, "成员编号无效。");
+        const target = memberById.get(code, input.id);
+        requireValue(target?.status === "active", 404, "找不到该成员。");
+        requireValue(input.id !== actor.id && (target.role === "member"
+          || (target.role === "admin" && actor.role === "owner")), 403, "没有权限移出该成员。");
+        changeStatus.run("removed", code, input.id);
         return json(200, {});
       }
       if (post && action === "files" && !fileId) {
@@ -295,7 +337,7 @@ export function createRoomServer(directory, tls, bulkQuota = 0, { managed = fals
         try {
           const data = await readBody(request, MAX_BROWSER_TRANSFER_BYTES);
           requireValue(sha(data) === digest, 422, "文件校验失败，请重新选择。");
-          requireValue(members.get(code, session)?.id === member.id, 403, "成员权限已变化。");
+          currentMember();
           purgeFiles.run(Date.now());
           if (uploadId) {
             const prior = db.prepare("SELECT name, digest FROM uploads WHERE room = ? AND id = ?").get(code, id);
@@ -347,6 +389,7 @@ export function createRoomServer(directory, tls, bulkQuota = 0, { managed = fals
       }
       if (post && (action === "revoke" || action === "extend") && !fileId) {
         const input = await readJson(request);
+        const manager = managesRoom(currentMember());
         requireValue(typeof input.id === "string", 400, "文件标识无效。");
         const file = db.prepare("SELECT sender, expires, retain_until FROM files WHERE room = ? AND id = ? AND expires > ?").get(code, input.id, Date.now());
         if (!file && bulk) {

@@ -37,8 +37,11 @@ test("两份独立浏览器配置经自托管站点双向收发并校验落盘",
     await guestPage.getByLabel("显示名称").fill("乙");
     await guestPage.getByRole("button", { name: "加入互传区" }).click();
     await expect(guestPage.getByText("等待群主或管理员批准加入。")).toBeVisible();
+    await expect(hostPage.getByText("文件群成员 1 / 5 人")).toBeVisible();
+    await expect(hostPage.getByRole("heading", { name: "待批准访客" })).toBeVisible();
     await hostPage.getByRole("button", { name: "批准", exact: true }).click();
     await expect(guestPage.getByRole("heading", { name: "共享文件" })).toBeVisible();
+    await expect(guestPage.getByText("文件群成员 2 / 5 人")).toBeVisible();
 
     for (const [sender, recipient, name] of [
       [hostPage, guestPage, "甲到乙.txt"],
@@ -78,6 +81,17 @@ test("两份独立浏览器配置经自托管站点双向收发并校验落盘",
     }
     await send.click();
     await expect(hostPage.getByRole("button", { name: "保存 重连后发送.txt" })).toBeVisible();
+    guestPage.once("dialog", dialog => dialog.accept());
+    await guestPage.getByRole("button", { name: "退出文件群" }).click();
+    await expect(guestPage.getByText("你已退出文件群，可使用邀请重新加入。")).toBeVisible();
+    await expect(hostPage.getByText("文件群成员 1 / 5 人")).toBeVisible();
+    await guestPage.getByRole("button", { name: "加入互传区" }).click();
+    await hostPage.getByRole("button", { name: "批准", exact: true }).click();
+    await hostPage.getByText("文件群成员 2 / 5 人").click();
+    hostPage.once("dialog", dialog => dialog.accept());
+    await hostPage.getByRole("button", { name: "移出 乙" }).click();
+    await expect(guestPage.getByText("你已被移出这个文件群。")).toBeVisible();
+    await expect(hostPage.getByText("文件群成员 1 / 5 人")).toBeVisible();
   } finally {
     await Promise.all([owner.close(), guest.close()]);
     await new Promise<void>(resolve => server.close(() => resolve()));

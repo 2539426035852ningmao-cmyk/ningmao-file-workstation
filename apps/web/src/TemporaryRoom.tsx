@@ -7,7 +7,7 @@ import "./rooms.css";
 
 type Member = { id: string; name: string; role: "owner" | "admin" | "member"; status: "active" | "pending" };
 type RoomFile = { id: string; sender: string; name: string; size: number; digest: string; expires: number; retain_until: number; chunked?: number };
-type Room = { code: string; member: Member; members: Member[]; files: RoomFile[]; inviteExpires: number; bulk?: boolean };
+type Room = { code: string; member: Member; members: Member[]; files: RoomFile[]; inviteExpires: number; memberLimit?: number; bulk?: boolean };
 type Theme = "light" | "dark" | "blue";
 const day = 24 * 60 * 60 * 1000;
 const retentionHours = (size: number) => size >= 10_000_000_000 ? 6 : 24;
@@ -191,6 +191,19 @@ export function TemporaryRoom() {
   }
 
   const manage = room?.member.role === "owner" || room?.member.role === "admin";
+  const activeMembers = room?.members.filter(member => member.status === "active") ?? [];
+  const pendingMembers = room?.members.filter(member => member.status === "pending") ?? [];
+  const memberLimit = room?.memberLimit;
+  const roomFull = memberLimit !== undefined && activeMembers.length >= memberLimit;
+
+  function depart(member?: Member) {
+    if (!window.confirm(member ? `将「${member.name}」移出文件群？` : "退出这个文件群？")) return;
+    void perform(async () => {
+      await jsonPost(roomApi + (member ? "/remove" : "/leave"), member ? { id: member.id } : {});
+      await refresh(roomApi);
+    });
+  }
+
   return <main className="room-page">
     <header className="room-header">
       <strong><FolderUp size={21} aria-hidden /> 柠猫文件工作站</strong>
@@ -205,6 +218,8 @@ export function TemporaryRoom() {
     {!room ? <section className="room-card">
       {membership === "pending" && <p role="status">等待群主或管理员批准加入。</p>}
       {membership === "denied" && <p role="status">加入申请未获批准。</p>}
+      {membership === "left" && <p role="status">你已退出文件群，可使用邀请重新加入。</p>}
+      {membership === "removed" && <p role="status">你已被移出这个文件群。</p>}
       {membership === "missing" && <p role="status">找不到这个互传区，请检查邀请码。</p>}
       <fieldset disabled={busy}>
         <div className="room-entry-tabs" role="group" aria-label="进入方式">
@@ -255,21 +270,39 @@ export function TemporaryRoom() {
         <div className="room-row room-invite-actions">
           <button type="button" onClick={() => void copyInvitation()}>复制邀请链接</button>
           <span className="room-note">邀请有效至 {formatDate(room.inviteExpires)}</span>
+          {memberLimit !== undefined && room.member.role !== "owner" &&
+            <button type="button" disabled={remoteBlocked} onClick={() => depart()}>退出文件群</button>}
         </div>
         {recovery && <details><summary>保存管理恢复码</summary><label>管理恢复码 <input readOnly value={recovery} onFocus={event => event.target.select()} /></label></details>}
-        {manage && room.members.filter(member => member.id !== room.member.id).map(member => (
-          <div className="room-row" key={member.id}>
-            <span>{member.name} <small>{member.status === "pending" ? "待批准" : member.role === "admin" ? "管理员" : "成员"}</small></span>
-            {member.status === "pending" ? [true, false].map(accept => <button key={String(accept)} disabled={remoteBlocked} onClick={() => void perform(async () => {
+        <details className="room-members">
+          <summary>{memberLimit === undefined ? `文件群成员 ${activeMembers.length} 人` : `文件群成员 ${activeMembers.length} / ${memberLimit} 人`}</summary>
+          <ul>
+            {activeMembers.map(member => <li key={member.id}>
+              <div className="room-row">
+                <span>{member.name} <small>{member.role === "owner" ? "群主" : member.role === "admin" ? "管理员" : "成员"}</small></span>
+                {room.member.role === "owner" && member.id !== room.member.id &&
+                  <button disabled={remoteBlocked} onClick={() => void perform(async () => {
+                    await jsonPost(roomApi + "/promote", { id: member.id, enabled: member.role !== "admin" });
+                    await refresh(roomApi);
+                  })}>{member.role === "admin" ? "取消管理员" : "设为管理员"}</button>}
+                {memberLimit !== undefined && manage && member.id !== room.member.id &&
+                  (member.role === "member" || (member.role === "admin" && room.member.role === "owner")) &&
+                  <button disabled={remoteBlocked} aria-label={`移出 ${member.name}`} onClick={() => depart(member)}>移出</button>}
+              </div>
+            </li>)}
+          </ul>
+        </details>
+        {manage && pendingMembers.length > 0 && <div className="room-pending">
+          <h3>待批准访客</h3>
+          {roomFull && <p className="room-note">文件群已满，有空位后可批准加入。</p>}
+          {pendingMembers.map(member => <div className="room-row" key={member.id}>
+            <span>{member.name}</span>
+            {[true, false].map(accept => <button key={String(accept)} disabled={remoteBlocked || (accept && roomFull)} onClick={() => void perform(async () => {
               await jsonPost(roomApi + "/decide", { id: member.id, accept });
               await refresh(roomApi);
-            })}>{accept ? "批准" : "拒绝"}</button>) : room.member.role === "owner" &&
-              <button disabled={remoteBlocked} onClick={() => void perform(async () => {
-                await jsonPost(roomApi + "/promote", { id: member.id, enabled: member.role !== "admin" });
-                await refresh(roomApi);
-              })}>{member.role === "admin" ? "取消管理员" : "设为管理员"}</button>}
-          </div>
-        ))}
+            })}>{accept ? "批准" : "拒绝"}</button>)}
+          </div>)}
+        </div>}
       </section>
       <section className="room-card">
         <h2>发送文件</h2>
@@ -302,7 +335,7 @@ export function TemporaryRoom() {
         }}>
           <label>选择文件 <input type="file" ref={fileInput} disabled={busy} onChange={event => setFile(event.target.files?.[0] ?? null)} /></label>
           {file && <p className="room-note">{file.name}（{formatSize(file.size)}）　{tooLarge ? "超过单文件上限，请重新选择。" : `发布后可领取 ${retentionHours(file.size)} 小时`}</p>}
-          <button type="submit" className="room-primary" disabled={remoteBlocked || !file || tooLarge}>发给全区 {room.members.filter(member => member.status === "active").length} 人</button>
+          <button type="submit" className="room-primary" disabled={remoteBlocked || !file || tooLarge}>发给全区 {activeMembers.length} 人</button>
           <p className="room-note">{room.bulk ? "单文件最多 20 GB。中断后可重选原文件续传。" : "单文件最多 64 MiB，校验成功后保留 24 小时。"}</p>
         </form>
       </section>

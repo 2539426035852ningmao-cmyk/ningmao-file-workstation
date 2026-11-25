@@ -62,11 +62,16 @@ test("临时互传区直达建区、接续文件架与显式保存", async ({ pa
         if (command === "room_decide") return {};
         if (command === "room_view" && String(args.invitation).endsWith("d".repeat(32))) {
           return {
-            member: { name: "合成装机端", role: "owner" }, bulk: true,
+            member: { id: "e".repeat(24), name: "合成装机端", role: "owner" }, memberLimit: 5, bulk: true,
             files: sessionStorage.getItem("room-new-file") === "yes"
               ? [{ id: "g".repeat(32), name: "new.txt", size: 2, digest }] : [],
-            members: calls.some((call: { command: string }) => call.command === "room_decide")
-              ? [] : [{ id: "f".repeat(24), name: "网页访客", status: "pending" }],
+            members: [
+              { id: "e".repeat(24), name: "合成装机端", status: "active", role: "owner" },
+              ...(!calls.some((call: { command: string }) => call.command === "room_depart")
+                ? [{ id: "f".repeat(24), name: "网页访客", role: "member", status:
+                    calls.some((call: { command: string }) => call.command === "room_decide") ? "active" : "pending" }]
+                : []),
+            ],
           };
         }
         if (command === "room_view") {
@@ -139,13 +144,22 @@ test("临时互传区直达建区、接续文件架与显式保存", async ({ pa
   await page.getByRole("button", { name: "复制邀请链接" }).click();
   expect(await page.evaluate(() => sessionStorage.getItem("copied-invitation")))
     .toBe("https://example.test/rooms?code=" + "d".repeat(32));
+  await expect(page.getByText("文件群成员 1 / 5 人")).toBeVisible();
   await page.getByRole("button", { name: "批准 网页访客" }).click();
-  await expect(page.getByText("网页访客", { exact: true })).toHaveCount(0);
+  await page.getByText("文件群成员 2 / 5 人").click();
+  await page.getByRole("button", { name: "移出 网页访客" }).click();
+  await page.getByRole("group", { name: "确认成员变更" }).getByRole("button", { name: "取消" }).click();
+  await expect(page.getByText("文件群成员 2 / 5 人")).toBeVisible();
+  await page.getByRole("button", { name: "移出 网页访客" }).click();
+  await page.getByRole("button", { name: "确认移出" }).click();
+  await expect(page.getByText("文件群成员 1 / 5 人")).toBeVisible();
   const ownerCalls = await page.evaluate(() => JSON.parse(sessionStorage.getItem("room-test-calls") || "[]"));
   expect(ownerCalls.find((call: { command: string }) => call.command === "room_create").args)
     .toEqual({ station: "https://example.test", name: "合成装机端", approval: true });
   expect(ownerCalls.find((call: { command: string }) => call.command === "room_decide").args)
     .toEqual({ invitation: "https://example.test/rooms?code=" + "d".repeat(32), memberId: "f".repeat(24), accept: true });
+  expect(ownerCalls.filter((call: { command: string }) => call.command === "room_depart"))
+    .toEqual([{ command: "room_depart", args: { invitation: "https://example.test/rooms?code=" + "d".repeat(32), memberId: "f".repeat(24) } }]);
 
   await page.getByRole("button", { name: "关闭文件互传" }).click();
   await openRoom();

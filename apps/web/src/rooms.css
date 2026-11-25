@@ -37,6 +37,12 @@
 .room-entry-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
 .room-entry-tabs button[aria-pressed="true"] { border-color: var(--primary); }
 .room-invite-actions { margin-top: 10px; }
+.room-members summary { cursor: pointer; }
+.room-members ul { list-style: none; padding: 0; margin: 8px 0 0; }
+.room-members li, .room-pending .room-row { padding: 6px 0; overflow-wrap: anywhere; }
+.room-pending { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; }
+.room-pending h3 { margin: 0; font-size: 15px; }
+.room-page button:disabled { opacity: .55; }
 .room-page button, .room-page input, .room-page select {
   color: var(--text);
   background: var(--surface2);

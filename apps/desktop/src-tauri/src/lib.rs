@@ -2355,6 +2355,7 @@ pub fn run() {
             room_station::room_station_stop,
             temporary_room::room_join,
             temporary_room::room_decide,
+            temporary_room::room_depart,
             temporary_room::room_view,
             temporary_room::room_upload,
             temporary_room::room_download,
