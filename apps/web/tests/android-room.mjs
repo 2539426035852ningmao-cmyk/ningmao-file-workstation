@@ -2,14 +2,17 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { once } from "node:events";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as pause } from "node:timers/promises";
-import { chromium, expect } from "@playwright/test";
+import { getCACertificates, setDefaultCACertificates } from "node:tls";
+import { chromium, expect as playwrightExpect } from "@playwright/test";
 import { createRoomServer } from "../selfhost/server.mjs";
+import { createTestTls } from "./room-test-tls.mjs";
 
 const adb = (...args) => execFileSync(process.env.ADB ?? "adb", args, { encoding: "utf8", timeout: 15_000 }).trim();
+const expect = playwrightExpect.configure({ timeout: 20_000 });
 const serial = process.env.ANDROID_SERIAL ?? adb("devices").match(/^(emulator-\d+)\s+device\s*$/m)?.[1];
 assert.match(serial ?? "", /^emulator-\d+$/, "A booted Android emulator is required.");
 const device = (...args) => adb("-s", serial, ...args);
@@ -20,8 +23,11 @@ function pickerNodes() {
   try {
     const xml = device("shell", `rm -f ${pickerPath} && uiautomator dump ${pickerPath} && cat ${pickerPath}`);
     return [...xml.matchAll(/<node ([^>]+)>/g)].map(([, attributes]) => {
-      function attribute(name) { return new RegExp(`(?:^| )${name}="([^"]*)"`).exec(attributes)?.[1] ?? ""; }
-      return { text: attribute("text"), description: attribute("content-desc"), bounds: attribute("bounds") };
+      function attribute(name) {
+        const value = new RegExp(`(?:^| )${name}="([^"]*)"`).exec(attributes)?.[1] ?? "";
+        return value.replaceAll("&amp;", "&").replaceAll("&apos;", "'").replaceAll("&quot;", '"');
+      }
+      return { text: attribute("text"), description: attribute("content-desc"), bounds: attribute("bounds"), package: attribute("package") };
     });
   } catch { return []; }
 }
@@ -29,6 +35,48 @@ function pickerNodes() {
 function tapNode(node) {
   const [left, top, right, bottom] = node.bounds.match(/\d+/g).map(Number);
   device("shell", "input", "tap", String(Math.round((left + right) / 2)), String(Math.round((top + bottom) / 2)));
+}
+
+async function installTestCa(ca, name) {
+  device("push", ca, "/sdcard/Download/" + name);
+  assert.match(device("shell", "locksettings", "set-pin", "1234"), /Pin set to/i);
+  // Android 14 exports this page directly. The top-level Security Hub can
+  // display account alerts above the credential settings on a clean emulator.
+  assert.match(device("shell", "am", "start", "-W", "-a", "com.android.settings.MORE_SECURITY_PRIVACY_SETTINGS",
+    "-p", "com.android.settings"), /Status: ok/);
+  async function follow(...labels) {
+    const seen = new Set();
+    await expect.poll(() => {
+      const nodes = pickerNodes();
+      for (const label of labels) {
+        const value = label.toLowerCase();
+        const node = nodes.find(n => (value === n.text.toLowerCase() || value === n.description.toLowerCase()) && n.bounds);
+        if (!node || seen.has(label)) continue;
+        seen.add(label);
+        tapNode(node);
+        console.log("Android certificate setup: " + label);
+        if (label === labels.at(-1)) return label;
+        return "Tapped " + label;
+      }
+      if (nodes.some(node => /Enter your PIN|Confirm your PIN/i.test(node.text))) {
+        device("shell", "input", "text", "1234");
+        device("shell", "input", "keyevent", "KEYCODE_ENTER");
+      } else if (nodes.some(node => node.package === "com.android.settings")) {
+        const screen = device("shell", "wm", "size").match(/(\d+)x(\d+)\s*$/);
+        if (screen) {
+          const [, w, h] = screen.map(Number);
+          device("shell", "input", "swipe", String(w >> 1), String(Math.floor(h * .75)), String(w >> 1), String(Math.floor(h * .35)), "360");
+        }
+      }
+      return nodes.map(node => node.text || node.description).filter(Boolean).join(" / ");
+    }, { timeout: 60_000, intervals: [700] }).toBe(labels.at(-1));
+  }
+  await follow("Encryption & credentials");
+  await follow("Install a certificate", "CA certificate");
+  await follow("Install anyway", "Show roots", "Open navigation drawer", "Downloads", "Download", name);
+  // The temporary PIN is for certificate enrollment. Keep the subsequent
+  // sleep/wake scenario on the emulator's original swipe lock.
+  assert.match(device("shell", "locksettings", "clear", "--old", "1234"), /Lock credential cleared/i);
 }
 
 async function selectDeviceFile(page, name) {
@@ -56,10 +104,28 @@ async function selectDeviceFile(page, name) {
 const sha = data => createHash("sha256").update(data).digest("hex");
 const tag = randomBytes(6).toString("hex");
 const local = await mkdtemp(join(tmpdir(), "ningmao-android-room-"));
-const station = createRoomServer(local, undefined, 32 * 1024 * 1024).listen(0, "127.0.0.1");
-await once(station, "listening");
-const emulatorNetwork = process.argv.includes("--emulator-network");
-const origin = "http://127.0.0.1:" + station.address().port;
+const httpsEmulator = process.argv.includes("--https-emulator");
+console.log(httpsEmulator ? "Android HTTPS virtual network test" : "Android HTTP test");
+const emulatorNetwork = httpsEmulator || process.argv.includes("--emulator-network");
+const tls = httpsEmulator ? await createTestTls(local, ["127.0.0.1", "10.0.2.2"]) : undefined;
+const caName = "ningmao-" + tag + ".crt";
+if (tls) setDefaultCACertificates([...getCACertificates("default"), await readFile(tls.ca, "utf8")]);
+let station;
+async function start(port = 0) {
+  station = createRoomServer(local, tls, 32 * 1024 * 1024).listen(port, "127.0.0.1");
+  await once(station, "listening");
+  return station.address().port;
+}
+async function stop() {
+  if (!station) return;
+  await new Promise(resolve => {
+    station.close(resolve);
+    station.closeAllConnections();
+  });
+  station = undefined;
+}
+const stationPort = await start();
+const origin = (tls ? "https" : "http") + "://127.0.0.1:" + stationPort;
 const androidOrigin = emulatorNetwork ? origin.replace("127.0.0.1", "10.0.2.2") : origin;
 const port = "tcp:" + station.address().port;
 const fromAndroid = "from-android-" + tag + ".bin";
@@ -69,10 +135,11 @@ const sourcePath = "/sdcard/Download/" + fromAndroid;
 let browser;
 let forwarded;
 try {
+  if (tls) await installTestCa(tls.ca, caName);
   if (!emulatorNetwork) device("reverse", port, port);
   device("shell", "am", "force-stop", "com.android.chrome");
   device("shell", "am", "set-debug-app", "--persistent", "com.android.chrome");
-  const secureOrigin = emulatorNetwork ? " --unsafely-treat-insecure-origin-as-secure=" + androidOrigin : "";
+  const secureOrigin = emulatorNetwork && !tls ? " --unsafely-treat-insecure-origin-as-secure=" + androidOrigin : "";
   device("shell", "echo '_ --disable-fre --no-first-run --no-default-browser-check" + secureOrigin +
     "' > /data/local/tmp/chrome-command-line");
   device("shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", androidOrigin + "/rooms", "com.android.chrome");
@@ -88,9 +155,12 @@ try {
   await page.bringToFront();
   await page.goto(androidOrigin + "/rooms");
   assert.match(await page.evaluate(() => navigator.userAgent), /Android/);
+  assert.equal(await page.evaluate(() => window.isSecureContext), true);
+  if (tls) console.log("Android Chrome accepted the HTTPS certificate at the emulator gateway.");
 
   const created = await fetch(origin + "/api/rooms", {
-    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: "站点测试客户端" }),
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: "站点测试客户端", approval: httpsEmulator }),
   });
   assert.equal(created.status, 201);
   const cookie = created.headers.get("set-cookie").split(";")[0];
@@ -99,6 +169,18 @@ try {
   await page.goto(androidOrigin + "/rooms?code=" + code);
   await page.getByLabel("显示名称").fill("Android 测试客户端");
   await page.getByRole("button", { name: "加入互传区" }).click();
+  if (httpsEmulator) {
+    await expect(page.getByText("等待群主或管理员批准加入。")).toBeVisible();
+    const listing = await fetch(room, { headers: { Cookie: cookie } });
+    assert.equal(listing.status, 200);
+    const member = (await listing.json()).members.find(item => item.name === "Android 测试客户端");
+    assert.equal(member?.status, "pending");
+    const approved = await fetch(room + "/decide", {
+      method: "POST", headers: { "Content-Type": "application/json", Cookie: cookie },
+      body: JSON.stringify({ id: member.id, accept: true }),
+    });
+    assert.equal(approved.status, 200);
+  }
   await expect(page.getByRole("heading", { name: "共享文件" })).toBeVisible();
 
   const androidFixture = Buffer.alloc(187, 28);
@@ -134,17 +216,22 @@ try {
       assert.equal(hash, sha(androidFixture));
       console.log("Android emulator active transport: " + transport + ", synthetic file hash verified.");
     }
-    device("shell", "svc", "wifi", "enable");
-    await checkTransport("WIFI");
     try {
+      device("shell", "svc", "wifi", "enable");
+      device("shell", "svc", "data", "disable");
+      await checkTransport("WIFI");
       device("shell", "svc", "data", "enable");
       device("shell", "svc", "wifi", "disable");
       await checkTransport("CELLULAR");
+      device("shell", "svc", "wifi", "enable");
+      device("shell", "svc", "data", "disable");
+      await checkTransport("WIFI");
     } finally {
       device("shell", "svc", "wifi", "enable");
+      device("shell", "svc", "data", "enable");
     }
-    await checkTransport("WIFI");
-  } else {
+  }
+  if (!emulatorNetwork || httpsEmulator) {
     const fixture = Buffer.alloc(4 * 1024 * 1024 + 77, 61);
     const hostPath = join(local, fromAndroid);
     await writeFile(hostPath, fixture);
@@ -198,14 +285,34 @@ try {
     await expect.poll(sourceCount).toBe(1);
     console.log("Wake: Android offered the verified file again after explicit activation.");
 
+    if (httpsEmulator) {
+      try {
+        device("shell", "svc", "data", "disable");
+        device("shell", "svc", "wifi", "disable");
+        await expect(page.getByRole("alert")).toContainText("互传站点暂时无法连接", { timeout: 40_000 });
+        await expect.poll(sourceCount, { timeout: 40_000 }).toBe(0);
+      } finally {
+        device("shell", "svc", "data", "enable");
+        device("shell", "svc", "wifi", "enable");
+      }
+      await expect(page.getByRole("alert")).toHaveCount(0, { timeout: 40_000 });
+      await expect(page.getByRole("heading", { name: /Android 测试客户端/ })).toBeVisible();
+      console.log("Android radio outage: source went offline, room returned under the existing HTTPS invite.");
+
+      await stop();
+      await expect(page.getByRole("alert")).toContainText("互传站点暂时无法连接", { timeout: 40_000 });
+      await start(stationPort);
+      await expect(page.getByRole("alert")).toHaveCount(0, { timeout: 40_000 });
+      await expect(page.getByRole("button", { name: "保存 " + toAndroid })).toBeVisible();
+      console.log("Host stopped and restarted: original HTTPS invite and staged file recovered.");
+    }
   }
 } finally {
   await browser?.close();
   if (forwarded) device("forward", "--remove", forwarded);
   if (!emulatorNetwork) device("reverse", "--remove", port);
   device("shell", "am", "clear-debug-app");
-  device("shell", "rm", "-f", "/data/local/tmp/chrome-command-line", pickerPath, sourcePath, receivedPath);
-  station.closeAllConnections();
-  await new Promise(done => station.close(done));
+  device("shell", "rm", "-f", "/data/local/tmp/chrome-command-line", pickerPath, sourcePath, receivedPath, "/sdcard/Download/" + caName);
+  await stop();
   await rm(local, { recursive: true, force: true });
 }

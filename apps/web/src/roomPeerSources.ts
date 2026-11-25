@@ -69,6 +69,9 @@ export class RoomPeerSources {
       for (const file of this.#local.keys()) void this.#post({ file, enabled: true }).catch(() => undefined);
     });
     this.#events.onerror = () => { this.#online = false; };
+    this.#events.addEventListener("heartbeat", () => {
+      if (this.#local.size) void this.#post({ heartbeat: true }).catch(() => undefined);
+    });
     this.#events.addEventListener("signal", event => {
       const signal: Signal = JSON.parse(event.data);
       void this.#signal(signal).catch(() => {

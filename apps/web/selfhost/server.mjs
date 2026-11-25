@@ -212,6 +212,10 @@ export function createRoomServer(directory, tls, bulkQuota = 0, { managed = fals
         }
         if (post) {
           const input = await readJson(request, 32 * 1024);
+          if (input.heartbeat === true) {
+            requireValue(sources.heartbeat(code, session, fileId), 409, "当前供件来源不可用。");
+            return json(200, {});
+          }
           bulk.entry(input.file, code);
           const accepted = typeof input.enabled === "boolean"
             ? sources.advertise(code, session, fileId, input.file, input.enabled)

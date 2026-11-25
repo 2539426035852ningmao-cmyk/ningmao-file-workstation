@@ -4,6 +4,9 @@ const validKey = value => typeof value === "string" && /^[a-f0-9]{32}$/.test(val
 const MAX_STREAMS = 256;
 const MAX_STREAMS_PER_MEMBER = 3;
 const MAX_SIGNAL_BYTES = 24 * 1024;
+const HEARTBEAT_MS = 10_000;
+const SOURCE_LEASE_MS = 30_000;
+const offersFile = (record, file) => record.leaseUntil > Date.now() && record.active() && record.files.has(file);
 export class RoomSources {
   #clients = new Map();
 
@@ -15,11 +18,11 @@ export class RoomSources {
     if (previous && previous.session !== session) return false;
     if (!previous && (this.#clients.size >= MAX_STREAMS || sameMember.length >= MAX_STREAMS_PER_MEMBER)) return false;
     previous?.response.end();
-    const record = { response, member, session, active, files: new Set(), signalAt: 0, signals: 0 };
+    const record = { response, member, session, active, files: new Set(), leaseUntil: 0, signalAt: 0, signals: 0 };
     this.#clients.set(key, record);
     response.writeHead(200, { "Content-Type": "text/event-stream", "X-Accel-Buffering": "no" });
     response.write("event: connected\ndata: {}\n\n");
-    const timer = setInterval(() => response.write(": heartbeat\n\n"), 15_000);
+    const timer = setInterval(() => response.write("event: heartbeat\ndata: {}\n\n"), HEARTBEAT_MS);
     timer.unref();
     response.once("close", () => {
       clearInterval(timer);
@@ -34,14 +37,22 @@ export class RoomSources {
     if (enabled) {
       if (record.files.size >= 16 && !record.files.has(file)) return false;
       record.files.add(file);
+      record.leaseUntil = Date.now() + SOURCE_LEASE_MS;
     } else record.files.delete(file);
+    return true;
+  }
+
+  heartbeat(room, session, client) {
+    const record = this.#clients.get(room + "/" + client);
+    if (!record || record.session !== session || record.files.size === 0) return false;
+    record.leaseUntil = Date.now() + SOURCE_LEASE_MS;
     return true;
   }
 
   list(room, file, client) {
     const prefix = room + "/";
     return [...this.#clients.entries()]
-      .filter(([key, value]) => key.startsWith(prefix) && key !== prefix + client && value.active() && value.files.has(file))
+      .filter(([key, value]) => key.startsWith(prefix) && key !== prefix + client && offersFile(value, file))
       .map(([key]) => key.slice(prefix.length));
   }
 
@@ -52,7 +63,7 @@ export class RoomSources {
         !validKey(input.file) || !["offer", "answer"].includes(input.description?.type) ||
         typeof input.description.sdp !== "string" || input.description.sdp.length > MAX_SIGNAL_BYTES) return false;
     const type = input.description.type;
-    if (!(type === "offer" ? to : from).files.has(input.file)) return false;
+    if (!offersFile(type === "offer" ? to : from, input.file)) return false;
     const now = Date.now();
     if (now - from.signalAt >= 10_000) {
       from.signalAt = now;
