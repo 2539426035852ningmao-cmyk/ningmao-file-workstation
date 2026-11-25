@@ -61,7 +61,6 @@ export class RoomPeerSources {
   #incoming = new Map<string, { file: string; peer: RTCPeerConnection }>();
   #outgoing = new Map<string, Session>();
   #online = false;
-  #heartbeat: number;
 
   constructor(private api: string) {
     this.#events = new EventSource(this.#path());
@@ -70,9 +69,9 @@ export class RoomPeerSources {
       for (const file of this.#local.keys()) void this.#post({ file, enabled: true }).catch(() => undefined);
     });
     this.#events.onerror = () => { this.#online = false; };
-    this.#heartbeat = window.setInterval(() => {
-      if (this.#online && this.#local.size) void this.#post({ heartbeat: true }).catch(() => undefined);
-    }, 8000);
+    this.#events.addEventListener("heartbeat", () => {
+      if (this.#local.size) void this.#post({ heartbeat: true }).catch(() => undefined);
+    });
     this.#events.addEventListener("signal", event => {
       const signal: Signal = JSON.parse(event.data);
       void this.#signal(signal).catch(() => {
@@ -222,7 +221,6 @@ export class RoomPeerSources {
 
   close() {
     this.#online = false;
-    window.clearInterval(this.#heartbeat);
     this.#events.close();
     this.#local.clear();
     for (const { peer } of this.#incoming.values()) peer.close();

@@ -4,6 +4,7 @@ const validKey = value => typeof value === "string" && /^[a-f0-9]{32}$/.test(val
 const MAX_STREAMS = 256;
 const MAX_STREAMS_PER_MEMBER = 3;
 const MAX_SIGNAL_BYTES = 24 * 1024;
+const HEARTBEAT_MS = 10_000;
 const SOURCE_LEASE_MS = 30_000;
 const offersFile = (record, file) => record.leaseUntil > Date.now() && record.active() && record.files.has(file);
 export class RoomSources {
@@ -21,7 +22,7 @@ export class RoomSources {
     this.#clients.set(key, record);
     response.writeHead(200, { "Content-Type": "text/event-stream", "X-Accel-Buffering": "no" });
     response.write("event: connected\ndata: {}\n\n");
-    const timer = setInterval(() => response.write(": heartbeat\n\n"), 15_000);
+    const timer = setInterval(() => response.write("event: heartbeat\ndata: {}\n\n"), HEARTBEAT_MS);
     timer.unref();
     response.once("close", () => {
       clearInterval(timer);
