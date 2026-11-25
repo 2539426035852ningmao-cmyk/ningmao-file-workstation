@@ -45,7 +45,8 @@ async function installTestCa(ca, name) {
     await expect.poll(() => {
       const nodes = pickerNodes();
       for (const label of labels) {
-        const node = nodes.find(n => (label === n.text || label === n.description) && n.bounds);
+        const value = label.toLowerCase();
+        const node = nodes.find(n => (value === n.text.toLowerCase() || value === n.description.toLowerCase()) && n.bounds);
         if (!node || seen.has(label)) continue;
         seen.add(label);
         tapNode(node);
@@ -68,7 +69,6 @@ async function installTestCa(ca, name) {
   await follow("More security & privacy", "More security settings", "Encryption & credentials");
   await follow("Install a certificate", "CA certificate");
   await follow("Install anyway", "Show roots", "Open navigation drawer", "Downloads", "Download", name);
-  console.log("Android Settings imported the disposable HTTPS authority.");
 }
 
 async function selectDeviceFile(page, name) {
@@ -147,6 +147,7 @@ try {
   await page.goto(androidOrigin + "/rooms");
   assert.match(await page.evaluate(() => navigator.userAgent), /Android/);
   assert.equal(await page.evaluate(() => window.isSecureContext), true);
+  if (tls) console.log("Android Chrome accepted the HTTPS certificate at the emulator gateway.");
 
   const created = await fetch(origin + "/api/rooms", {
     method: "POST", headers: { "Content-Type": "application/json" },
