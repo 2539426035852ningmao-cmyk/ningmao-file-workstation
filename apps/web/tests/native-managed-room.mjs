@@ -73,6 +73,8 @@ try {
   await guest.getByText("等待群主或管理员批准加入。").waitFor(timeout);
   const before = await invoke("room_view", { invitation: room.invitation });
   assert.equal(before.member.role, "owner");
+  assert.equal(before.memberLimit, 5);
+  assert.equal(before.members.filter(member => member.status === "active").length, 1);
   const pending = before.members.find(candidate => candidate.name === "集成测试网页访客");
   assert.equal(pending.status, "pending");
   await invoke("room_decide", { invitation: room.invitation, memberId: pending.id, accept: true });
@@ -121,9 +123,36 @@ try {
   await guest.reload();
   await guest.getByRole("heading", { name: "集成测试网页访客 成员" }).waitFor(timeout);
   await verifyBrowserDownload();
+  const roomApi = new URL("/api/rooms/" + new URL(room.invitation).searchParams.get("code"), site).href;
+  const joinFrom = (context, name, endpoint = roomApi) => context.request.post(endpoint + "/join", { data: { name } });
+  const contexts = await Promise.all(Array.from({ length: 4 }, () => browser.newContext()));
+  const queued = await Promise.all(contexts.map(async (context, index) => {
+    const response = await joinFrom(context, "合成成员 " + (index + 1));
+    assert.equal(response.status(), 200);
+    return (await response.json()).member;
+  }));
+  for (const { id } of queued.slice(0, 3)) {
+    await invoke("room_decide", { invitation: room.invitation, memberId: id, accept: true });
+  }
+  await guest.getByText("文件群成员 5 / 5 人").waitFor(timeout);
+  await assert.rejects(invoke("room_decide", { invitation: room.invitation, memberId: queued[3].id, accept: true }), /最多 5 人/);
+  await invoke("room_depart", { invitation: room.invitation, memberId: pending.id });
+  await guest.getByText("你已被移出这个文件群。").waitFor(timeout);
+  await invoke("room_decide", { invitation: room.invitation, memberId: queued[3].id, accept: true });
+  assert.equal((await invoke("room_view", { invitation: room.invitation })).members.length, 5);
+  assert.equal((await joinFrom(guest.context(), "已移出的网页访客")).status(), 403);
+
+  const other = await contexts[0].request.post(new URL("/api/rooms", site).href, { data: { name: "网页群主", approval: false } });
+  assert.equal(other.status(), 201);
+  const otherInvite = site + "?code=" + (await other.json()).code;
+  await invoke("room_join", { invitation: otherInvite, name: "桌面访客" });
+  assert.equal((await invoke("room_view", { invitation: otherInvite })).members.length, 2);
+  await invoke("room_depart", { invitation: otherInvite, memberId: null });
+  assert.equal((await invoke("room_view", { invitation: otherInvite })).status, "left");
   console.log(JSON.stringify({ result: "native-managed-room-and-independent-Chromium-guest-pass",
     desktopSendSHA: h(hostBytes), webSendSHA: h(guestBytes), savedAs: receipt.file_name,
-    originalIntact: true, stoppedDuringTest: true, retainedInviteAndGuest: true }));
+    originalIntact: true, stoppedDuringTest: true, retainedInviteAndGuest: true,
+    fiveMembers: true, desktopRemovedGuest: true, desktopGuestLeft: true }));
 } finally {
   await browser?.close();
   if (app.exitCode === null && app.signalCode === null) { const exit = once(app, "exit"); app.kill(); await exit; }

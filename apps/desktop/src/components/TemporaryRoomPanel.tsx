@@ -9,12 +9,21 @@ import { Input } from "./ui/input";
 import type { TransferSelection } from "./TransferPanel";
 
 type FileEntry = { id: string; name: string; size: number; digest: string; expires: number; chunked?: number };
-type RoomMember = { id: string; name: string; status: "active" | "pending" };
-type Room = { member: { name: string; role?: "owner" | "admin" | "member" }; members?: RoomMember[]; files: FileEntry[]; bulk?: boolean };
-type RoomView = Room | { status: "pending" | "denied" };
+type MemberRole = "owner" | "admin" | "member";
+type RoomMember = { id: string; name: string; status: "active" | "pending"; role?: MemberRole };
+type Room = { member: { id?: string; name: string; role?: MemberRole }; members?: RoomMember[]; files: FileEntry[]; memberLimit?: number; bulk?: boolean };
+type Admission = "pending" | "denied" | "left" | "removed";
+type RoomView = Room | { status: Admission };
+const admissionText: Record<Admission, string> = {
+  pending: "等待批准，获批后会自动进入。",
+  denied: "加入申请未获批准。",
+  left: "你已退出文件群，可使用邀请重新加入。",
+  removed: "你已被移出这个文件群。",
+};
+const memberRoleText: Record<MemberRole, string> = { owner: "群主", admin: "管理员", member: "成员" };
 type CreatedRoom = { invitation: string; recovery: string };
 type StationView = { available: boolean; running: boolean; folder: string | null; quota_mib: number; address: string | null };
-export type RoomSession = { link: string; name: string; station: string; recovery: string; room: Room | null; admission: "pending" | "denied" | null; shelf: number; saved: Record<string, string> };
+export type RoomSession = { link: string; name: string; station: string; recovery: string; room: Room | null; admission: Admission | null; shelf: number; saved: Record<string, string> };
 
 export function TemporaryRoomPanel({ selection, shelves, session, setSession, chooseReceiveFolder, returnToShelf }: {
   selection: TransferSelection;
@@ -33,6 +42,7 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
   const [report, setReport] = useState("");
   const [failed, setFailed] = useState(false);
   const [offline, setOffline] = useState(false);
+  const [departure, setDeparture] = useState<{ invitation: string; member?: RoomMember } | null>(null);
   const [host, setHost] = useState<StationView>();
   const [quota, setQuota] = useState(512);
   const hostPanel = useRef<HTMLDetailsElement>(null);
@@ -40,6 +50,12 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
   const invitation = link.trim();
   const shelf = shelves.some(item => item.id === session.shelf) ? session.shelf : 0;
   const pending = room?.members?.filter(member => member.status === "pending") ?? [];
+  const activeMembers = room?.members?.filter(member => member.status === "active") ?? [];
+  const memberLimit = room?.memberLimit;
+  const roomFull = memberLimit !== undefined && activeMembers.length >= memberLimit;
+  const owner = room?.member.role === "owner";
+  const managesRoom = owner || room?.member.role === "admin";
+  const confirmingDeparture = departure?.invitation === invitation ? departure : null;
   const selected = selection.files.length === 1 ? selection.files[0] : null;
 
   useEffect(() => {
@@ -87,7 +103,7 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
   }
 
   useEffect(() => {
-    if (!invitation || admission === "denied" || busy || changingRoom) return;
+    if (!invitation || (admission && admission !== "pending") || busy || changingRoom) return;
     let timer: number;
     let disposed = false;
     let running = false;
@@ -160,6 +176,17 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
     } finally {
       setBusy(false);
     }
+  }
+
+  async function depart(member?: RoomMember) {
+    await run(async () => {
+      await invoke("room_depart", { invitation, memberId: member?.id ?? null });
+      if (!member) {
+        setDraftLink(invitation);
+        setEntry("join");
+      }
+      await refresh();
+    });
   }
 
   function progressChannel() {
@@ -269,7 +296,7 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
         {room && <Button size="sm" variant="ghost" disabled={busy} onClick={() => setChangingRoom(false)}>返回当前互传区</Button>}
       </div>
       {admission && !changingRoom && <p className="room-caption" role="status">
-        {admission === "pending" ? "等待批准，获批后会自动进入。" : "加入申请未获批准。"}
+        {admissionText[admission]}
       </p>}
       <div className="room-entry" role="group" aria-label="进入方式">
         <Button size="sm" variant={entry === "join" ? "secondary" : "ghost"} aria-pressed={entry === "join"}
@@ -312,7 +339,7 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
       <div className="room-desktop-card transfer-form">
         <div className="room-desktop-heading">
           <h3>{room.member.name}</h3>
-          <span>{room.member.role === "owner" ? "群主" : room.member.role === "admin" ? "管理员" : "成员"}</span>
+          <span>{memberRoleText[room.member.role ?? "member"]}</span>
         </div>
         <label>邀请链接<Input readOnly value={link} onFocus={event => event.target.select()} /></label>
         <div className="transfer-receive-actions">
@@ -321,6 +348,7 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
           <Button variant="ghost" size="sm" disabled={busy} aria-label="刷新互传区"
             onClick={() => void run(refresh)}>刷新</Button>
           <Button variant="ghost" size="sm" disabled={busy} aria-label="切换互传区" onClick={() => {
+            setDeparture(null);
             setDraftLink("");
             setEntry("join");
             setChangingRoom(true);
@@ -333,15 +361,39 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
             <Button variant="outline" size="sm" disabled={busy} onClick={() => void copy(recovery, "管理恢复码")}>复制管理恢复码</Button>
           </div>
         </details>}
+        {memberLimit !== undefined && <details className="room-recovery">
+          <summary>文件群成员 {activeMembers.length} / {memberLimit} 人</summary>
+          <ul className="transfer-form">
+            {activeMembers.map(member => <li className="room-person" key={member.id}>
+              <span>{member.name} <small className="room-caption">{memberRoleText[member.role ?? "member"]}</small></span>
+              {managesRoom && member.id !== room.member.id && (member.role === "member" || (member.role === "admin" && owner)) &&
+                <Button size="sm" variant="ghost" disabled={busy || offline} aria-label={`移出 ${member.name}`}
+                  onClick={() => setDeparture({ invitation, member })}>移出</Button>}
+            </li>)}
+            {!owner && <li><Button size="sm" variant="ghost" disabled={busy || offline}
+              onClick={() => setDeparture({ invitation })}>退出文件群</Button></li>}
+          </ul>
+        </details>}
+        {confirmingDeparture && <div className="transfer-form" role="group" aria-label="确认成员变更">
+          <p>{confirmingDeparture.member ? `将「${confirmingDeparture.member.name}」移出文件群？` : "退出这个文件群？"}</p>
+          <div className="transfer-receive-actions">
+            <Button size="sm" variant="outline" onClick={() => setDeparture(null)}>取消</Button>
+            <Button size="sm" variant="destructive" disabled={busy || offline} onClick={() => {
+              setDeparture(null);
+              void depart(confirmingDeparture.member);
+            }}>{confirmingDeparture.member ? "确认移出" : "确认退出"}</Button>
+          </div>
+        </div>}
       </div>
       {!!pending.length && <div className="room-desktop-card transfer-form">
         <h3>待批准访客</h3>
+        {roomFull && <p className="room-caption">文件群已满，有空位后可批准加入。</p>}
         {pending.map(member => <div className="room-person" key={member.id}>
           <span>{member.name}</span>
           <div className="transfer-receive-actions">
             {[true, false].map(accept => {
               const label = accept ? "批准" : "拒绝";
-              return <Button key={label} size="sm" variant="outline" disabled={busy} aria-label={`${label} ${member.name}`}
+              return <Button key={label} size="sm" variant="outline" disabled={busy || offline || (accept && roomFull)} aria-label={`${label} ${member.name}`}
                 onClick={() => void run(async () => {
                   await invoke("room_decide", { invitation, memberId: member.id, accept });
                   await refresh();

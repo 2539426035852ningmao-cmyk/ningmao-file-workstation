@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createRoomServer } from "../selfhost/server.mjs";
 
-test("two browsers can exchange files, with approval and revocation enforced by the server", async t => {
+async function roomClients(t) {
   const root = await mkdtemp(join(tmpdir(), "ningmao-room-"));
   const server = createRoomServer(root).listen(0, "127.0.0.1");
   await once(server, "listening");
@@ -31,6 +31,60 @@ test("two browsers can exchange files, with approval and revocation enforced by 
       return response;
     };
   };
+  return browser;
+}
+
+test("the owner occupies one place and only leaving or removal opens a full room", async t => {
+  const browser = await roomClients(t);
+  const owner = browser();
+  const { code } = await (await owner("", { name: "群主", approval: true })).json();
+  const path = "/" + code;
+  const guests = Array.from({ length: 6 }, () => browser());
+  const join = (guest, index) => guest(path + "/join", { name: "访客 " + (index + 1) });
+  const applications = await Promise.all(guests.slice(0, 5).map(async (guest, index) => {
+    const result = await join(guest, index);
+    assert.equal(result.status, 200);
+    const { member } = await result.json();
+    assert.equal(member.status, "pending");
+    return member;
+  }));
+  const decide = id => owner(path + "/decide", { id, accept: true });
+  const approvals = await Promise.all(applications.map(({ id }) => decide(id)));
+  const winners = approvals.flatMap((response, index) => response.ok ? [index] : []);
+  const [waiting] = approvals.flatMap((response, index) => response.status === 409 ? [index] : []);
+  assert.equal(winners.length, 4);
+  assert.ok(Number.isInteger(waiting));
+  const full = await join(guests[5], 5);
+  assert.equal(full.status, 409);
+  assert.match(await full.json(), /最多 5 人/);
+  const view = async () => (await owner(path)).json();
+  assert.equal((await view()).memberLimit, 5);
+  assert.equal((await view()).members.filter(member => member.status === "active").length, 5);
+  assert.equal((await view()).members.filter(member => member.status === "pending").length, 1);
+  assert.equal((await guests[waiting](path)).status, 403);
+
+  const [first, second] = winners;
+  assert.equal((await guests[first](path + "/remove", { id: applications[second].id })).status, 403);
+  assert.equal((await owner(path + "/leave", {})).status, 403);
+  assert.equal((await guests[first](path + "/leave", {})).status, 200);
+  assert.equal((await (await guests[first](path)).json()).status, "left");
+  assert.equal((await decide(applications[waiting].id)).status, 200);
+  assert.equal((await owner(path + "/remove", { id: applications[second].id })).status, 200);
+  assert.equal((await (await guests[second](path)).json()).status, "removed");
+  assert.equal((await join(guests[second], second)).status, 403);
+  const returned = (await (await join(guests[first], first)).json()).member;
+  assert.equal(returned.id, applications[first].id);
+  assert.equal(returned.status, "pending");
+  assert.equal((await decide(returned.id)).status, 200);
+  assert.equal((await join(guests[5], 5)).status, 409);
+
+  const openRoom = "/" + (await (await owner("", { name: "开放房间", approval: false })).json()).code;
+  const attempts = await Promise.all(guests.map(guest => guest(openRoom + "/join", { name: "访客" })));
+  assert.deepEqual(attempts.map(response => response.status).sort(), [200, 200, 200, 200, 409, 409]);
+});
+
+test("two browsers can exchange files, with approval and revocation enforced by the server", async t => {
+  const browser = await roomClients(t);
   const owner = browser();
   const guest = browser();
   const created = await owner("", { name: "主持者", approval: true });
