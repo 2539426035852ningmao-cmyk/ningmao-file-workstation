@@ -9,6 +9,7 @@
 | 加载与检索 | 首屏优先，空闲预取下一行图片，缓存较小的缩略图与视频封面。名称/标签检索已实现；正文检索未实现。 |
 | 局域网互传 | 两台 Windows 虚拟机已通过隔离网段的原生发现、证书核对、拒收后重试、顺序双向校验、断链、主动取消和重试后的同名保护。浏览器回归已验证断线后的逐项重试和未发现设备时的连接入口。双向并发压力待验。[双机实测](execution/TEMPORARY-ROOM-WINDOWS-GUEST-ACCEPTANCE.md) |
 | 跨网与浏览器互传 | 已有浏览器、WebRTC/WSS、桌面桥接和自建 HTTPS 临时互传区。通过[Windows 原生回环](execution/TEMPORARY-ROOM-NATIVE-BULK-ACCEPTANCE.md)、[两台 Windows 虚拟机安装版](execution/TEMPORARY-ROOM-WINDOWS-GUEST-ACCEPTANCE.md)和[Android 模拟器](execution/TEMPORARY-ROOM-ANDROID-ACCEPTANCE.md)验收。不同真实网络和实体移动设备待验。 |
+| 自托管 HTTPS 续验 | Windows 候选与网页经 QEMU 虚拟 NAT 双向收发，续传和同名留存通过。Android 14 模拟器覆盖 HTTPS、虚拟 Wi‑Fi/蜂窝切换、供件离线和站点重启。Android 发现突然断网后供件列表残留，已加供件心跳和 30 秒过期。[本轮验收](execution/TEMPORARY-ROOM-HTTPS-ACCEPTANCE.md) |
 | 临时互传区 | Windows 测试包可从临时互传区选暂存目录和配额、启动或停止本机站点，并创建需批准的互传区。同目录重启后继续使用原邀请，已收齐的文件按原时限保留。网页和桌面仍可使用已有的自托管站点。网页支持最多三位管理员、文件延期和撤回。[本机站点验收](execution/TEMPORARY-ROOM-MANAGED-HOST-ACCEPTANCE.md) |
 | 单机桌面与网页联测 | 用户已确认用两个独立房间身份往返收发的功能。候选 `53f6fee` 的流程改进已通过原生来回收发、21 项桌面互传回归、18 项网页界面回归及安卓模拟器回归，操作体验待用户复验。[候选、包校验与复跑记录](execution/TEMPORARY-ROOM-NATIVE-BULK-ACCEPTANCE.md) |
 | 在线供件 | 浏览器可手动共享已校验的完整文件，已有接手供件和站点回退的合成回归。安卓模拟器已验休眠退出与唤醒后手动恢复。房间成员、邀请及来源发现依赖站点，站点离线自治和 NAS 常驻供件仍待验证或开发。 |
