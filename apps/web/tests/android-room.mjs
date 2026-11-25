@@ -216,16 +216,20 @@ try {
       assert.equal(hash, sha(androidFixture));
       console.log("Android emulator active transport: " + transport + ", synthetic file hash verified.");
     }
-    device("shell", "svc", "wifi", "enable");
-    await checkTransport("WIFI");
     try {
+      device("shell", "svc", "wifi", "enable");
+      device("shell", "svc", "data", "disable");
+      await checkTransport("WIFI");
       device("shell", "svc", "data", "enable");
       device("shell", "svc", "wifi", "disable");
       await checkTransport("CELLULAR");
+      device("shell", "svc", "wifi", "enable");
+      device("shell", "svc", "data", "disable");
+      await checkTransport("WIFI");
     } finally {
       device("shell", "svc", "wifi", "enable");
+      device("shell", "svc", "data", "enable");
     }
-    await checkTransport("WIFI");
   }
   if (!emulatorNetwork || httpsEmulator) {
     const fixture = Buffer.alloc(4 * 1024 * 1024 + 77, 61);
