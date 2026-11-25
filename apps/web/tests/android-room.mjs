@@ -70,6 +70,9 @@ async function installTestCa(ca, name) {
   await follow("More security & privacy", "More security settings", "Encryption & credentials");
   await follow("Install a certificate", "CA certificate");
   await follow("Install anyway", "Show roots", "Open navigation drawer", "Downloads", "Download", name);
+  // The temporary PIN is for certificate enrollment. Keep the subsequent
+  // sleep/wake scenario on the emulator's original swipe lock.
+  assert.match(device("shell", "locksettings", "clear", "--old", "1234"), /Lock credential cleared/i);
 }
 
 async function selectDeviceFile(page, name) {
@@ -268,11 +271,6 @@ try {
     console.log("Sleep: Android left the active source list; the station provided the identical file.");
     device("shell", "input", "keyevent", "KEYCODE_WAKEUP");
     device("shell", "wm", "dismiss-keyguard");
-    if (httpsEmulator && /mShowingLockscreen=true|mShowing=true/.test(device("shell", "dumpsys", "window", "policy"))) {
-      device("shell", "input", "keyevent", "KEYCODE_MENU");
-      device("shell", "input", "text", "1234");
-      device("shell", "input", "keyevent", "KEYCODE_ENTER");
-    }
     await expect.poll(() => page.evaluate(() => document.visibilityState), { timeout: 20_000 }).toBe("visible");
     await expect.poll(sourceCount).toBe(0);
     await page.getByRole("button", { name: "开始供件 " + fromAndroid }).click();
