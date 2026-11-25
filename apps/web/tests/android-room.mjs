@@ -40,16 +40,14 @@ function tapNode(node) {
 async function installTestCa(ca, name) {
   device("push", ca, "/sdcard/Download/" + name);
   assert.match(device("shell", "locksettings", "set-pin", "1234"), /Pin set to/i);
-  const openSecurity = () => assert.match(device("shell", "am", "start", "-W", "-a", "android.settings.SECURITY_SETTINGS"), /Status: ok/);
-  openSecurity();
+  // Android 14 exports this page directly. The top-level Security Hub can
+  // display account alerts above the credential settings on a clean emulator.
+  assert.match(device("shell", "am", "start", "-W", "-a", "com.android.settings.MORE_SECURITY_PRIVACY_SETTINGS",
+    "-p", "com.android.settings"), /Status: ok/);
   async function follow(...labels) {
     const seen = new Set();
     await expect.poll(() => {
       const nodes = pickerNodes();
-      if (!seen.size && nodes.some(node => node.package === "com.google.android.apps.nexuslauncher")) {
-        openSecurity();
-        return "Waiting for Android Security settings";
-      }
       for (const label of labels) {
         const value = label.toLowerCase();
         const node = nodes.find(n => (value === n.text.toLowerCase() || value === n.description.toLowerCase()) && n.bounds);
@@ -63,8 +61,7 @@ async function installTestCa(ca, name) {
       if (nodes.some(node => /Enter your PIN|Confirm your PIN/i.test(node.text))) {
         device("shell", "input", "text", "1234");
         device("shell", "input", "keyevent", "KEYCODE_ENTER");
-      } else if (nodes.some(node => node.package === "com.android.settings"
-          || node.text === "Security & privacy" || node.text === "More security & privacy")) {
+      } else if (nodes.some(node => node.package === "com.android.settings")) {
         const screen = device("shell", "wm", "size").match(/(\d+)x(\d+)\s*$/);
         if (screen) {
           const [, w, h] = screen.map(Number);
@@ -74,7 +71,7 @@ async function installTestCa(ca, name) {
       return nodes.map(node => node.text || node.description).filter(Boolean).join(" / ");
     }, { timeout: 60_000, intervals: [700] }).toBe(labels.at(-1));
   }
-  await follow("More security & privacy", "More security settings", "Encryption & credentials");
+  await follow("Encryption & credentials");
   await follow("Install a certificate", "CA certificate");
   await follow("Install anyway", "Show roots", "Open navigation drawer", "Downloads", "Download", name);
   // The temporary PIN is for certificate enrollment. Keep the subsequent
