@@ -56,13 +56,15 @@ async function installTestCa(ca, name) {
         if (!node || seen.has(label)) continue;
         seen.add(label);
         tapNode(node);
+        console.log("Android certificate setup: " + label);
         if (label === labels.at(-1)) return label;
         return "Tapped " + label;
       }
       if (nodes.some(node => /Enter your PIN|Confirm your PIN/i.test(node.text))) {
         device("shell", "input", "text", "1234");
         device("shell", "input", "keyevent", "KEYCODE_ENTER");
-      } else if (nodes.some(node => node.package === "com.android.settings")) {
+      } else if (nodes.some(node => node.package === "com.android.settings"
+          || node.text === "Security & privacy" || node.text === "More security & privacy")) {
         const screen = device("shell", "wm", "size").match(/(\d+)x(\d+)\s*$/);
         if (screen) {
           const [, w, h] = screen.map(Number);
