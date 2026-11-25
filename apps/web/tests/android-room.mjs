@@ -27,7 +27,7 @@ function pickerNodes() {
         const value = new RegExp(`(?:^| )${name}="([^"]*)"`).exec(attributes)?.[1] ?? "";
         return value.replaceAll("&amp;", "&").replaceAll("&apos;", "'").replaceAll("&quot;", '"');
       }
-      return { text: attribute("text"), description: attribute("content-desc"), bounds: attribute("bounds") };
+      return { text: attribute("text"), description: attribute("content-desc"), bounds: attribute("bounds"), package: attribute("package") };
     });
   } catch { return []; }
 }
@@ -39,12 +39,17 @@ function tapNode(node) {
 
 async function installTestCa(ca, name) {
   device("push", ca, "/sdcard/Download/" + name);
-  device("shell", "locksettings", "set-pin", "1234");
-  device("shell", "am", "start", "-a", "android.settings.SECURITY_SETTINGS");
+  assert.match(device("shell", "locksettings", "set-pin", "1234"), /Pin set to/i);
+  const openSecurity = () => assert.match(device("shell", "am", "start", "-W", "-a", "android.settings.SECURITY_SETTINGS"), /Status: ok/);
+  openSecurity();
   async function follow(...labels) {
     const seen = new Set();
     await expect.poll(() => {
       const nodes = pickerNodes();
+      if (!seen.size && nodes.some(node => node.package === "com.google.android.apps.nexuslauncher")) {
+        openSecurity();
+        return "Waiting for Android Security settings";
+      }
       for (const label of labels) {
         const value = label.toLowerCase();
         const node = nodes.find(n => (value === n.text.toLowerCase() || value === n.description.toLowerCase()) && n.bounds);
@@ -57,7 +62,7 @@ async function installTestCa(ca, name) {
       if (nodes.some(node => /Enter your PIN|Confirm your PIN/i.test(node.text))) {
         device("shell", "input", "text", "1234");
         device("shell", "input", "keyevent", "KEYCODE_ENTER");
-      } else {
+      } else if (nodes.some(node => node.package === "com.android.settings")) {
         const screen = device("shell", "wm", "size").match(/(\d+)x(\d+)\s*$/);
         if (screen) {
           const [, w, h] = screen.map(Number);
