@@ -102,9 +102,14 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
   }, [setSession]);
 
   async function refresh(target = invitation) {
-    const view = await invoke<RoomView>("room_view", { invitation: target });
-    applyView(target, view);
-    if (!("status" in view)) setChangingRoom(false);
+    try {
+      const view = await invoke<RoomView>("room_view", { invitation: target });
+      applyView(target, view);
+      if (!("status" in view)) setChangingRoom(false);
+    } catch (error) {
+      if (target === invitation && room) setOffline(true);
+      throw error;
+    }
   }
 
   useEffect(() => {
@@ -347,6 +352,7 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
           <span>{memberRoleText[room.member.role ?? "member"]}</span>
         </div>
         <label>邀请链接<Input readOnly value={link} onFocus={event => event.target.select()} /></label>
+        <p className="room-caption">{mobileInvite ? "通过 HTTPS 站点互传" : "通过本机站点互传"}</p>
         <div className="transfer-receive-actions">
           <Button variant="outline" size="sm" disabled={busy} aria-label="复制邀请链接"
             onClick={() => void copy(invitation, "邀请链接")}>复制邀请</Button>
@@ -421,7 +427,7 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
         {selected ? <p className="room-selected" title={selected.name}>{selected.name}</p> :
           <p className="room-caption">{selection.files.length > 1 ? "请选择一个文件发送。" : "请在文件架选择一个文件。"}</p>}
         <div className="transfer-receive-actions">
-          {selected && <Button disabled={busy} onClick={() => void run(async () => {
+          {selected && <Button disabled={busy || offline} onClick={() => void run(async () => {
             await sendSelected(); await refresh();
           })}>将所选文件发给全区</Button>}
           <Button variant={selected ? "ghost" : "outline"} disabled={busy} onClick={returnToShelf}>
@@ -452,7 +458,7 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
             </div>
             {!file.chunked && file.size > WEB_MAX_FILE_BYTES ? <small>请在网页领取</small>
               : saved[file.id] ? <small className="room-saved">{saved[file.id]}</small>
-              : <Button size="sm" variant="outline" disabled={busy || !shelf} aria-label={`保存 ${file.name}`}
+              : <Button size="sm" variant="outline" disabled={busy || offline || !shelf} aria-label={`保存 ${file.name}`}
                 onClick={() => void run(() => saveFile(file))}>保存</Button>}
           </li>)}</ul>}
       </div>

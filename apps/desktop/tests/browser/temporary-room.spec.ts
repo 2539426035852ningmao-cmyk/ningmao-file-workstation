@@ -75,6 +75,7 @@ test("临时互传区直达建区、接续文件架与显式保存", async ({ pa
           };
         }
         if (command === "room_view") {
+          if (sessionStorage.getItem("room-offline") === "yes") throw "合成断线";
           if (sessionStorage.getItem("room-approved") !== "yes") return { status: "pending" };
           return {
             member: { id: "e".repeat(24), name: "合成装机端" }, bulk: true,
@@ -123,6 +124,14 @@ test("临时互传区直达建区、接续文件架与显式保存", async ({ pa
   await expect(page.getByText("发件人已离群", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "保存 received.txt", exact: true })).toBeDisabled();
   await page.getByLabel("保存到", { exact: true }).selectOption("3");
+  await page.evaluate(() => sessionStorage.setItem("room-offline", "yes"));
+  await page.getByRole("button", { name: "刷新互传区" }).click();
+  await expect(page.getByText("站点暂时无法连接，恢复后自动更新。")).toBeVisible();
+  await expect(page.getByRole("button", { name: "将所选文件发给全区" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "保存 received.txt", exact: true })).toBeDisabled();
+  await page.evaluate(() => sessionStorage.removeItem("room-offline"));
+  await page.getByRole("button", { name: "刷新互传区" }).click();
+  await expect(page.getByRole("button", { name: "保存 received.txt", exact: true })).toBeEnabled();
   await page.getByRole("button", { name: "保存 received.txt", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("已拒绝接收");
   await page.getByRole("button", { name: "保存 received.txt", exact: true }).click();
