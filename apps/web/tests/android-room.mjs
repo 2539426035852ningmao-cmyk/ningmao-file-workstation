@@ -214,11 +214,15 @@ try {
       method: "POST", headers: { Cookie: cookie, "X-Offset": "0", "X-SHA256": sha(androidFixture) }, body: androidFixture,
     })).status, 200);
     assert.equal((await fetch(upload + "/publish", { method: "POST", headers: { Cookie: cookie } })).status, 200);
-
   }
 
   await expect(page.getByRole("button", { name: "保存 " + toAndroid })).toBeVisible();
   if (emulatorNetwork) {
+    const response = await fetch(room, { headers: { Cookie: cookie } });
+    assert.equal(response.status, 200);
+    const sent = (await response.json()).files.find(file => file.name === toAndroid);
+    assert.equal(sent?.digest, sha(androidFixture));
+    const filePath = new URL(room).pathname + "/files/" + sent.id;
     function activeTransport() {
       const output = device("shell", "dumpsys", "connectivity");
       const id = /Active default network: (\d+)/.exec(output)?.[1];
@@ -233,7 +237,7 @@ try {
         const bytes = await response.arrayBuffer();
         return Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)),
           byte => byte.toString(16).padStart(2, "0")).join("");
-      }, "/api/rooms/" + code + "/files/" + id);
+      }, filePath);
       assert.equal(hash, sha(androidFixture));
       console.log("Android emulator active transport: " + transport + ", synthetic file hash verified.");
     }
