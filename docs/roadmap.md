@@ -23,13 +23,13 @@
 
 用户确认单机 Windows 和网页使用两个独立房间身份完成收发。改进候选 `53f6fee` 已复测审批后自动入区、新文件自动出现、网页完整邀请链接、一键复制及电脑浏览器校验后一键下载，操作体验待用户复验。另有 Windows 双机局域网断链、取消和重试、Windows 与网页跨虚拟网络及安卓模拟器的独立证据。[单机与操作验收](execution/TEMPORARY-ROOM-NATIVE-BULK-ACCEPTANCE.md) · [Windows 双机与跨虚拟网络](execution/TEMPORARY-ROOM-WINDOWS-GUEST-ACCEPTANCE.md) · [安卓模拟器](execution/TEMPORARY-ROOM-ANDROID-ACCEPTANCE.md)
 
-## 互传首版还需三轮
+## 互传首版三轮收束
 
 估算以五人文件群、现有自托管 HTTPS 和 Windows 原生局域网为首版范围。扫码互传已获用户确认。浏览器和 Windows 文件列表显示当前群内发件人，两端继续使用各自的保存反馈。[扫码验收](execution/MOBILE-ROOM-SCAN.md)
 
 1. **满员和传输恢复。** 五个独立浏览器会话已完成并发上传、四端同时领取、一端续传、重复领取及落盘校验。原生取消和同名留存沿用已有证据。[并发场景和性能数据](execution/ROOM-FIVE-MEMBER-LOAD.md)
 2. **设备与网络闭环。** 桌面已区分本机站点与 HTTPS，断线暂挂，恢复后沿原房间继续。分别记录设备联测、房主停站和在线供件回退证据。[设备与站点恢复](execution/ROOM-DEVICE-RECOVERY.md)
-3. **操作与交付。** 按网页、Windows、Android 浏览器顺序打磨邀请、审批、收件、恢复和到期提示。形成一套可复现的安装或开站指引、Windows 测试包和复验记录。实际设备测试与隔离测试分别记录，发行沿用现有审核。
+3. **操作与交付。** 网页保留原文件续传，手机提示准备保存，桌面说明收件位置。用统一候选和清单复验，设备证据及待验场景按记录核对。[统一验收](execution/ROOM-FIRST-RELEASE-CANDIDATE.md)
 
 首版收尾后，设备绑定与可撤销的指定对象分享另排一轮，继续使用已有的配对与授权基础。持续同步按冲突、版本、删除、离线恢复和权限变化先定规则，再小范围验证，单独估算。
 

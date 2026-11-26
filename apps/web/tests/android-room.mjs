@@ -133,6 +133,13 @@ const stationPort = await start();
 const origin = (tls ? "https" : "http") + "://127.0.0.1:" + stationPort;
 const androidOrigin = httpsEmulator ? origin.replace("127.0.0.1", "room.test")
   : emulatorNetwork ? origin.replace("127.0.0.1", "10.0.2.2") : origin;
+function activeTransport() {
+  const output = device("shell", "dumpsys", "connectivity");
+  const id = /Active default network: (\d+)/.exec(output)?.[1];
+  const active = output.split("\n").find(line => line.includes("network{" + id + "}") && line.includes("Transports:"));
+  return /Transports: (WIFI|CELLULAR)/.exec(active ?? "")?.[1] ?? "";
+}
+
 const port = "tcp:" + station.address().port;
 const fromAndroid = "from-android-" + tag + ".bin";
 const toAndroid = "to-android-" + tag + ".bin";
@@ -242,12 +249,6 @@ try {
     const sent = (await response.json()).files.find(file => file.name === toAndroid);
     assert.equal(sent?.digest, sha(androidFixture));
     const filePath = new URL(room).pathname + "/files/" + sent.id;
-    function activeTransport() {
-      const output = device("shell", "dumpsys", "connectivity");
-      const id = /Active default network: (\d+)/.exec(output)?.[1];
-      const active = output.split("\n").find(line => line.includes("network{" + id + "}") && line.includes("Transports:"));
-      return /Transports: (WIFI|CELLULAR)/.exec(active ?? "")?.[1] ?? "";
-    }
     async function checkTransport(transport) {
       await expect.poll(activeTransport, { timeout: 30_000, intervals: [1000] }).toBe(transport);
       const hash = await page.evaluate(async path => {
@@ -344,12 +345,14 @@ try {
         device("shell", "svc", "wifi", "disable");
         await expect(page.getByRole("alert")).toContainText("互传站点暂时无法连接", { timeout: 40_000 });
         await expect.poll(sourceCount, { timeout: 40_000 }).toBe(0);
-      } finally {
-        device("shell", "svc", "data", "enable");
         device("shell", "svc", "wifi", "enable");
+        await expect.poll(activeTransport, { timeout: 30_000, intervals: [1000] }).toBe("WIFI");
+        await expect(page.getByRole("alert")).toHaveCount(0, { timeout: 40_000 });
+        await expect(page.getByRole("heading", { name: /Android 测试客户端/ })).toBeVisible();
+      } finally {
+        device("shell", "svc", "wifi", "enable");
+        device("shell", "svc", "data", "enable");
       }
-      await expect(page.getByRole("alert")).toHaveCount(0, { timeout: 40_000 });
-      await expect(page.getByRole("heading", { name: /Android 测试客户端/ })).toBeVisible();
       console.log("Android radio outage: source went offline, room returned under the existing HTTPS invite.");
 
       await stop();

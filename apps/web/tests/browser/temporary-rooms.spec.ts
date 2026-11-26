@@ -119,7 +119,10 @@ test("电脑显示的二维码可解出原邀请，手机视口使用同一地�
       args: ["--host-resolver-rules=MAP room.test 127.0.0.1"],
     });
     const host = await browser.newPage({ ignoreHTTPSErrors: true });
-    const phone = await browser.newPage({ ignoreHTTPSErrors: true, isMobile: true, hasTouch: true, viewport: { width: 390, height: 844 } });
+    const phone = await browser.newPage({
+      ignoreHTTPSErrors: true, isMobile: true, hasTouch: true, viewport: { width: 390, height: 844 },
+      userAgent: "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/131.0.0.0 Mobile Safari/537.36",
+    });
     await host.goto(`https://room.test:${server.address().port}/rooms`);
     await host.getByLabel("显示名称").fill("电脑房主");
     await host.getByLabel("入区需批准").check();
@@ -135,6 +138,17 @@ test("电脑显示的二维码可解出原邀请，手机视口使用同一地�
     await expect(phone.getByRole("heading", { name: "共享文件" })).toHaveCount(0);
     await host.getByRole("button", { name: "批准", exact: true }).click();
     await expect(phone.getByText("文件群成员 2 / 5 人")).toBeVisible();
+    const mobileFile = "手机保存.txt";
+    const bytes = Buffer.from("先校验，再保存的合成文件");
+    await host.getByLabel("选择文件").setInputFiles({ name: mobileFile, mimeType: "text/plain", buffer: bytes });
+    await host.getByRole("button", { name: "发给全区 2 人" }).click();
+    await phone.getByRole("button", { name: `准备保存 ${mobileFile}`, exact: true }).click();
+    await expect(phone.getByRole("status")).toHaveText("文件校验通过，请点击保存。");
+    const download = phone.waitForEvent("download");
+    await phone.getByRole("button", { name: `保存 ${mobileFile}`, exact: true }).click();
+    const saved = await download;
+    await expect(phone.getByRole("status")).toHaveText("校验通过，已交给浏览器保存。");
+    expect(await readFile(await saved.path())).toEqual(bytes);
   } finally {
     await browser?.close();
     await new Promise<void>(resolve => server.close(() => resolve()));

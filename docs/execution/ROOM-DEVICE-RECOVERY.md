@@ -8,7 +8,8 @@
 - Windows 候选通过原生群主建群、独立访客批准、双向写入与同名保护的回环场景。手机脚本的 Windows 群主驱动另以合成回环探针执行其原生命令。
 - 电脑浏览器与 Android 14 模拟器已有 HTTPS 双向落盘、模拟 Wi-Fi 和蜂窝切换、断网以及停站重启恢复证据。[扫码验收](MOBILE-ROOM-SCAN.md)
 - 浏览器已有两名在线来源依次退出后从站点同一偏移接续的自动回归。此前两台 Windows 客体的原生直传覆盖设备发现、指纹核对、顺序双向收发、取消、断开及安全重试。[双机实测](TEMPORARY-ROOM-WINDOWS-GUEST-ACCEPTANCE.md)
-- Windows 软件与 Android 的同轮验收可用下述隔离环境运行。当前宿主未启动到一个可通过 ADB 使用的 Android 会话。同轮场景与两台 Windows 客体真正同时收发的当轮证据单独核对。
+- 原生回环补测同时启动两个独立 TLS 接收器，两个上传均到达首块后才继续。两个方向均收到完成回执，编号副本的哈希分别正确，原同名文件保持原样。
+- 本机 Android 软件仿真在 ADB 连接前退出。两台 Windows 虚拟客体停在实验镜像登录，回合内没有进入应用。Windows 软件与 Android 同轮、两台 Windows 客体真正同时收发均留待可登录的隔离设备重跑。
 
 ## 原生 Windows 与 Android 复跑
 
@@ -20,3 +21,5 @@ node apps/web/tests/android-room.mjs --native-exe "<候选 EXE>"
 ```
 
 `--native-exe` 使用测试专用 ADB 回环。Android HTTPS 路径单独使用 `--https-emulator`。
+
+原生并行回环复跑使用 `cargo test --locked --manifest-path experiments/p3-loopback/Cargo.toml two_pinned_receivers_finish_overlapping_uploads_without_overwriting`。
