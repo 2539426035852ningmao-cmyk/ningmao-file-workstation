@@ -60,6 +60,7 @@ export function TemporaryRoom() {
   const [recovery, setRecovery] = useState("");
   const [recoveryInput, setRecoveryInput] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [retryUpload, setRetryUpload] = useState<File | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -153,6 +154,7 @@ export function TemporaryRoom() {
       setRoom(null);
       setMembership("");
       setStationOffline(false);
+      setRetryUpload(null);
       setCode(next);
     }
     return next;
@@ -162,8 +164,14 @@ export function TemporaryRoom() {
     setProblem("");
     setMessage("");
     setBusy(true);
-    try { await action(); }
-    catch (error) { setProblem(error instanceof Error ? error.message : "操作失败，请重试。"); }
+    try {
+      await action();
+      return true;
+    } catch (error) {
+      setProblem(error instanceof TypeError ? "连接失败，请稍后重试。"
+        : error instanceof Error ? error.message : "操作失败，请重试。");
+      return false;
+    }
     finally { setBusy(false); }
   }
 
@@ -343,11 +351,16 @@ export function TemporaryRoom() {
             if (fileInput.current) fileInput.current.value = "";
             setMessage("文件校验通过，已发到临时互传区。");
             await refresh(roomApi);
-          });
+          }).then(sent => setRetryUpload(sent ? null : source));
         }}>
-          <label>选择文件 <input type="file" ref={fileInput} disabled={busy} onChange={event => setFile(event.target.files?.[0] ?? null)} /></label>
+          <label>选择文件 <input type="file" ref={fileInput} disabled={busy} onChange={event => {
+            setFile(event.target.files?.[0] ?? null);
+            setRetryUpload(null);
+          }} /></label>
           {file && <p className="room-note">{file.name}（{formatSize(file.size)}）　{tooLarge ? "超过单文件上限，请重新选择。" : `发布后可领取 ${retentionHours(file.size)} 小时`}</p>}
-          <button type="submit" className="room-primary" disabled={remoteBlocked || !file || tooLarge}>发给全区 {activeMembers.length} 人</button>
+          <button type="submit" className="room-primary" disabled={remoteBlocked || !file || tooLarge}>
+            {file && file === retryUpload ? (room.bulk ? "续传原文件" : "重试发送") : `发给全区 ${activeMembers.length} 人`}
+          </button>
           <p className="room-note">{room.bulk ? "单文件最多 20 GB。中断后可重选原文件续传。" : "单文件最多 64 MiB，校验成功后保留 24 小时。"}</p>
         </form>
       </section>
@@ -362,7 +375,7 @@ export function TemporaryRoom() {
             <p className="room-note">{formatSize(item.size)} · 领取期限 {formatDate(item.expires)}</p>
           </div>
           <div className="room-row">
-            <button className="room-primary" disabled={busy || (stationOffline && !verified[item.id])} aria-label={`保存 ${item.name}`} onClick={() => void perform(async () => {
+            <button className="room-primary" disabled={busy || (stationOffline && !verified[item.id])} aria-label={`${item.chunked && needsSaveClick && !verified[item.id] ? "准备保存" : "保存"} ${item.name}`} onClick={() => void perform(async () => {
               if (item.chunked) {
                 const ready = verified[item.id];
                 if (ready) { saveFromBrowser(ready, item.name); return; }
@@ -377,7 +390,7 @@ export function TemporaryRoom() {
               const body = await response.arrayBuffer();
               if (body.byteLength !== item.size || await digest(body) !== item.digest) throw new Error("文件校验失败，未保存。");
               saveFromBrowser(new Blob([body]), item.name);
-            })}><ArrowDownToLine size={16} aria-hidden /> {item.chunked && verified[item.id] ? "保存" : "下载"}</button>
+            })}><ArrowDownToLine size={16} aria-hidden /> {item.chunked && verified[item.id] ? "保存" : item.chunked && needsSaveClick ? "准备保存" : "下载"}</button>
             {peerEnabled && item.chunked && item.size > 0 && (seedCopies[item.id] || verified[item.id]) &&
               <button disabled={busy || (stationOffline && !seeding.includes(item.id))} aria-label={`${seeding.includes(item.id) ? "停止供件" : "开始供件"} ${item.name}`}
                 onClick={() => void perform(async () => {

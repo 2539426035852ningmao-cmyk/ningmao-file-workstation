@@ -447,6 +447,7 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
           const target = await chooseReceiveFolder();
           if (target !== null) selectShelf(target);
         })}>{shelf ? "更换保存文件夹" : "选择保存文件夹"}</Button>}
+        {!shelf && room.files.length > 0 && <p className="room-caption">选择保存位置后即可确认收件。</p>}
         {room.files.length === 0 ? <p className="room-caption">区内还没有文件。</p> :
           <ul className="room-file-list" aria-label="区内文件">{room.files.map(file => <li key={file.id}>
             <div className="room-file-name">

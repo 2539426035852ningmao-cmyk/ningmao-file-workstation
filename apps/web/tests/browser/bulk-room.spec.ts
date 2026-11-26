@@ -54,7 +54,7 @@ test("网页上传中断后从已确认偏移续传，接收端校验后实际�
     await send.click();
     await expect(hostPage.getByRole("alert")).toBeVisible();
     await expect(guestPage.getByRole("button", { name: "保存 分块.txt" })).toHaveCount(0);
-    await send.click();
+    await hostPage.getByRole("button", { name: "续传原文件" }).click();
     await expect(hostPage.getByRole("status")).toContainText("文件校验通过");
     expect(offsets).toEqual([0, 4 * 1024 * 1024, 4 * 1024 * 1024]);
     const ranges: string[] = [];
