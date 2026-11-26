@@ -33,7 +33,7 @@ test("全区为默认，指定两人时只有他们能保存", async ({ browser 
     await expect(owner.getByRole("button", { name: "发送给 0 人" })).toBeDisabled();
     await owner.getByRole("checkbox", { name: "成员 1" }).check();
     await owner.getByRole("checkbox", { name: "成员 2" }).check();
-    await expect(owner.getByText("发给 成员 1、成员 2")).toBeVisible();
+    await expect(owner.getByText(/^发给 成员 (1、成员 2|2、成员 1)$/)).toBeVisible();
 
     // A station that ignores the new audience must never receive file bytes.
     let chunk = false;

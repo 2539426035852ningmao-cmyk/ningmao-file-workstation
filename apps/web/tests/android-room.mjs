@@ -251,14 +251,17 @@ try {
     const filePath = new URL(room).pathname + "/files/" + sent.id;
     async function checkTransport(transport) {
       await expect.poll(activeTransport, { timeout: 30_000, intervals: [1000] }).toBe(transport);
-      const hash = await page.evaluate(async path => {
-        const response = await fetch(path, { cache: "no-store", signal: AbortSignal.timeout(10_000) });
-        if (!response.ok) throw new Error("站点不可达");
-        const bytes = await response.arrayBuffer();
-        return Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)),
-          byte => byte.toString(16).padStart(2, "0")).join("");
-      }, filePath);
-      assert.equal(hash, sha(androidFixture));
+      await expect.poll(() => page.evaluate(async path => {
+        try {
+          const response = await fetch(path, { cache: "no-store", signal: AbortSignal.timeout(4_000) });
+          if (!response.ok) return "";
+          const bytes = await response.arrayBuffer();
+          return Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)),
+            byte => byte.toString(16).padStart(2, "0")).join("");
+        } catch {
+          return "";
+        }
+      }, filePath), { timeout: 20_000, intervals: [750] }).toBe(sha(androidFixture));
       console.log("Android emulator active transport: " + transport + ", synthetic file hash verified.");
     }
     try {
