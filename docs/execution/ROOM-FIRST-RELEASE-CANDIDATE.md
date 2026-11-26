@@ -10,6 +10,13 @@
 | 设备与连接恢复 | 桌面区分本机和 HTTPS 站点，断开期间暂停发送和保存，恢复沿用原邀请。移动端 HTTPS、供件者退出及站点回退各有独立证据与复跑入口。[连接与设备](ROOM-DEVICE-RECOVERY.md) |
 | 操作与打包 | 网页断线保留发送文件并显示「续传原文件」。手机浏览器显示「准备保存」，校验后再明确保存。桌面提示先选收件位置，实际收件沿用原生确认。[随包使用说明](../../scripts/transfer-test/使用说明.md) |
 
+## 候选记录
+
+- Windows 便携测试包 `Ningmao-Transfer-R1-4507332.zip` 构建源为 `4507332`。ZIP SHA-256 为 `ad8d77889204cb276b3d2138bbf7f73309562223c52a6f40084eefa958a1362a`。解压后逐项校验 21 个文件。MSI 只读检查通过。
+- 同一便携 EXE 与独立 Chromium 实际双向保存，哈希一致。Windows 生成同名编号副本并保留原文件，停站重启后原邀请恢复，五人名额释放通过。
+- 本机网页界面 20 项、网页单元和站点 44 项、桌面全量 231 项通过。新增原生 TLS 双向回环通过。
+- GitHub 轮次对应[五人并发 #119](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/119)、[设备与恢复 #120](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/120)、[统一候选 #121](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/121)。
+
 ## 统一验收清单
 
 1. 用一台电脑打开软件及独立网页，建区时启用审批。确认获批后两端可以查看发件人并互发合成文件。

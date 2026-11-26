@@ -1195,6 +1195,83 @@ mod direct_event_tests {
     }
 
     #[test]
+    fn two_pinned_receivers_finish_overlapping_uploads_without_overwriting() {
+        use std::sync::mpsc::{Receiver as Started, Sender, channel};
+
+        let setup = |directory: &Path| {
+            fs::write(directory.join("shared.bin"), b"original").unwrap();
+            let (cert, private_key) = keypair().unwrap();
+            let fingerprint = digest(&cert);
+            let config = ServerConfig::builder()
+                .with_no_client_auth()
+                .with_single_cert(vec![CertificateDer::from(cert)], key(&private_key))
+                .unwrap();
+            let receiver = ningmao_transfer_receiver::Receiver::start(
+                "127.0.0.1:0".parse().unwrap(),
+                directory,
+                Arc::new(config),
+                Arc::new(|_| Ok(())),
+                Arc::new(|_, _| true),
+            )
+            .unwrap();
+            let client = LoopbackClient::pinned(receiver.address, &fingerprint).unwrap();
+            (receiver, client)
+        };
+        let send = |client: LoopbackClient,
+                    bytes: &[u8],
+                    started: Sender<()>,
+                    peer: Started<()>| {
+            let (status, plan) = client
+                .prepare(json!({"f":{"fileName":"shared.bin","size":bytes.len(),"sha256":digest(bytes)}}))
+                .unwrap();
+            assert_eq!(status, 200);
+            let mut first = true;
+            let (status, _) = client
+                .upload_with_progress(
+                    plan["sessionId"].as_str().unwrap(),
+                    "f",
+                    plan["files"]["f"].as_str().unwrap(),
+                    bytes.len() as u64,
+                    &mut io::Cursor::new(bytes),
+                    |sent| {
+                        if first && sent >= CHUNK as u64 {
+                            first = false;
+                            started.send(())?;
+                            peer.recv_timeout(Duration::from_secs(5))?;
+                        }
+                        Ok(())
+                    },
+                )
+                .unwrap();
+            assert_eq!(status, 200);
+        };
+        let a = tempfile::tempdir().unwrap();
+        let b = tempfile::tempdir().unwrap();
+        let (receiver_a, to_a) = setup(a.path());
+        let (receiver_b, to_b) = setup(b.path());
+        let from_a = vec![0x2a; CHUNK * 20 + 71];
+        let from_b = vec![0x4f; CHUNK * 20 + 127];
+        let (a_started, saw_a) = channel();
+        let (b_started, saw_b) = channel();
+        std::thread::scope(|scope| {
+            scope.spawn(|| send(to_b, &from_a, a_started, saw_b));
+            scope.spawn(|| send(to_a, &from_b, b_started, saw_a));
+        });
+        assert_eq!(fs::read(a.path().join("shared.bin")).unwrap(), b"original");
+        assert_eq!(fs::read(b.path().join("shared.bin")).unwrap(), b"original");
+        assert_eq!(
+            hash_file(&a.path().join("shared (1).bin")).unwrap(),
+            digest(&from_b)
+        );
+        assert_eq!(
+            hash_file(&b.path().join("shared (1).bin")).unwrap(),
+            digest(&from_a)
+        );
+        receiver_a.stop().unwrap();
+        receiver_b.stop().unwrap();
+    }
+
+    #[test]
     fn desktop_upload_waits_for_slow_receiver_receipt() {
         let destination = tempfile::tempdir().unwrap();
         let (cert, private_key) = keypair().unwrap();
