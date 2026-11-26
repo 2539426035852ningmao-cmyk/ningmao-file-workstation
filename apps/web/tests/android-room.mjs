@@ -106,8 +106,12 @@ const sha = data => createHash("sha256").update(data).digest("hex");
 const tag = randomBytes(6).toString("hex");
 const local = await mkdtemp(join(tmpdir(), "ningmao-android-room-"));
 const httpsEmulator = process.argv.includes("--https-emulator");
-console.log(httpsEmulator ? "Android HTTPS virtual network test" : "Android HTTP test");
+const nativeArg = process.argv.indexOf("--native-exe");
+const nativeExe = nativeArg < 0 ? undefined : process.argv[nativeArg + 1];
 const emulatorNetwork = httpsEmulator || process.argv.includes("--emulator-network");
+if (nativeArg >= 0) assert.ok(nativeExe && process.platform === "win32" && !emulatorNetwork,
+  "Pass a Windows candidate EXE to run the native host through ADB reverse.");
+console.log(httpsEmulator ? "Android HTTPS virtual network test" : "Android HTTP test");
 const tls = httpsEmulator ? await createTestTls(local, ["127.0.0.1", "room.test"]) : undefined;
 const caName = "ningmao-" + tag + ".crt";
 if (tls) setDefaultCACertificates([...getCACertificates("default"), await readFile(tls.ca, "utf8")]);
@@ -136,6 +140,7 @@ const receivedPath = "/sdcard/Download/" + toAndroid;
 const sourcePath = "/sdcard/Download/" + fromAndroid;
 let browser;
 let hostBrowser;
+let nativeOwner;
 let forwarded;
 try {
   if (tls) await installTestCa(tls.ca, caName);
@@ -163,7 +168,12 @@ try {
   if (tls) console.log("Android Chrome accepted the HTTPS certificate at the emulator gateway.");
 
   let owner, cookie, invitation;
-  if (tls) {
+  if (nativeExe) {
+    const { startNativeOwner } = await import("./native-android-owner.mjs");
+    nativeOwner = await startNativeOwner(nativeExe, local);
+    const created = await nativeOwner.invoke("room_create", { station: origin, name: "Windows 群主", approval: true });
+    invitation = created.invitation;
+  } else if (tls) {
     const pin = createHash("sha256").update(new X509Certificate(tls.cert).publicKey.export({ type: "spki", format: "der" })).digest("base64");
     hostBrowser = await chromium.launch({
       proxy: { server: "http://127.0.0.1:1", bypass: "room.test" },
@@ -191,15 +201,24 @@ try {
   await page.goto(invitation);
   await page.getByLabel("显示名称").fill("Android 测试客户端");
   await page.getByRole("button", { name: "加入互传区" }).click();
-  if (owner) {
+  if (owner || nativeOwner) {
     await expect(page.getByText("等待群主或管理员批准加入。")).toBeVisible();
     await expect(page.getByRole("heading", { name: "共享文件" })).toHaveCount(0);
-    await owner.getByRole("button", { name: "批准", exact: true }).click();
+    if (nativeOwner) {
+      const view = await nativeOwner.invoke("room_view", { invitation });
+      const guest = view.members.find(member => member.status === "pending" && member.name === "Android 测试客户端");
+      assert.ok(guest, "Android must await approval under its own identity");
+      await nativeOwner.invoke("room_decide", { invitation, memberId: guest.id, accept: true });
+      const [session] = await context.cookies(androidOrigin + "/api/rooms");
+      cookie = session.name + "=" + session.value;
+    } else await owner.getByRole("button", { name: "批准", exact: true }).click();
   }
   await expect(page.getByRole("heading", { name: "共享文件" })).toBeVisible();
 
   const androidFixture = Buffer.alloc(187, 28);
-  if (owner) {
+  if (nativeOwner) {
+    await nativeOwner.upload(invitation, toAndroid, androidFixture);
+  } else if (owner) {
     await owner.getByLabel("选择文件").setInputFiles({ name: toAndroid, mimeType: "application/octet-stream", buffer: androidFixture });
     await owner.getByRole("button", { name: "发给全区 2 人" }).click();
   } else {
@@ -270,7 +289,10 @@ try {
     assert.equal(uploaded?.digest, sha(fixture));
     const copied = await fetch(room + "/files/" + uploaded.id, { headers: { Cookie: cookie } });
     assert.equal(sha(Buffer.from(await copied.arrayBuffer())), sha(fixture));
-    if (owner) {
+    if (nativeOwner) {
+      assert.equal(sha(await nativeOwner.receive(invitation, uploaded)), sha(fixture));
+      console.log("Windows native receipt preserved the existing same-name file.");
+    } else if (owner) {
       const downloading = owner.waitForEvent("download");
       await owner.getByRole("button", { name: "保存 " + fromAndroid }).click();
       const saved = await downloading;
@@ -341,10 +363,11 @@ try {
 } finally {
   await browser?.close();
   await hostBrowser?.close();
+  await nativeOwner?.stop();
   if (forwarded) device("forward", "--remove", forwarded);
   if (!emulatorNetwork) device("reverse", "--remove", port);
   device("shell", "am", "clear-debug-app");
   device("shell", "rm", "-f", "/data/local/tmp/chrome-command-line", pickerPath, sourcePath, receivedPath, "/sdcard/Download/" + caName);
   await stop();
-  await rm(local, { recursive: true, force: true });
+  await rm(local, { recursive: true, force: true, maxRetries: 15, retryDelay: 100 });
 }
