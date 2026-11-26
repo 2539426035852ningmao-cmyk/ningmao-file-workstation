@@ -1,3 +1,4 @@
+import { QRCodeCanvas } from "qrcode.react";
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type { Shelf } from "../backend";
@@ -48,6 +49,9 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
   const hostPanel = useRef<HTMLDetailsElement>(null);
   const hostRunning = host?.running === true;
   const invitation = link.trim();
+  const inviteUrl = URL.canParse(invitation) ? new URL(invitation) : null;
+  const mobileInvite = inviteUrl?.protocol === "https:"
+    && !/^(?:(?:.+\.)?localhost\.?$|127\.|\[::1\]$)/i.test(inviteUrl.hostname);
   const shelf = shelves.some(item => item.id === session.shelf) ? session.shelf : 0;
   const pending = room?.members?.filter(member => member.status === "pending") ?? [];
   const activeMembers = room?.members?.filter(member => member.status === "active") ?? [];
@@ -354,6 +358,15 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
             setChangingRoom(true);
           }}>切换</Button>
         </div>
+        <details className="room-recovery" key={invitation}>
+          <summary>手机扫码加入</summary>
+          <div className="transfer-form">
+            {mobileInvite ? <>
+              <QRCodeCanvas value={invitation} size={192} marginSize={4} role="img" aria-label="互传区邀请二维码" />
+              <p className="room-caption">用手机相机扫码，打开邀请后申请加入。</p>
+            </> : <p className="room-caption">这个地址供当前电脑使用。请用手机可访问的 HTTPS 站点创建互传区。</p>}
+          </div>
+        </details>
         {recovery && <details className="room-recovery">
           <summary>管理恢复码</summary>
           <div className="transfer-form">
