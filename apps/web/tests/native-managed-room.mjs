@@ -68,6 +68,9 @@ try {
   const guest = await browser.newPage({ acceptDownloads: true });
   const timeout = { timeout: 15000 };
   await guest.goto(room.invitation);
+  await guest.getByLabel("显示名称").fill("集成测试房主");
+  await guest.getByRole("button", { name: "加入互传区" }).click();
+  await guest.getByRole("alert").filter({ hasText: "此名称已被使用，请换一个显示名称。" }).waitFor(timeout);
   await guest.getByLabel("显示名称").fill("集成测试网页访客");
   await guest.getByRole("button", { name: "加入互传区" }).click();
   await guest.getByText("等待群主或管理员批准加入。").waitFor(timeout);
@@ -79,6 +82,13 @@ try {
   assert.equal(pending.status, "pending");
   await invoke("room_decide", { invitation: room.invitation, memberId: pending.id, accept: true });
   await guest.getByRole("heading", { name: "共享文件" }).waitFor(timeout);
+
+  const otherRoom = await guest.request.post(new URL("/api/rooms", site).href, { data: { name: "网页发起人" } });
+  assert.equal(otherRoom.status(), 201);
+  const otherInvitation = site + "?code=" + (await otherRoom.json()).code;
+  await assert.rejects(invoke("room_join", { invitation: otherInvitation, name: "网页发起人" }), /名称已被使用/);
+  await invoke("room_join", { invitation: otherInvitation, name: "软件加入者" });
+  assert.equal((await invoke("room_view", { invitation: otherInvitation })).member.name, "软件加入者");
 
   const db = new DatabaseSync(join(workspace, "workstation.sqlite3"));
   const shelfId = db.prepare("UPDATE record_ids SET next_id=next_id+1 WHERE entity='shelf' RETURNING next_id-1 AS id").get().id;
