@@ -195,6 +195,7 @@ export function TemporaryRoom() {
   const manage = room?.member.role === "owner" || room?.member.role === "admin";
   const activeMembers = room?.members.filter(member => member.status === "active") ?? [];
   const pendingMembers = room?.members.filter(member => member.status === "pending") ?? [];
+  const senderNames = new Map(activeMembers.map(member => [member.id, member.name]));
   const memberLimit = room?.memberLimit;
   const roomFull = memberLimit !== undefined && activeMembers.length >= memberLimit;
   const mobileInvite = location.protocol === "https:"
@@ -354,7 +355,12 @@ export function TemporaryRoom() {
         <h2>共享文件</h2>
         {room.files.length === 0 && <p className="room-note">区内还没有文件。</p>}
         {room.files.map(item => <article key={item.id} className="room-file">
-          <div><strong>{item.name}</strong><p className="room-note">{formatSize(item.size)} · 领取期限 {formatDate(item.expires)}</p></div>
+          <div>
+            <strong>{item.name}</strong>
+            <p className="room-note">{item.sender === room.member.id ? "我发送的"
+              : senderNames.has(item.sender) ? `发件人 ${senderNames.get(item.sender)}` : "发件人已离群"}</p>
+            <p className="room-note">{formatSize(item.size)} · 领取期限 {formatDate(item.expires)}</p>
+          </div>
           <div className="room-row">
             <button className="room-primary" disabled={busy || (stationOffline && !verified[item.id])} aria-label={`保存 ${item.name}`} onClick={() => void perform(async () => {
               if (item.chunked) {

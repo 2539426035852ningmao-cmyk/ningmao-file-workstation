@@ -30,7 +30,7 @@
 .room-file-list{padding:0;margin:0;list-style:none;min-width:0}
 .room-file-list li{display:flex;gap:8px;justify-content:space-between;align-items:center;padding:7px 0;border-top:.5px solid var(--border)}
 .room-file-name{min-width:0;display:grid;gap:2px}
-.room-file-name strong,.room-saved{overflow-wrap:anywhere}
+.room-file-name strong,.room-file-name small,.room-saved{overflow-wrap:anywhere}
 .room-file-list li>button{flex:none}
 .room-desktop-feedback{position:sticky;bottom:0;padding:8px 10px;font-size:12px;border:.5px solid var(--border);border-radius:8px;background:var(--surface-raised);overflow-wrap:anywhere}
 .room-desktop-feedback[role=alert]{color:var(--danger-text)}
