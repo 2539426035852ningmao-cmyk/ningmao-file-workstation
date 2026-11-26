@@ -14,6 +14,7 @@ const DAY = 86_400_000;
 const STORAGE_LIMIT = 512 * 1024 * 1024;
 const MEMBER_LIMIT = 5;
 const FULL_ROOM = "文件群已满（最多 5 人，含群主）。";
+const DUPLICATE_MEMBER_NAME = "此名称已被使用，请换一个显示名称。";
 const dist = fileURLToPath(new URL("../dist/", import.meta.url));
 const token = (size = 24) => randomBytes(size).toString("hex");
 const sha = value => createHash("sha256").update(value).digest("hex");
@@ -62,6 +63,7 @@ function validName(value) {
   );
 }
 
+const memberNameKey = name => name.normalize("NFKC").trim().toLowerCase();
 const managesRoom = member => member.role === "owner" || member.role === "admin";
 
 export function createRoomServer(directory, tls, bulkQuota = 0, { managed = false } = {}) {
@@ -93,7 +95,13 @@ export function createRoomServer(directory, tls, bulkQuota = 0, { managed = fals
   const members = db.prepare("SELECT id, name, role, status FROM members WHERE room = ? AND session = ?");
   const addMember = db.prepare("INSERT INTO members VALUES (?, ?, ?, ?, ?, ?)");
   const activeCount = db.prepare("SELECT COUNT(*) AS count FROM members WHERE room = ? AND status = 'active'");
-  const memberById = db.prepare("SELECT role, status FROM members WHERE room = ? AND id = ?");
+  const memberById = db.prepare("SELECT name, role, status FROM members WHERE room = ? AND id = ?");
+  const reservedNames = db.prepare("SELECT name FROM members WHERE room = ? AND (status = 'active' OR ? AND status = 'pending')");
+  function requireUnusedName(code, name, includePending) {
+    const key = memberNameKey(name);
+    requireValue(!reservedNames.all(code, Number(includePending)).some(member => memberNameKey(member.name) === key),
+      409, DUPLICATE_MEMBER_NAME);
+  }
   const changeStatus = db.prepare("UPDATE members SET status = ?, role = 'member' WHERE room = ? AND id = ?");
   const purgeFiles = db.prepare("DELETE FROM files WHERE expires <= ?");
   const oldRooms = db.prepare("SELECT code FROM rooms WHERE created < ? AND NOT EXISTS (SELECT 1 FROM files WHERE files.room = rooms.code)");
@@ -177,6 +185,7 @@ export function createRoomServer(directory, tls, bulkQuota = 0, { managed = fals
           requireValue(Date.now() < room.created + DAY, 410, "邀请码已过期。");
           requireValue(activeCount.get(code).count < MEMBER_LIMIT, 409, FULL_ROOM);
           const name = validName(input.name);
+          requireUnusedName(code, name, true);
           const status = room.approval ? "pending" : "active";
           let joiningSession = session;
           if (member) {
@@ -298,8 +307,12 @@ export function createRoomServer(directory, tls, bulkQuota = 0, { managed = fals
         const input = await readJson(request);
         requireValue(managesRoom(currentMember()), 403, "只有群主或管理员可以批准加入。");
         requireValue(typeof input.id === "string" && typeof input.accept === "boolean", 400, "请求内容无效。");
-        if (input.accept && memberById.get(code, input.id)?.status === "pending") {
-          requireValue(activeCount.get(code).count < MEMBER_LIMIT, 409, FULL_ROOM);
+        if (input.accept) {
+          const target = memberById.get(code, input.id);
+          if (target?.status === "pending") {
+            requireValue(activeCount.get(code).count < MEMBER_LIMIT, 409, FULL_ROOM);
+            requireUnusedName(code, target.name, false);
+          }
         }
         db.prepare("UPDATE members SET status = ? WHERE room = ? AND id = ? AND status = 'pending'").run(input.accept ? "active" : "denied", code, input.id);
         return json(200, {});

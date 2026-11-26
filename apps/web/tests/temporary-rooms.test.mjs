@@ -79,8 +79,42 @@ test("the owner occupies one place and only leaving or removal opens a full room
   assert.equal((await join(guests[5], 5)).status, 409);
 
   const openRoom = "/" + (await (await owner("", { name: "开放房间", approval: false })).json()).code;
-  const attempts = await Promise.all(guests.map(guest => guest(openRoom + "/join", { name: "访客" })));
+  const attempts = await Promise.all(guests.map((guest, index) => guest(openRoom + "/join", { name: "访客 " + index })));
   assert.deepEqual(attempts.map(response => response.status).sort(), [200, 200, 200, 200, 409, 409]);
+});
+
+test("room names are reserved by active members and pending applicants", async t => {
+  const browser = await roomClients(t);
+  const owner = browser();
+  const [first, second] = [browser(), browser()];
+  const create = async approval => "/" + (await (await owner("", { name: "群主", approval })).json()).code;
+  const join = (guest, path, name) => guest(path + "/join", { name });
+  async function duplicate(response) {
+    assert.equal(response.status, 409);
+    assert.match(await response.json(), /名称已被使用/);
+  }
+
+  const path = await create(true);
+  await duplicate(await join(first, path, " 群主 "));
+  const attempts = await Promise.all([join(first, path, "Ａlice"), join(second, path, " alice ")]);
+  assert.deepEqual(attempts.map(response => response.status).sort(), [200, 409]);
+  const index = attempts.findIndex(response => response.ok);
+  const { member } = await attempts[index].json();
+  await duplicate(attempts[1 - index]);
+  const [winner, waiting] = index === 0 ? [first, second] : [second, first];
+  assert.equal((await (await join(winner, path, member.name)).json()).member.id, member.id);
+  assert.equal((await owner(path + "/decide", { id: member.id, accept: true })).status, 200);
+  await duplicate(await join(waiting, path, "ALICE"));
+  assert.equal((await winner(path + "/leave", {})).status, 200);
+  const retry = await join(waiting, path, "ALICE");
+  assert.equal(retry.status, 200);
+  assert.equal((await retry.json()).member.status, "pending");
+  await duplicate(await join(winner, path, "Alice"));
+
+  const open = await create(false);
+  assert.equal((await join(first, open, "Alice")).status, 200);
+  await duplicate(await join(second, open, "ALICE"));
+  assert.equal((await join(second, open, "另一位成员")).status, 200);
 });
 
 test("two browsers can exchange files, with approval and revocation enforced by the server", async t => {
