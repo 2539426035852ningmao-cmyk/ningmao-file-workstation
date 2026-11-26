@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowDownToLine, FolderUp } from "lucide-react";
 import { MAX_BROWSER_TRANSFER_BYTES } from "./file-preparation.mjs";
 import { downloadBulk, FILE_MAX, uploadBulk } from "./bulkTransfer";
+import { RoomAvatar, RoomFileIcon } from "./RoomVisuals";
 import { RoomPeerSources } from "./roomPeerSources";
 import "./rooms.css";
 
@@ -60,6 +61,7 @@ export function TemporaryRoom() {
   const [recovery, setRecovery] = useState("");
   const [recoveryInput, setRecoveryInput] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<{ file: File; url: string } | null>(null);
   const [retryUpload, setRetryUpload] = useState<File | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -76,6 +78,15 @@ export function TemporaryRoom() {
   const remoteBlocked = busy || stationOffline;
 
   useEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
+  useEffect(() => {
+    if (!file || !/\.(png|jpe?g|webp|gif|avif)$/i.test(file.name)) {
+      setPreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    setPreview({ file, url });
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
   async function refresh(path: string, signal?: AbortSignal) {
     const response = await fetch(path, { signal, cache: "no-store" });
     if (signal?.aborted) return;
@@ -278,7 +289,7 @@ export function TemporaryRoom() {
       </fieldset>
     </section> : <>
       <section className="room-card">
-        <h2>{room.member.name} <small>{room.member.role === "owner" ? "群主" : room.member.role === "admin" ? "管理员" : "成员"}</small></h2>
+        <h2 className="room-identity"><RoomAvatar id={room.member.id} /> <span>{room.member.name} <small>{room.member.role === "owner" ? "群主" : room.member.role === "admin" ? "管理员" : "成员"}</small></span></h2>
         <label>邀请链接 <input readOnly value={invitation} onFocus={event => event.target.select()} /></label>
         <div className="room-row room-invite-actions">
           <button type="button" onClick={() => void copyInvitation()}>复制邀请链接</button>
@@ -299,7 +310,7 @@ export function TemporaryRoom() {
           <ul>
             {activeMembers.map(member => <li key={member.id}>
               <div className="room-row">
-                <span>{member.name} <small>{member.role === "owner" ? "群主" : member.role === "admin" ? "管理员" : "成员"}</small></span>
+                <span className="room-identity"><RoomAvatar id={member.id} /><span>{member.name} <small>{member.role === "owner" ? "群主" : member.role === "admin" ? "管理员" : "成员"}</small></span></span>
                 {room.member.role === "owner" && member.id !== room.member.id &&
                   <button disabled={remoteBlocked} onClick={() => void perform(async () => {
                     await jsonPost(roomApi + "/promote", { id: member.id, enabled: member.role !== "admin" });
@@ -316,7 +327,7 @@ export function TemporaryRoom() {
           <h3>待批准访客</h3>
           {roomFull && <p className="room-note">文件群已满，有空位后可批准加入。</p>}
           {pendingMembers.map(member => <div className="room-row" key={member.id}>
-            <span>{member.name}</span>
+            <span className="room-identity"><RoomAvatar id={member.id} />{member.name}</span>
             {[true, false].map(accept => <button key={String(accept)} disabled={remoteBlocked || (accept && roomFull)} onClick={() => void perform(async () => {
               await jsonPost(roomApi + "/decide", { id: member.id, accept });
               await refresh(roomApi);
@@ -357,7 +368,12 @@ export function TemporaryRoom() {
             setFile(event.target.files?.[0] ?? null);
             setRetryUpload(null);
           }} /></label>
-          {file && <p className="room-note">{file.name}（{formatSize(file.size)}）　{tooLarge ? "超过单文件上限，请重新选择。" : `发布后可领取 ${retentionHours(file.size)} 小时`}</p>}
+          {file && <div className="room-file-preview" role="group" aria-label="所选文件">
+            <RoomFileIcon key={preview?.file === file ? preview.url : file.name} name={file.name}
+              thumbnail={preview?.file === file ? preview.url : null} />
+            <div><strong>{file.name}</strong><p className="room-note">{formatSize(file.size)} · {tooLarge
+              ? "超过单文件上限，请重新选择。" : `发布后可领取 ${retentionHours(file.size)} 小时`}</p></div>
+          </div>}
           <button type="submit" className="room-primary" disabled={remoteBlocked || !file || tooLarge}>
             {file && file === retryUpload ? (room.bulk ? "续传原文件" : "重试发送") : `发给全区 ${activeMembers.length} 人`}
           </button>
@@ -368,11 +384,13 @@ export function TemporaryRoom() {
         <h2>共享文件</h2>
         {room.files.length === 0 && <p className="room-note">区内还没有文件。</p>}
         {room.files.map(item => <article key={item.id} className="room-file">
-          <div>
-            <strong>{item.name}</strong>
-            <p className="room-note">{item.sender === room.member.id ? "我发送的"
-              : senderNames.has(item.sender) ? `发件人 ${senderNames.get(item.sender)}` : "发件人已离群"}</p>
-            <p className="room-note">{formatSize(item.size)} · 领取期限 {formatDate(item.expires)}</p>
+          <div className="room-file-info">
+            <RoomFileIcon name={item.name} />
+            <div><strong>{item.name}</strong>
+              <p className="room-note room-identity"><RoomAvatar id={item.sender} /><span>{item.sender === room.member.id ? "我发送的"
+                : senderNames.has(item.sender) ? `发件人 ${senderNames.get(item.sender)}` : "发件人已离群"}</span></p>
+              <p className="room-note">{formatSize(item.size)} · 领取期限 {formatDate(item.expires)}</p>
+            </div>
           </div>
           <div className="room-row">
             <button className="room-primary" disabled={busy || (stationOffline && !verified[item.id])} aria-label={`${item.chunked && needsSaveClick && !verified[item.id] ? "准备保存" : "保存"} ${item.name}`} onClick={() => void perform(async () => {

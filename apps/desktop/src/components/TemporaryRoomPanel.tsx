@@ -5,6 +5,7 @@ import type { Shelf } from "../backend";
 import { nativeWebReceiver, saveAcceptedWebFile } from "../webReceiveBackend";
 import { nativeWebTransferSource } from "../webTransferBackend";
 import { WEB_MAX_FILE_BYTES } from "../webFileRules";
+import { RoomAvatar, RoomFileIcon } from "./RoomVisuals";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import type { TransferSelection } from "./TransferPanel";
@@ -26,12 +27,13 @@ type CreatedRoom = { invitation: string; recovery: string };
 type StationView = { available: boolean; running: boolean; folder: string | null; quota_mib: number; address: string | null };
 export type RoomSession = { link: string; name: string; station: string; recovery: string; room: Room | null; admission: Admission | null; shelf: number; saved: Record<string, string> };
 
-export function TemporaryRoomPanel({ selection, shelves, session, setSession, chooseReceiveFolder, returnToShelf }: {
+export function TemporaryRoomPanel({ selection, shelves, session, setSession, chooseReceiveFolder, thumbnail, returnToShelf }: {
   selection: TransferSelection;
   shelves: Shelf[];
   session: RoomSession;
   setSession: Dispatch<SetStateAction<RoomSession>>;
   chooseReceiveFolder?: () => Promise<number | null>;
+  thumbnail?: (id: number) => Promise<string | null>;
   returnToShelf: () => void;
 }) {
   const { link, name, station, recovery, room, admission, saved } = session;
@@ -62,6 +64,16 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
   const managesRoom = owner || room?.member.role === "admin";
   const confirmingDeparture = departure?.invitation === invitation ? departure : null;
   const selected = selection.files.length === 1 ? selection.files[0] : null;
+  const [preview, setPreview] = useState<{ id: number; url: string } | null>(null);
+  useEffect(() => {
+    setPreview(null);
+    if (!selected || !thumbnail || !/\.(png|jpe?g|webp)$/i.test(selected.name)) return;
+    let live = true;
+    void thumbnail(selected.id).then(url => {
+      if (live && url) setPreview({ id: selected.id, url });
+    }).catch(() => undefined);
+    return () => { live = false; };
+  }, [selected, thumbnail]);
 
   useEffect(() => {
     let active = true;
@@ -348,7 +360,7 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
     </div> : <>
       <div className="room-desktop-card transfer-form">
         <div className="room-desktop-heading">
-          <h3>{room.member.name}</h3>
+          <h3 className="room-identity"><RoomAvatar id={room.member.id} />{room.member.name}</h3>
           <span>{memberRoleText[room.member.role ?? "member"]}</span>
         </div>
         <label>邀请链接<Input readOnly value={link} onFocus={event => event.target.select()} /></label>
@@ -385,7 +397,7 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
           <summary>文件群成员 {activeMembers.length} / {memberLimit} 人</summary>
           <ul className="transfer-form">
             {activeMembers.map(member => <li className="room-person" key={member.id}>
-              <span>{member.name} <small className="room-caption">{memberRoleText[member.role ?? "member"]}</small></span>
+              <span className="room-identity"><RoomAvatar id={member.id} /><span>{member.name} <small className="room-caption">{memberRoleText[member.role ?? "member"]}</small></span></span>
               {managesRoom && member.id !== room.member.id && (member.role === "member" || (member.role === "admin" && owner)) &&
                 <Button size="sm" variant="ghost" disabled={busy || offline} aria-label={`移出 ${member.name}`}
                   onClick={() => setDeparture({ invitation, member })}>移出</Button>}
@@ -409,7 +421,7 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
         <h3>待批准访客</h3>
         {roomFull && <p className="room-caption">文件群已满，有空位后可批准加入。</p>}
         {pending.map(member => <div className="room-person" key={member.id}>
-          <span>{member.name}</span>
+          <span className="room-identity"><RoomAvatar id={member.id} />{member.name}</span>
           <div className="transfer-receive-actions">
             {[true, false].map(accept => {
               const label = accept ? "批准" : "拒绝";
@@ -424,7 +436,11 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
       </div>}
       <div className="room-desktop-card transfer-form">
         <h3>发送文件</h3>
-        {selected ? <p className="room-selected" title={selected.name}>{selected.name}</p> :
+        {selected ? <div className="room-file-preview" role="group" aria-label="所选文件">
+          <RoomFileIcon key={selected.id} name={selected.name} thumbnail={preview?.id === selected.id ? preview.url : null} />
+          <div className="room-file-name"><strong title={selected.name}>{selected.name}</strong>
+            {selected.bytes !== undefined && <small>{selected.bytes.toLocaleString()} B</small>}</div>
+        </div> :
           <p className="room-caption">{selection.files.length > 1 ? "请选择一个文件发送。" : "请在文件架选择一个文件。"}</p>}
         <div className="transfer-receive-actions">
           {selected && <Button disabled={busy || offline} onClick={() => void run(async () => {
@@ -450,12 +466,15 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
         {!shelf && room.files.length > 0 && <p className="room-caption">选择保存位置后即可确认收件。</p>}
         {room.files.length === 0 ? <p className="room-caption">区内还没有文件。</p> :
           <ul className="room-file-list" aria-label="区内文件">{room.files.map(file => <li key={file.id}>
-            <div className="room-file-name">
-              <strong title={file.name}>{file.name}</strong>
-              {file.sender && <small>{file.sender === room.member.id ? "我发送的"
-                : senderNames.has(file.sender) ? `发件人 ${senderNames.get(file.sender)}`
-                  : room.members ? "发件人已离群" : "发件人未显示"}</small>}
-              <small>{file.size.toLocaleString()} B</small>
+            <div className="room-file-info">
+              <RoomFileIcon name={file.name} />
+              <div className="room-file-name">
+                <strong title={file.name}>{file.name}</strong>
+                {file.sender && <small className="room-identity"><RoomAvatar id={file.sender} /><span>{file.sender === room.member.id ? "我发送的"
+                  : senderNames.has(file.sender) ? `发件人 ${senderNames.get(file.sender)}`
+                    : room.members ? "发件人已离群" : "发件人未显示"}</span></small>}
+                <small>{file.size.toLocaleString()} B</small>
+              </div>
             </div>
             {!file.chunked && file.size > WEB_MAX_FILE_BYTES ? <small>请在网页领取</small>
               : saved[file.id] ? <small className="room-saved">{saved[file.id]}</small>

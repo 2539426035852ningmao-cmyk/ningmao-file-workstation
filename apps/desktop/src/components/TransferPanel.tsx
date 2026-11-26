@@ -15,11 +15,11 @@ const empty:TransferView={receiving:false,address:null,fingerprint:null,shelf_id
 const sizes=(n:number)=>n>=1024*1024?`${(n/1024/1024).toFixed(1)} MB`:n>=1024?`${(n/1024).toFixed(1)} KB`:`${n} B`;
 const phases:Record<string,string>={preparing:"准备中",waiting:"等待接收确认",sending:"发送中",terminal:"正在核对结果"};
 const statuses:Record<string,string>={completed:"已完成",cancelled:"已取消",partial:"部分完成",failed:"发送失败",interrupted:"传输中断，需核对接收结果",rejected:"已拒绝",not_sent:"未发送",unconfirmed:"接收结果未确认"};
-export type TransferSelection={shelf_id:number;files:{id:number;name:string}[]};
+export type TransferSelection={shelf_id:number;files:{id:number;name:string;bytes?:number}[]};
 export type TransferMode="send"|"receive"|"room";
 type SendBatchResult={selection:TransferSelection;fingerprint:string;last:TransferResult;statuses:Partial<Record<number,string>>};
 
-export function TransferPanel({backend,open,onOpenChange,initialMode,selection,shelves,chooseReceiveFolder}:{backend:TransferBackend;open:boolean;onOpenChange:(value:boolean)=>void;initialMode:TransferMode;selection:TransferSelection;shelves:Shelf[];chooseReceiveFolder?:()=>Promise<number|null>}){
+export function TransferPanel({backend,open,onOpenChange,initialMode,selection,shelves,chooseReceiveFolder,thumbnail}:{backend:TransferBackend;open:boolean;onOpenChange:(value:boolean)=>void;initialMode:TransferMode;selection:TransferSelection;shelves:Shelf[];chooseReceiveFolder?:()=>Promise<number|null>;thumbnail?:(id:number)=>Promise<string|null>}){
   const [mode,setMode]=useState(initialMode),[view,setView]=useState(empty),[error,setError]=useState("");
   const [roomSession,setRoomSession]=useState<RoomSession>({link:"",name:"",station:"",recovery:"",room:null,admission:null,shelf:0,saved:{}});
   const content=useRef<HTMLDivElement>(null);
@@ -165,7 +165,7 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
     <TabsList className="transfer-tabs" aria-label="互传方向"><TabsTrigger value="send">发送文件</TabsTrigger><TabsTrigger value="receive">接收文件</TabsTrigger>{backend.roomAvailable&&<TabsTrigger value="room">临时互传区</TabsTrigger>}</TabsList>
     <TabsContent ref={content} value={mode} className="transfer-content">
     {mode==="room"?<TemporaryRoomPanel selection={selection} shelves={bound} session={roomSession} setSession={setRoomSession}
-      chooseReceiveFolder={chooseReceiveFolder} returnToShelf={()=>onOpenChange(false)} />:<>
+      chooseReceiveFolder={chooseReceiveFolder} thumbnail={thumbnail} returnToShelf={()=>onOpenChange(false)} />:<>
     {mode==="send"?<>
       <strong>1. 选择文件</strong><p className="transfer-note">已选 {selection.files.length} 项{selection.files.length>16?"，一次最多发送16项":""}</p>
       {!selection.files.length&&<p className="capability-hint">先在文件架选择文件，再使用“发送到设备”。<Button variant="outline" onClick={()=>onOpenChange(false)}>返回文件架选文件</Button></p>}
