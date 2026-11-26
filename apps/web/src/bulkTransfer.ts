@@ -3,7 +3,7 @@ import { bytesToHex } from "@noble/hashes/utils.js";
 
 export const FILE_CHUNK = 4 * 1024 * 1024;
 export const FILE_MAX = 20_000_000_000;
-type Receipt = { id: string; size: number; offset: number; expires: number | null; chunkBytes: number };
+type Receipt = { id: string; size: number; offset: number; expires: number | null; chunkBytes: number; recipients?: string[] | null };
 type Progress = (text: string, bytes: number, total: number) => void;
 
 async function receiveReceipt(response: Response): Promise<Receipt> {
@@ -16,7 +16,7 @@ async function receiveReceipt(response: Response): Promise<Receipt> {
   return receipt;
 }
 
-export async function uploadBulk(api: string, file: File, report: Progress) {
+export async function uploadBulk(api: string, file: File, report: Progress, recipients: string[] | null = null) {
   if (file.size > FILE_MAX) throw new Error("单文件最多 20 GB。");
   const digest = sha256.create();
   for (let offset = 0; offset < file.size; offset += FILE_CHUNK) {
@@ -24,13 +24,18 @@ export async function uploadBulk(api: string, file: File, report: Progress) {
     report("校验来源", Math.min(offset + FILE_CHUNK, file.size), file.size);
   }
   const hash = bytesToHex(digest.digest());
-  const storageKey = JSON.stringify(["room-chunks", api, file.name, hash]);
+  const audience = recipients === null ? null : [...recipients].sort();
+  const storageKey = JSON.stringify(audience === null
+    ? ["room-chunks", api, file.name, hash] : ["room-chunks", api, file.name, hash, audience]);
   const request = localStorage.getItem(storageKey) ?? crypto.randomUUID().replace(/-/g, "");
   localStorage.setItem(storageKey, request);
   let receipt = await receiveReceipt(await fetch(api + "/bulk", {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name: file.name, size: file.size, digest: hash, request }),
+    body: JSON.stringify({ name: file.name, size: file.size, digest: hash, request, recipients: audience }),
   }));
+  if (JSON.stringify(receipt.recipients ?? null) !== JSON.stringify(audience)) {
+    throw new Error("站点未确认发送范围，文件尚未上传。");
+  }
   if (receipt.size !== file.size) throw new Error("站点记录的文件大小已改变。");
   const path = api + "/bulk/" + receipt.id;
   const id = receipt.id;

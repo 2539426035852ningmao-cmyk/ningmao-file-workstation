@@ -5,15 +5,15 @@ import type { Shelf } from "../backend";
 import { nativeWebReceiver, saveAcceptedWebFile } from "../webReceiveBackend";
 import { nativeWebTransferSource } from "../webTransferBackend";
 import { WEB_MAX_FILE_BYTES } from "../webFileRules";
-import { RoomAvatar, RoomFileIcon } from "./RoomVisuals";
+import { RoomAvatar, RoomFileIcon, RoomRecipients } from "./RoomVisuals";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import type { TransferSelection } from "./TransferPanel";
 
-type FileEntry = { id: string; name: string; sender?: string; size: number; digest: string; expires: number; chunked?: number };
+type FileEntry = { id: string; name: string; sender?: string; size: number; digest: string; expires: number; chunked?: number; directed?: number };
 type MemberRole = "owner" | "admin" | "member";
 type RoomMember = { id: string; name: string; status: "active" | "pending"; role?: MemberRole };
-type Room = { member: { id?: string; name: string; role?: MemberRole }; members?: RoomMember[]; files: FileEntry[]; memberLimit?: number; bulk?: boolean };
+type Room = { member: { id?: string; name: string; role?: MemberRole }; members?: RoomMember[]; files: FileEntry[]; memberLimit?: number; bulk?: boolean; directed?: boolean };
 type Admission = "pending" | "denied" | "left" | "removed";
 type RoomView = Room | { status: Admission };
 const admissionText: Record<Admission, string> = {
@@ -42,6 +42,7 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
   const [changingRoom, setChangingRoom] = useState(false);
   const [draftLink, setDraftLink] = useState(link);
   const [busy, setBusy] = useState(false);
+  const [recipients, setRecipients] = useState<string[] | null>(null);
   const [report, setReport] = useState("");
   const [failed, setFailed] = useState(false);
   const [offline, setOffline] = useState(false);
@@ -58,6 +59,9 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
   const pending = room?.members?.filter(member => member.status === "pending") ?? [];
   const activeMembers = room?.members?.filter(member => member.status === "active") ?? [];
   const senderNames = new Map(activeMembers.map(member => [member.id, member.name]));
+  const eligible = activeMembers.filter(member => member.id !== room?.member.id);
+  const invalidAudience = recipients !== null && (!room?.directed || !recipients.length
+    || !recipients.every(id => eligible.some(member => member.id === id)));
   const memberLimit = room?.memberLimit;
   const roomFull = memberLimit !== undefined && activeMembers.length >= memberLimit;
   const owner = room?.member.role === "owner";
@@ -158,6 +162,7 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
   async function createRoom() {
     const created = await invoke<CreatedRoom>("room_create", { station: station.trim(), name, approval });
     setSession(current => ({ ...current, link: created.invitation, recovery: created.recovery, room: null, admission: null, saved: {} }));
+    setRecipients(null);
     setDraftLink(created.invitation);
     setEntry("join");
     await refresh(created.invitation);
@@ -221,13 +226,14 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
 
   async function sendSelected() {
     const item = selection.files[0];
-    if (!item || selection.files.length !== 1) return;
+    if (!item || selection.files.length !== 1 || invalidAudience) return;
     if (room?.bulk) {
       const url = new URL(invitation);
-      const key = JSON.stringify(["room-bulk-upload", url.origin, url.searchParams.get("code"), selection.shelf_id, item.id]);
+      const parts = ["room-bulk-upload", url.origin, url.searchParams.get("code"), selection.shelf_id, item.id];
+      const key = JSON.stringify(recipients === null ? parts : [...parts, [...recipients].sort()]);
       const uploadId = localStorage.getItem(key) ?? crypto.randomUUID().replace(/-/g, "");
       localStorage.setItem(key, uploadId);
-      await invoke("room_bulk_upload", { invitation, shelfId: selection.shelf_id, itemId: item.id, uploadId, onProgress: progressChannel() });
+      await invoke("room_bulk_upload", { invitation, shelfId: selection.shelf_id, itemId: item.id, uploadId, recipients, onProgress: progressChannel() });
       localStorage.removeItem(key);
       setReport("文件已发到临时互传区。");
       return;
@@ -347,6 +353,7 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
             const target = draftLink.trim();
             await invoke("room_join", { invitation: target, name });
             if (target !== invitation) {
+              setRecipients(null);
               setSession(current => ({ ...current, link: target, room: null, recovery: "", admission: null, saved: {} }));
             }
             setChangingRoom(false);
@@ -442,10 +449,12 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
             {selected.bytes !== undefined && <small>{selected.bytes.toLocaleString()} B</small>}</div>
         </div> :
           <p className="room-caption">{selection.files.length > 1 ? "请选择一个文件发送。" : "请在文件架选择一个文件。"}</p>}
+        {(room.directed || recipients !== null) && <RoomRecipients members={eligible} recipients={recipients}
+          select={setRecipients} enabled={Boolean(room.directed)} disabled={busy || offline} />}
         <div className="transfer-receive-actions">
-          {selected && <Button disabled={busy || offline} onClick={() => void run(async () => {
+          {selected && <Button disabled={busy || offline || invalidAudience} onClick={() => void run(async () => {
             await sendSelected(); await refresh();
-          })}>将所选文件发给全区</Button>}
+          })}>{recipients === null ? "将所选文件发给全区" : `发送给 ${recipients.length} 人`}</Button>}
           <Button variant={selected ? "ghost" : "outline"} disabled={busy} onClick={returnToShelf}>
             {selected ? "更换文件" : "返回文件架选文件"}
           </Button>
@@ -473,7 +482,7 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
                 {file.sender && <small className="room-identity"><RoomAvatar id={file.sender} /><span>{file.sender === room.member.id ? "我发送的"
                   : senderNames.has(file.sender) ? `发件人 ${senderNames.get(file.sender)}`
                     : room.members ? "发件人已离群" : "发件人未显示"}</span></small>}
-                <small>{file.size.toLocaleString()} B</small>
+                <small>{file.directed ? "指定收件人 · " : ""}{file.size.toLocaleString()} B</small>
               </div>
             </div>
             {!file.chunked && file.size > WEB_MAX_FILE_BYTES ? <small>请在网页领取</small>

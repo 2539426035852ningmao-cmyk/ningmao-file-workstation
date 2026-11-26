@@ -10,6 +10,9 @@ const LARGE_BYTES = 10_000_000_000;
 const HOUR = 3_600_000;
 const hash = bytes => createHash("sha256").update(bytes).digest("hex");
 const validDigest = value => typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
+// Older stations only accept the original room key. Keep their reads from exposing directed data on rollback.
+const directedRoom = room => "directed:" + room;
+const roomScope = (room, recipients) => recipients === null ? room : directedRoom(room);
 
 export function retention(size) {
   return size >= LARGE_BYTES ? { hours: 6, maxHours: 24 } : { hours: 24, maxHours: 72 };
@@ -45,13 +48,17 @@ export class ChunkStore {
         id TEXT PRIMARY KEY, room TEXT NOT NULL, member TEXT NOT NULL,
         name TEXT NOT NULL, size INTEGER NOT NULL, digest TEXT NOT NULL,
         offset INTEGER NOT NULL DEFAULT 0,
-        touched INTEGER NOT NULL, expires INTEGER, retain_until INTEGER, revoked INTEGER NOT NULL DEFAULT 0
+        touched INTEGER NOT NULL, expires INTEGER, retain_until INTEGER, revoked INTEGER NOT NULL DEFAULT 0,
+        recipients TEXT
       );
       CREATE TABLE IF NOT EXISTS chunk_digests (
         id TEXT NOT NULL, offset INTEGER NOT NULL, digest TEXT NOT NULL,
         PRIMARY KEY (id, offset)
       )
     `);
+    if (!this.#db.prepare("PRAGMA table_info(chunks)").all().some(column => column.name === "recipients")) {
+      this.#db.exec("ALTER TABLE chunks ADD COLUMN recipients TEXT");
+    }
   }
 
   close() { this.#db.close(); }
@@ -71,14 +78,16 @@ export class ChunkStore {
     return row;
   }
 
-  open({ room, member, request, size, digest, name = "file" }) {
+  open({ room, member, request, size, digest, name = "file", recipients = null }) {
     check(Number.isSafeInteger(size) && size >= 0 && size <= MAX_BULK_BYTES, 413, "临时互传单文件最多 20 GB。");
     check(typeof request === "string" && /^[a-f0-9]{32}$/.test(request) && validDigest(digest)
       && typeof name === "string" && name.length > 0 && name.length <= 100, 400, "上传请求无效。");
     const id = hash(JSON.stringify([room, member, request])).slice(0, 32);
+    const audience = recipients === null ? null : JSON.stringify(recipients);
     const current = this.#db.prepare("SELECT * FROM chunks WHERE id = ?").get(id);
     if (current) {
       check(current.size === size && current.digest === digest && current.name === name, 409, "续传的源文件已变化。");
+      check(current.recipients === audience, 409, "待续传文件的收件范围已变化，请重新发起发送。");
       check(!current.revoked && (current.expires === null || current.expires > Date.now()), 410, "文件已撤回或到期。");
       return current;
     }
@@ -96,8 +105,8 @@ export class ChunkStore {
       closeSync(openSync(path, "wx", 0o600));
     }
     try {
-      this.#db.prepare("INSERT INTO chunks (id, room, member, name, size, digest, touched) VALUES (?,?,?,?,?,?,?)")
-        .run(id, room, member, name, size, digest, Date.now());
+      this.#db.prepare("INSERT INTO chunks (id, room, member, name, size, digest, touched, recipients) VALUES (?,?,?,?,?,?,?,?)")
+        .run(id, roomScope(room, audience), member, name, size, digest, Date.now(), audience);
     } catch (error) {
       rmSync(path, { force: true });
       throw error;
@@ -105,7 +114,11 @@ export class ChunkStore {
     return this.#row(id);
   }
 
-  status(id, member) { return this.#own(id, member); }
+  status(id, member, room) {
+    const row = this.#own(id, member);
+    check(row.room === roomScope(room, row.recipients), 404, "文件编号不存在。");
+    return row;
+  }
 
   async append(id, member, offset, bytes, digest) {
     const row = this.#own(id, member);
@@ -172,8 +185,18 @@ export class ChunkStore {
 
   entry(id, room, now = Date.now()) {
     const row = this.#row(id);
-    check(!row.revoked && row.room === room && row.expires !== null && now < row.expires, 404, "文件尚不可下载或已到期。");
+    check(!row.revoked && row.room === roomScope(room, row.recipients) && row.expires !== null && now < row.expires, 404, "文件尚不可下载或已到期。");
     return row;
+  }
+
+  entryFor(id, room, member) {
+    const row = this.entry(id, room);
+    check(this.allows(row, member), 404, "文件尚不可下载或已到期。");
+    return row;
+  }
+
+  allows(row, member) {
+    return row.recipients === null || row.member === member || JSON.parse(row.recipients).includes(member);
   }
 
   checksum(id, offset) {
@@ -184,13 +207,17 @@ export class ChunkStore {
     return this.#file(this.entry(id, room, now).id);
   }
 
-  list(room, now = Date.now()) {
-    return this.#db.prepare(`SELECT id, name, member AS sender, size, digest, expires, retain_until, 1 AS chunked
-      FROM chunks WHERE room = ? AND revoked = 0 AND expires > ? ORDER BY touched DESC`).all(room, now);
+  list(room, member, now = Date.now()) {
+    return this.#db.prepare(`SELECT id, name, member AS sender, size, digest, expires, retain_until, 1 AS chunked,
+        recipients IS NOT NULL AS directed
+      FROM chunks WHERE revoked = 0 AND expires > ?
+        AND ((room = ? AND recipients IS NULL) OR (room = ? AND
+          (member = ? OR EXISTS (SELECT 1 FROM json_each(recipients) WHERE value = ?))))
+      ORDER BY touched DESC`).all(now, room, directedRoom(room), member, member);
   }
 
   hasRoom(room) {
-    return Boolean(this.#db.prepare("SELECT 1 FROM chunks WHERE room = ? LIMIT 1").get(room));
+    return Boolean(this.#db.prepare("SELECT 1 FROM chunks WHERE room IN (?, ?) LIMIT 1").get(room, directedRoom(room)));
   }
 
   extend(row, expires) {

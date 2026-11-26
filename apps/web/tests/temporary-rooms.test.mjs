@@ -7,9 +7,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createRoomServer } from "../selfhost/server.mjs";
 
-async function roomClients(t) {
+async function roomClients(t, quota = 0) {
   const root = await mkdtemp(join(tmpdir(), "ningmao-room-"));
-  const server = createRoomServer(root).listen(0, "127.0.0.1");
+  const server = createRoomServer(root, undefined, quota).listen(0, "127.0.0.1");
   await once(server, "listening");
   t.after(async () => {
     await new Promise(resolve => server.close(resolve));
@@ -138,4 +138,55 @@ test("two browsers can exchange files, with approval and revocation enforced by 
   };
   await transfer(owner, guest, "from browser A");
   await transfer(guest, owner, "from browser B");
+});
+
+test("directed files are visible only to the sender and selected active members", async t => {
+  const browser = await roomClients(t, 32 * 1024 * 1024);
+  const owner = browser();
+  const sender = browser();
+  const readers = [browser(), browser()];
+  const { code } = await (await owner("", { name: "群主", approval: true })).json();
+  const path = "/" + code;
+  const joined = await Promise.all([sender, ...readers].map(async (member, index) => {
+    const { member: joined } = await (await member(path + "/join", { name: "成员" + index })).json();
+    return joined.id;
+  }));
+  for (const id of joined) assert.equal((await owner(path + "/decide", { id, accept: true })).status, 200);
+  const ownerView = await (await owner(path)).json();
+  assert.equal(ownerView.directed, true);
+  const bytes = Buffer.from("只给两个指定成员");
+  const digest = createHash("sha256").update(bytes).digest("hex");
+  const upload = { name: "合成定向.txt", request: "f".repeat(32), size: bytes.length, digest };
+  assert.equal((await sender(path + "/bulk", { ...upload, recipients: [] })).status, 400);
+  assert.equal((await sender(path + "/bulk", { ...upload, recipients: [joined[0]] })).status, 400);
+  assert.equal((await sender(path + "/bulk", { ...upload, recipients: ["e".repeat(24)] })).status, 400);
+  const recipients = joined.slice(1).sort();
+  const response = await sender(path + "/bulk", { ...upload, recipients });
+  assert.equal(response.status, 200);
+  const { id, recipients: confirmed } = await response.json();
+  assert.deepEqual(confirmed, recipients);
+  assert.equal((await sender(path + "/bulk", upload)).status, 409);
+  assert.equal((await sender(path + "/bulk", { ...upload, recipients: [ownerView.member.id] })).status, 409);
+  assert.equal((await sender(path + "/bulk/" + id, null, {
+    headers: { "X-Offset": "0", "X-SHA256": digest }, body: bytes,
+  })).status, 200);
+  const resumed = await (await sender(path + "/bulk", { ...upload, recipients: [...recipients].reverse() })).json();
+  assert.equal(resumed.id, id);
+  assert.equal(resumed.offset, bytes.length);
+  assert.equal((await sender(path + "/bulk/" + id + "/publish", {})).status, 200);
+  assert.equal((await (await owner(path)).json()).files.length, 0);
+  assert.equal((await owner(path + "/files/" + id)).status, 404);
+  assert.equal((await owner(path + "/sources/" + id + "?offset=0")).status, 404);
+  assert.equal((await owner(path + "/peers/" + "a".repeat(32), { file: id, enabled: true })).status, 404);
+  assert.equal((await owner(path + "/revoke", { id })).status, 404);
+  for (const receiver of [sender, ...readers]) {
+    const view = await (await receiver(path)).json();
+    assert.deepEqual(view.files.map(file => [file.id, file.directed]), [[id, 1]]);
+    assert.deepEqual(Buffer.from(await (await receiver(path + "/files/" + id)).arrayBuffer()), bytes);
+  }
+  const pending = browser();
+  const { member: newMember } = await (await pending(path + "/join", { name: "后加入" })).json();
+  assert.equal((await sender(path + "/bulk", { ...upload, recipients: [newMember.id] })).status, 400);
+  assert.equal((await owner(path + "/decide", { id: newMember.id, accept: true })).status, 200);
+  assert.equal((await (await pending(path)).json()).files.length, 0);
 });

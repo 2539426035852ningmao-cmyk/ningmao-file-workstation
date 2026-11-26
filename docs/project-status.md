@@ -11,6 +11,7 @@
 | 跨网与浏览器互传 | 已有浏览器、WebRTC/WSS、桌面桥接和自建 HTTPS 临时互传区。通过[Windows 原生回环](execution/TEMPORARY-ROOM-NATIVE-BULK-ACCEPTANCE.md)、[两台 Windows 虚拟机安装版](execution/TEMPORARY-ROOM-WINDOWS-GUEST-ACCEPTANCE.md)和[Android 模拟器](execution/TEMPORARY-ROOM-ANDROID-ACCEPTANCE.md)验收。不同真实网络和实体移动设备待验。 |
 | 自托管 HTTPS 续验 | Windows 候选与网页经 QEMU 虚拟 NAT 双向收发，续传和同名留存通过。Android 14 模拟器覆盖 HTTPS、虚拟 Wi‑Fi/蜂窝切换、供件离线和站点重启。Android 发现突然断网后供件列表残留，已加供件心跳和 30 秒过期。[本轮验收](execution/TEMPORARY-ROOM-HTTPS-ACCEPTANCE.md) |
 | 临时互传区 | Windows 测试包可从临时互传区选暂存目录和配额、启动或停止本机站点，并创建需批准的互传区。同目录重启后继续使用原邀请，已收齐的文件按原时限保留。网页和桌面仍可使用已有的自托管站点。网页支持最多三位管理员、文件延期和撤回。[本机站点验收](execution/TEMPORARY-ROOM-MANAGED-HOST-ACCEPTANCE.md) |
+| 文件卡片与定向发送 | 网页和 Windows 显示所选图片的小图、文件类型及成员头像。分块站点支持在全区和所选成员之间切换发送范围。[统一验收](execution/ROOM-FIRST-RELEASE-CANDIDATE.md#指定收件人) |
 | 互传首版收束 | 五人并发、连接恢复与操作收尾进入统一 Windows 测试候选。各设备和网络的实测边界见[统一验收](execution/ROOM-FIRST-RELEASE-CANDIDATE.md)。 |
 | 手机扫码加入 | 用户已确认本轮交付。网页和 Windows 使用同一条 HTTPS 邀请生成二维码，扫码后沿用群主审批和双向收发。 [扫码使用与验收](execution/MOBILE-ROOM-SCAN.md) |
 | 五人文件群 | 网页与 Windows 共用站点的五人上限，群主占一席。已批准才占位，掉线保留，退出或移出才释放。待批准访客单列。 [实现与验收](execution/FIVE-MEMBER-FILE-ROOM.md) |

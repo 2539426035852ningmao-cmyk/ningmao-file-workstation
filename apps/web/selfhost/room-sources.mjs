@@ -56,10 +56,10 @@ export class RoomSources {
       .map(([key]) => key.slice(prefix.length));
   }
 
-  relay(room, session, client, input) {
+  relay(room, session, client, input, allowsTarget = () => true) {
     const from = this.#clients.get(room + "/" + client);
     const to = validKey(input.to) && this.#clients.get(room + "/" + input.to);
-    if (!from || from.session !== session || !to || !to.active() || from === to || !validKey(input.connection) ||
+    if (!from || from.session !== session || !to || !to.active() || !allowsTarget(to.member) || from === to || !validKey(input.connection) ||
         !validKey(input.file) || !["offer", "answer"].includes(input.description?.type) ||
         typeof input.description.sdp !== "string" || input.description.sdp.length > MAX_SIGNAL_BYTES) return false;
     const type = input.description.type;

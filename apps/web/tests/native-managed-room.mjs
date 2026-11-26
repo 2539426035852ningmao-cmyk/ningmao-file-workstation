@@ -135,6 +135,20 @@ try {
     await invoke("room_decide", { invitation: room.invitation, memberId: id, accept: true });
   }
   await guest.getByText("文件群成员 5 / 5 人").waitFor(timeout);
+  const recipients = [queued[0].id, queued[1].id];
+  await invoke("room_bulk_upload", { invitation: room.invitation, shelfId: 1, itemId,
+    uploadId: randomUUID().replace(/-/g, ""), recipients });
+  const nativeView = await invoke("room_view", { invitation: room.invitation });
+  const selected = nativeView.files.find(file => file.directed);
+  assert.ok(selected);
+  const selectedPath = roomApi + "/files/" + selected.id;
+  for (const selectedContext of contexts.slice(0, 2)) {
+    const result = await selectedContext.request.get(selectedPath);
+    assert.equal(result.status(), 200);
+    assert.equal(h(await result.body()), h(hostBytes));
+  }
+  assert.equal((await contexts[2].request.get(selectedPath)).status(), 404);
+  assert.equal((await guest.context().request.get(selectedPath)).status(), 404);
   await assert.rejects(invoke("room_decide", { invitation: room.invitation, memberId: queued[3].id, accept: true }), /最多 5 人/);
   await invoke("room_depart", { invitation: room.invitation, memberId: pending.id });
   await guest.getByText("你已被移出这个文件群。").waitFor(timeout);
@@ -152,7 +166,7 @@ try {
   console.log(JSON.stringify({ result: "native-managed-room-and-independent-Chromium-guest-pass",
     desktopSendSHA: h(hostBytes), webSendSHA: h(guestBytes), savedAs: receipt.file_name,
     originalIntact: true, stoppedDuringTest: true, retainedInviteAndGuest: true,
-    fiveMembers: true, desktopRemovedGuest: true, desktopGuestLeft: true }));
+    fiveMembers: true, desktopRemovedGuest: true, desktopGuestLeft: true, nativeDirectedUpload: true }));
 } finally {
   await browser?.close();
   if (app.exitCode === null && app.signalCode === null) { const exit = once(app, "exit"); app.kill(); await exit; }
