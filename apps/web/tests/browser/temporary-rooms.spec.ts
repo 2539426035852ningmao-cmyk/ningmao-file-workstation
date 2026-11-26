@@ -55,6 +55,9 @@ test("两份独立浏览器配置经自托管站点双向收发并校验落盘",
       const source = Buffer.from(`合成文件 ${name}`);
       await sender.getByLabel("选择文件").setInputFiles({ name, mimeType: "text/plain", buffer: source });
       await sender.getByRole("button", { name: "发给全区 2 人" }).click();
+      const received = recipient.locator("article").filter({ hasText: name });
+      await expect(received.getByText(sender === hostPage ? "发件人 甲" : "发件人 乙", { exact: true })).toBeVisible();
+      await expect(sender.locator("article").filter({ hasText: name }).getByText("我发送的", { exact: true })).toBeVisible();
       const download = recipient.waitForEvent("download");
       await recipient.getByRole("button", { name: `保存 ${name}` }).click();
       const saved = await download;

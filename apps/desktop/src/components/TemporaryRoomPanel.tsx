@@ -9,7 +9,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import type { TransferSelection } from "./TransferPanel";
 
-type FileEntry = { id: string; name: string; size: number; digest: string; expires: number; chunked?: number };
+type FileEntry = { id: string; name: string; sender?: string; size: number; digest: string; expires: number; chunked?: number };
 type MemberRole = "owner" | "admin" | "member";
 type RoomMember = { id: string; name: string; status: "active" | "pending"; role?: MemberRole };
 type Room = { member: { id?: string; name: string; role?: MemberRole }; members?: RoomMember[]; files: FileEntry[]; memberLimit?: number; bulk?: boolean };
@@ -55,6 +55,7 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
   const shelf = shelves.some(item => item.id === session.shelf) ? session.shelf : 0;
   const pending = room?.members?.filter(member => member.status === "pending") ?? [];
   const activeMembers = room?.members?.filter(member => member.status === "active") ?? [];
+  const senderNames = new Map(activeMembers.map(member => [member.id, member.name]));
   const memberLimit = room?.memberLimit;
   const roomFull = memberLimit !== undefined && activeMembers.length >= memberLimit;
   const owner = room?.member.role === "owner";
@@ -444,6 +445,9 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
           <ul className="room-file-list" aria-label="区内文件">{room.files.map(file => <li key={file.id}>
             <div className="room-file-name">
               <strong title={file.name}>{file.name}</strong>
+              {file.sender && <small>{file.sender === room.member.id ? "我发送的"
+                : senderNames.has(file.sender) ? `发件人 ${senderNames.get(file.sender)}`
+                  : room.members ? "发件人已离群" : "发件人未显示"}</small>}
               <small>{file.size.toLocaleString()} B</small>
             </div>
             {!file.chunked && file.size > WEB_MAX_FILE_BYTES ? <small>请在网页领取</small>

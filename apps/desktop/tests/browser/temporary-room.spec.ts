@@ -76,7 +76,14 @@ test("临时互传区直达建区、接续文件架与显式保存", async ({ pa
         }
         if (command === "room_view") {
           if (sessionStorage.getItem("room-approved") !== "yes") return { status: "pending" };
-          return { member: { name: "合成装机端" }, bulk: true, files: [{ id: "a".repeat(32), name: "received.txt", size: 2, digest }, { id: "c".repeat(32), name: "large.bin", size: 80_000_000, digest, chunked: 1 }] };
+          return {
+            member: { id: "e".repeat(24), name: "合成装机端" }, bulk: true,
+            members: [{ id: "f".repeat(24), name: "网页访客", status: "active" }],
+            files: [
+              { id: "a".repeat(32), name: "received.txt", sender: "f".repeat(24), size: 2, digest },
+              { id: "c".repeat(32), name: "large.bin", sender: "a".repeat(24), size: 80_000_000, digest, chunked: 1 },
+            ],
+          };
         }
         if (command === "web_transfer_prepare") return { ticket: args.ticket, bytes: 2, name: "selected.txt", sha256: digest };
         if (command === "room_bulk_receive") return {};
@@ -112,6 +119,8 @@ test("临时互传区直达建区、接续文件架与显式保存", async ({ pa
   await openRoom();
   await expect(page.getByText("selected.txt", { exact: true }).last()).toBeVisible();
   await page.getByRole("button", { name: "将所选文件发给全区" }).click();
+  await expect(page.getByText("发件人 网页访客", { exact: true })).toBeVisible();
+  await expect(page.getByText("发件人已离群", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "保存 received.txt", exact: true })).toBeDisabled();
   await page.getByLabel("保存到", { exact: true }).selectOption("3");
   await page.getByRole("button", { name: "保存 received.txt", exact: true }).click();

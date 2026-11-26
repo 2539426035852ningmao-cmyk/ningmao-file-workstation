@@ -6,10 +6,12 @@ Windows 的「本机互传站点」服务于当前电脑。手机扫码使用单
 
 ## 验收
 
+2026-11-26，用户确认扫码入群和双向收发通过。[草稿 PR #117](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/117)记录 Windows 候选和 GitHub 五项成功检查。Android 14 模拟器完成同一邀请经审批后的实际双向落盘，文件哈希一致，断网和停站重启后可重新进入。[模拟器日志](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/actions/runs/45728962902/job/139605895283)
+
 - 网页回归解码电脑实际绘制的二维码，逐字比较原邀请，再以独立移动视口打开、申请和获批。回环 HTTP 站点只给出地址说明。
 - Windows 桌面界面回归从已建群入口展开二维码，保留复制邀请与原有审批入口。
 - Android 14 模拟器脚本在电脑 Chromium 界面建群，从二维码像素解码后把同一地址交给 Android Chrome，验证批准前不可见共享文件、电脑点击批准、手机系统选择文件和双向保存。两端核对 SHA-256。测试使用隔离网络和一次性 CA，二维码像素解码替代物理相机对准屏幕。
-- Windows 软件与 Android 同轮、实体手机相机及实际同 Wi-Fi 环境分别记录。
+- Windows 软件与 Android 的同轮联测、实体手机相机及实际同 Wi-Fi 仍待验证。
 
 ```sh
 npm --prefix apps/web run build
