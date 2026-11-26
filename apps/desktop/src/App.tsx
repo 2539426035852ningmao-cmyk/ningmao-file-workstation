@@ -408,7 +408,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   return <DraftScope.Provider value={draftScope}><div className={`workstation ${hover?"drop-active":""}`}><ScrollActivity/>
     <GlobalSearch backend={backend} revision={data} scoped={detachedShelfId!==undefined}/>
     {backend.chat&&chatLoaded&&<Suspense fallback={null}><ChatPanel backend={backend.chat} open={chatOpen} onOpenChange={setChatOpen}/></Suspense>}
-    {backend.transfer&&transferLoaded&&<Suspense fallback={null}><TransferPanel backend={backend.transfer} open={transfer.open} initialMode={transfer.mode} selection={transfer.selection} shelves={data.shelves} chooseReceiveFolder={detachedShelfId===undefined?async()=>{const id=await backend.chooseFolder();if(id!==null)await refresh();return id;}:undefined} onOpenChange={open=>setTransfer(value=>({...value,open}))}/></Suspense>}
+    {backend.transfer&&transferLoaded&&<Suspense fallback={null}><TransferPanel backend={backend.transfer} open={transfer.open} initialMode={transfer.mode} selection={transfer.selection} shelves={data.shelves} thumbnail={backend.thumbnail} chooseReceiveFolder={detachedShelfId===undefined?async()=>{const id=await backend.chooseFolder();if(id!==null)await refresh();return id;}:undefined} onOpenChange={open=>setTransfer(value=>({...value,open}))}/></Suspense>}
     <SystemRecycle backend={backend} ids={systemRecycleIds} onClose={()=>setSystemRecycleIds(null)} onChanged={refresh}/>
     <RecycleDrawer backend={backend} open={recycleOpen} onOpenChange={setRecycleOpen} shelfId={shelfId} onChanged={refresh}/>
 
@@ -429,7 +429,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
 <DropdownMenu.Item onSelect={()=>openGlobalSearch(moreButton.current)}><Search size={16}/><span>{detachedShelfId!==undefined?"搜索当前文件架":"跨文件架搜索"}</span><kbd aria-hidden="true">Ctrl+K</kbd></DropdownMenu.Item>
 <DropdownMenu.Item disabled={!native || loading || !shelf || busy || !!running || !backend.clipboardFiles} aria-description="粘贴资源管理器中复制的文件；截图请按 Ctrl+V" onSelect={()=>void pasteFiles()}><ClipboardPaste size={16}/><span>粘贴文件</span><kbd aria-hidden="true">Ctrl+V</kbd></DropdownMenu.Item>
 {backend.transfer?.roomAvailable&&<DropdownMenu.Item onSelect={()=>{
-  const files=chosen.every(item=>item.status==="normal"&&item.kind!=="folder")?chosen.map(({id,name})=>({id,name})):[];
+  const files=chosen.every(item=>item.status==="normal"&&item.kind!=="folder")?chosen.map(({id,name,bytes})=>({id,name,bytes})):[];
   setTransferLoaded(true);
   setTransfer({open:true,mode:"room",selection:{shelf_id:shelfId,files}});
 }}>临时互传区</DropdownMenu.Item>}

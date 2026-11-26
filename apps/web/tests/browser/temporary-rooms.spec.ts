@@ -26,6 +26,11 @@ test("两份独立浏览器配置经自托管站点双向收发并校验落盘",
     await hostPage.getByLabel("入区需批准").check();
     await hostPage.getByRole("button", { name: "创建互传区" }).click();
     const invitation = await hostPage.getByLabel("邀请链接", { exact: true }).inputValue();
+    const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+tF1sAAAAASUVORK5CYII=", "base64");
+    await hostPage.getByLabel("选择文件").setInputFiles({ name: "合成缩略图.png", mimeType: "image/png", buffer: png });
+    const preview = hostPage.getByRole("img", { name: "所选文件的缩略图" });
+    await expect(preview).toBeVisible();
+    await expect.poll(() => preview.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
     await hostPage.getByText("手机扫码加入", { exact: true }).click();
     await expect(hostPage.getByText("请用手机可访问的 HTTPS 站点创建互传区。")).toBeVisible();
     await expect(hostPage.getByRole("img", { name: "互传区邀请二维码" })).toHaveCount(0);
@@ -47,6 +52,7 @@ test("两份独立浏览器配置经自托管站点双向收发并校验落盘",
     await hostPage.getByRole("button", { name: "批准", exact: true }).click();
     await expect(guestPage.getByRole("heading", { name: "共享文件" })).toBeVisible();
     await expect(guestPage.getByText("文件群成员 2 / 5 人")).toBeVisible();
+    await expect(guestPage.getByRole("heading", { name: "乙 成员" }).locator(".room-avatar")).toBeVisible();
 
     for (const [sender, recipient, name] of [
       [hostPage, guestPage, "甲到乙.txt"],

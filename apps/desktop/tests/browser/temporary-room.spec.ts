@@ -118,7 +118,9 @@ test("临时互传区直达建区、接续文件架与显式保存", async ({ pa
   await page.getByRole("button", { name: "返回文件架选文件" }).click();
   await page.getByRole("button", { name: "选择 selected.txt", exact: true }).click();
   await openRoom();
-  await expect(page.getByText("selected.txt", { exact: true }).last()).toBeVisible();
+  const card = page.getByRole("group", { name: "所选文件" });
+  await expect(card.getByText("selected.txt", { exact: true })).toBeVisible();
+  await expect(card.getByText("2 B", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "将所选文件发给全区" }).click();
   await expect(page.getByText("发件人 网页访客", { exact: true })).toBeVisible();
   await expect(page.getByText("发件人已离群", { exact: true })).toBeVisible();
