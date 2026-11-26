@@ -22,6 +22,7 @@ test("a silent source stops being offered even if its stream remains open", t =>
   assert.equal(sources.advertise("room", "session", client, file, true), true);
   assert.deepEqual(sources.list("room", file, reader), [client]);
   assert.equal(sources.relay("room", "reader-session", reader, offer), true);
+  assert.equal(sources.relay("room", "reader-session", reader, offer, id => id === "guest"), false);
 
   t.mock.timers.tick(31_000);
   assert.deepEqual(sources.list("room", file, reader), []);

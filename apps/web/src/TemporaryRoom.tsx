@@ -3,13 +3,13 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowDownToLine, FolderUp } from "lucide-react";
 import { MAX_BROWSER_TRANSFER_BYTES } from "./file-preparation.mjs";
 import { downloadBulk, FILE_MAX, uploadBulk } from "./bulkTransfer";
-import { RoomAvatar, RoomFileIcon } from "./RoomVisuals";
+import { RoomAvatar, RoomFileIcon, RoomRecipients } from "./RoomVisuals";
 import { RoomPeerSources } from "./roomPeerSources";
 import "./rooms.css";
 
 type Member = { id: string; name: string; role: "owner" | "admin" | "member"; status: "active" | "pending" };
-type RoomFile = { id: string; sender: string; name: string; size: number; digest: string; expires: number; retain_until: number; chunked?: number };
-type Room = { code: string; member: Member; members: Member[]; files: RoomFile[]; inviteExpires: number; memberLimit?: number; bulk?: boolean };
+type RoomFile = { id: string; sender: string; name: string; size: number; digest: string; expires: number; retain_until: number; chunked?: number; directed?: number };
+type Room = { code: string; member: Member; members: Member[]; files: RoomFile[]; inviteExpires: number; memberLimit?: number; bulk?: boolean; directed?: boolean };
 type Theme = "light" | "dark" | "blue";
 const day = 24 * 60 * 60 * 1000;
 const retentionHours = (size: number) => size >= 10_000_000_000 ? 6 : 24;
@@ -63,6 +63,7 @@ export function TemporaryRoom() {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<{ file: File; url: string } | null>(null);
   const [retryUpload, setRetryUpload] = useState<File | null>(null);
+  const [recipients, setRecipients] = useState<string[] | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -166,6 +167,7 @@ export function TemporaryRoom() {
       setMembership("");
       setStationOffline(false);
       setRetryUpload(null);
+      setRecipients(null);
       setCode(next);
     }
     return next;
@@ -215,6 +217,9 @@ export function TemporaryRoom() {
   const activeMembers = room?.members.filter(member => member.status === "active") ?? [];
   const pendingMembers = room?.members.filter(member => member.status === "pending") ?? [];
   const senderNames = new Map(activeMembers.map(member => [member.id, member.name]));
+  const eligible = activeMembers.filter(member => member.id !== room?.member.id);
+  const invalidAudience = recipients !== null && (!room?.directed || !recipients.length
+    || !recipients.every(id => eligible.some(member => member.id === id)));
   const memberLimit = room?.memberLimit;
   const roomFull = memberLimit !== undefined && activeMembers.length >= memberLimit;
   const mobileInvite = location.protocol === "https:"
@@ -340,13 +345,13 @@ export function TemporaryRoom() {
         <form onSubmit={event => {
           event.preventDefault();
           const source = file;
-          if (!source) return;
+          if (!source || invalidAudience) return;
           void perform(async () => {
             if (source.size > (room.bulk ? FILE_MAX : MAX_BROWSER_TRANSFER_BYTES)) {
               throw new Error(room.bulk ? "单文件最多 20 GB。" : "此互传区单文件最多 64 MiB。");
             }
             if (room.bulk) {
-              const id = await uploadBulk(roomApi, source, progress);
+              const id = await uploadBulk(roomApi, source, progress, recipients);
               setSeedCopies(current => ({ ...current, [id]: source }));
             }
             else {
@@ -374,8 +379,12 @@ export function TemporaryRoom() {
             <div><strong>{file.name}</strong><p className="room-note">{formatSize(file.size)} · {tooLarge
               ? "超过单文件上限，请重新选择。" : `发布后可领取 ${retentionHours(file.size)} 小时`}</p></div>
           </div>}
-          <button type="submit" className="room-primary" disabled={remoteBlocked || !file || tooLarge}>
-            {file && file === retryUpload ? (room.bulk ? "续传原文件" : "重试发送") : `发给全区 ${activeMembers.length} 人`}
+          {(room.directed || recipients !== null) && <RoomRecipients members={eligible} recipients={recipients}
+            select={value => { setRecipients(value); setRetryUpload(null); }}
+            enabled={Boolean(room.directed)} disabled={remoteBlocked} />}
+          <button type="submit" className="room-primary" disabled={remoteBlocked || !file || tooLarge || invalidAudience}>
+            {file && file === retryUpload ? (room.bulk ? "续传原文件" : "重试发送")
+              : recipients !== null ? `发送给 ${recipients.length} 人` : `发给全区 ${activeMembers.length} 人`}
           </button>
           <p className="room-note">{room.bulk ? "单文件最多 20 GB。中断后可重选原文件续传。" : "单文件最多 64 MiB，校验成功后保留 24 小时。"}</p>
         </form>
@@ -389,7 +398,7 @@ export function TemporaryRoom() {
             <div><strong>{item.name}</strong>
               <p className="room-note room-identity"><RoomAvatar id={item.sender} /><span>{item.sender === room.member.id ? "我发送的"
                 : senderNames.has(item.sender) ? `发件人 ${senderNames.get(item.sender)}` : "发件人已离群"}</span></p>
-              <p className="room-note">{formatSize(item.size)} · 领取期限 {formatDate(item.expires)}</p>
+              <p className="room-note">{item.directed ? "指定收件人 · " : ""}{formatSize(item.size)} · 领取期限 {formatDate(item.expires)}</p>
             </div>
           </div>
           <div className="room-row">

@@ -215,11 +215,11 @@ export function createRoomServer(directory, tls, bulkQuota = 0, { managed = fals
       requireValue(member?.status === "active", 403, "请先加入互传区。");
       if (!action && request.method === "GET") {
         return json(200, {
-          code, member, memberLimit: MEMBER_LIMIT, inviteExpires: room.created + DAY, bulk: Boolean(bulk),
+          code, member, memberLimit: MEMBER_LIMIT, inviteExpires: room.created + DAY, bulk: Boolean(bulk), directed: Boolean(bulk),
           members: db.prepare(`SELECT id, name, role, status FROM members
             WHERE room = ? AND (status = 'active' OR ? AND status = 'pending') ORDER BY rowid`).all(code, Number(managesRoom(member))),
           files: [
-            ...(bulk?.list(code) ?? []),
+            ...(bulk?.list(code, member.id) ?? []),
             ...db.prepare(`SELECT id, sender, name, size, digest, expires, retain_until FROM files
               WHERE room = ? AND expires > ? ORDER BY rowid DESC`).all(code, Date.now()),
           ],
@@ -237,16 +237,16 @@ export function createRoomServer(directory, tls, bulkQuota = 0, { managed = fals
             requireValue(sources.heartbeat(code, session, fileId), 409, "当前供件来源不可用。");
             return json(200, {});
           }
-          bulk.entry(input.file, code);
+          const item = bulk.entryFor(input.file, code, member.id);
           const accepted = typeof input.enabled === "boolean"
             ? sources.advertise(code, session, fileId, input.file, input.enabled)
-            : sources.relay(code, session, fileId, input);
+            : sources.relay(code, session, fileId, input, target => bulk.allows(item, target));
           requireValue(accepted, 409, "当前供件来源不可用。");
           return json(200, {});
         }
       }
       if (action === "sources" && fileId && bulk && request.method === "GET") {
-        const item = bulk.entry(fileId, code);
+        const item = bulk.entryFor(fileId, code, member.id);
         const offset = Number(url.searchParams.get("offset"));
         requireValue(Number.isSafeInteger(offset) && offset >= 0 && offset < item.size && offset % CHUNK_BYTES === 0,
           400, "分块偏移无效。");
@@ -258,18 +258,27 @@ export function createRoomServer(directory, tls, bulkQuota = 0, { managed = fals
       if (action === "bulk") {
         requireValue(bulk, 404, "站点尚未开启分块暂存。");
         function uploadReceipt(row) {
-          return { id: row.id, size: row.size, offset: row.offset, expires: row.expires, chunkBytes: CHUNK_BYTES };
+          return { id: row.id, size: row.size, offset: row.offset, expires: row.expires, chunkBytes: CHUNK_BYTES,
+            recipients: row.recipients === null ? null : JSON.parse(row.recipients) };
         }
         if (post && !fileId) {
           const input = await readJson(request);
           currentMember();
           requireValue(safeFileName(input.name), 400, "文件名无效。");
+          let recipients = null;
+          if (input.recipients != null) {
+            requireValue(Array.isArray(input.recipients) && input.recipients.length > 0
+              && input.recipients.length < MEMBER_LIMIT && input.recipients.every(id =>
+                typeof id === "string" && /^[a-f0-9]{24}$/.test(id) && id !== member.id
+                  && memberById.get(code, id)?.status === "active"),
+            400, "请选择仍在文件群里的收件人。");
+            recipients = [...new Set(input.recipients)].sort();
+          }
           return json(200, uploadReceipt(bulk.open({ room: code, member: member.id, name: input.name,
-            request: input.request, size: input.size, digest: input.digest })));
+            request: input.request, size: input.size, digest: input.digest, recipients })));
         }
         requireValue(fileId, 404, "文件编号不存在。");
-        const current = bulk.status(fileId, member.id);
-        requireValue(current.room === code, 404, "文件编号不存在。");
+        const current = bulk.status(fileId, member.id, code);
         if (post && operation === "publish") return json(200, uploadReceipt(await bulk.publish(fileId, member.id, Date.now(), currentMember)));
         if (request.method === "GET" && !operation) return json(200, uploadReceipt(current));
         if (post && !operation) {
@@ -372,7 +381,7 @@ export function createRoomServer(directory, tls, bulkQuota = 0, { managed = fals
           return response.end(file.data);
         }
         requireValue(bulk, 404, "文件已撤回或到期。");
-        const item = bulk.entry(fileId, code);
+        const item = bulk.entryFor(fileId, code, member.id);
         if (item.size === 0) {
           response.writeHead(200, { "Content-Type": "application/octet-stream", "Content-Length": 0 });
           return response.end();
@@ -393,7 +402,7 @@ export function createRoomServer(directory, tls, bulkQuota = 0, { managed = fals
         requireValue(typeof input.id === "string", 400, "文件标识无效。");
         const file = db.prepare("SELECT sender, expires, retain_until FROM files WHERE room = ? AND id = ? AND expires > ?").get(code, input.id, Date.now());
         if (!file && bulk) {
-          const row = bulk.entry(input.id, code);
+          const row = bulk.entryFor(input.id, code, member.id);
           requireValue(manager || row.member === member.id, 403, "没有操作该文件的权限。");
           if (action === "revoke") {
             bulk.revoke(row);

@@ -78,7 +78,7 @@ test("临时互传区直达建区、接续文件架与显式保存", async ({ pa
           if (sessionStorage.getItem("room-offline") === "yes") throw "合成断线";
           if (sessionStorage.getItem("room-approved") !== "yes") return { status: "pending" };
           return {
-            member: { id: "e".repeat(24), name: "合成装机端" }, bulk: true,
+            member: { id: "e".repeat(24), name: "合成装机端" }, bulk: true, directed: true,
             members: [{ id: "f".repeat(24), name: "网页访客", status: "active" }],
             files: [
               { id: "a".repeat(32), name: "received.txt", sender: "f".repeat(24), size: 2, digest },
@@ -121,7 +121,11 @@ test("临时互传区直达建区、接续文件架与显式保存", async ({ pa
   const card = page.getByRole("group", { name: "所选文件" });
   await expect(card.getByText("selected.txt", { exact: true })).toBeVisible();
   await expect(card.getByText("2 B", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "将所选文件发给全区" }).click();
+  await page.getByRole("combobox", { name: "发送范围" }).selectOption("selected");
+  await expect(page.getByRole("button", { name: "发送给 0 人" })).toBeDisabled();
+  await page.getByRole("checkbox", { name: "网页访客" }).check();
+  await page.getByRole("button", { name: "发送给 1 人" }).click();
+  await page.getByRole("combobox", { name: "发送范围" }).selectOption("all");
   await expect(page.getByText("发件人 网页访客", { exact: true })).toBeVisible();
   await expect(page.getByText("发件人已离群", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "保存 received.txt", exact: true })).toBeDisabled();
@@ -149,7 +153,9 @@ test("临时互传区直达建区、接续文件架与显式保存", async ({ pa
   expect(calls.filter((call: { command: string }) => call.command === "web_receive_finish")).toHaveLength(2);
   expect(calls.filter((call: { command: string }) => call.command === "room_bulk_receive")).toHaveLength(1);
   expect(calls.find((call: { command: string }) => call.command === "web_receive_prepare").args.shelfId).toBe(3);
-  expect(calls.find((call: { command: string }) => call.command === "room_bulk_upload").args.itemId).toBe(1);
+  const directed = calls.find((call: { command: string }) => call.command === "room_bulk_upload");
+  expect(directed.args.itemId).toBe(1);
+  expect(directed.args.recipients).toEqual(["f".repeat(24)]);
 
   await page.getByRole("button", { name: "切换互传区" }).click();
   await page.getByRole("button", { name: "发起新区", exact: true }).click();

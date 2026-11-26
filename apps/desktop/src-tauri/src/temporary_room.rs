@@ -495,6 +495,7 @@ pub async fn room_bulk_receive(
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn room_bulk_upload(
     app: tauri::AppHandle,
     window: tauri::WebviewWindow,
@@ -502,6 +503,7 @@ pub async fn room_bulk_upload(
     shelf_id: i64,
     item_id: i64,
     upload_id: String,
+    recipients: Option<Vec<String>>,
     on_progress: tauri::ipc::Channel<RoomProgress>,
 ) -> Result<()> {
     use tokio::io::{AsyncReadExt, AsyncSeekExt};
@@ -509,6 +511,14 @@ pub async fn room_bulk_upload(
     let scope = metadata_scope(&window)?;
     if scope.is_some_and(|id| id != shelf_id) || !hex(&upload_id, 32) {
         return Err("只能发送当前文件架的所选文件。".into());
+    }
+    let mut recipients = recipients;
+    if let Some(ids) = recipients.as_mut() {
+        if ids.is_empty() || ids.len() > 4 || ids.iter().any(|id| !hex(id, 24)) {
+            return Err("请选择至多四位有效收件人。".into());
+        }
+        ids.sort_unstable();
+        ids.dedup();
     }
     let invitation = Invitation::parse(&invitation)?;
     let worker = app.clone();
@@ -553,12 +563,16 @@ pub async fn room_bulk_upload(
     let start = reply(
         send(
             with_cookie(client.post(invitation.endpoint("/bulk")?), cookie.clone()).json(
-                &json!({"name": name, "request": &request[..32], "size": size, "digest": digest}),
+                &json!({"name": name, "request": &request[..32], "size": size, "digest": digest,
+                    "recipients": recipients}),
             ),
         )
         .await?,
     )
     .await?;
+    if start["recipients"] != json!(recipients) {
+        return Err("站点未确认发送范围，文件尚未上传。".into());
+    }
     let id = start["id"]
         .as_str()
         .filter(|id| hex(id, 32))
