@@ -121,7 +121,10 @@ test("电脑显示的二维码可解出原邀请，手机视口使用同一地�
     await host.getByLabel("显示名称").fill("电脑房主");
     await host.getByLabel("入区需批准").check();
     await host.getByRole("button", { name: "创建互传区" }).click();
+    const original = await host.getByLabel("邀请链接", { exact: true }).inputValue();
+    await host.goto(original + "&test-marker=browser-only#local-view");
     const invitation = await decodeRoomInvitation(host);
+    expect(invitation).toBe(original);
     await phone.goto(invitation);
     await phone.getByLabel("显示名称").fill("手机访客");
     await phone.getByRole("button", { name: "加入互传区" }).click();

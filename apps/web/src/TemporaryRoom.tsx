@@ -70,6 +70,7 @@ export function TemporaryRoom() {
   const [seeding, setSeeding] = useState<string[]>([]);
   const [verified, setVerified] = useState<Record<string, File>>({});
   const roomApi = `${api}/${encodeURIComponent(code)}`;
+  const invitation = `${location.origin}/rooms?code=${encodeURIComponent(code)}`;
   const tooLarge = !!file && file.size > (room?.bulk ? FILE_MAX : MAX_BROWSER_TRANSFER_BYTES);
   const remoteBlocked = busy || stationOffline;
 
@@ -182,7 +183,7 @@ export function TemporaryRoom() {
 
   async function copyInvitation() {
     try {
-      await navigator.clipboard.writeText(location.href);
+      await navigator.clipboard.writeText(invitation);
       setProblem("");
       setMessage("邀请链接已复制。");
     } catch {
@@ -269,7 +270,7 @@ export function TemporaryRoom() {
     </section> : <>
       <section className="room-card">
         <h2>{room.member.name} <small>{room.member.role === "owner" ? "群主" : room.member.role === "admin" ? "管理员" : "成员"}</small></h2>
-        <label>邀请链接 <input readOnly value={location.href} onFocus={event => event.target.select()} /></label>
+        <label>邀请链接 <input readOnly value={invitation} onFocus={event => event.target.select()} /></label>
         <div className="room-row room-invite-actions">
           <button type="button" onClick={() => void copyInvitation()}>复制邀请链接</button>
           <span className="room-note">邀请有效至 {formatDate(room.inviteExpires)}</span>
@@ -279,7 +280,7 @@ export function TemporaryRoom() {
         <details key={code}>
           <summary>手机扫码加入</summary>
           {mobileInvite ? <>
-            <QRCodeCanvas value={location.href} size={192} marginSize={4} role="img" aria-label="互传区邀请二维码" />
+            <QRCodeCanvas value={invitation} size={192} marginSize={4} role="img" aria-label="互传区邀请二维码" />
             <p className="room-note">用手机相机扫码，打开邀请后申请加入。</p>
           </> : <p className="room-note">请用手机可访问的 HTTPS 站点创建互传区。</p>}
         </details>
