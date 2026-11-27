@@ -1,7 +1,7 @@
 # Gemini 独立审查员工作规范
 
 > 本文件供官方 Antigravity CLI 的 Gemini 审查会话读取
-> 并不表示 Gemini 已在本仓库完成登录或本地运行
+> 本机接入和当前审查证据见 [互传审查试点](docs/reviews/GEMINI_ROOM_PILOT_2026-11-27.md)
 
 ## 工作定位
 
