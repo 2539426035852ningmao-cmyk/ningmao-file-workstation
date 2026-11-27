@@ -2114,6 +2114,7 @@ pub fn run() {
         (_, Some(registry)) => Some(workspace::resolve(registry).expect("工作区连接无法读取，已保留原数据")),
         _ => None,
     }.map(|root| std::path::absolute(root).expect("无法解析工作区位置"));
+    let startup_lock = base_root.as_ref().map(|root| lock_workspace(root).expect("相同工作区已有实例或无法锁定"));
     let profile_root = base_root.as_ref().map(|base| station_account::AccountWorkspaces::load(base)
         .expect("账号工作区无法读取，已保留原数据").data_root(base));
     if let (Some(base), Some(profile)) = (&base_root, &profile_root) {
@@ -2163,15 +2164,7 @@ pub fn run() {
             std::fs::create_dir_all(&base)?;
             let root = profile_root.clone().unwrap_or_else(|| base.clone());
             std::fs::create_dir_all(&root)?;
-            let lock = OpenOptions::new()
-                .create(true)
-                .truncate(false)
-                .read(true)
-                .write(true)
-                .open(base.join("instance.lock"))?;
-            lock.try_lock().map_err(|e| {
-                std::io::Error::other(format!("相同数据目录已有实例或无法锁定：{e}"))
-            })?;
+            let lock = match startup_lock { Some(lock) => lock, None => lock_workspace(&base)? };
             let arguments: Vec<_> = std::env::args_os().skip(1).collect();
             if arguments.first().is_some_and(|value| value == "--restore-backup") {
                 let backup = arguments.get(1).map(PathBuf::from).ok_or_else(|| std::io::Error::other("请将备份文件拖到恢复入口。"))?;
@@ -2473,6 +2466,14 @@ pub fn run() {
         ])
         .run(context)
         .expect("柠猫文件工作站启动失败；数据未自动清理");
+}
+
+fn lock_workspace(root: &std::path::Path) -> std::io::Result<File> {
+    std::fs::create_dir_all(root)?;
+    let lock = OpenOptions::new().create(true).truncate(false).read(true).write(true)
+        .open(root.join("instance.lock"))?;
+    lock.try_lock().map_err(|failure| std::io::Error::other(format!("工作区无法锁定：{failure}")))?;
+    Ok(lock)
 }
 
 #[cfg(test)]

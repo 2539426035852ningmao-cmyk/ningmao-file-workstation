@@ -53,6 +53,25 @@ test("好友确认后可私聊、固定文件群可来回查看文字及收发�
     const file = b.waitForEvent("download");
     await b.getByRole("button", { name: "保存 群样本.txt" }).click();
     expect(await readFile(await (await file).path())).toEqual(bytes);
+
+    await a.getByText("文件群成员 2 / 5 人", { exact: true }).click();
+    await a.getByRole("button", { name: "设为管理员" }).click();
+    await a.getByText("群管理交接", { exact: true }).click();
+    await a.getByLabel("备用管理员").selectOption({ label: "测试乙" });
+    await a.getByRole("button", { name: "指定备用管理员" }).click();
+    await a.close();
+    await b.getByText("群管理交接", { exact: true }).click();
+    await b.getByRole("button", { name: "继续群管理" }).click();
+    await expect(b.getByText("值守管理员正在管理此群。")).toBeVisible();
+    const roomApi = origin + "/api/rooms/" + groupCode;
+    const application = await outsider.request.post(roomApi + "/join", { data: {} });
+    const pending = (await application.json()).member;
+    expect(pending.status).toBe("pending");
+    expect((await contexts[0].request.post(roomApi + "/decide", { data: { id: pending.id, accept: true } })).status()).toBe(403);
+    await b.getByRole("button", { name: "批准", exact: true }).click();
+    expect((await outsider.request.get(roomApi)).status()).toBe(200);
+    await b.getByRole("button", { name: "交回群主管理" }).click();
+    await expect(b.getByRole("button", { name: "继续群管理" })).toBeVisible();
   } finally {
     await Promise.all(contexts.map(context => context.close()));
     station.closeAllConnections();

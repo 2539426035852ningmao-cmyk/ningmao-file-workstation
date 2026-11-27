@@ -214,6 +214,14 @@ pub(crate) async fn station_social_request(
             endpoint.set_path(&format!("/api/social/{action}"));
             client.post(endpoint).json(&input)
         }
+        ("hosting" | "promote", Some(input)) => {
+            let code = room
+                .as_deref()
+                .filter(|code| temporary_room::hex(code, 32))
+                .ok_or("文件群编号无效。")?;
+            endpoint.set_path(&format!("/api/rooms/{code}/{action}"));
+            client.post(endpoint).json(&input)
+        }
         _ => return Err("未知的好友或消息操作。".into()),
     };
     temporary_room::reply(

@@ -15,7 +15,7 @@ import type { TransferSelection } from "./TransferPanel";
 type FileEntry = { id: string; name: string; sender?: string; size: number; digest: string; expires: number; chunked?: number; directed?: number };
 type MemberRole = "owner" | "admin" | "member";
 type RoomMember = { id: string; name: string; status: "active" | "pending"; role?: MemberRole };
-type Room = { code?: string; title?: string; fixed?: boolean; direct?: boolean; member: { id?: string; name: string; role?: MemberRole }; members?: RoomMember[]; files: FileEntry[]; memberLimit?: number; bulk?: boolean; directed?: boolean };
+type Room = { code?: string; title?: string; fixed?: boolean; direct?: boolean; management?: { standby: string | null; active: number }; member: { id?: string; name: string; role?: MemberRole }; members?: RoomMember[]; files: FileEntry[]; memberLimit?: number; bulk?: boolean; directed?: boolean };
 type Admission = "pending" | "denied" | "left" | "removed";
 type RoomView = Room | { status: Admission };
 const admissionText: Record<Admission, string> = {
@@ -75,7 +75,8 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
   const memberLimit = room?.memberLimit;
   const roomFull = memberLimit !== undefined && activeMembers.length >= memberLimit;
   const owner = room?.member.role === "owner";
-  const managesRoom = owner || room?.member.role === "admin";
+  const isStandby = room?.management?.standby === room?.member.id && Boolean(room?.member.id);
+  const managesRoom = room?.management?.active ? isStandby : owner || room?.member.role === "admin";
   const confirmingDeparture = departure?.invitation === invitation ? departure : null;
   const selected = selection.files.length === 1 ? selection.files[0] : null;
   const [preview, setPreview] = useState<{ id: number; url: string } | null>(null);
@@ -301,6 +302,14 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
       ? { ...current, saved: { ...current.saved, [id]: filename } } : current);
   }
 
+  function manageGroup(action: "hosting" | "promote", input: Record<string, unknown>) {
+    if (!room?.code || offline) return;
+    void run(async () => {
+      await invoke("station_social_request", { action, input, room: room.code });
+      await refresh();
+    });
+  }
+
   return <section className="room-desktop" aria-label="临时互传区">
     {offline && !changingRoom && <p className="room-caption" role="status">站点暂时无法连接，恢复后自动更新。</p>}
     <StationAccountPanel defaultStation={station || host?.address || ""} openRoom={async target => {
@@ -394,11 +403,11 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
           <h3 className="room-identity"><RoomAvatar id={room.member.id} />{room.title ?? room.member.name}</h3>
           <span>{memberRoleText[room.member.role ?? "member"]}</span>
         </div>
-        <label>邀请链接<Input readOnly value={link} onFocus={event => event.target.select()} /></label>
+        {!room.direct && <label>邀请链接<Input readOnly value={link} onFocus={event => event.target.select()} /></label>}
         <p className="room-caption">{mobileInvite ? "通过 HTTPS 站点互传" : "通过本机站点互传"}</p>
         <div className="transfer-receive-actions">
-          <Button variant="outline" size="sm" disabled={busy} aria-label="复制邀请链接"
-            onClick={() => void copy(invitation, "邀请链接")}>复制邀请</Button>
+          {!room.direct && <Button variant="outline" size="sm" disabled={busy} aria-label="复制邀请链接"
+            onClick={() => void copy(invitation, "邀请链接")}>复制邀请</Button>}
           <Button variant="ghost" size="sm" disabled={busy} aria-label="刷新互传区"
             onClick={() => void run(refresh)}>刷新</Button>
           <Button variant="ghost" size="sm" disabled={busy} aria-label="切换互传区" onClick={() => {
@@ -408,7 +417,7 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
             setChangingRoom(true);
           }}>切换</Button>
         </div>
-        <details className="room-recovery" key={invitation}>
+        {!room.direct && <details className="room-recovery" key={invitation}>
           <summary>手机扫码加入</summary>
           <div className="transfer-form">
             {mobileInvite ? <>
@@ -416,7 +425,7 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
               <p className="room-caption">用手机相机扫码，打开邀请后申请加入。</p>
             </> : <p className="room-caption">这个地址供当前电脑使用。请用手机可访问的 HTTPS 站点创建互传区。</p>}
           </div>
-        </details>
+        </details>}
         {recovery && <details className="room-recovery">
           <summary>管理恢复码</summary>
           <div className="transfer-form">
@@ -429,6 +438,10 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
           <ul className="transfer-form">
             {activeMembers.map(member => <li className="room-person" key={member.id}>
               <span className="room-identity"><RoomAvatar id={member.id} /><span>{member.name} <small className="room-caption">{memberRoleText[member.role ?? "member"]}</small></span></span>
+              {room.management && owner && managesRoom && member.id !== room.member.id && <Button
+                size="sm" variant="ghost" disabled={busy || offline} onClick={() => manageGroup("promote", { id: member.id, enabled: member.role !== "admin" })}>
+                {member.role === "admin" ? "取消管理员" : "设为管理员"}
+              </Button>}
               {managesRoom && member.id !== room.member.id && (member.role === "member" || (member.role === "admin" && owner)) &&
                 <Button size="sm" variant="ghost" disabled={busy || offline} aria-label={`移出 ${member.name}`}
                   onClick={() => setDeparture({ invitation, member })}>移出</Button>}
@@ -436,6 +449,28 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
             {!owner && !room.direct && <li><Button size="sm" variant="ghost" disabled={busy || offline}
               onClick={() => setDeparture({ invitation })}>退出文件群</Button></li>}
           </ul>
+        </details>}
+        {room.management && (owner || isStandby) && <details className="room-recovery">
+          <summary>群管理交接</summary>
+          <div className="transfer-form">
+            <p className="room-caption">当前站点在线时，指定的管理员可以继续处理群审批和成员管理。</p>
+            {room.management.active ? <Button size="sm" variant="outline" disabled={busy || offline}
+              onClick={() => manageGroup("hosting", { action: "return" })}>交回群主管理</Button> : <>
+              {owner && <form className="transfer-form" onSubmit={event => {
+                event.preventDefault();
+                const id = String(new FormData(event.currentTarget).get("standby") ?? "");
+                manageGroup("hosting", { action: "designate", id });
+              }}>
+                <label>备用管理员<select name="standby" key={room.management.standby ?? ""} defaultValue={room.management.standby ?? ""} required disabled={busy || offline}>
+                  <option value="">请选择管理员</option>
+                  {activeMembers.filter(member => member.role === "admin").map(member => <option key={member.id} value={member.id}>{member.name}</option>)}
+                </select></label>
+                <Button size="sm" type="submit" disabled={busy || offline}>指定备用管理员</Button>
+              </form>}
+              {isStandby && <Button size="sm" disabled={busy || offline}
+                onClick={() => manageGroup("hosting", { action: "start" })}>继续群管理</Button>}
+            </>}
+          </div>
         </details>}
         {confirmingDeparture && <div className="transfer-form" role="group" aria-label="确认成员变更">
           <p>{confirmingDeparture.member ? `将「${confirmingDeparture.member.name}」移出文件群？` : "退出这个文件群？"}</p>

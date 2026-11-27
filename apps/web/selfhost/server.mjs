@@ -188,12 +188,16 @@ export function createRoomServer(directory, tls, bulkQuota = 0, { managed = fals
         return json(201, { code, recovery });
       }
 
-      const match = /^\/api\/rooms\/([a-f0-9]{32})(?:\/(join|recover|decide|promote|leave|remove|files|revoke|extend|bulk|peers|sources)(?:\/([a-f0-9]{32}))?(?:\/(publish))?)?$/.exec(pathname);
+      const match = /^\/api\/rooms\/([a-f0-9]{32})(?:\/(join|recover|decide|promote|leave|remove|files|revoke|extend|bulk|peers|sources|hosting)(?:\/([a-f0-9]{32}))?(?:\/(publish))?)?$/.exec(pathname);
       requireValue(match, 404, "页面不存在。");
       const [, code, action, fileId, operation] = match;
       requireValue(!operation || action === "bulk" && fileId, 404, "操作不存在。");
       const room = requireValue(db.prepare("SELECT * FROM rooms WHERE code = ?").get(code), 404, "找不到这个互传区。");
       const fixed = social.roomInfo(code, account?.id);
+      const canManage = actor => {
+        const manager = fixed && !fixed.direct_key && social.management(code);
+        return manager?.active ? manager.standby === actor.id : managesRoom(actor);
+      };
       if (fixed) {
         requireValue(account, 401, "请先登录账号。");
         requireValue(social.directAllowed(fixed.direct_key, account.id), 403, "你不在这个会话中。");
@@ -256,13 +260,18 @@ export function createRoomServer(directory, tls, bulkQuota = 0, { managed = fals
         return requireValue(current?.id === member?.id && current?.status === "active" && current, 403, "成员权限已变化。");
       };
       requireValue(member?.status === "active", 403, "请先加入互传区。");
+      if (post && action === "hosting" && !fileId) {
+        const input = await readJson(request);
+        return json(200, social.manage(code, currentMember(), input));
+      }
       if (!action && request.method === "GET") {
         return json(200, {
           code, member, memberLimit: MEMBER_LIMIT, inviteExpires: fixed ? null : room.created + DAY,
-          ...(fixed && { fixed: true, direct: Boolean(fixed.direct_key), title: fixed.title }),
+          ...(fixed && { fixed: true, direct: Boolean(fixed.direct_key), title: fixed.title,
+            ...(!fixed.direct_key && { management: social.management(code) }) }),
           bulk: Boolean(bulk), directed: Boolean(bulk),
           members: db.prepare(`SELECT id, name, role, status FROM members
-            WHERE room = ? AND (status = 'active' OR ? AND status = 'pending') ORDER BY rowid`).all(code, Number(managesRoom(member))),
+            WHERE room = ? AND (status = 'active' OR ? AND status = 'pending') ORDER BY rowid`).all(code, Number(canManage(member))),
           files: [
             ...(bulk?.list(code, member.id) ?? []),
             ...db.prepare(`SELECT id, sender, name, size, digest, expires, retain_until FROM files
@@ -344,7 +353,7 @@ export function createRoomServer(directory, tls, bulkQuota = 0, { managed = fals
       }
       if (post && action === "decide" && !fileId) {
         const input = await readJson(request);
-        requireValue(managesRoom(currentMember()), 403, "只有群主或管理员可以批准加入。");
+        requireValue(canManage(currentMember()), 403, "请由当前值守管理者审批。");
         requireValue(typeof input.id === "string" && typeof input.accept === "boolean", 400, "请求内容无效。");
         if (input.accept) {
           const target = memberById.get(code, input.id);
@@ -358,7 +367,8 @@ export function createRoomServer(directory, tls, bulkQuota = 0, { managed = fals
       }
       if (post && action === "promote" && !fileId) {
         const input = await readJson(request);
-        requireValue(currentMember().role === "owner", 403, "只有群主可以调整管理员。");
+        const actor = currentMember();
+        requireValue(actor.role === "owner" && canManage(actor), 403, "请由当前在管的群主调整管理员。");
         requireValue(typeof input.id === "string" && typeof input.enabled === "boolean", 400, "请求内容无效。");
         const count = db.prepare("SELECT COUNT(*) AS count FROM members WHERE room = ? AND role = 'admin'").get(code).count;
         requireValue(!input.enabled || count < 3, 409, "最多可以指定三名管理员。");
@@ -368,6 +378,8 @@ export function createRoomServer(directory, tls, bulkQuota = 0, { managed = fals
       if (post && !fileId && action === "leave") {
         requireValue(!fixed?.direct_key, 403, "私聊可从好友列表管理。");
         requireValue(member.role !== "owner", 403, "群主须保留管理权限。");
+        const management = fixed && social.management(code);
+        requireValue(!management?.active || management.standby !== member.id, 403, "请先交回管理权限。");
         changeStatus.run("left", code, member.id);
         return json(200, {});
       }
@@ -375,7 +387,7 @@ export function createRoomServer(directory, tls, bulkQuota = 0, { managed = fals
         requireValue(!fixed?.direct_key, 403, "私聊可从好友列表管理。");
         const input = await readJson(request);
         const actor = currentMember();
-        requireValue(managesRoom(actor), 403, "只有群主或管理员可以移出成员。");
+        requireValue(canManage(actor), 403, "请由当前值守管理者移出成员。");
         requireValue(typeof input.id === "string", 400, "成员编号无效。");
         const target = memberById.get(code, input.id);
         requireValue(target?.status === "active", 404, "找不到该成员。");
@@ -452,7 +464,7 @@ export function createRoomServer(directory, tls, bulkQuota = 0, { managed = fals
       }
       if (post && (action === "revoke" || action === "extend") && !fileId) {
         const input = await readJson(request);
-        const manager = managesRoom(currentMember());
+        const manager = canManage(currentMember());
         requireValue(typeof input.id === "string", 400, "文件标识无效。");
         const file = db.prepare("SELECT sender, expires, retain_until FROM files WHERE room = ? AND id = ? AND expires > ?").get(code, input.id, Date.now());
         if (!file && bulk) {

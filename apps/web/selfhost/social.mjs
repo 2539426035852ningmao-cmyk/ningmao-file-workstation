@@ -19,6 +19,10 @@ export function createSocial(db, { readJson, requireValue, token, sha }) {
       sender TEXT NOT NULL REFERENCES accounts(id), body TEXT NOT NULL, sent INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS room_messages_room ON room_messages(room,id);
+    CREATE TABLE IF NOT EXISTS room_management (
+      code TEXT PRIMARY KEY REFERENCES fixed_rooms(code) ON DELETE CASCADE,
+      standby TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 0
+    );
   `);
   const roomInfo = db.prepare("SELECT title, direct_key FROM fixed_rooms WHERE code = ?");
   const member = db.prepare("SELECT status FROM members WHERE room = ? AND session = ?");
@@ -34,6 +38,10 @@ export function createSocial(db, { readJson, requireValue, token, sha }) {
   const listRooms = db.prepare(`SELECT f.code, f.title, f.direct_key FROM fixed_rooms f
     JOIN members m ON m.room=f.code WHERE m.session=? AND m.status='active' ORDER BY f.rowid DESC`);
   const directDisplayName = db.prepare("SELECT username FROM accounts WHERE id = ?");
+  const management = db.prepare("SELECT standby,active FROM room_management WHERE code=?");
+  const managementMember = db.prepare("SELECT id,role,status FROM members WHERE room=? AND id=?");
+  const setStandby = db.prepare("INSERT INTO room_management(code,standby,active) VALUES(?,?,0) ON CONFLICT(code) DO UPDATE SET standby=excluded.standby,active=0");
+  const setActive = db.prepare("UPDATE room_management SET active=? WHERE code=?");
   function directAllowed(direct, id) {
     if (!direct) return true;
     const [a, b] = direct.split("/");
@@ -87,6 +95,26 @@ export function createSocial(db, { readJson, requireValue, token, sha }) {
       return fixed ? { ...fixed, title: id ? title(fixed, id) : null } : null;
     },
     directAllowed,
+    management(code) { return management.get(code) ?? { standby: null, active: 0 }; },
+    manage(code, actor, input) {
+      const fixed = roomInfo.get(code);
+      requireValue(fixed && !fixed.direct_key && actor?.status === "active", 403, "仅固定文件群的成员可以管理值守。");
+      const current = management.get(code);
+      if (input.action === "designate") {
+        requireValue(actor.role === "owner" && !current?.active, 403, "请由群主指定，接管期间须先交回。");
+        const standby = typeof input.id === "string" && managementMember.get(code, input.id);
+        requireValue(standby?.role === "admin" && standby.status === "active", 400, "请选择已加入的管理员。");
+        setStandby.run(code, standby.id);
+      } else if (input.action === "start") {
+        requireValue(current?.standby === actor.id && actor.role === "admin", 403, "请由已指定的管理员继续管理。");
+        setActive.run(1, code);
+      } else if (input.action === "return") {
+        requireValue(current?.active && (actor.role === "owner" || current.standby === actor.id),
+          403, "请由群主或值守管理员交回。");
+        setActive.run(0, code);
+      } else requireValue(false, 400, "未知的值守操作。");
+      return { management: management.get(code) };
+    },
     purge() { pruneMessages.run(Date.now() - retention); },
     async handle(request, url, json, who) {
       const actor = requireValue(who(), 401, "请先登录账号。");
