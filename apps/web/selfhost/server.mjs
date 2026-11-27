@@ -9,6 +9,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { MAX_BROWSER_TRANSFER_BYTES, safeFileName } from "../src/file-preparation.mjs";
 import { CHUNK_BYTES, ChunkStore } from "./chunk-store.mjs";
 import { RoomSources } from "./room-sources.mjs";
+import { accountApi, createAccountHandler } from "./accounts.mjs";
 
 const DAY = 86_400_000;
 const STORAGE_LIMIT = 512 * 1024 * 1024;
@@ -92,6 +93,7 @@ export function createRoomServer(directory, tls, bulkQuota = 0, { managed = fals
         name TEXT NOT NULL, digest TEXT NOT NULL
       );
   `);
+  const handleAccount = createAccountHandler(db, { secure: Boolean(tls), readJson, requireValue });
   const members = db.prepare("SELECT id, name, role, status FROM members WHERE room = ? AND session = ?");
   const addMember = db.prepare("INSERT INTO members VALUES (?, ?, ?, ?, ?, ?)");
   const activeCount = db.prepare("SELECT COUNT(*) AS count FROM members WHERE room = ? AND status = 'active'");
@@ -137,7 +139,8 @@ export function createRoomServer(directory, tls, bulkQuota = 0, { managed = fals
           return response.end();
         }
         const asset = /^\/assets\/([\w.-]+)\.(js|css|svg|png)$/.exec(pathname);
-        requireValue(pathname === "/rooms" || asset, 404, "页面不存在。");
+        requireValue(pathname === "/rooms" || pathname === "/account" || asset, 404, "页面不存在。");
+        if (pathname === "/account") response.setHeader("X-Frame-Options", "DENY");
         const content = asset ? readFileSync(resolve(dist, "assets", asset[1] + "." + asset[2]))
           : readFileSync(resolve(dist, "index.html"));
         response.writeHead(200, { "Content-Type": asset ? types[asset[2]] : "text/html; charset=utf-8" });
@@ -149,6 +152,9 @@ export function createRoomServer(directory, tls, bulkQuota = 0, { managed = fals
         requireValue(request.headers["sec-fetch-site"] !== "cross-site" &&
           (!origin || origin === (tls ? "https://" : "http://") + request.headers.host),
           403, "请从互传站点发起操作。");
+      }
+      if (pathname === accountApi || pathname.startsWith(accountApi + "/")) {
+        return await handleAccount(request, response, pathname, json);
       }
       const cookie = /(?:^|;\s*)ningmao_room=([a-f0-9]{48})(?:;|$)/.exec(request.headers.cookie ?? "")?.[1];
       const session = sha(cookie ?? "");

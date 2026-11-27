@@ -57,6 +57,16 @@
 .room-file-filters { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; margin-bottom: 10px; }
 .room-page button.room-primary { color: var(--primary-text); background: var(--primary); }
 .room-page :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.room-nav-link { display: inline-flex; align-items: center; gap: 6px; border-radius: 6px; padding: 6px 4px; }
+.room-nav-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+.account-page { max-width: 510px; }
+.account-page .room-card form { margin: 0; }
+.account-page fieldset { display: grid; gap: 12px; width: 100%; }
+.account-page fieldset button { justify-self: start; }
+.account-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.account-summary p { margin: 0 0 6px; }
+.account-summary strong { overflow-wrap: anywhere; }
+.account-summary button { flex: none; }
 .room-file {
   display: flex;
   flex-wrap: wrap;

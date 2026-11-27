@@ -246,9 +246,12 @@ export function TemporaryRoom() {
   return <main className="room-page">
     <header className="room-header">
       <strong><FolderUp size={21} aria-hidden /> 柠猫文件工作站</strong>
-      <label>主题 <select value={theme} onChange={event => setTheme(event.target.value as Theme)}>
-        <option value="light">浅白</option><option value="dark">深蓝</option><option value="blue">亮蓝</option>
-      </select></label>
+      <div className="room-row">
+        <a className="room-nav-link" href={code ? `/account?room=${encodeURIComponent(code)}` : "/account"}>账号</a>
+        <label>主题 <select value={theme} onChange={event => setTheme(event.target.value as Theme)}>
+          <option value="light">浅白</option><option value="dark">深蓝</option><option value="blue">亮蓝</option>
+        </select></label>
+      </div>
     </header>
     <h1>临时互传区</h1>
     {stationOffline && <p className="room-feedback" role="alert">互传站点暂时无法连接，恢复后会自动刷新。</p>}
