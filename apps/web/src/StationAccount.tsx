@@ -114,6 +114,7 @@ export function StationAccount() {
       </section> : <>
         <section className="room-card account-summary" aria-label="当前账号">
           <div><p className="room-note">当前登录</p><strong>{account.username}</strong></div>
+          <a className="room-nav-link" href="/social">好友与文件群</a>
           <button type="button" disabled={busy} onClick={() => {
             setRegister(false);
             void perform("/logout", {}, "已退出登录。");

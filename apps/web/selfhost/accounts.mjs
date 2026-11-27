@@ -89,6 +89,16 @@ export function createAccountHandler(db, { secure, readJson, requireValue }) {
     return secret;
   }
 
+  const tokenFor = request => cookiePattern.exec(request.headers.cookie ?? "")?.[1];
+  const accountTransport = request => secure || (
+    ["127.0.0.1", "::ffff:127.0.0.1", "::1"].includes(request.socket.remoteAddress)
+    && loopbackHost.test(request.headers.host ?? "")
+  );
+  function current(request) {
+    const token = tokenFor(request);
+    return accountTransport(request) && token ? bySession.get(digest(token), Date.now()) : null;
+  }
+
   function transaction(action) {
     db.exec("BEGIN IMMEDIATE");
     try {
@@ -101,12 +111,10 @@ export function createAccountHandler(db, { secure, readJson, requireValue }) {
     }
   }
 
-  return async (request, response, pathname, json) => {
-    const local = ["127.0.0.1", "::ffff:127.0.0.1", "::1"].includes(request.socket.remoteAddress)
-      && loopbackHost.test(request.headers.host ?? "");
-    requireValue(secure || local, 403, "请用 HTTPS 或本机站点访问账号。");
+  async function handle(request, response, pathname, json) {
+    requireValue(accountTransport(request), 403, "请用 HTTPS 或本机站点访问账号。");
     const action = pathname.slice(accountApi.length);
-    const secret = cookiePattern.exec(request.headers.cookie ?? "")?.[1];
+    const secret = tokenFor(request);
     const session = secret ? digest(secret) : null;
     const getAccount = () => session ? bySession.get(session, Date.now()) : null;
     if (request.method === "GET" && action === "") {
@@ -180,5 +188,6 @@ export function createAccountHandler(db, { secure, readJson, requireValue }) {
     });
     sessionCookie(response, fresh);
     return json(200, { account: publicAccount(current) });
-  };
+  }
+  return { handle, current };
 }

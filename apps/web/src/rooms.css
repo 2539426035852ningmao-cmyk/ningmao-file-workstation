@@ -67,6 +67,12 @@
 .account-summary p { margin: 0 0 6px; }
 .account-summary strong { overflow-wrap: anywhere; }
 .account-summary button { flex: none; }
+.account-summary { flex-wrap: wrap; }
+.room-social-list { display: grid; gap: 10px; padding: 0; margin: 10px 0; list-style: none; }
+.room-social-list li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; overflow-wrap: anywhere; }
+.room-social-list.room-messages li { align-items: start; flex-direction: column; padding: 8px 0; border-top: 1px solid var(--border); }
+.room-messages li > span { white-space: pre-wrap; }
+.room-page textarea { width: 100%; min-height: 65px; resize: vertical; padding: 8px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface2); color: var(--text); font: inherit; }
 .room-file {
   display: flex;
   flex-wrap: wrap;

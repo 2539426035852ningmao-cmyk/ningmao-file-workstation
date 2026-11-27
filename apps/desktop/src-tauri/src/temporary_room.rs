@@ -97,10 +97,21 @@ pub(crate) fn client() -> Result<Client> {
 }
 
 fn with_cookie(request: RequestBuilder, cookie: Option<String>) -> RequestBuilder {
-    match cookie.filter(|value| hex(value, 48)) {
-        Some(value) => request.header(header::COOKIE, format!("ningmao_room={value}")),
+    match cookie {
+        Some(value) => request.header(header::COOKIE, value),
         None => request,
     }
+}
+
+fn room_credentials(origin: &Url, state: &Runtime) -> Result<Option<String>> {
+    let visitor = transfer_identity::read::<String>(&cookie_path(origin, state))?
+        .filter(|value| hex(value, 48))
+        .map(|value| format!("ningmao_room={value}"));
+    let account = crate::station_account::header_for(origin, state)?;
+    Ok(match (visitor, account) {
+        (Some(visitor), Some(account)) => Some(format!("{visitor}; {account}")),
+        (visitor, account) => visitor.or(account),
+    })
 }
 
 pub(crate) async fn send(request: RequestBuilder) -> Result<Response> {
@@ -176,7 +187,7 @@ pub async fn room_create(
     let response = send(
         with_cookie(
             client()?.post(origin.join("api/rooms").map_err(error)?),
-            cookie.clone(),
+            room_credentials(&origin, &state)?,
         )
         .json(&json!({ "name": name, "approval": approval })),
     )
@@ -191,8 +202,11 @@ pub async fn room_create(
         .as_str()
         .filter(|code| hex(code, 48))
         .ok_or("站点返回的管理恢复码无效。")?;
-    let token = token.ok_or("站点未返回群主授权。")?;
-    transfer_identity::save(&path, &token)?;
+    if let Some(token) = token {
+        transfer_identity::save(&path, &token)?;
+    } else if crate::station_account::header_for(&origin, &state)?.is_none() {
+        return Err("站点未返回群主授权。".into());
+    }
     let mut invitation = origin.join("rooms").map_err(error)?;
     invitation.query_pairs_mut().append_pair("code", code);
     Ok(json!({ "invitation": invitation.as_str(), "recovery": recovery }))
@@ -211,7 +225,7 @@ pub async fn room_join(
     let state = app.state::<Runtime>();
     let _guard = state.rooms.joining.lock().await;
     let path = invitation.cookie_path(&state);
-    let cookie = transfer_identity::read::<String>(&path)?;
+    let cookie = room_credentials(&invitation.origin, &state)?;
     let response = send(
         with_cookie(client()?.post(invitation.endpoint("/join")?), cookie)
             .json(&json!({ "name": name })),
@@ -239,8 +253,7 @@ pub async fn room_decide(
     if !hex(&member_id, 24) {
         return Err("成员编号无效。".into());
     }
-    let cookie =
-        transfer_identity::read::<String>(&invitation.cookie_path(&app.state::<Runtime>()))?;
+    let cookie = room_credentials(&invitation.origin, &app.state::<Runtime>())?;
     reply(
         send(
             with_cookie(client()?.post(invitation.endpoint("/decide")?), cookie)
@@ -267,8 +280,7 @@ pub async fn room_depart(
         Some(_) => return Err("成员编号无效。".into()),
         None => ("/leave", json!({})),
     };
-    let cookie =
-        transfer_identity::read::<String>(&invitation.cookie_path(&app.state::<Runtime>()))?;
+    let cookie = room_credentials(&invitation.origin, &app.state::<Runtime>())?;
     reply(
         send(with_cookie(client()?.post(invitation.endpoint(endpoint)?), cookie).json(&payload))
             .await?,
@@ -286,8 +298,7 @@ pub async fn room_view(
     trusted_native_origin(&window)?;
     metadata_scope(&window)?;
     let invitation = Invitation::parse(&invitation)?;
-    let cookie =
-        transfer_identity::read::<String>(&invitation.cookie_path(&app.state::<Runtime>()))?;
+    let cookie = room_credentials(&invitation.origin, &app.state::<Runtime>())?;
     reply(send(with_cookie(client()?.get(invitation.endpoint("")?), cookie)).await?).await
 }
 
@@ -319,8 +330,7 @@ pub async fn room_upload(
     if expected != digest {
         return Err("文件已变化，请重新选择。".into());
     }
-    let cookie =
-        transfer_identity::read::<String>(&invitation.cookie_path(&app.state::<Runtime>()))?;
+    let cookie = room_credentials(&invitation.origin, &app.state::<Runtime>())?;
     let escaped: String = name.bytes().map(|byte| format!("%{byte:02X}")).collect();
     reply(
         send(
@@ -349,8 +359,7 @@ pub async fn room_download(
     if !hex(&file_id, 32) {
         return Err("文件编号无效。".into());
     }
-    let cookie =
-        transfer_identity::read::<String>(&invitation.cookie_path(&app.state::<Runtime>()))?;
+    let cookie = room_credentials(&invitation.origin, &app.state::<Runtime>())?;
     let response = send(with_cookie(
         client()?.get(invitation.endpoint(&format!("/files/{file_id}"))?),
         cookie,
@@ -410,8 +419,7 @@ pub async fn room_bulk_receive(
     if !hex(&file_id, 32) {
         return Err("文件编号无效。".into());
     }
-    let cookie =
-        transfer_identity::read::<String>(&invitation.cookie_path(&app.state::<Runtime>()))?;
+    let cookie = room_credentials(&invitation.origin, &app.state::<Runtime>())?;
     let client = client()?;
     let manifest = reply(
         send(with_cookie(
@@ -557,8 +565,7 @@ pub async fn room_bulk_upload(
     }
     let digest = format!("{:x}", hash.finalize());
     let request = format!("{:x}", Sha256::digest(format!("{upload_id}:{digest}")));
-    let cookie =
-        transfer_identity::read::<String>(&invitation.cookie_path(&app.state::<Runtime>()))?;
+    let cookie = room_credentials(&invitation.origin, &app.state::<Runtime>())?;
     let client = client()?;
     let start = reply(
         send(
