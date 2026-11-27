@@ -3,12 +3,16 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 if (-not $IsWindows) { throw 'Windows packaging requires Windows' }
 $repo = Split-Path -Parent $PSScriptRoot
+$previousTarget = $env:CARGO_TARGET_DIR
+# WiX includes loose DLLs from the build directory. Keep cargo test outputs out of it.
+$target = if ($previousTarget) { [IO.Path]::GetFullPath($previousTarget) } else { Join-Path $repo 'apps/desktop/src-tauri/target/preview-bundle' }
 function Run([string]$Program, [string[]]$Arguments) {
     & $Program @Arguments
     if ($LASTEXITCODE -ne 0) { throw "$Program failed: $LASTEXITCODE" }
 }
 Push-Location $repo
 try {
+    $env:CARGO_TARGET_DIR = $target
     Run node @('--test','scripts/collect-licenses.test.mjs')
     & ./scripts/inspect-msi.test.ps1
     & ./scripts/verify-preview-package.test.ps1
@@ -17,7 +21,6 @@ try {
     try {
         Run npm @('run','tauri','--','build','--debug','--ci','--bundles','msi','--config','src-tauri/tauri.preview.conf.json','--','--locked')
     } finally { Pop-Location }
-    $target = if ($env:CARGO_TARGET_DIR) { [IO.Path]::GetFullPath($env:CARGO_TARGET_DIR) } else { Join-Path $repo 'apps/desktop/src-tauri/target' }
     $msi = @(Get-ChildItem -LiteralPath (Join-Path $target 'debug/bundle/msi') -Filter '*.msi' -File)
     if ($msi.Count -ne 1) { throw 'Expected exactly one MSI in clean build directory' }
     $exe = Join-Path $target 'debug/ningmao-file-workstation.exe'
@@ -49,4 +52,7 @@ try {
     $hashes | Set-Content -LiteralPath (Join-Path $out 'SHA256SUMS.txt') -Encoding utf8
     & ./scripts/verify-preview-package.ps1 -Directory $out
     Write-Output 'Preview package created and inspected; no installation or application launch performed.'
-} finally { Pop-Location }
+} finally {
+    $env:CARGO_TARGET_DIR = $previousTarget
+    Pop-Location
+}

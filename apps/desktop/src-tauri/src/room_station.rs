@@ -204,7 +204,7 @@ fn permit(window: &WebviewWindow) -> Result<()> {
 }
 
 fn settings(state: &Runtime) -> PathBuf {
-    state.data_root.join("room-station.bin")
+    state.workspace_root.join("room-station.bin")
 }
 
 #[tauri::command]

@@ -21,14 +21,14 @@ struct Invitation {
     code: String,
 }
 
-fn hex(value: &str, size: usize) -> bool {
+pub(crate) fn hex(value: &str, size: usize) -> bool {
     value.len() == size
         && value
             .bytes()
             .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
 }
 
-fn station_url(value: &str) -> Result<Url> {
+pub(crate) fn station_url(value: &str) -> Result<Url> {
     let parsed = Url::parse(value.trim()).map_err(|_| "请检查互传站点地址。")?;
     let trusted_scheme = parsed.scheme() == "https"
         || (parsed.scheme() == "http" && parsed.host_str() == Some("127.0.0.1"));
@@ -85,7 +85,7 @@ fn response_token(response: &Response) -> Option<String> {
         .map(str::to_owned)
 }
 
-fn client() -> Result<Client> {
+pub(crate) fn client() -> Result<Client> {
     let _ = rustls::crypto::ring::default_provider().install_default();
     Client::builder()
         .no_proxy()
@@ -103,7 +103,7 @@ fn with_cookie(request: RequestBuilder, cookie: Option<String>) -> RequestBuilde
     }
 }
 
-async fn send(request: RequestBuilder) -> Result<Response> {
+pub(crate) async fn send(request: RequestBuilder) -> Result<Response> {
     request
         .send()
         .await
@@ -131,7 +131,7 @@ async fn bounded(mut response: Response, limit: usize) -> Result<Vec<u8>> {
     Ok(out)
 }
 
-async fn reply(response: Response) -> Result<Value> {
+pub(crate) async fn reply(response: Response) -> Result<Value> {
     let status = response.status();
     let data: Value = serde_json::from_slice(&bounded(response, MAX_JSON).await?)
         .map_err(|_| "互传站点回复格式无效。")?;
