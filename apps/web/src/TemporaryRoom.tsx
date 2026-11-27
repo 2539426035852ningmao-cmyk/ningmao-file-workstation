@@ -401,7 +401,7 @@ export function TemporaryRoom() {
       </section>
       <section className="room-card">
         <h2>共享文件</h2>
-        {room.files.length > 0 && <div className="room-file-filters" role="group" aria-label="共享文件筛选">
+        <div className="room-file-filters" role="group" aria-label="共享文件筛选">
           <input type="search" aria-label="按文件名查找" placeholder="按文件名查找"
             value={fileQuery} onChange={event => setFileQuery(event.target.value)} />
           <select aria-label="收发筛选" value={fileDirection} onChange={event => setFileDirection(event.target.value)}>
@@ -409,7 +409,7 @@ export function TemporaryRoom() {
             <option value="sent">我发出的</option>
             <option value="received">我收到的</option>
           </select>
-        </div>}
+        </div>
         {room.files.length === 0 && <p className="room-note">区内还没有文件。</p>}
         {room.files.length > 0 && visibleFiles.length === 0 && <p className="room-note">未找到符合条件的文件。</p>}
         {visibleFiles.map(item => <article key={item.id} className="room-file">

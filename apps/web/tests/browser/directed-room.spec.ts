@@ -72,6 +72,12 @@ test("全区为默认，指定两人时只有他们能保存", async ({ browser 
     await expect(guests[0].getByText("未找到符合条件的文件。")).toBeVisible();
     await guests[2].getByLabel("按文件名查找").fill("指定");
     await expect(guests[2].getByText("未找到符合条件的文件。")).toBeVisible();
+    const search = guests[2].getByRole("searchbox", { name: "按文件名查找" });
+    await search.focus();
+    owner.once("dialog", dialog => void dialog.accept());
+    await owner.locator("article").filter({ hasText: "全区.txt" }).getByRole("button", { name: "撤回" }).click();
+    await expect(guests[2].getByText("区内还没有文件。")).toBeVisible();
+    await expect(search).toBeFocused({ timeout: 2000 });
   } finally {
     await Promise.all(contexts.map(context => context.close()));
     server.closeAllConnections();
