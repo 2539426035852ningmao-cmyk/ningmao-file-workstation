@@ -6,6 +6,14 @@ type Account = { id: string; username: string };
 type AccountAction = "/login" | "/register" | "/logout" | "/username" | "/password";
 const accountEndpoint = "/api/account";
 
+class AccountRequestError extends Error {
+  readonly status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
 async function accountRequest(action = "", input?: Record<string, string>, signal?: AbortSignal) {
   const response = await fetch(accountEndpoint + action, {
     method: input ? "POST" : "GET",
@@ -16,7 +24,7 @@ async function accountRequest(action = "", input?: Record<string, string>, signa
     throw new Error("请从自建互传站点打开账号页。");
   }
   const body = await response.json();
-  if (!response.ok) throw new Error(typeof body === "string" ? body : "账号操作未完成，请重试。");
+  if (!response.ok) throw new AccountRequestError(response.status, typeof body === "string" ? body : "账号操作未完成，请重试。");
   return body.account as Account | null;
 }
 
@@ -26,18 +34,19 @@ export function StationAccount() {
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState("");
   const [message, setMessage] = useState("");
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const room = new URLSearchParams(location.search).get("room") ?? "";
   const returnToRoom = /^[a-f0-9]{32}$/i.test(room) ? `/rooms?code=${room.toLowerCase()}` : "/rooms";
   useEffect(() => {
     document.documentElement.dataset.theme ??= "light";
     const controller = new AbortController();
+    setProblem("");
     accountRequest("", undefined, controller.signal).then(setAccount).catch(error => {
       if (controller.signal.aborted) return;
-      setAccount(null);
       setProblem(error instanceof TypeError ? "站点暂时无法连接。" : error.message);
     });
     return () => controller.abort();
-  }, []);
+  }, [loadAttempt]);
 
   async function perform(action: AccountAction, data: Record<string, string>, success: string) {
     setBusy(true);
@@ -48,6 +57,10 @@ export function StationAccount() {
       setMessage(success);
       return true;
     } catch (error) {
+      if (account && error instanceof AccountRequestError && error.status === 401) {
+        setAccount(null);
+        setRegister(false);
+      }
       setProblem(error instanceof TypeError ? "站点暂时无法连接，请重试。"
         : error instanceof Error ? error.message : "账号操作未完成，请重试。");
       return false;
@@ -81,7 +94,9 @@ export function StationAccount() {
     <h1>{account ? "账号设置" : "站点账号"}</h1>
     {problem && <p className="room-feedback" role="alert">{problem}</p>}
     {message && <p className="room-feedback" role="status">{message}</p>}
-    {account === undefined ? <p className="room-note" role="status">正在确认登录状态…</p> : !account ?
+    {account === undefined ? problem
+      ? <button type="button" onClick={() => setLoadAttempt(attempt => attempt + 1)}>重新检查</button>
+      : <p className="room-note" role="status">正在确认登录状态…</p> : !account ?
       <section className="room-card">
         <div className="room-entry-tabs" role="group" aria-label="账号入口">
           <button type="button" disabled={busy} aria-pressed={!register} onClick={() => switchEntry(false)}>登录账号</button>

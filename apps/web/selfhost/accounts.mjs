@@ -47,7 +47,8 @@ export function createAccountHandler(db, { secure, readJson, requireValue }) {
 
   function passwordOf(value, minimum) {
     const length = typeof value === "string" && value.length <= 256 ? [...value].length : 0;
-    return requireValue(length >= minimum && length <= 128 && value, 400, "请输入符合长度要求的密码。新密码须为 15 到 128 个字符。");
+    return requireValue(length >= minimum && length <= 128 && value, 400,
+      minimum > 1 ? "新密码须为 15 到 128 个字符。" : "密码须为 1 到 128 个字符。");
   }
 
   function limitAttempts(address) {
@@ -69,10 +70,10 @@ export function createAccountHandler(db, { secure, readJson, requireValue }) {
     }
   }
 
-  async function verify(account, password) {
+  async function matchesPassword(account, password) {
     const actual = await hashPassword(password, Buffer.from(account?.salt ?? "0".repeat(32), "hex"));
     const match = timingSafeEqual(actual, Buffer.from(account?.password_hash ?? "0".repeat(64), "hex"));
-    requireValue(account && match, 401, invalidCredentials);
+    return Boolean(account && match);
   }
 
   function sessionCookie(response, secret, seconds = sessionSeconds) {
@@ -141,7 +142,7 @@ export function createAccountHandler(db, { secure, readJson, requireValue }) {
       const username = usernameOf(input.username);
       const password = passwordOf(input.password, 1);
       const account = byName.get(username.toLowerCase());
-      await verify(account, password);
+      requireValue(await matchesPassword(account, password), 401, invalidCredentials);
       const fresh = transaction(() => {
         const current = byId.get(account.id);
         requireValue(current?.password_hash === account.password_hash && current.username_key === account.username_key,
@@ -153,9 +154,9 @@ export function createAccountHandler(db, { secure, readJson, requireValue }) {
       return json(200, { account: publicAccount(account) });
     }
 
-    const account = requireValue(getAccount(), 401, "请先登录账号。");
+    const account = requireValue(getAccount(), 401, "登录已失效，请重新登录。");
     const password = passwordOf(input.password, 1);
-    await verify(account, password);
+    requireValue(await matchesPassword(account, password), 403, "当前密码不正确。");
     function requireSameSession() {
       const current = getAccount();
       return requireValue(current?.password_hash === account.password_hash && current, 401, "登录状态已变化，请重新登录。");

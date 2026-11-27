@@ -50,7 +50,7 @@ test("self-hosted accounts stay separate, keep stable IDs, and revoke previous s
   const second = (await (await bob()).json()).account;
   assert.notEqual(first.id, second.id);
   assert.equal((await oldSession("/login", { username: "alice_测试", password })).status, 200);
-  assert.equal((await alice("/username", { username: "测试新名", password: "wrong" })).status, 401);
+  assert.equal((await alice("/username", { username: "测试新名", password: "wrong" })).status, 403);
   assert.equal((await alice("/username", { username: "Bob", password })).status, 409);
   assert.deepEqual((await (await alice("/username", { username: "测试新名", password })).json()).account, { id: first.id, username: "测试新名" });
   assert.equal((await visitor("/login", { username: "Alice_测试", password })).status, 401);
