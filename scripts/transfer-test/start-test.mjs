@@ -11,8 +11,17 @@ const log = message => appendFile(join(data, "launch.log"), `${new Date().toISOS
 const origin = "http://127.0.0.1:5186";
 let station, desktop;
 const desktopOnly = process.argv.includes("--desktop-only");
+const stationOnly = process.argv.includes("--station-only");
 
-try {
+async function startStation() {
+  const { createRoomServer } = await import("./web/selfhost/server.mjs");
+  station = createRoomServer(join(data, "station"), undefined, 512 * 1024 * 1024);
+  station.listen(5186, "127.0.0.1");
+  await once(station, "listening");
+  await log("Station listening at " + origin + "/rooms");
+}
+
+async function runDesktop() {
   const executable = join(root, "app", "Ningmao-Preview-0.1.0-x64.exe");
   const desktopData = join(data, "desktop");
   const webview = join(data, "webview");
@@ -28,13 +37,7 @@ try {
     if (error.code !== "EEXIST") throw error;
   });
 
-  if (!desktopOnly) {
-    const { createRoomServer } = await import("./web/selfhost/server.mjs");
-    station = createRoomServer(join(data, "station"), undefined, 512 * 1024 * 1024);
-    station.listen(5186, "127.0.0.1");
-    await once(station, "listening");
-    await log("Station listening at " + origin + "/rooms");
-  }
+  if (!desktopOnly) await startStation();
 
   desktop = spawn(executable, [], {
     cwd: join(root, "app"), windowsHide: true, stdio: "ignore",
@@ -59,6 +62,14 @@ try {
   }
   const [code] = await exit;
   if (code !== 0) throw new Error("Desktop exited with code " + code);
+}
+
+try {
+  if (stationOnly) {
+    await startStation();
+    console.log("Open " + origin + "/account. Press Ctrl+C to stop the test station.");
+    await new Promise(resolve => process.once("SIGINT", resolve));
+  } else await runDesktop();
 } catch (error) {
   await log(error.code === "EADDRINUSE" ? "Port 5186 is in use. Check whether the transfer preview is already open." : String(error));
   process.exitCode = 1;

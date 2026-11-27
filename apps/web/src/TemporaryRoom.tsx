@@ -10,7 +10,7 @@ import "./rooms.css";
 
 type Member = { id: string; name: string; role: "owner" | "admin" | "member"; status: "active" | "pending" };
 type RoomFile = { id: string; sender: string; name: string; size: number; digest: string; expires: number; retain_until: number; chunked?: number; directed?: number };
-type Room = { code: string; member: Member; members: Member[]; files: RoomFile[]; inviteExpires: number | null; memberLimit?: number; bulk?: boolean; directed?: boolean; fixed?: boolean; direct?: boolean; title?: string };
+type Room = { code: string; member: Member; members: Member[]; files: RoomFile[]; inviteExpires: number | null; memberLimit?: number; bulk?: boolean; directed?: boolean; fixed?: boolean; direct?: boolean; title?: string; management?: { standby: string | null; active: number } };
 type Theme = "light" | "dark" | "blue";
 const day = 24 * 60 * 60 * 1000;
 const retentionHours = (size: number) => size >= 10_000_000_000 ? 6 : 24;
@@ -227,7 +227,9 @@ export function TemporaryRoom() {
     }
   }
 
-  const manage = room?.member.role === "owner" || room?.member.role === "admin";
+  const owner = room?.member.role === "owner";
+  const isStandby = room?.management?.standby === room?.member.id && Boolean(room?.member.id);
+  const manage = room?.management?.active ? isStandby : owner || room?.member.role === "admin";
   const activeMembers = room?.members.filter(member => member.status === "active") ?? [];
   const pendingMembers = room?.members.filter(member => member.status === "pending") ?? [];
   const senderNames = new Map(activeMembers.map(member => [member.id, member.name]));
@@ -343,7 +345,7 @@ export function TemporaryRoom() {
             {activeMembers.map(member => <li key={member.id}>
               <div className="room-row">
                 <span className="room-identity"><RoomAvatar id={member.id} /><span>{member.name} <small>{member.role === "owner" ? "群主" : member.role === "admin" ? "管理员" : "成员"}</small></span></span>
-                {room.member.role === "owner" && member.id !== room.member.id &&
+                {owner && manage && !room.direct && member.id !== room.member.id &&
                   <button disabled={remoteBlocked} onClick={() => void perform(async () => {
                     await jsonPost(roomApi + "/promote", { id: member.id, enabled: member.role !== "admin" });
                     await refresh(roomApi);
@@ -355,6 +357,36 @@ export function TemporaryRoom() {
             </li>)}
           </ul>
         </details>
+        {room.management && (owner || isStandby) && <details>
+          <summary>群管理交接</summary>
+          <p className="room-note">当前站点在线时，指定的管理员可以继续处理群审批和成员管理。</p>
+          {room.management.active ? <>
+            <p>值守管理员正在管理此群。</p>
+            <button type="button" disabled={remoteBlocked} onClick={() => void perform(async () => {
+              await jsonPost(roomApi + "/hosting", { action: "return" });
+              await refresh(roomApi);
+            })}>交回群主管理</button>
+          </> : <>
+            {owner && <form onSubmit={event => {
+              event.preventDefault();
+              const id = String(new FormData(event.currentTarget).get("standby") ?? "");
+              void perform(async () => {
+                await jsonPost(roomApi + "/hosting", { action: "designate", id });
+                await refresh(roomApi);
+              });
+            }}>
+              <label>备用管理员<select name="standby" key={room.management.standby ?? ""} defaultValue={room.management.standby ?? ""} required disabled={remoteBlocked}>
+                <option value="">请选择管理员</option>
+                {activeMembers.filter(member => member.role === "admin").map(member => <option key={member.id} value={member.id}>{member.name}</option>)}
+              </select></label>
+              <button type="submit" disabled={remoteBlocked}>指定备用管理员</button>
+            </form>}
+            {isStandby && <button type="button" disabled={remoteBlocked} onClick={() => void perform(async () => {
+              await jsonPost(roomApi + "/hosting", { action: "start" });
+              await refresh(roomApi);
+            })}>继续群管理</button>}
+          </>}
+        </details>}
         {manage && pendingMembers.length > 0 && <div className="room-pending">
           <h3>待批准访客</h3>
           {roomFull && <p className="room-note">文件群已满，有空位后可批准加入。</p>}

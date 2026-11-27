@@ -35,6 +35,7 @@ foreach ($name in @('file-preparation.mjs', 'file-utils.mjs')) {
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'transfer-test/start-test.mjs') -Destination $output
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'transfer-test/Start-Transfer-Test.vbs') -Destination (Join-Path $output '启动互传测试.vbs')
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'transfer-test/Start-Transfer-Test.vbs') -Destination (Join-Path $output 'Start-Room-Host.vbs')
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'transfer-test/Start-Transfer-Test.vbs') -Destination (Join-Path $output 'Start-Account-Station.vbs')
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'transfer-test/使用说明.md') -Destination $output
 Set-Content -LiteralPath (Join-Path $output '合成测试文件/软件发出.txt') -Value '柠猫合成测试文件。方向为软件端发送，网页端接收。' -Encoding UTF8
 Set-Content -LiteralPath (Join-Path $output '合成测试文件/网页发出.txt') -Value '柠猫合成测试文件。方向为网页端发送，软件端接收。' -Encoding UTF8
