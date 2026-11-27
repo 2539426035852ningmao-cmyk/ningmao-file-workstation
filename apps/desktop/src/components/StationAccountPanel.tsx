@@ -2,10 +2,11 @@ import { invoke } from "@tauri-apps/api/core";
 import { useState, type FormEvent } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import { StationSocialPanel } from "./StationSocialPanel";
 
 type AccountView = { username: string | null; station: string | null; can_associate: boolean };
 
-export function StationAccountPanel({ defaultStation }: { defaultStation: string }) {
+export function StationAccountPanel({ defaultStation, openRoom }: { defaultStation: string; openRoom: (link: string) => Promise<void> }) {
   const [view, setView] = useState<AccountView>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -44,6 +45,7 @@ export function StationAccountPanel({ defaultStation }: { defaultStation: string
     {busy && <p className="room-caption" role="status">正在切换工作区…</p>}
     {view?.username ? <div className="transfer-form">
       <p className="room-caption">当前账号 {view.username}。本地文件仍留在原位置。</p>
+      {view.station && <StationSocialPanel station={view.station} openRoom={openRoom} />}
       <Button type="button" variant="outline" size="sm" disabled={busy}
         onClick={() => void restart("station_account_logout")}>退出账号并重启</Button>
     </div> : view ? <form className="transfer-form" onSubmit={login}>

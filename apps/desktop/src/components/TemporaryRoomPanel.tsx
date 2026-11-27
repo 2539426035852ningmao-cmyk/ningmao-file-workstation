@@ -7,6 +7,7 @@ import { nativeWebTransferSource } from "../webTransferBackend";
 import { WEB_MAX_FILE_BYTES } from "../webFileRules";
 import { RoomAvatar, RoomFileIcon, RoomRecipients } from "./RoomVisuals";
 import { StationAccountPanel } from "./StationAccountPanel";
+import { StationChat } from "./StationSocialPanel";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import type { TransferSelection } from "./TransferPanel";
@@ -14,7 +15,7 @@ import type { TransferSelection } from "./TransferPanel";
 type FileEntry = { id: string; name: string; sender?: string; size: number; digest: string; expires: number; chunked?: number; directed?: number };
 type MemberRole = "owner" | "admin" | "member";
 type RoomMember = { id: string; name: string; status: "active" | "pending"; role?: MemberRole };
-type Room = { member: { id?: string; name: string; role?: MemberRole }; members?: RoomMember[]; files: FileEntry[]; memberLimit?: number; bulk?: boolean; directed?: boolean };
+type Room = { code?: string; title?: string; fixed?: boolean; direct?: boolean; member: { id?: string; name: string; role?: MemberRole }; members?: RoomMember[]; files: FileEntry[]; memberLimit?: number; bulk?: boolean; directed?: boolean };
 type Admission = "pending" | "denied" | "left" | "removed";
 type RoomView = Room | { status: Admission };
 const admissionText: Record<Admission, string> = {
@@ -302,7 +303,16 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
 
   return <section className="room-desktop" aria-label="临时互传区">
     {offline && !changingRoom && <p className="room-caption" role="status">站点暂时无法连接，恢复后自动更新。</p>}
-    <StationAccountPanel defaultStation={station || host?.address || ""} />
+    <StationAccountPanel defaultStation={station || host?.address || ""} openRoom={async target => {
+      const next = await invoke<RoomView>("room_view", { invitation: target });
+      if ("status" in next) throw new Error("文件群尚未批准加入。");
+      setDraftLink(target);
+      setRecipients(null);
+      setFileQuery("");
+      setFileDirection("all");
+      setSession(current => ({ ...current, link: target, room: next, recovery: "", admission: null, saved: {} }));
+      setChangingRoom(false);
+    }} />
     {host?.available && <details ref={hostPanel} className="room-desktop-card room-station">
       <summary>本机互传站点 <span>{host.running ? "运行中" : "已停止"}</span></summary>
       <div className="transfer-form">
@@ -381,7 +391,7 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
     </div> : <>
       <div className="room-desktop-card transfer-form">
         <div className="room-desktop-heading">
-          <h3 className="room-identity"><RoomAvatar id={room.member.id} />{room.member.name}</h3>
+          <h3 className="room-identity"><RoomAvatar id={room.member.id} />{room.title ?? room.member.name}</h3>
           <span>{memberRoleText[room.member.role ?? "member"]}</span>
         </div>
         <label>邀请链接<Input readOnly value={link} onFocus={event => event.target.select()} /></label>
@@ -423,7 +433,7 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
                 <Button size="sm" variant="ghost" disabled={busy || offline} aria-label={`移出 ${member.name}`}
                   onClick={() => setDeparture({ invitation, member })}>移出</Button>}
             </li>)}
-            {!owner && <li><Button size="sm" variant="ghost" disabled={busy || offline}
+            {!owner && !room.direct && <li><Button size="sm" variant="ghost" disabled={busy || offline}
               onClick={() => setDeparture({ invitation })}>退出文件群</Button></li>}
           </ul>
         </details>}
@@ -455,6 +465,7 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
           </div>
         </div>)}
       </div>}
+      {room.fixed && room.code && <StationChat key={room.code} code={room.code} />}
       <div className="room-desktop-card transfer-form">
         <h3>发送文件</h3>
         {selected ? <div className="room-file-preview" role="group" aria-label="所选文件">

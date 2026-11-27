@@ -2376,6 +2376,7 @@ pub fn run() {
             station_account::station_account_view,
             station_account::station_account_login,
             station_account::station_account_logout,
+            station_account::station_social_request,
             temporary_room::room_join,
             temporary_room::room_decide,
             temporary_room::room_depart,

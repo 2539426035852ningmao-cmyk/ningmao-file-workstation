@@ -5,11 +5,12 @@ import { MAX_BROWSER_TRANSFER_BYTES } from "./file-preparation.mjs";
 import { downloadBulk, FILE_MAX, uploadBulk } from "./bulkTransfer";
 import { RoomAvatar, RoomFileIcon, RoomRecipients } from "./RoomVisuals";
 import { RoomPeerSources } from "./roomPeerSources";
+import { RoomChat } from "./StationSocial";
 import "./rooms.css";
 
 type Member = { id: string; name: string; role: "owner" | "admin" | "member"; status: "active" | "pending" };
 type RoomFile = { id: string; sender: string; name: string; size: number; digest: string; expires: number; retain_until: number; chunked?: number; directed?: number };
-type Room = { code: string; member: Member; members: Member[]; files: RoomFile[]; inviteExpires: number; memberLimit?: number; bulk?: boolean; directed?: boolean };
+type Room = { code: string; member: Member; members: Member[]; files: RoomFile[]; inviteExpires: number | null; memberLimit?: number; bulk?: boolean; directed?: boolean; fixed?: boolean; direct?: boolean; title?: string };
 type Theme = "light" | "dark" | "blue";
 const day = 24 * 60 * 60 * 1000;
 const retentionHours = (size: number) => size >= 10_000_000_000 ? 6 : 24;
@@ -55,6 +56,7 @@ export function TemporaryRoom() {
   const [entry, setEntry] = useState<"create" | "join">(code ? "join" : "create");
   const [theme, setTheme] = useState<Theme>("light");
   const [name, setName] = useState("");
+  const [account, setAccount] = useState("");
   const [requireApproval, setRequireApproval] = useState(false);
   const [room, setRoom] = useState<Room | null>(null);
   const [membership, setMembership] = useState("");
@@ -82,6 +84,14 @@ export function TemporaryRoom() {
 
   useEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
   useEffect(() => {
+    const controller = new AbortController();
+    void fetch("/api/account", { signal: controller.signal, cache: "no-store" })
+      .then(response => response.ok ? response.json() : null)
+      .then(value => { if (!controller.signal.aborted) setAccount(value?.account?.username ?? ""); })
+      .catch(() => {});
+    return () => controller.abort();
+  }, []);
+  useEffect(() => {
     if (!file || !/\.(png|jpe?g|webp|gif|avif)$/i.test(file.name)) {
       setPreview(null);
       return;
@@ -93,7 +103,7 @@ export function TemporaryRoom() {
   async function refresh(path: string, signal?: AbortSignal) {
     const response = await fetch(path, { signal, cache: "no-store" });
     if (signal?.aborted) return;
-    if (!response.ok && response.status !== 403 && response.status !== 404) {
+    if (!response.ok && response.status !== 401 && response.status !== 403 && response.status !== 404) {
       throw new Error("暂时无法读取互传区，请稍后重试。");
     }
     if (response.ok) {
@@ -103,7 +113,7 @@ export function TemporaryRoom() {
       const details = await response.json();
       if (!signal?.aborted) {
         setRoom(null);
-        setMembership(response.status === 404 ? "missing" : details.status ?? "");
+        setMembership(response.status === 401 ? "sign-in" : response.status === 404 ? "missing" : details.status ?? "");
       }
     }
   }
@@ -248,12 +258,13 @@ export function TemporaryRoom() {
       <strong><FolderUp size={21} aria-hidden /> 柠猫文件工作站</strong>
       <div className="room-row">
         <a className="room-nav-link" href={code ? `/account?room=${encodeURIComponent(code)}` : "/account"}>账号</a>
+        {account && <a className="room-nav-link" href="/social">好友与文件群</a>}
         <label>主题 <select value={theme} onChange={event => setTheme(event.target.value as Theme)}>
           <option value="light">浅白</option><option value="dark">深蓝</option><option value="blue">亮蓝</option>
         </select></label>
       </div>
     </header>
-    <h1>临时互传区</h1>
+    <h1>{room?.title ?? "临时互传区"}</h1>
     {stationOffline && <p className="room-feedback" role="alert">互传站点暂时无法连接，恢复后会自动刷新。</p>}
     {problem && <p className="room-feedback" role="alert">{problem}</p>}
     {message && <p className="room-feedback" role="status">{message}</p>}
@@ -263,12 +274,14 @@ export function TemporaryRoom() {
       {membership === "left" && <p role="status">你已退出文件群，可使用邀请重新加入。</p>}
       {membership === "removed" && <p role="status">你已被移出这个文件群。</p>}
       {membership === "missing" && <p role="status">找不到这个互传区，请检查邀请码。</p>}
+      {membership === "sign-in" && <p role="status">请先登录账号，再打开这个文件群。</p>}
       <fieldset disabled={busy}>
         <div className="room-entry-tabs" role="group" aria-label="进入方式">
           <button type="button" aria-pressed={entry === "create"} onClick={() => setEntry("create")}>发起新区</button>
           <button type="button" aria-pressed={entry === "join"} onClick={() => setEntry("join")}>有邀请链接</button>
         </div>
-        <label>显示名称 <input value={name} maxLength={100} onChange={event => setName(event.target.value)} /></label>
+        {account ? <p className="room-note">使用账号 {account}</p>
+          : <label>显示名称 <input value={name} maxLength={100} onChange={event => setName(event.target.value)} /></label>}
         {entry === "create" ? <form onSubmit={event => {
           event.preventDefault();
           void perform(async () => {
@@ -278,7 +291,7 @@ export function TemporaryRoom() {
           });
         }}>
           <label className="room-choice"><input type="checkbox" checked={requireApproval} onChange={event => setRequireApproval(event.target.checked)} /> 入区需批准</label>
-          <button type="submit" className="room-primary" disabled={!name.trim()}>创建互传区</button>
+          <button type="submit" className="room-primary" disabled={!account && !name.trim()}>创建互传区</button>
         </form> : <>
         <form onSubmit={event => {
           event.preventDefault();
@@ -290,7 +303,7 @@ export function TemporaryRoom() {
           });
         }}>
           <label>邀请链接或邀请码 <input value={draftCode} maxLength={2048} onChange={event => setDraftCode(event.target.value)} /></label>
-          <button type="submit" className="room-primary" disabled={!name.trim() || !draftCode.trim() || (membership === "pending" && draftCode === code)}>加入互传区</button>
+          <button type="submit" className="room-primary" disabled={(!account && !name.trim()) || !draftCode.trim() || (membership === "pending" && draftCode === code)}>加入互传区</button>
         </form>
         <details><summary>恢复群主管理权限</summary><form onSubmit={event => {
           event.preventDefault();
@@ -308,10 +321,10 @@ export function TemporaryRoom() {
     </section> : <>
       <section className="room-card">
         <h2 className="room-identity"><RoomAvatar id={room.member.id} /> <span>{room.member.name} <small>{room.member.role === "owner" ? "群主" : room.member.role === "admin" ? "管理员" : "成员"}</small></span></h2>
-        <label>邀请链接 <input readOnly value={invitation} onFocus={event => event.target.select()} /></label>
+        {!room.direct && <><label>邀请链接 <input readOnly value={invitation} onFocus={event => event.target.select()} /></label>
         <div className="room-row room-invite-actions">
           <button type="button" onClick={() => void copyInvitation()}>复制邀请链接</button>
-          <span className="room-note">邀请有效至 {formatDate(room.inviteExpires)}</span>
+          {room.inviteExpires && <span className="room-note">邀请有效至 {formatDate(room.inviteExpires)}</span>}
           {memberLimit !== undefined && room.member.role !== "owner" &&
             <button type="button" disabled={remoteBlocked} onClick={() => depart()}>退出文件群</button>}
         </div>
@@ -322,6 +335,7 @@ export function TemporaryRoom() {
             <p className="room-note">用手机相机扫码，打开邀请后申请加入。</p>
           </> : <p className="room-note">请用手机可访问的 HTTPS 站点创建互传区。</p>}
         </details>
+        </>}
         {recovery && <details><summary>保存管理恢复码</summary><label>管理恢复码 <input readOnly value={recovery} onFocus={event => event.target.select()} /></label></details>}
         <details className="room-members">
           <summary>{memberLimit === undefined ? `文件群成员 ${activeMembers.length} 人` : `文件群成员 ${activeMembers.length} / ${memberLimit} 人`}</summary>
@@ -353,6 +367,7 @@ export function TemporaryRoom() {
           </div>)}
         </div>}
       </section>
+      {room.fixed && <RoomChat key={room.code} code={room.code} />}
       <section className="room-card">
         <h2>发送文件</h2>
         <form onSubmit={event => {

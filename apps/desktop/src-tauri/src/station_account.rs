@@ -171,6 +171,61 @@ fn cookie_name(origin: &Url) -> &'static str {
     }
 }
 
+pub(crate) fn header_for(origin: &Url, state: &Runtime) -> Result<Option<String>> {
+    let settings = AccountWorkspaces::load(&state.workspace_root)?;
+    Ok(settings
+        .current
+        .filter(|login| {
+            login.origin == origin.origin().ascii_serialization()
+                && temporary_room::hex(&login.session, 64)
+        })
+        .map(|login| format!("{}={}", cookie_name(origin), login.session)))
+}
+
+#[tauri::command]
+pub(crate) async fn station_social_request(
+    window: tauri::WebviewWindow,
+    app: tauri::AppHandle,
+    action: String,
+    room: Option<String>,
+    input: Option<serde_json::Value>,
+) -> Result<serde_json::Value> {
+    permitted(&window)?;
+    let settings = AccountWorkspaces::load(&app.state::<Runtime>().workspace_root)?;
+    let login = settings.current.ok_or("请先登录账号。")?;
+    let origin = temporary_room::station_url(&login.origin)?;
+    if !temporary_room::hex(&login.session, 64) {
+        return Err("登录已失效，请重新登录。".into());
+    }
+    let client = temporary_room::client()?;
+    let mut endpoint = origin.join("api/social").map_err(error)?;
+    let request = match (action.as_str(), input) {
+        ("", None) => client.get(endpoint),
+        ("messages", None) => {
+            let code = room
+                .as_deref()
+                .filter(|code| temporary_room::hex(code, 32))
+                .ok_or("文件群编号无效。")?;
+            endpoint.set_path("/api/social/messages");
+            endpoint.query_pairs_mut().append_pair("room", code);
+            client.get(endpoint)
+        }
+        ("request" | "accept" | "remove" | "rooms" | "messages", Some(input)) => {
+            endpoint.set_path(&format!("/api/social/{action}"));
+            client.post(endpoint).json(&input)
+        }
+        _ => return Err("未知的好友或消息操作。".into()),
+    };
+    temporary_room::reply(
+        temporary_room::send(request.header(
+            header::COOKIE,
+            format!("{}={}", cookie_name(&origin), login.session),
+        ))
+        .await?,
+    )
+    .await
+}
+
 #[tauri::command]
 pub(crate) fn station_account_view(
     window: tauri::WebviewWindow,

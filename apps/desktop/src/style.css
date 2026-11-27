@@ -30,6 +30,7 @@
 .room-file-list{padding:0;margin:0;list-style:none;min-width:0}
 .room-file-filters{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px}
 .room-file-filters select{min-height:36px}
+.room-chat-body{white-space:pre-wrap;overflow-wrap:anywhere}
 .room-file-list li{display:flex;gap:8px;justify-content:space-between;align-items:center;padding:7px 0;border-top:.5px solid var(--border)}
 .room-file-name{min-width:0;display:grid;gap:2px}
 .room-file-name strong,.room-file-name small,.room-saved{overflow-wrap:anywhere}
