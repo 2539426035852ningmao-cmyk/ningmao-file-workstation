@@ -6,6 +6,7 @@ import { nativeWebReceiver, saveAcceptedWebFile } from "../webReceiveBackend";
 import { nativeWebTransferSource } from "../webTransferBackend";
 import { WEB_MAX_FILE_BYTES } from "../webFileRules";
 import { RoomAvatar, RoomFileIcon, RoomRecipients } from "./RoomVisuals";
+import { StationAccountPanel } from "./StationAccountPanel";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import type { TransferSelection } from "./TransferPanel";
@@ -301,6 +302,7 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
 
   return <section className="room-desktop" aria-label="临时互传区">
     {offline && !changingRoom && <p className="room-caption" role="status">站点暂时无法连接，恢复后自动更新。</p>}
+    <StationAccountPanel defaultStation={station || host?.address || ""} />
     {host?.available && <details ref={hostPanel} className="room-desktop-card room-station">
       <summary>本机互传站点 <span>{host.running ? "运行中" : "已停止"}</span></summary>
       <div className="transfer-form">

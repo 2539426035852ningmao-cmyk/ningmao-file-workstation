@@ -7,6 +7,11 @@ test("本机站点需显式启停，启动后将地址填入建区入口", async
     Object.defineProperty(window, "__TAURI_INTERNALS__", { configurable: true, value: {
       transformCallback: () => 42,
       invoke: async (command: string, args: Record<string, unknown>) => {
+        if (command === "station_account_view") return { username: null, station: null, can_associate: true };
+        if (command === "station_account_login") {
+          if (args.username !== "合成账号" || args.associate !== true || args.station !== address) throw new Error("意外账号参数");
+          throw new Error("合成站点要求重试");
+        }
         if (command === "room_station_view") return { ...host };
         if (command === "room_station_choose") host.folder = "SYNTHETIC/柠猫互传暂存";
         else if (command === "room_station_start") {
@@ -31,6 +36,14 @@ test("本机站点需显式启停，启动后将地址填入建区入口", async
   await quota.selectOption("2048");
   await page.getByRole("button", { name: "启动站点" }).click();
   await expect(page.getByLabel("互传站点地址", { exact: true })).toHaveValue("http://127.0.0.1:5192/rooms");
+  await page.getByText("站点账号", { exact: true }).click();
+  await expect(page.getByLabel("账号站点")).toHaveValue("http://127.0.0.1:5192/rooms");
+  await expect(page.getByLabel("本机工作区")).toHaveValue("separate");
+  await page.getByLabel("本机工作区").selectOption("associate");
+  await page.getByLabel("账号名", { exact: true }).fill("合成账号");
+  await page.getByLabel("密码", { exact: true }).fill("synthetic credentials only");
+  await page.getByRole("button", { name: "登录并切换工作区" }).click();
+  await expect(page.getByRole("alert")).toHaveText("Error: 合成站点要求重试");
   await expect(page.getByRole("button", { name: "停止站点" })).toBeHidden();
   await page.getByText("本机互传站点", { exact: false }).click();
   await expect(quota).toBeDisabled();

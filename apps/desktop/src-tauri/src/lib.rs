@@ -10,6 +10,7 @@ mod duplicate_control;
 pub mod entry;
 mod search_control;
 mod shelf_windows;
+mod station_account;
 pub mod store;
 use ningmao_transfer_client as loopback_transport;
 mod preview;
@@ -84,6 +85,8 @@ struct Runtime {
     #[cfg(windows)]
     duplicate_scan: duplicate_control::ScanControl,
     data_root: PathBuf,
+    workspace_root: PathBuf,
+    account_switch: tokio::sync::Mutex<()>,
     recycle_test_root: Option<PathBuf>,
     recycle_plans: Mutex<std::collections::HashMap<String, PlannedRecycle>>,
     recycling: Mutex<Option<(String, Arc<AtomicBool>)>>,
@@ -1336,19 +1339,22 @@ fn quit(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<()> {
     clean_quit(app)
 }
 fn clean_quit(app: tauri::AppHandle) -> Result<()> {
-    lifecycle_idle(&app)?;
-    desktop_runtime::require_idle(&app)?;
+    prepare_clean_exit(&app)?;
+    app.exit(0);
+    Ok(())
+}
+fn prepare_clean_exit(app: &tauri::AppHandle) -> Result<()> {
+    lifecycle_idle(app)?;
     let state = app.state::<Runtime>();
     state.browser_shares.prepare_exit()?;
-    transfer_desktop::prepare_exit(&app)?;
+    transfer_desktop::prepare_exit(app)?;
     if state.active.lock().map_err(error)?.is_some() {
         return Err("复制尚未结束，请先等待完成或取消。".into());
     }
     state.room_station.stop()?;
     state.store.lock().map_err(error)?.clean_exit()?;
-    shelf_windows::capture_all(&app);
+    shelf_windows::capture_all(app);
     let _ = app.state::<desktop_runtime::Desktop>().save();
-    app.exit(0);
     Ok(())
 }
 #[tauri::command]
@@ -2100,6 +2106,23 @@ async fn recover_desktop_windows(
     shelf_windows::recover_visible(&app)
 }
 pub fn run() {
+    let explicit_root = std::env::var_os("NINGMAO_DATA_DIR").map(PathBuf::from);
+    let registry = std::env::var_os("NINGMAO_WORKSPACE_REGISTRY").map(PathBuf::from)
+        .or_else(|| std::env::var_os("LOCALAPPDATA").map(|p| PathBuf::from(p).join("Ningmao/workspace.json")));
+    let base_root = match (&explicit_root, &registry) {
+        (Some(root), _) => Some(root.clone()),
+        (_, Some(registry)) => Some(workspace::resolve(registry).expect("工作区连接无法读取，已保留原数据")),
+        _ => None,
+    }.map(|root| std::path::absolute(root).expect("无法解析工作区位置"));
+    let profile_root = base_root.as_ref().map(|base| station_account::AccountWorkspaces::load(base)
+        .expect("账号工作区无法读取，已保留原数据").data_root(base));
+    if let (Some(base), Some(profile)) = (&base_root, &profile_root) {
+        station_account::AccountWorkspaces::check_isolation(base, profile).expect("账号工作区无法读取，已保留原数据");
+    }
+    #[cfg(windows)]
+    if let (Some(base), Some(profile)) = (&base_root, &profile_root) {
+        station_account::set_webview_profile(base, profile);
+    }
     let mut context = tauri::generate_context!();
     let recovery_window = if std::env::args_os()
         .nth(1)
@@ -2123,10 +2146,8 @@ pub fn run() {
     };
     let mut window_state = tauri_plugin_window_state::Builder::default()
         .with_state_flags(tauri_plugin_window_state::StateFlags::SIZE);
-    if let Some(root) = std::env::var_os("NINGMAO_DATA_DIR") {
-        let file = std::path::absolute(root)
-            .expect("无法解析隔离数据目录")
-            .join(".window-state.json");
+    if let Some(root) = profile_root.as_ref().filter(|root| explicit_root.is_some() || Some(*root) != base_root.as_ref()) {
+        let file = root.join(".window-state.json");
         window_state = window_state.with_filename(file.to_string_lossy());
     }
     tauri::Builder::default()
@@ -2138,19 +2159,16 @@ pub fn run() {
         .plugin(window_state.build())
         .plugin(tauri_plugin_dialog::init())
         .setup(move |app| {
-            let explicit_root = std::env::var_os("NINGMAO_DATA_DIR").map(PathBuf::from);
-            let registry = std::env::var_os("NINGMAO_WORKSPACE_REGISTRY").map(PathBuf::from)
-                .or_else(|| std::env::var_os("LOCALAPPDATA").map(|p| PathBuf::from(p).join("Ningmao/workspace.json")));
-            let root = if let Some(root) = &explicit_root { root.clone() }
-                else if let Some(registry) = &registry { workspace::resolve(registry).map_err(std::io::Error::other)? }
-                else { app.path().app_data_dir()? };
+            let base = match &base_root { Some(root) => root.clone(), None => app.path().app_data_dir()? };
+            std::fs::create_dir_all(&base)?;
+            let root = profile_root.clone().unwrap_or_else(|| base.clone());
             std::fs::create_dir_all(&root)?;
             let lock = OpenOptions::new()
                 .create(true)
                 .truncate(false)
                 .read(true)
                 .write(true)
-                .open(root.join("instance.lock"))?;
+                .open(base.join("instance.lock"))?;
             lock.try_lock().map_err(|e| {
                 std::io::Error::other(format!("相同数据目录已有实例或无法锁定：{e}"))
             })?;
@@ -2189,6 +2207,8 @@ pub fn run() {
                 #[cfg(windows)]
                 duplicate_scan: Default::default(),
                 data_root: root.clone(),
+                workspace_root: base.clone(),
+                account_switch: Default::default(),
                 recycle_test_root: std::env::var_os("NINGMAO_RECYCLE_TEST_ROOT")
                     .and_then(|p| std::fs::canonicalize(p).ok()),
                 recycle_plans: Mutex::new(Default::default()),
@@ -2202,7 +2222,7 @@ pub fn run() {
             // Explicit test/data roots never register with the user's launcher.
             if (explicit_root.is_none() || std::env::var_os("NINGMAO_WORKSPACE_REGISTRY").is_some()) && let Some(registry) = &registry {
                 let package = std::env::current_exe().ok().and_then(|p| p.parent().and_then(|p| p.parent()).map(PathBuf::from));
-                workspace::remember(registry, &root, package).map_err(std::io::Error::other)?;
+                workspace::remember(registry, &base, package).map_err(std::io::Error::other)?;
             }
             if let Some(config) = &recovery_window {
                 let main = tauri::WebviewWindowBuilder::from_config(app.handle(), config)?.build()?;
@@ -2353,6 +2373,9 @@ pub fn run() {
             room_station::room_station_choose,
             room_station::room_station_start,
             room_station::room_station_stop,
+            station_account::station_account_view,
+            station_account::station_account_login,
+            station_account::station_account_logout,
             temporary_room::room_join,
             temporary_room::room_decide,
             temporary_room::room_depart,
