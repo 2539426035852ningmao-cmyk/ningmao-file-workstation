@@ -83,6 +83,7 @@ test("临时互传区直达建区、接续文件架与显式保存", async ({ pa
             files: [
               { id: "a".repeat(32), name: "received.txt", sender: "f".repeat(24), size: 2, digest },
               { id: "c".repeat(32), name: "large.bin", sender: "a".repeat(24), size: 80_000_000, digest, chunked: 1 },
+              { id: "d".repeat(32), name: "sent.txt", sender: "e".repeat(24), size: 2, digest },
             ],
           };
         }
@@ -128,6 +129,16 @@ test("临时互传区直达建区、接续文件架与显式保存", async ({ pa
   await page.getByRole("combobox", { name: "发送范围" }).selectOption("all");
   await expect(page.getByText("发件人 网页访客", { exact: true })).toBeVisible();
   await expect(page.getByText("发件人已离群", { exact: true })).toBeVisible();
+  await page.getByLabel("收发筛选").selectOption("sent");
+  await expect(page.getByRole("button", { name: "保存 sent.txt", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "保存 received.txt", exact: true })).toHaveCount(0);
+  await page.getByLabel("按文件名查找").fill(" RECEIVED.TXT ");
+  await expect(page.getByText("未找到符合条件的文件。")).toBeVisible();
+  await page.getByLabel("收发筛选").selectOption("received");
+  await expect(page.getByRole("button", { name: "保存 received.txt", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "保存 large.bin", exact: true })).toHaveCount(0);
+  await page.getByLabel("按文件名查找").clear();
+  await page.getByLabel("收发筛选").selectOption("all");
   await expect(page.getByRole("button", { name: "保存 received.txt", exact: true })).toBeDisabled();
   await expect(page.getByText("选择保存位置后即可确认收件。")).toBeVisible();
   await page.getByLabel("保存到", { exact: true }).selectOption("3");

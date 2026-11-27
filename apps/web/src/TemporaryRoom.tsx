@@ -64,6 +64,8 @@ export function TemporaryRoom() {
   const [preview, setPreview] = useState<{ file: File; url: string } | null>(null);
   const [retryUpload, setRetryUpload] = useState<File | null>(null);
   const [recipients, setRecipients] = useState<string[] | null>(null);
+  const [fileQuery, setFileQuery] = useState("");
+  const [fileDirection, setFileDirection] = useState("all");
   const fileInput = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -168,6 +170,8 @@ export function TemporaryRoom() {
       setStationOffline(false);
       setRetryUpload(null);
       setRecipients(null);
+      setFileQuery("");
+      setFileDirection("all");
       setCode(next);
     }
     return next;
@@ -217,6 +221,12 @@ export function TemporaryRoom() {
   const activeMembers = room?.members.filter(member => member.status === "active") ?? [];
   const pendingMembers = room?.members.filter(member => member.status === "pending") ?? [];
   const senderNames = new Map(activeMembers.map(member => [member.id, member.name]));
+  const query = fileQuery.trim().toLowerCase();
+  const visibleFiles = room?.files.filter(item => {
+    const sent = item.sender === room.member.id;
+    return (fileDirection === "all" || (fileDirection === "sent" ? sent : !sent))
+      && item.name.toLowerCase().includes(query);
+  }) ?? [];
   const eligible = activeMembers.filter(member => member.id !== room?.member.id);
   const invalidAudience = recipients !== null && (!room?.directed || !recipients.length
     || !recipients.every(id => eligible.some(member => member.id === id)));
@@ -391,8 +401,18 @@ export function TemporaryRoom() {
       </section>
       <section className="room-card">
         <h2>共享文件</h2>
+        {room.files.length > 0 && <div className="room-file-filters" role="group" aria-label="共享文件筛选">
+          <input type="search" aria-label="按文件名查找" placeholder="按文件名查找"
+            value={fileQuery} onChange={event => setFileQuery(event.target.value)} />
+          <select aria-label="收发筛选" value={fileDirection} onChange={event => setFileDirection(event.target.value)}>
+            <option value="all">全部文件</option>
+            <option value="sent">我发出的</option>
+            <option value="received">我收到的</option>
+          </select>
+        </div>}
         {room.files.length === 0 && <p className="room-note">区内还没有文件。</p>}
-        {room.files.map(item => <article key={item.id} className="room-file">
+        {room.files.length > 0 && visibleFiles.length === 0 && <p className="room-note">未找到符合条件的文件。</p>}
+        {visibleFiles.map(item => <article key={item.id} className="room-file">
           <div className="room-file-info">
             <RoomFileIcon name={item.name} />
             <div><strong>{item.name}</strong>
