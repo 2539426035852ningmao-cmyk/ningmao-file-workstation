@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { spawn, execFileSync } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { once } from "node:events";
-import { copyFile, mkdtemp } from "node:fs/promises";
+import { copyFile, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
@@ -87,8 +87,31 @@ try {
   const raw = await native.evaluate(({ invitation, fileId }) =>
     window.__TAURI_INTERNALS__.invoke("room_download", { invitation, fileId }).then(value => Array.from(new Uint8Array(value))), { invitation, fileId });
   assert.deepEqual(Buffer.from(raw), bytes);
+
+  const nativeName = "windows-group-source.txt";
+  const nativeSource = join(root, nativeName);
+  const nativeBytes = Buffer.from("Synthetic file shared from Windows");
+  await writeFile(nativeSource, nativeBytes);
+  const shelfId = (await invoke(native, "desktop_state")).layout.active_shelf;
+  assert.equal((await invoke(native, "import_paths", { shelfId, paths: [nativeSource] })).added, 1);
+  const item = (await invoke(native, "snapshot")).items.find(entry => entry.name === nativeName);
+  const prepared = await invoke(native, "web_transfer_prepare", { shelfId, itemId: item.id, ticket: randomUUID() });
+  try {
+    await invoke(native, "room_upload", {
+      invitation, ticket: prepared.ticket, uploadId: randomUUID().replace(/-/g, ""), expected: prepared.sha256,
+    });
+  } finally {
+    await invoke(native, "web_transfer_release", { ticket: prepared.ticket });
+  }
+  const receiving = web.waitForEvent("download");
+  await web.getByRole("button", { name: `保存 ${nativeName}` }).click();
+  const downloaded = await receiving;
+  assert.equal(downloaded.suggestedFilename(), nativeName);
+  assert.deepEqual(await readFile(await downloaded.path()), nativeBytes);
+  assert.deepEqual(await readFile(nativeSource), nativeBytes);
   await invoke(native, "quit").catch(() => {});
-  console.log(JSON.stringify({ windowsLogin: true, friendConfirmation: true, groupTextBothWays: true, nativeFileBytes: bytes.length }));
+  console.log(JSON.stringify({ windowsLogin: true, friendConfirmation: true, groupTextBothWays: true,
+    windowsReceivedBytes: bytes.length, browserReceivedBytes: nativeBytes.length, sourcePreserved: true }));
 } finally {
   await browser.close();
   station.closeAllConnections();
