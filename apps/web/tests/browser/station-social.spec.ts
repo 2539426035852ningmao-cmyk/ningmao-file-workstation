@@ -72,6 +72,11 @@ test("好友确认后可私聊、固定文件群可来回查看文字及收发�
     expect((await outsider.request.get(roomApi)).status()).toBe(200);
     await b.getByRole("button", { name: "交回群主管理" }).click();
     await expect(b.getByRole("button", { name: "继续群管理" })).toBeVisible();
+    const formerStandby = (await (await b.request.get(roomApi)).json()).member.id;
+    for (const enabled of [false, true]) {
+      expect((await contexts[0].request.post(roomApi + "/promote", { data: { id: formerStandby, enabled } })).status()).toBe(200);
+    }
+    expect((await b.request.post(roomApi + "/hosting", { data: { action: "start" } })).status()).toBe(403);
   } finally {
     await Promise.all(contexts.map(context => context.close()));
     station.closeAllConnections();

@@ -23,6 +23,12 @@ export function createSocial(db, { readJson, requireValue, token, sha }) {
       code TEXT PRIMARY KEY REFERENCES fixed_rooms(code) ON DELETE CASCADE,
       standby TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 0
     );
+    CREATE TRIGGER IF NOT EXISTS release_ineligible_room_standby
+    AFTER UPDATE OF role, status ON members
+    WHEN NEW.role <> 'admin' OR NEW.status <> 'active'
+    BEGIN
+      DELETE FROM room_management WHERE code=NEW.room AND standby=NEW.id;
+    END;
   `);
   const roomInfo = db.prepare("SELECT title, direct_key FROM fixed_rooms WHERE code = ?");
   const member = db.prepare("SELECT status FROM members WHERE room = ? AND session = ?");
