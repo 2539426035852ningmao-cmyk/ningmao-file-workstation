@@ -64,6 +64,14 @@ test("全区为默认，指定两人时只有他们能保存", async ({ browser 
     await chooseFile("全区.txt");
     await owner.getByRole("button", { name: "发给全区 4 人" }).click();
     await expect(guests[2].getByRole("button", { name: "保存 全区.txt" })).toBeVisible();
+    await guests[0].getByLabel("收发筛选").selectOption("received");
+    await guests[0].getByLabel("按文件名查找").fill(" 指定.TXT ");
+    await expect(guests[0].getByRole("button", { name: "保存 指定.txt" })).toBeVisible();
+    await expect(guests[0].getByRole("button", { name: "保存 全区.txt" })).toHaveCount(0);
+    await guests[0].getByLabel("收发筛选").selectOption("sent");
+    await expect(guests[0].getByText("未找到符合条件的文件。")).toBeVisible();
+    await guests[2].getByLabel("按文件名查找").fill("指定");
+    await expect(guests[2].getByText("未找到符合条件的文件。")).toBeVisible();
   } finally {
     await Promise.all(contexts.map(context => context.close()));
     server.closeAllConnections();

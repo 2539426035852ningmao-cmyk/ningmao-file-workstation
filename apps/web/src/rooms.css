@@ -54,6 +54,7 @@
 }
 .room-card input:not([type="checkbox"]) { width: 100%; min-width: 0; }
 .room-card input[type="checkbox"] { min-height: auto; }
+.room-file-filters { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; margin-bottom: 10px; }
 .room-page button.room-primary { color: var(--primary-text); background: var(--primary); }
 .room-page :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .room-file {

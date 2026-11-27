@@ -43,6 +43,8 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
   const [draftLink, setDraftLink] = useState(link);
   const [busy, setBusy] = useState(false);
   const [recipients, setRecipients] = useState<string[] | null>(null);
+  const [fileQuery, setFileQuery] = useState("");
+  const [fileDirection, setFileDirection] = useState("all");
   const [report, setReport] = useState("");
   const [failed, setFailed] = useState(false);
   const [offline, setOffline] = useState(false);
@@ -59,6 +61,12 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
   const pending = room?.members?.filter(member => member.status === "pending") ?? [];
   const activeMembers = room?.members?.filter(member => member.status === "active") ?? [];
   const senderNames = new Map(activeMembers.map(member => [member.id, member.name]));
+  const query = fileQuery.trim().toLowerCase();
+  const visibleFiles = room?.files.filter(file => {
+    const sent = Boolean(file.sender && file.sender === room.member.id);
+    return (fileDirection === "all" || (fileDirection === "sent" ? sent : !sent))
+      && file.name.toLowerCase().includes(query);
+  }) ?? [];
   const eligible = activeMembers.filter(member => member.id !== room?.member.id);
   const invalidAudience = recipients !== null && (!room?.directed || !recipients.length
     || !recipients.every(id => eligible.some(member => member.id === id)));
@@ -163,6 +171,8 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
     const created = await invoke<CreatedRoom>("room_create", { station: station.trim(), name, approval });
     setSession(current => ({ ...current, link: created.invitation, recovery: created.recovery, room: null, admission: null, saved: {} }));
     setRecipients(null);
+    setFileQuery("");
+    setFileDirection("all");
     setDraftLink(created.invitation);
     setEntry("join");
     await refresh(created.invitation);
@@ -354,6 +364,8 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
             await invoke("room_join", { invitation: target, name });
             if (target !== invitation) {
               setRecipients(null);
+              setFileQuery("");
+              setFileDirection("all");
               setSession(current => ({ ...current, link: target, room: null, recovery: "", admission: null, saved: {} }));
             }
             setChangingRoom(false);
@@ -462,7 +474,7 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
         <p className="room-caption">单文件最多 {room.bulk ? "20 GB" : "64 MiB"}</p>
       </div>
       <div className="room-desktop-card transfer-form">
-        <h3>接收文件</h3>
+        <h3>共享文件</h3>
         <label>保存到<select aria-label="保存到" disabled={busy} value={shelf}
           onChange={event => selectShelf(Number(event.target.value))}>
           <option value={0}>选择绑定目录</option>
@@ -473,8 +485,19 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
           if (target !== null) selectShelf(target);
         })}>{shelf ? "更换保存文件夹" : "选择保存文件夹"}</Button>}
         {!shelf && room.files.length > 0 && <p className="room-caption">选择保存位置后即可确认收件。</p>}
-        {room.files.length === 0 ? <p className="room-caption">区内还没有文件。</p> :
-          <ul className="room-file-list" aria-label="区内文件">{room.files.map(file => <li key={file.id}>
+        {room.files.length > 0 && <div className="room-file-filters" role="group" aria-label="共享文件筛选">
+          <Input type="search" className="shadow-none" aria-label="按文件名查找" placeholder="按文件名查找"
+            value={fileQuery} onChange={event => setFileQuery(event.target.value)} />
+          <select aria-label="收发筛选" value={fileDirection} onChange={event => setFileDirection(event.target.value)}>
+            <option value="all">全部文件</option>
+            <option value="sent">我发出的</option>
+            <option value="received">我收到的</option>
+          </select>
+        </div>}
+        {room.files.length === 0 && <p className="room-caption">区内还没有文件。</p>}
+        {room.files.length > 0 && visibleFiles.length === 0 && <p className="room-caption">未找到符合条件的文件。</p>}
+        {visibleFiles.length > 0 &&
+          <ul className="room-file-list" aria-label="区内文件">{visibleFiles.map(file => <li key={file.id}>
             <div className="room-file-info">
               <RoomFileIcon name={file.name} />
               <div className="room-file-name">
