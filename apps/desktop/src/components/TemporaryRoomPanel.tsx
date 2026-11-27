@@ -485,7 +485,7 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
           if (target !== null) selectShelf(target);
         })}>{shelf ? "更换保存文件夹" : "选择保存文件夹"}</Button>}
         {!shelf && room.files.length > 0 && <p className="room-caption">选择保存位置后即可确认收件。</p>}
-        {room.files.length > 0 && <div className="room-file-filters" role="group" aria-label="共享文件筛选">
+        <div className="room-file-filters" role="group" aria-label="共享文件筛选">
           <Input type="search" className="shadow-none" aria-label="按文件名查找" placeholder="按文件名查找"
             value={fileQuery} onChange={event => setFileQuery(event.target.value)} />
           <select aria-label="收发筛选" value={fileDirection} onChange={event => setFileDirection(event.target.value)}>
@@ -493,7 +493,7 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
             <option value="sent">我发出的</option>
             <option value="received">我收到的</option>
           </select>
-        </div>}
+        </div>
         {room.files.length === 0 && <p className="room-caption">区内还没有文件。</p>}
         {room.files.length > 0 && visibleFiles.length === 0 && <p className="room-caption">未找到符合条件的文件。</p>}
         {visibleFiles.length > 0 &&
