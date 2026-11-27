@@ -2107,17 +2107,28 @@ async fn recover_desktop_windows(
 }
 pub fn run() {
     let explicit_root = std::env::var_os("NINGMAO_DATA_DIR").map(PathBuf::from);
-    let registry = std::env::var_os("NINGMAO_WORKSPACE_REGISTRY").map(PathBuf::from)
-        .or_else(|| std::env::var_os("LOCALAPPDATA").map(|p| PathBuf::from(p).join("Ningmao/workspace.json")));
+    let registry = std::env::var_os("NINGMAO_WORKSPACE_REGISTRY")
+        .map(PathBuf::from)
+        .or_else(|| {
+            std::env::var_os("LOCALAPPDATA")
+                .map(|p| PathBuf::from(p).join("Ningmao/workspace.json"))
+        });
     let base_root = match (&explicit_root, &registry) {
         (Some(root), _) => Some(root.clone()),
-        (_, Some(registry)) => Some(workspace::resolve(registry).expect("工作区连接无法读取，已保留原数据")),
+        (_, Some(registry)) => {
+            Some(workspace::resolve(registry).expect("工作区连接无法读取，已保留原数据"))
+        }
         _ => None,
-    }.map(|root| std::path::absolute(root).expect("无法解析工作区位置"));
-    let profile_root = base_root.as_ref().map(|base| station_account::AccountWorkspaces::load(base)
-        .expect("账号工作区无法读取，已保留原数据").data_root(base));
+    }
+    .map(|root| std::path::absolute(root).expect("无法解析工作区位置"));
+    let profile_root = base_root.as_ref().map(|base| {
+        station_account::AccountWorkspaces::load(base)
+            .expect("账号工作区无法读取，已保留原数据")
+            .data_root(base)
+    });
     if let (Some(base), Some(profile)) = (&base_root, &profile_root) {
-        station_account::AccountWorkspaces::check_isolation(base, profile).expect("账号工作区无法读取，已保留原数据");
+        station_account::AccountWorkspaces::check_isolation(base, profile)
+            .expect("账号工作区无法读取，已保留原数据");
     }
     #[cfg(windows)]
     if let (Some(base), Some(profile)) = (&base_root, &profile_root) {
@@ -2146,7 +2157,10 @@ pub fn run() {
     };
     let mut window_state = tauri_plugin_window_state::Builder::default()
         .with_state_flags(tauri_plugin_window_state::StateFlags::SIZE);
-    if let Some(root) = profile_root.as_ref().filter(|root| explicit_root.is_some() || Some(*root) != base_root.as_ref()) {
+    if let Some(root) = profile_root
+        .as_ref()
+        .filter(|root| explicit_root.is_some() || Some(*root) != base_root.as_ref())
+    {
         let file = root.join(".window-state.json");
         window_state = window_state.with_filename(file.to_string_lossy());
     }
