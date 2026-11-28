@@ -1,5 +1,6 @@
 import { createHash, randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
+import { createAvatars } from "./avatars.mjs";
 
 export const accountApi = "/api/account";
 const derive = promisify(scrypt);
@@ -7,10 +8,9 @@ const sessionSeconds = 7 * 24 * 60 * 60;
 const invalidCredentials = "账号名或密码不正确。";
 const hex = value => value.toString("hex");
 const digest = secret => createHash("sha256").update(secret).digest("hex");
-const publicAccount = ({ id, username }) => ({ id, username });
 const loopbackHost = /^(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i;
 
-export function createAccountHandler(db, { secure, readJson, requireValue }) {
+export function createAccountHandler(db, { secure, readBody, readJson, requireValue, canViewAvatar }) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS accounts (
       id TEXT PRIMARY KEY, username TEXT NOT NULL, username_key TEXT UNIQUE NOT NULL,
@@ -22,6 +22,11 @@ export function createAccountHandler(db, { secure, readJson, requireValue }) {
     );
     CREATE INDEX IF NOT EXISTS account_sessions_account ON account_sessions(account_id);
   `);
+  const avatars = createAvatars(db, { readBody, readJson, requireValue });
+  function publicAccount({ id, username }) {
+    const avatar = avatars.descriptor(id);
+    return avatar ? { id, username, avatar } : { id, username };
+  }
   const byName = db.prepare("SELECT * FROM accounts WHERE username_key = ?");
   const byId = db.prepare("SELECT * FROM accounts WHERE id = ?");
   const bySession = db.prepare(`SELECT a.* FROM accounts a JOIN account_sessions s ON s.account_id = a.id
@@ -123,6 +128,17 @@ export function createAccountHandler(db, { secure, readJson, requireValue }) {
       const account = getAccount();
       return json(200, { account: account ? publicAccount(account) : null });
     }
+    const photo = /^\/avatar\/([a-f0-9]{32})$/.exec(action);
+    if (request.method === "GET" && photo) {
+      const actor = getAccount();
+      return avatars.send(response, photo[1], owner => actor && (owner === actor.id || canViewAvatar(actor.id, owner)));
+    }
+    if (request.method === "POST" && action === "/avatar") {
+      const actor = requireValue(getAccount(), 401, "登录已失效，请重新登录。");
+      limitAttempts(request.socket.remoteAddress);
+      await avatars.update(request, actor.id, getAccount);
+      return json(200, { account: publicAccount(actor) });
+    }
     requireValue(request.method === "POST" && ["/register", "/login", "/logout", "/username", "/password", "/browser-link", "/browser-login"].includes(action),
       404, "账号操作不存在。");
     const input = await readJson(request);
@@ -201,7 +217,7 @@ export function createAccountHandler(db, { secure, readJson, requireValue }) {
         requireSameSession();
         requireValue(updateName.run(username, username.toLowerCase(), account.id).changes, 409, "这个账号名已被使用。");
       });
-      return json(200, { account: { id: account.id, username } });
+      return json(200, { account: publicAccount({ id: account.id, username }) });
     }
     const newPassword = passwordOf(input.newPassword, 15);
     const salt = randomBytes(16);
@@ -215,5 +231,5 @@ export function createAccountHandler(db, { secure, readJson, requireValue }) {
     sessionCookie(response, fresh);
     return json(200, { account: publicAccount(current) });
   }
-  return { handle, current };
+  return { handle, current, sendAvatar: avatars.send };
 }

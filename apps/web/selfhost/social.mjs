@@ -35,12 +35,17 @@ export function createSocial(db, { readJson, requireValue, token, sha }) {
   const relation = db.prepare("SELECT requester, accepted FROM friends WHERE a = ? AND b = ?");
   const findAccount = db.prepare("SELECT id,username FROM accounts WHERE username_key = ?");
   const byConversation = db.prepare("SELECT code FROM fixed_rooms WHERE direct_key = ?");
-  const messages = db.prepare(`SELECT m.id, m.sender, a.username, m.body, m.sent FROM room_messages m
-    JOIN accounts a ON a.id=m.sender WHERE m.room=? AND m.sent>? ORDER BY m.id DESC LIMIT 100`);
+  const messages = db.prepare(`SELECT m.id, m.sender, a.username, m.body, m.sent, COALESCE(v.preset,v.photo_id) AS avatar FROM room_messages m
+    JOIN accounts a ON a.id=m.sender
+    LEFT JOIN members member ON member.room=m.room AND member.session='account:' || m.sender AND member.status='active'
+    LEFT JOIN account_avatars v ON v.account_id=a.id AND member.status='active'
+    WHERE m.room=? AND m.sent>? ORDER BY m.id DESC LIMIT 100`);
   const addMessage = db.prepare("INSERT INTO room_messages(room,sender,body,sent) VALUES(?,?,?,?)");
   const pruneMessages = db.prepare("DELETE FROM room_messages WHERE sent<=?");
-  const listFriends = db.prepare(`SELECT a.id, a.username, f.requester, f.accepted FROM friends f
-    JOIN accounts a ON a.id=CASE WHEN f.a=? THEN f.b ELSE f.a END WHERE f.a=? OR f.b=? ORDER BY a.username_key`);
+  const listFriends = db.prepare(`SELECT a.id, a.username, f.requester, f.accepted, COALESCE(v.preset,v.photo_id) AS avatar FROM friends f
+    JOIN accounts a ON a.id=CASE WHEN f.a=? THEN f.b ELSE f.a END
+    LEFT JOIN account_avatars v ON v.account_id=a.id AND f.accepted=1
+    WHERE f.a=? OR f.b=? ORDER BY a.username_key`);
   const listRooms = db.prepare(`SELECT f.code, f.title, f.direct_key FROM fixed_rooms f
     JOIN members m ON m.room=f.code WHERE m.session=? AND m.status='active' ORDER BY f.rowid DESC`);
   const directDisplayName = db.prepare("SELECT username FROM accounts WHERE id = ?");
@@ -96,6 +101,7 @@ export function createSocial(db, { readJson, requireValue, token, sha }) {
     return { code };
   }
   return {
+    canViewAvatar(actor, owner) { return relation.get(...pair(actor, owner))?.accepted === 1; },
     roomInfo(code, id) {
       const fixed = roomInfo.get(code);
       return fixed ? { ...fixed, title: id ? title(fixed, id) : null } : null;

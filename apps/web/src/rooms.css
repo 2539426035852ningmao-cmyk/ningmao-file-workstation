@@ -61,7 +61,8 @@
 
 .room-identity,.room-file-info,.room-file-preview{display:flex;align-items:center;gap:8px;min-width:0;overflow-wrap:anywhere}
 .room-avatar,.room-file-icon{display:inline-grid;place-items:center;flex:none}
-.room-avatar{width:24px;height:24px;border-radius:50%;vertical-align:middle}
+.room-avatar{width:24px;height:24px;border-radius:50%;vertical-align:middle;overflow:hidden}
+.room-avatar :is(.animal-avatar-art,img){width:100%;height:100%;display:block;object-fit:cover}
 .room-file-icon{width:40px;height:40px;border-radius:8px;overflow:hidden}
 .room-file-icon img{width:100%;height:100%;object-fit:contain}
 .room-file-preview{width:100%;padding:8px;border-radius:10px}
@@ -276,7 +277,7 @@
 .room-file-info { gap: 10px; }
 .room-file-info p { margin: 4px 0 0; font-size: 12px; line-height: 1.4; }
 .room-file-info .room-avatar { width: 19px; height: 19px; }
-.room-file-info .room-avatar svg { width: 12px; height: 12px; }
+.room-file-info .room-avatar svg:not(.animal-avatar-art) { width: 12px; height: 12px; }
 .room-file-task { display: grid; justify-items: end; gap: 4px; }
 .room-file-status {
   display: inline-flex;

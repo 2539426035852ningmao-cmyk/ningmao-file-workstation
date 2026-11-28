@@ -2,11 +2,12 @@ import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "re
 import { ArrowRight, FolderOpen, MessageCircle, Plus, Send, UserPlus, UsersRound } from "lucide-react";
 import { RoomAvatar } from "./RoomVisuals";
 import { StationConversationLink, StationHeader, type StationConversation } from "./StationChrome";
+import { defaultAnimalAvatar } from "./animal-avatars.mjs";
 import "./rooms.css";
 
-type Friend = { id: string; username: string; requester: string; accepted: number };
+type Friend = { id: string; username: string; requester: string; accepted: number; avatar?: string | null };
 type Social = { me: string; friends: Friend[]; rooms: StationConversation[] };
-type Message = { id: number; sender: string; username: string; body: string; sent: number };
+type Message = { id: number; sender: string; username: string; body: string; sent: number; avatar?: string | null };
 
 class SocialRequestError extends Error {
   constructor(readonly status: number, message: string) { super(message); }
@@ -114,7 +115,7 @@ export function StationSocial() {
             {friends.map(friend => <label key={friend.id} className="room-choice station-friend-chip">
               <input type="checkbox" checked={chosen.includes(friend.id)} disabled={busy || (!chosen.includes(friend.id) && chosen.length >= 4)}
                 onChange={event => setChosen(ids => event.target.checked ? [...ids, friend.id] : ids.filter(id => id !== friend.id))} />
-              <RoomAvatar id={friend.id} /><span>{friend.username}</span>
+              <RoomAvatar avatar={friend.avatar ?? defaultAnimalAvatar(friend.id)} /><span>{friend.username}</span>
             </label>)}
           </fieldset>
           <button type="submit" className="room-primary station-inline" disabled={busy || !chosen.length}>建群<ArrowRight size={16} aria-hidden /></button>
@@ -145,7 +146,7 @@ export function StationSocial() {
           </li>)}</ul>
         </section>}
         {friends.length > 0 && <ul className="station-contact-list">{friends.map(friend => <li key={friend.id}>
-          <span className="room-identity"><RoomAvatar id={friend.id} /><strong>{friend.username}</strong></span>
+          <span className="room-identity"><RoomAvatar avatar={friend.avatar ?? defaultAnimalAvatar(friend.id)} /><strong>{friend.username}</strong></span>
           <div className="room-row">
             <button type="button" disabled={busy} onClick={() => void run(() => openConversation([friend.id], true))}>打开私聊</button>
             <button className="station-quiet" type="button" disabled={busy} onClick={() => {
@@ -201,7 +202,7 @@ export function RoomChat({ code, accountId }: { code: string; accountId?: string
         followLatest.current = list.scrollHeight - list.clientHeight - list.scrollTop < 32;
       }}>
       {messages?.map(message => <li key={message.id} data-own={accountId === message.sender}>
-        <div className="station-chat-meta"><RoomAvatar id={message.sender} /><strong>{message.username}</strong>
+        <div className="station-chat-meta"><RoomAvatar avatar={message.avatar ?? defaultAnimalAvatar(message.sender)} room={code} /><strong>{message.username}</strong>
           <time dateTime={new Date(message.sent).toISOString()}>{messageTime.format(message.sent)}</time>
         </div>
         <div className="station-chat-bubble">{message.body}</div>

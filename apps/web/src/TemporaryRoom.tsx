@@ -9,7 +9,7 @@ import { RoomChat, socialRequest } from "./StationSocial";
 import { StationConversationLink, StationHeader, type StationConversation } from "./StationChrome";
 import "./rooms.css";
 
-type Member = { id: string; name: string; role: "owner" | "admin" | "member"; status: "active" | "pending" };
+type Member = { id: string; name: string; role: "owner" | "admin" | "member"; status: "active" | "pending"; avatar?: string };
 type RoomFile = { id: string; sender: string; name: string; size: number; digest: string; expires: number; retain_until: number; chunked?: number; directed?: number };
 type Room = { code: string; member: Member; members: Member[]; files: RoomFile[]; inviteExpires: number | null; memberLimit?: number; bulk?: boolean; directed?: boolean; fixed?: boolean; direct?: boolean; title?: string; management?: { standby: string | null; active: number } };
 type TransferProgress = { id: string | null; label: string; bytes: number; total: number };
@@ -375,7 +375,10 @@ export function TemporaryRoom() {
     </div> : <>
       <section className="room-card room-context">
         <div className="room-context-bar">
-          <h2 className="room-identity"><RoomAvatar id={room.member.id} slot={roomMembers.get(room.member.id)?.avatarSlot} /> <span>{room.member.name} <small>{room.member.role === "owner" ? "群主" : room.member.role === "admin" ? "管理员" : "成员"}</small></span></h2>
+          <h2 className="room-identity">
+            <RoomAvatar id={room.member.id} slot={roomMembers.get(room.member.id)?.avatarSlot} avatar={roomMembers.get(room.member.id)?.avatar} room={room.code} />
+            <span>{room.member.name} <small>{room.member.role === "owner" ? "群主" : room.member.role === "admin" ? "管理员" : "成员"}</small></span>
+          </h2>
           {!room.direct && <div className="room-invite-actions">
             <label><span className="room-visually-hidden">邀请链接</span><input readOnly value={invitation} onFocus={event => event.target.select()} /></label>
             <button type="button" className="room-copy-button" onClick={() => void copyInvitation()}>
@@ -398,7 +401,7 @@ export function TemporaryRoom() {
             <ul>
               {activeMembers.map(member => <li key={member.id}>
                 <div className="room-row">
-                  <span className="room-identity"><RoomAvatar id={member.id} slot={member.avatarSlot} /><span>{member.name} <small>{member.role === "owner" ? "群主" : member.role === "admin" ? "管理员" : "成员"}</small></span></span>
+                  <span className="room-identity"><RoomAvatar id={member.id} slot={member.avatarSlot} avatar={member.avatar} room={room.code} /><span>{member.name} <small>{member.role === "owner" ? "群主" : member.role === "admin" ? "管理员" : "成员"}</small></span></span>
                   {owner && manage && !room.direct && member.id !== room.member.id &&
                     <button disabled={remoteBlocked} onClick={() => void perform(async () => {
                       await jsonPost(roomApi + "/promote", { id: member.id, enabled: member.role !== "admin" });
@@ -523,7 +526,7 @@ export function TemporaryRoom() {
             </div>
             {(room.directed || recipients !== null) && <RoomRecipients members={eligible} recipients={recipients}
               select={value => { setRecipients(value); setRetryUpload(null); }}
-              enabled={Boolean(room.directed)} disabled={remoteBlocked} />}
+              enabled={Boolean(room.directed)} disabled={remoteBlocked} room={room.code} />}
             {transfer && transfer.id === null && <TransferMeter {...transfer} />}
             <button type="submit" className="room-primary room-send-button" disabled={remoteBlocked || !file || tooLarge || invalidAudience}>
               <Send size={16} aria-hidden />
@@ -561,7 +564,7 @@ export function TemporaryRoom() {
               <div className="room-file-info">
                 <RoomFileIcon name={item.name} file={ready ?? seedCopies[item.id]} />
                 <div><strong>{item.name}</strong>
-                  <p className="room-note room-identity"><RoomAvatar id={item.sender} slot={sender?.avatarSlot} /><span>{sent ? "我发送的"
+                  <p className="room-note room-identity"><RoomAvatar id={item.sender} slot={sender?.avatarSlot} avatar={sender?.avatar} room={room.code} /><span>{sent ? "我发送的"
                     : sender ? `发件人 ${sender.name}` : "发件人已离群"}</span></p>
                   <p className="room-note">{item.directed ? "指定收件人 · " : ""}{formatSize(item.size)} · 领取期限 {formatDate(item.expires)}</p>
                 </div>
