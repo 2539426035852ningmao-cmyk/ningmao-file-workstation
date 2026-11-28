@@ -55,6 +55,20 @@ test('连接信息一次粘贴填好地址指纹，不自动发送',async({page}
  await expect(page.getByLabel('证书指纹',{exact:true})).toHaveValue('a'.repeat(64));
  expect(await page.evaluate(()=>window.transferHarness.calls())).toEqual([]);
  await expect(page.getByRole('button',{name:'发送文件',exact:true})).toBeEnabled();
+ await page.getByLabel('粘贴对方的连接信息').clear();
+ await expect(page.getByLabel('接收方地址',{exact:true})).toHaveValue('');
+ await expect(page.getByLabel('证书指纹',{exact:true})).toHaveValue('');
+ await expect(page.getByRole('button',{name:'发送文件',exact:true})).toBeDisabled();
+});
+
+test('找不到附近设备时可直接转到粘贴连接信息',async({page})=>{
+ await page.goto('/tests/harness.html');
+ await page.getByText('Alpha.txt',{exact:true}).click();
+ await page.getByRole('button',{name:'更多操作',exact:true}).click();
+ await page.getByRole('menuitem',{name:'发送到设备',exact:true}).click();
+ await page.getByRole('button',{name:'使用连接信息',exact:true}).press('Enter');
+ await expect(page.getByLabel('粘贴对方的连接信息')).toBeFocused();
+ expect(await page.evaluate(()=>window.transferHarness.calls())).toEqual([]);
 });
 
 test('附近设备单击选中后可发送，无需填写地址',async({page})=>{

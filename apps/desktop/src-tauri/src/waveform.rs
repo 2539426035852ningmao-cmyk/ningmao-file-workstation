@@ -60,6 +60,7 @@ fn decode(file: File, extension: &str) -> Result<Waveform> {
     let mut peak = 0.0f32;
     let mut frames = 0u64;
     let mut rate = 0u32;
+    let mut samples: Option<SampleBuffer<f32>> = None;
     loop {
         if start.elapsed() > Duration::from_secs(12) {
             return Err("波形解析超时，仍可试听。".into());
@@ -86,7 +87,14 @@ fn decode(file: File, extension: &str) -> Result<Waveform> {
             return Err("音频采样率变化，暂不生成波形".into());
         }
         rate = spec.rate;
-        let mut samples = SampleBuffer::<f32>::new(decoded.capacity() as u64, spec);
+        let capacity = decoded.capacity().saturating_mul(channels);
+        if samples
+            .as_ref()
+            .is_none_or(|buffer| buffer.capacity() < capacity)
+        {
+            samples = Some(SampleBuffer::<f32>::new(decoded.capacity() as u64, spec));
+        }
+        let samples = samples.as_mut().ok_or("音频没有有效采样")?;
         samples.copy_interleaved_ref(decoded);
         for frame in samples.samples().chunks_exact(channels) {
             frames += 1;
@@ -151,6 +159,7 @@ pub async fn waveform_prepare(
         let file = preview::open(&path)?;
         let meta = file.metadata().map_err(error)?;
         let key = (path.clone(), meta.len(), meta.modified().ok());
+        let verification = file.try_clone().map_err(error)?;
         if let Some((_, value)) = runtime
             .waveforms
             .cache
@@ -165,6 +174,10 @@ pub async fn waveform_prepare(
             file,
             path.extension().and_then(|s| s.to_str()).unwrap_or(""),
         )?;
+        let after = verification.metadata().map_err(error)?;
+        if after.len() != key.1 || after.modified().ok() != key.2 {
+            return Err("音频在解析期间已变化，请重新打开。".into());
+        }
         let s = runtime.store.lock().map_err(error)?;
         s.validate_item_scope(scope, &[id])?;
         s.validate_opening_target(id, &path)?;

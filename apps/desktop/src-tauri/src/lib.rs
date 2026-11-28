@@ -10,9 +10,12 @@ mod duplicate_control;
 pub mod entry;
 mod search_control;
 mod shelf_windows;
+mod station_account;
 pub mod store;
 use ningmao_transfer_client as loopback_transport;
 mod preview;
+mod room_station;
+mod temporary_room;
 mod transfer_desktop;
 mod transfer_discovery;
 mod transfer_identity;
@@ -72,6 +75,9 @@ struct Runtime {
     web_transfers: web_transfer_bridge::WebTransferBridge,
     web_receives: web_transfer_receive::WebReceiveControl,
     web_device: web_device::WebDeviceControl,
+    rooms: temporary_room::Rooms,
+    room_station: room_station::RoomStation,
+    return_to_room: bool,
     chat: chat::ChatControl,
     store: Mutex<Store>,
     active: Mutex<Option<(i64, Arc<AtomicBool>)>>,
@@ -80,6 +86,8 @@ struct Runtime {
     #[cfg(windows)]
     duplicate_scan: duplicate_control::ScanControl,
     data_root: PathBuf,
+    workspace_root: PathBuf,
+    account_switch: tokio::sync::Mutex<()>,
     recycle_test_root: Option<PathBuf>,
     recycle_plans: Mutex<std::collections::HashMap<String, PlannedRecycle>>,
     recycling: Mutex<Option<(String, Arc<AtomicBool>)>>,
@@ -1332,18 +1340,22 @@ fn quit(app: tauri::AppHandle, window: tauri::WebviewWindow) -> Result<()> {
     clean_quit(app)
 }
 fn clean_quit(app: tauri::AppHandle) -> Result<()> {
-    lifecycle_idle(&app)?;
-    desktop_runtime::require_idle(&app)?;
+    prepare_clean_exit(&app)?;
+    app.exit(0);
+    Ok(())
+}
+fn prepare_clean_exit(app: &tauri::AppHandle) -> Result<()> {
+    lifecycle_idle(app)?;
     let state = app.state::<Runtime>();
     state.browser_shares.prepare_exit()?;
-    transfer_desktop::prepare_exit(&app)?;
+    transfer_desktop::prepare_exit(app)?;
     if state.active.lock().map_err(error)?.is_some() {
         return Err("复制尚未结束，请先等待完成或取消。".into());
     }
+    state.room_station.stop()?;
     state.store.lock().map_err(error)?.clean_exit()?;
-    shelf_windows::capture_all(&app);
+    shelf_windows::capture_all(app);
     let _ = app.state::<desktop_runtime::Desktop>().save();
-    app.exit(0);
     Ok(())
 }
 #[tauri::command]
@@ -2095,6 +2107,38 @@ async fn recover_desktop_windows(
     shelf_windows::recover_visible(&app)
 }
 pub fn run() {
+    let account_switch = room_station::take_account_switch();
+    let explicit_root = std::env::var_os("NINGMAO_DATA_DIR").map(PathBuf::from);
+    let registry = std::env::var_os("NINGMAO_WORKSPACE_REGISTRY")
+        .map(PathBuf::from)
+        .or_else(|| {
+            std::env::var_os("LOCALAPPDATA")
+                .map(|p| PathBuf::from(p).join("Ningmao/workspace.json"))
+        });
+    let base_root = match (&explicit_root, &registry) {
+        (Some(root), _) => Some(root.clone()),
+        (_, Some(registry)) => {
+            Some(workspace::resolve(registry).expect("工作区连接无法读取，已保留原数据"))
+        }
+        _ => None,
+    }
+    .map(|root| std::path::absolute(root).expect("无法解析工作区位置"));
+    let startup_lock = base_root
+        .as_ref()
+        .map(|root| lock_workspace(root).expect("相同工作区已有实例或无法锁定"));
+    let profile_root = base_root.as_ref().map(|base| {
+        station_account::AccountWorkspaces::load(base)
+            .expect("账号工作区无法读取，已保留原数据")
+            .data_root(base)
+    });
+    if let (Some(base), Some(profile)) = (&base_root, &profile_root) {
+        station_account::AccountWorkspaces::check_isolation(base, profile)
+            .expect("账号工作区无法读取，已保留原数据");
+    }
+    #[cfg(windows)]
+    if let (Some(base), Some(profile)) = (&base_root, &profile_root) {
+        station_account::set_webview_profile(base, profile);
+    }
     let mut context = tauri::generate_context!();
     let recovery_window = if std::env::args_os()
         .nth(1)
@@ -2118,10 +2162,11 @@ pub fn run() {
     };
     let mut window_state = tauri_plugin_window_state::Builder::default()
         .with_state_flags(tauri_plugin_window_state::StateFlags::SIZE);
-    if let Some(root) = std::env::var_os("NINGMAO_DATA_DIR") {
-        let file = std::path::absolute(root)
-            .expect("无法解析隔离数据目录")
-            .join(".window-state.json");
+    if let Some(root) = profile_root
+        .as_ref()
+        .filter(|root| explicit_root.is_some() || Some(*root) != base_root.as_ref())
+    {
+        let file = root.join(".window-state.json");
         window_state = window_state.with_filename(file.to_string_lossy());
     }
     tauri::Builder::default()
@@ -2133,22 +2178,11 @@ pub fn run() {
         .plugin(window_state.build())
         .plugin(tauri_plugin_dialog::init())
         .setup(move |app| {
-            let explicit_root = std::env::var_os("NINGMAO_DATA_DIR").map(PathBuf::from);
-            let registry = std::env::var_os("NINGMAO_WORKSPACE_REGISTRY").map(PathBuf::from)
-                .or_else(|| std::env::var_os("LOCALAPPDATA").map(|p| PathBuf::from(p).join("Ningmao/workspace.json")));
-            let root = if let Some(root) = &explicit_root { root.clone() }
-                else if let Some(registry) = &registry { workspace::resolve(registry).map_err(std::io::Error::other)? }
-                else { app.path().app_data_dir()? };
+            let base = match &base_root { Some(root) => root.clone(), None => app.path().app_data_dir()? };
+            std::fs::create_dir_all(&base)?;
+            let root = profile_root.clone().unwrap_or_else(|| base.clone());
             std::fs::create_dir_all(&root)?;
-            let lock = OpenOptions::new()
-                .create(true)
-                .truncate(false)
-                .read(true)
-                .write(true)
-                .open(root.join("instance.lock"))?;
-            lock.try_lock().map_err(|e| {
-                std::io::Error::other(format!("相同数据目录已有实例或无法锁定：{e}"))
-            })?;
+            let lock = match startup_lock { Some(lock) => lock, None => lock_workspace(&base)? };
             let arguments: Vec<_> = std::env::args_os().skip(1).collect();
             if arguments.first().is_some_and(|value| value == "--restore-backup") {
                 let backup = arguments.get(1).map(PathBuf::from).ok_or_else(|| std::io::Error::other("请将备份文件拖到恢复入口。"))?;
@@ -2171,6 +2205,9 @@ pub fn run() {
                 web_transfers: Default::default(),
                 web_receives: Default::default(),
                 web_device: Default::default(),
+                rooms: Default::default(),
+                room_station: Default::default(),
+                return_to_room: account_switch.is_some(),
                 chat: Default::default(),
                 store: Mutex::new(
                     Store::open(&root.join("workstation.sqlite3"))
@@ -2182,6 +2219,8 @@ pub fn run() {
                 #[cfg(windows)]
                 duplicate_scan: Default::default(),
                 data_root: root.clone(),
+                workspace_root: base.clone(),
+                account_switch: Default::default(),
                 recycle_test_root: std::env::var_os("NINGMAO_RECYCLE_TEST_ROOT")
                     .and_then(|p| std::fs::canonicalize(p).ok()),
                 recycle_plans: Mutex::new(Default::default()),
@@ -2191,17 +2230,23 @@ pub fn run() {
                 search_control: Default::default(),
                 _process_lock: lock,
             });
+            if account_switch == Some(true) {
+                room_station::resume_after_switch(&app.state::<Runtime>());
+            }
             desktop_runtime::setup(app.handle(), &root).map_err(std::io::Error::other)?;
             // Explicit test/data roots never register with the user's launcher.
             if (explicit_root.is_none() || std::env::var_os("NINGMAO_WORKSPACE_REGISTRY").is_some()) && let Some(registry) = &registry {
                 let package = std::env::current_exe().ok().and_then(|p| p.parent().and_then(|p| p.parent()).map(PathBuf::from));
-                workspace::remember(registry, &root, package).map_err(std::io::Error::other)?;
+                workspace::remember(registry, &base, package).map_err(std::io::Error::other)?;
             }
             if let Some(config) = &recovery_window {
                 let main = tauri::WebviewWindowBuilder::from_config(app.handle(), config)?.build()?;
                 if desktop_runtime::view(app.handle()).map_err(std::io::Error::other)?.layout.expanded {
                     main.show()?;
                 }
+            }
+            if account_switch.is_some() {
+                let _ = shelf_windows::show_main(app.handle());
             }
             wake_shortcut::setup(app.handle(), &root);
             let show = tauri::menu::MenuItem::with_id(
@@ -2341,6 +2386,26 @@ pub fn run() {
             web_transfer_receive::web_receive_append,
             web_transfer_receive::web_receive_finish,
             web_transfer_receive::web_receive_abort,
+            temporary_room::room_create,
+            room_station::room_station_view,
+            room_station::room_station_choose,
+            room_station::room_station_start,
+            room_station::room_station_stop,
+            station_account::station_account_view,
+            station_account::station_account_return_to_room,
+            station_account::station_account_check,
+            station_account::station_account_login,
+            station_account::station_account_logout,
+            station_account::station_open_browser,
+            station_account::station_social_request,
+            temporary_room::room_join,
+            temporary_room::room_decide,
+            temporary_room::room_depart,
+            temporary_room::room_view,
+            temporary_room::room_upload,
+            temporary_room::room_download,
+            temporary_room::room_bulk_upload,
+            temporary_room::room_bulk_receive,
             web_device::web_device_claim,
             web_device::web_device_status,
             web_device::web_device_disconnect,
@@ -2429,6 +2494,19 @@ pub fn run() {
         ])
         .run(context)
         .expect("柠猫文件工作站启动失败；数据未自动清理");
+}
+
+fn lock_workspace(root: &std::path::Path) -> std::io::Result<File> {
+    std::fs::create_dir_all(root)?;
+    let lock = OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .read(true)
+        .write(true)
+        .open(root.join("instance.lock"))?;
+    lock.try_lock()
+        .map_err(|failure| std::io::Error::other(format!("工作区无法锁定：{failure}")))?;
+    Ok(lock)
 }
 
 #[cfg(test)]

@@ -1,8 +1,9 @@
 import type {Backend,Item} from './backend';
 import {readThumbnail,saveThumbnail,thumbnailStoreKey} from './thumbnailStore';
+import {mediaQueue} from './mediaQueue';
 
 const cache=new Map<string,string|null>();
-let thumbnailTail=Promise.resolve(),posterTail=Promise.resolve();
+const queueImage=mediaQueue(),queuePoster=mediaQueue();
 export const images=['png','jpg','jpeg','webp'];
 export const videos=['mp4','m4v','webm','ogv','mov'];
 export const documents=['pdf','docx','pptx','xlsx'];
@@ -12,13 +13,20 @@ let visibleRequests=0;
 export const mayPrefetch=()=>visibleRequests===0&&!document.hidden;
 export const cachedThumbnail=(item:Item)=>item.status==='normal'?cache.get(key(item)):null;
 const key=thumbnailKey;
-export async function queueThumbnail(backend:Backend,item:Item,signal:AbortSignal,prefetch=false){
+export async function readCachedThumbnail(item:Item){
+ if(item.status!=='normal')return null;
+ const cached=cachedThumbnail(item);
+ if(cached)return cached;
+ const id=item.thumbnail_stamp?await thumbnailStoreKey(key(item)):null;
+ return id?readThumbnail(id):null;
+}
+export async function queueThumbnail(backend:Backend,item:Item,signal:AbortSignal,prefetch=false,priority=()=>0){
  if(prefetch&&!mayPrefetch())return null;
  if(!prefetch)visibleRequests++;
- try{return await loadThumbnail(backend,item,signal,prefetch);}
+ try{return await loadThumbnail(backend,item,signal,prefetch,()=>prefetch?-1:priority());}
  finally{if(!prefetch)visibleRequests--;}
 }
-async function loadThumbnail(backend:Backend,item:Item,signal:AbortSignal,prefetch:boolean){
+async function loadThumbnail(backend:Backend,item:Item,signal:AbortSignal,prefetch:boolean,priority:()=>number){
  const id=key(item),video=videos.includes(item.kind);
  if(cache.has(id))return cache.get(id)??null;
  const persistent=item.thumbnail_stamp&&(video||images.includes(item.kind))?await thumbnailStoreKey(id):null;
@@ -33,18 +41,16 @@ async function loadThumbnail(backend:Backend,item:Item,signal:AbortSignal,prefet
    const cached=await readThumbnail(persistent);
    if(cached)return remember(cached);
  }
- const system=thumbnailTail.then(async()=>{
+ const result=await queueImage(priority,signal,async()=>{
    if(signal.aborted||prefetch&&!mayPrefetch())return null;
    if(cache.has(id))return cache.get(id)??null;
    const url=await backend.thumbnail(item.id).catch(()=>null);
    if(url){remember(url);if(persistent&&!signal.aborted)void saveThumbnail(persistent,url);}
    return url;
  });
- thumbnailTail=system.then(()=>{},()=>{});
- const result=await system;
  if(result||!video||signal.aborted)return prefetch?result:remember(result);
  const enqueue=(firstFrame:boolean)=>{
-   const run=posterTail.then(async()=>{
+   return queuePoster(priority,signal,async()=>{
      if(signal.aborted)return null;
      const cached=cache.get(id);
      if(cached)return cached;
@@ -52,8 +58,6 @@ async function loadThumbnail(backend:Backend,item:Item,signal:AbortSignal,prefet
      if(poster&&persistent&&!signal.aborted)void saveThumbnail(persistent,poster);
      return poster;
    });
-   posterTail=run.then(()=>{},()=>{});
-   return run;
  };
  const poster=await enqueue(false);
  return poster??(signal.aborted?null:await enqueue(true));

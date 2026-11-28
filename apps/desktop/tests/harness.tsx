@@ -30,7 +30,7 @@ let browserFinish:((value:{job_id:number;status:string})=>void)|undefined;
 const chatCalls:string[]=[];
 declare global{interface Window{chatHarness:{calls:()=>string[]}}}
 window.chatHarness={calls:()=>chatCalls};
-declare global{interface Window{verifyTransferIPC:()=>Promise<{command:string;args:unknown}[]>;transferHarness:{reads:()=>{devices:number;status:number;inFlight:number;maxInFlight:number};calls:()=>string[];pending:()=>void;progress:(value:TransferProgress)=>void;finish:(status:string)=>void;webSignal:(message:DesktopWebSignal)=>void;onWebOutbound:(fn:(message:DesktopWebMessage)=>void)=>void;installSyntheticBrowserReceiver:()=>void;receivedBrowserFile:()=>string|null;mockWebNativeSave:()=>void;nativeWebCalls:()=>string[]}}}
+declare global{interface Window{verifyTransferIPC:()=>Promise<{command:string;args:unknown}[]>;transferHarness:{reads:()=>{devices:number;status:number;inFlight:number;maxInFlight:number};calls:()=>string[];pending:()=>void;progress:(value:TransferProgress)=>void;finish:(status:string,files?:TransferResult["files"])=>void;webSignal:(message:DesktopWebSignal)=>void;onWebOutbound:(fn:(message:DesktopWebMessage)=>void)=>void;installSyntheticBrowserReceiver:()=>void;receivedBrowserFile:()=>string|null;mockWebNativeSave:()=>void;nativeWebCalls:()=>string[]}}}
 window.verifyTransferIPC=async()=>{const calls:{command:string;args:unknown}[]=[];mockIPC((command,args)=>{calls.push({command,args});return null;});try{await nativeTransfer.receive(3,"127.0.0.1:0");await nativeTransfer.decide("synthetic-batch",false);await nativeTransfer.send(1,[1,2],"127.0.0.1:53317","a".repeat(64));await nativeTransfer.cancelSend();return calls;}finally{clearMocks();}};
 window.transferHarness={reads:()=>({...transferReads}),calls:()=>transferCalls,webSignal:message=>webSignalHandler?.(message),
   onWebOutbound:fn=>{webOutboundHandler=fn;},
@@ -92,7 +92,7 @@ window.transferHarness={reads:()=>({...transferReads}),calls:()=>transferCalls,w
       throw Error("Unexpected native web receive command: "+command);
     });
   },
-  pending:()=>{transferView.pending={id:"synthetic-batch",alias:"合成发送端",files:[{name:"中文 文件.txt",size:42}],total:42};transferEvents?.changed();},progress:value=>transferEvents?.progress(value),finish:status=>{transferView.sending=false;transferEvents?.changed();transferFinish?.({job_id:17,status,message:"受控接口终态",files:[{index:0,status:"completed",bytes:100},{index:1,status,bytes:64}]});transferFinish=undefined;}};
+  pending:()=>{transferView.pending={id:"synthetic-batch",alias:"合成发送端",files:[{name:"中文 文件.txt",size:42}],total:42};transferEvents?.changed();},progress:value=>transferEvents?.progress(value),finish:(status,files=[{index:0,status:"completed",bytes:100},{index:1,status,bytes:64}])=>{transferView.sending=false;transferEvents?.changed();transferFinish?.({job_id:17,status,message:"受控接口终态",files});transferFinish=undefined;}};
 let wakeConfig=JSON.parse(localStorage.getItem("test-wake-shortcut")||'{"version":1,"enabled":true,"accelerator":"Ctrl+Alt+Space"}'),wakePaused=false,wakeAvailable=true;
 let state:Snapshot=JSON.parse(localStorage.getItem("test-state") || JSON.stringify(initial));
 const ownShelf=Number(new URLSearchParams(location.search).get("shelf")) || undefined;
@@ -106,10 +106,11 @@ function trashItem(id:number){const item=state.items.find(i=>i.id===id)!;const s
 let maximized=false;
 let duplicateTicket=0,duplicateCanceled=false;
 const backend:Backend={
-  async waveformPrepare(id){const values=JSON.parse(localStorage.getItem("test-waveforms")||"{}");if(!values[id])throw Error("合成波形未设置");return values[id];},
-  async previewPrepare(id){const files=JSON.parse(localStorage.getItem('test-previews')||'{}');return files[id]??{kind:'unsupported'};},
+  async waveformPrepare(id){if(new URLSearchParams(location.search).has("trace-waveforms")){const calls=JSON.parse(sessionStorage.getItem("test-waveform-calls")||"[]");sessionStorage.setItem("test-waveform-calls",JSON.stringify([...calls,id]));await new Promise(resolve=>setTimeout(resolve,300));}const values=JSON.parse(localStorage.getItem("test-waveforms")||"{}");if(!values[id])throw Error("合成波形未设置");return values[id];},
+  async previewPrepare(id){const delay=Number(new URLSearchParams(location.search).get('preview-delay'));if(delay)await new Promise(resolve=>setTimeout(resolve,delay));const files=JSON.parse(localStorage.getItem('test-previews')||'{}');return files[id]??{kind:'unsupported'};},
   async previewRelease(ticket){localStorage.setItem('test-preview-released',ticket);},
   transfer:{
+    roomAvailable:new URLSearchParams(location.search).has("temporary-room"),
     async peers(){return JSON.parse(localStorage.getItem("test-transfer-peers")||"[]");},
     async pair(name,address,fingerprint){transferCalls.push(`pair:${address}`);localStorage.setItem("test-transfer-peers",JSON.stringify([{name,fingerprint}]));},
     async devices(){transferReads.devices++;return new URLSearchParams(location.search).has("nearby")?[{name:"合成接收电脑",address:"127.0.0.1:53317",fingerprint:"a".repeat(64)}]:[];},
