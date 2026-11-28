@@ -1,9 +1,12 @@
-import { ArrowRight, Eye, EyeOff, KeyRound, Laptop, LockKeyhole, LogOut, UserRound, UsersRound } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, KeyRound, Laptop, LockKeyhole, LogOut, Pencil, UserRound, UsersRound } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { StationHeader } from "./StationChrome";
+import { AvatarEditor, type AvatarInput } from "./AvatarEditor";
+import { RoomAvatar } from "./RoomVisuals";
+import { defaultAnimalAvatar } from "./animal-avatars.mjs";
 import "./rooms.css";
 
-type Account = { id: string; username: string };
+type Account = { id: string; username: string; avatar?: string };
 type AccountAction = "/login" | "/register" | "/logout" | "/username" | "/password";
 type BrowserLogin = { username: string; confirm: true } | { account: Account };
 const accountEndpoint = "/api/account";
@@ -19,7 +22,8 @@ class AccountRequestError extends Error {
 async function accountRequest<T = { account: Account | null }>(action = "", input?: object, signal?: AbortSignal): Promise<T> {
   const response = await fetch(accountEndpoint + action, {
     method: input ? "POST" : "GET",
-    ...(input ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) } : {}),
+    ...(input instanceof ArrayBuffer ? { headers: { "Content-Type": "application/octet-stream" }, body: input }
+      : input ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) } : {}),
     signal,
   });
   if (!response.headers.get("Content-Type")?.startsWith("application/json")) {
@@ -43,6 +47,7 @@ export function StationAccount() {
   const [loadAttempt, setLoadAttempt] = useState(0);
   const [browserName, setBrowserName] = useState("");
   const [passwordVisible, setPasswordVisible] = useState(false);
+  const [editingAvatar, setEditingAvatar] = useState(false);
   const room = new URLSearchParams(location.search).get("room") ?? "";
   const returnToRoom = /^[a-f0-9]{32}$/i.test(room) ? `/rooms?code=${room.toLowerCase()}` : "/rooms";
   useEffect(() => {
@@ -127,6 +132,13 @@ export function StationAccount() {
     setMessage("");
   }
 
+  async function saveAvatar(input: AvatarInput) {
+    const result = await accountRequest("/avatar", input);
+    setAccount(result.account);
+    setProblem("");
+    setMessage("头像已更新。");
+  }
+
   const feedback = <>
     {problem && <p className="room-feedback" role="alert">{problem}</p>}
     {message && <p className="room-feedback" role="status">{message}</p>}
@@ -179,7 +191,11 @@ export function StationAccount() {
       <div className="station-heading"><h1>账号设置</h1></div>
       {feedback}
       <section className="room-card station-profile" aria-label="当前账号">
-        <div className="station-identity"><span className="station-page-icon"><UserRound size={22} aria-hidden /></span>
+        <div className="station-identity">
+          <button className="profile-avatar-button" type="button" aria-label="更改头像" disabled={busy} onClick={() => setEditingAvatar(true)}>
+            <RoomAvatar avatar={account.avatar ?? defaultAnimalAvatar(account.id)} />
+            <span className="profile-avatar-edit"><Pencil size={11} aria-hidden /></span>
+          </button>
           <div><small>当前登录</small><strong>{account.username}</strong></div>
         </div>
         <div className="room-row">
@@ -191,6 +207,7 @@ export function StationAccount() {
           }}><LogOut size={16} aria-hidden />退出登录</button>
         </div>
       </section>
+      {editingAvatar && <AvatarEditor id={account.id} avatar={account.avatar} save={saveAvatar} close={() => setEditingAvatar(false)} />}
       <div className="station-settings-grid">
         <section className="room-card" aria-labelledby="account-name-heading">
           <h2 id="account-name-heading" className="station-title"><UserRound size={17} aria-hidden />修改账号名</h2>

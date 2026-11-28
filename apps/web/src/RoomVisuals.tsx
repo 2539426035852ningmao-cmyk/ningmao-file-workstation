@@ -1,16 +1,23 @@
 import { File, FileArchive, FileAudio, FileImage, FileVideo, UserRound } from "lucide-react";
 import { useEffect, useState } from "react";
 import { classifyFile } from "./file-utils.mjs";
+import { isAnimalAvatar, photoAvatarId } from "./animal-avatars.mjs";
+import { AnimalAvatar } from "./AnimalAvatar";
 
 const icons = { image: FileImage, video: FileVideo, audio: FileAudio, archive: FileArchive, document: File };
 const roomHues = [220, 22, 158, 280, 54];
 
-export function RoomAvatar({ id, slot }: { id?: string; slot?: number }) {
+export function RoomAvatar({ id, slot, avatar, room }: { id?: string; slot?: number; avatar?: string | null; room?: string }) {
+  const [failedPhoto, setFailedPhoto] = useState("");
   const fallbackHue = id && /^[a-f0-9]{24}$/.test(id) ? parseInt(id.slice(0, 4), 16) % 360 : 225;
   const hue = slot === undefined ? fallbackHue : roomHues[slot % roomHues.length];
+  const photo = avatar && photoAvatarId.test(avatar)
+    ? `${room ? "/api/rooms/" + encodeURIComponent(room) : "/api/account"}/avatar/${avatar}` : "";
   return <span className="room-avatar" aria-hidden="true"
     style={{ backgroundColor: `hsl(${hue} 72% 87%)`, color: `hsl(${hue} 68% 25%)` }}>
-    <UserRound size={15} fill="currentColor" />
+    {isAnimalAvatar(avatar) ? <AnimalAvatar animal={avatar} />
+      : photo && failedPhoto !== photo ? <img src={photo} alt="" onError={() => setFailedPhoto(photo)} />
+      : <UserRound size={15} fill="currentColor" />}
   </span>;
 }
 
@@ -34,14 +41,15 @@ export function RoomFileIcon({ name, file, alt = "" }: { name: string; file?: Fi
   </span>;
 }
 
-type Recipient = { id: string; name: string; avatarSlot: number };
+type Recipient = { id: string; name: string; avatarSlot: number; avatar?: string };
 
-export function RoomRecipients({ members, recipients, select, enabled, disabled }: {
+export function RoomRecipients({ members, recipients, select, enabled, disabled, room }: {
   members: Recipient[];
   recipients: string[] | null;
   select: (value: string[] | null) => void;
   enabled: boolean;
   disabled: boolean;
+  room: string;
 }) {
   const chosen = members.filter(member => recipients?.includes(member.id));
   return <fieldset className="room-recipient-scope" disabled={disabled}>
@@ -56,7 +64,7 @@ export function RoomRecipients({ members, recipients, select, enabled, disabled 
           <input type="checkbox" checked={recipients.includes(member.id)}
             onChange={event => select(event.target.checked
               ? [...recipients, member.id] : recipients.filter(id => id !== member.id))} />
-          <RoomAvatar id={member.id} slot={member.avatarSlot} /><span>{member.name}</span>
+          <RoomAvatar id={member.id} slot={member.avatarSlot} avatar={member.avatar} room={room} /><span>{member.name}</span>
         </label>)}
       </div>
       {!enabled ? <p>当前站点暂不支持指定收件人。</p>

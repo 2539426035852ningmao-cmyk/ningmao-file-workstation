@@ -11,6 +11,7 @@ import { CHUNK_BYTES, ChunkStore } from "./chunk-store.mjs";
 import { RoomSources } from "./room-sources.mjs";
 import { accountApi, createAccountHandler } from "./accounts.mjs";
 import { accountMember, createSocial, socialApi } from "./social.mjs";
+import { defaultAnimalAvatar } from "../src/animal-avatars.mjs";
 
 const DAY = 86_400_000;
 const STORAGE_LIMIT = 512 * 1024 * 1024;
@@ -94,9 +95,17 @@ export function createRoomServer(directory, tls, bulkQuota = 0, { managed = fals
         name TEXT NOT NULL, digest TEXT NOT NULL
       );
   `);
-  const accounts = createAccountHandler(db, { secure: Boolean(tls), readJson, requireValue });
+  const accounts = createAccountHandler(db, {
+    secure: Boolean(tls), readBody, readJson, requireValue,
+    canViewAvatar: (actor, owner) => social.canViewAvatar(actor, owner),
+  });
   const social = createSocial(db, { readJson, requireValue, token, sha });
   const members = db.prepare("SELECT id, name, role, status FROM members WHERE room = ? AND session = ?");
+  const visibleMembers = db.prepare(`SELECT m.id, m.name, m.role, m.status,
+    CASE WHEN m.session LIKE 'account:%' THEN substr(m.session, 9) END AS account_id,
+    COALESCE(a.preset, a.photo_id) AS avatar FROM members m
+    LEFT JOIN account_avatars a ON m.status = 'active' AND m.session = 'account:' || a.account_id
+    WHERE m.room = ? AND (m.status = 'active' OR ? AND m.status = 'pending') ORDER BY m.rowid`);
   const addMember = db.prepare("INSERT INTO members VALUES (?, ?, ?, ?, ?, ?)");
   const activeCount = db.prepare("SELECT COUNT(*) AS count FROM members WHERE room = ? AND status = 'active'");
   const memberById = db.prepare("SELECT name, role, status FROM members WHERE room = ? AND id = ?");
@@ -188,7 +197,7 @@ export function createRoomServer(directory, tls, bulkQuota = 0, { managed = fals
         return json(201, { code, recovery });
       }
 
-      const match = /^\/api\/rooms\/([a-f0-9]{32})(?:\/(join|recover|decide|promote|leave|remove|files|revoke|extend|bulk|peers|sources|hosting)(?:\/([a-f0-9]{32}))?(?:\/(publish))?)?$/.exec(pathname);
+      const match = /^\/api\/rooms\/([a-f0-9]{32})(?:\/(join|recover|decide|promote|leave|remove|files|revoke|extend|bulk|peers|sources|hosting|avatar)(?:\/([a-f0-9]{32}))?(?:\/(publish))?)?$/.exec(pathname);
       requireValue(match, 404, "页面不存在。");
       const [, code, action, fileId, operation] = match;
       requireValue(!operation || action === "bulk" && fileId, 404, "操作不存在。");
@@ -260,6 +269,11 @@ export function createRoomServer(directory, tls, bulkQuota = 0, { managed = fals
         return requireValue(current?.id === member?.id && current?.status === "active" && current, 403, "成员权限已变化。");
       };
       requireValue(member?.status === "active", 403, "请先加入互传区。");
+      if (request.method === "GET" && action === "avatar" && fileId) {
+        currentMember();
+        return accounts.sendAvatar(response, fileId,
+          owner => members.get(code, accountMember(owner))?.status === "active");
+      }
       if (post && action === "hosting" && !fileId) {
         const input = await readJson(request);
         return json(200, social.manage(code, currentMember(), input));
@@ -270,8 +284,8 @@ export function createRoomServer(directory, tls, bulkQuota = 0, { managed = fals
           ...(fixed && { fixed: true, direct: Boolean(fixed.direct_key), title: fixed.title,
             ...(!fixed.direct_key && { management: social.management(code) }) }),
           bulk: Boolean(bulk), directed: Boolean(bulk),
-          members: db.prepare(`SELECT id, name, role, status FROM members
-            WHERE room = ? AND (status = 'active' OR ? AND status = 'pending') ORDER BY rowid`).all(code, Number(canManage(member))),
+          members: visibleMembers.all(code, Number(canManage(member))).map(({ account_id, avatar, ...entry }) =>
+            account_id && entry.status === "active" ? { ...entry, avatar: avatar ?? defaultAnimalAvatar(account_id) } : entry),
           files: [
             ...(bulk?.list(code, member.id) ?? []),
             ...db.prepare(`SELECT id, sender, name, size, digest, expires, retain_until FROM files

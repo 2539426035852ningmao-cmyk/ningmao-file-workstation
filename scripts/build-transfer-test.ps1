@@ -29,7 +29,7 @@ foreach ($file in @('LICENSE.txt', 'THIRD_PARTY_NOTICES.txt', 'license-manifest.
 foreach ($name in @('selfhost', 'dist')) {
     Copy-Item -LiteralPath (Join-Path $repo "apps/web/$name") -Destination (Join-Path $output 'web') -Recurse
 }
-foreach ($name in @('file-preparation.mjs', 'file-utils.mjs')) {
+foreach ($name in @('file-preparation.mjs', 'file-utils.mjs', 'animal-avatars.mjs')) {
     Copy-Item -LiteralPath (Join-Path $repo "apps/web/src/$name") -Destination (Join-Path $output 'web/src')
 }
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'transfer-test/start-test.mjs') -Destination $output
