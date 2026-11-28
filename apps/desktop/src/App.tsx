@@ -1,11 +1,12 @@
 import {AudioWaveform} from "./components/AudioWaveform";
+import {invoke} from "@tauri-apps/api/core";
 import {DraftScope,readDraft,saveDraft,clearDraft} from "./drafts";
 import {HistoryCapacity} from "./components/HistoryCapacity";
 import {FilePreview} from "./components/FilePreview";
 import {shapeShelf,stopShelfMotion} from "./orb/shelfMotion";
 import {WindowControls} from "./components/WindowControls";
 import {GlobalSearch,openGlobalSearch} from "./components/GlobalSearch";
-import type {TransferSelection} from "./components/TransferPanel";
+import type {TransferMode,TransferSelection} from "./components/TransferPanel";
 import {SystemRecycle} from "./components/SystemRecycle";
 import {RecycleDrawer} from "./components/RecycleDrawer";
 import {ScrollActivity} from "./components/ScrollActivity";
@@ -28,7 +29,7 @@ import { applyTheme,defaultView,observeTheme,readTheme,readViewMemory,themes,wri
 import { isSortMode,sortItems,sortOptions } from "./sorting";
 import {ShelfFace} from "./orb/ShelfFace";
 import { defaultFilters,filterItems,type ShelfFilters } from "./filters";
-import {cachedThumbnail,documents,images,queueThumbnail,thumbnailKinds} from "./thumbnails";
+import {cachedThumbnail,documents,images,mayPrefetch,queueThumbnail,thumbnailKinds} from "./thumbnails";
 
 const collision: CollisionDetection = args => { const hits=pointerWithin(args); return hits.length ? hits : closestCenter(args); };
 const ChatPanel=lazy(()=>import("./components/ChatPanel").then(module=>({default:module.ChatPanel})));
@@ -38,26 +39,27 @@ const activeStatus=(s:string) => ["queued","copying"].includes(s);
 const sizes=(n:number) => n>=1024*1024 ? `${(n/1024/1024).toFixed(1)} MB` : n>=1024 ? `${(n/1024).toFixed(1)} KB` : `${n} B`;
 const states: Record<string,string>={ normal:"正常",missing:"引用失效",unreadable:"无法读取",unsupported:"不支持的链接" };
 const jobStates: Record<string,string>={queued:"等待中",copying:"进行中",completed:"已完成",partial:"部分完成",failed:"失败",cancelled:"已取消",interrupted:"上次中断"};
-function Thumb({item,backend,size=80}:{item:Item;backend:Backend;size?:number}) {
+function Thumb({item,backend,paused=false,selected=false,size=80}:{item:Item;backend:Backend;paused?:boolean;selected?:boolean;size?:number}) {
   const [result,setResult]=useState<{item:Item;url:string|null}|null>(null);
   const host=useRef<HTMLDivElement>(null);
+  const priority=useRef(0);priority.current=selected?2:item.tags.includes("精选")?1:0;
   const thumb=cachedThumbnail(item)??(result?.item===item?result.url:null);
   useEffect(() => {
-    if(item.status!=="normal"||!thumbnailKinds.has(item.kind)||cachedThumbnail(item)!==undefined)return;
+    if(paused||item.status!=="normal"||!thumbnailKinds.has(item.kind)||cachedThumbnail(item)!==undefined)return;
     let controller:AbortController|null=null;
     const observer=new IntersectionObserver(entries=>{
       if(!entries[entries.length-1]?.isIntersecting){controller?.abort();controller=null;return;}
       if(controller)return;
       const request=controller=new AbortController();
-      void queueThumbnail(backend,item,request.signal).then(url=>{if(!request.signal.aborted&&url){setResult({item,url});observer.disconnect();}}).catch(()=>{});
-    },{root:host.current?.closest(".file-scroll")??null,rootMargin:"80px"});
+      void queueThumbnail(backend,item,request.signal,false,()=>priority.current).then(url=>{if(!request.signal.aborted&&url){setResult({item,url});observer.disconnect();}}).catch(()=>{});
+    },{root:host.current?.closest(".file-scroll")??null});
     if(host.current)observer.observe(host.current);
     return ()=>{observer.disconnect();controller?.abort();};
-  },[backend,item]);
+  },[backend,item,paused]);
   return <div ref={host} className="thumb" style={{width:size,height:size}}>{thumb ? <img className="asset-thumbnail" src={thumb} alt="" decoding="async"/> : item.kind==="folder" ? <Folder size={size*.6}/> : documents.includes(item.kind)?<span className="document-icon" data-kind={item.kind}><File size={size*.6}/><b>{item.kind.toUpperCase()}</b></span>:<File size={size*.6}/>}</div>;
 }
 type SelectionKeys={ctrlKey?:boolean;metaKey?:boolean;shiftKey?:boolean};
-function Asset({item,backend,selected,list,size,disabled,select,inspect,open,drag,tag,remove}:{item:Item;backend:Backend;selected:boolean;list:boolean;size:number;disabled:boolean;select:(keys:SelectionKeys)=>void;inspect:()=>void;open:()=>void;drag:()=>void;tag:()=>void;remove:()=>void;bound:boolean}) {
+function Asset({item,backend,paused,selected,list,size,disabled,select,inspect,open,drag,tag,remove}:{item:Item;backend:Backend;paused:boolean;selected:boolean;list:boolean;size:number;disabled:boolean;select:(keys:SelectionKeys)=>void;inspect:()=>void;open:()=>void;drag:()=>void;tag:()=>void;remove:()=>void;bound:boolean}) {
   const sortable=useSortable({id:item.id,disabled});
   const press=useRef<{x:number;y:number}|null>(null),nativeDrag=useRef(false);
   return <ContextMenu><ContextMenuTrigger asChild><div ref={sortable.setNodeRef} data-item-id={item.id}
@@ -70,11 +72,11 @@ function Asset({item,backend,selected,list,size,disabled,select,inspect,open,dra
       onPointerMove={e=>{const start=press.current;if(!(e.buttons&1)){press.current=null;return;}if(start && Math.hypot(e.clientX-start.x,e.clientY-start.y)>=6){press.current=null;nativeDrag.current=true;e.preventDefault();if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);drag();}}}
       onPointerUp={()=>{press.current=null;}} onPointerCancel={()=>{press.current=null;}} onLostPointerCapture={()=>{press.current=null;}}
       onClick={e=>{if(nativeDrag.current){e.preventDefault();e.stopPropagation();}else select(e);}} onDoubleClick={()=>{if(!nativeDrag.current)open();}} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();if(!e.repeat)open();}}}>
-      {["wav","mp3","m4a","aac","ogg","flac"].includes(item.kind)?<div className="thumb audio-placeholder" style={{width:list?30:size,height:list?30:size}}/>:<Thumb item={item} backend={backend} size={list?30:size}/>}<span className="asset-name" aria-description={item.name}>{item.name}</span>
+      {["wav","mp3","m4a","aac","ogg","flac"].includes(item.kind)?<div className="thumb audio-placeholder" style={{width:list?30:size,height:list?30:size}}/>:<Thumb item={item} backend={backend} paused={paused} selected={selected} size={list?30:size}/>}<span className="asset-name" aria-description={item.name}>{item.name}</span>
       <span className="asset-meta">{item.status!=="normal" ? states[item.status] : item.kind.toUpperCase()}{item.tags.includes("精选") && <Star size={12}/>}</span>
       {list && <span className="asset-bytes">{sizes(item.bytes)}</span>}
     </button>
-    {["wav","mp3","m4a","aac","ogg","flac"].includes(item.kind)&&item.status==="normal"&&<AudioWaveform item={item} backend={backend} compact onActivate={()=>select({})}/>}
+    {["wav","mp3","m4a","aac","ogg","flac"].includes(item.kind)&&item.status==="normal"&&<AudioWaveform item={item} backend={backend} compact paused={paused} selected={selected} onActivate={()=>select({})}/>}
   </div></ContextMenuTrigger><ContextMenuContent>
     <ContextMenuItem onSelect={open}>用系统默认程序打开</ContextMenuItem>
     <ContextMenuItem onSelect={inspect}>文件详情与预览</ContextMenuItem>
@@ -83,7 +85,7 @@ function Asset({item,backend,selected,list,size,disabled,select,inspect,open,dra
     <ContextMenuItem onSelect={remove}>移入柠猫回收站（保留原文件）</ContextMenuItem>
   </ContextMenuContent></ContextMenu>;
 }
-function VirtualFiles(props:{items:Item[];backend:Backend;selected:number[];list:boolean;size:number;disabled:boolean;select:(id:number,keys:SelectionKeys)=>void;marquee:(ids:number[])=>void;inspect:(id:number)=>void;open:(id:number)=>void;drag:(id:number)=>void;tag:(item:Item)=>void;remove:(id:number)=>void;bound:boolean;revealItem:number|null;revealed:()=>void}) {
+function VirtualFiles(props:{items:Item[];backend:Backend;paused:boolean;selected:number[];list:boolean;size:number;disabled:boolean;select:(id:number,keys:SelectionKeys)=>void;marquee:(ids:number[])=>void;inspect:(id:number)=>void;open:(id:number)=>void;drag:(id:number)=>void;tag:(item:Item)=>void;remove:(id:number)=>void;bound:boolean;revealItem:number|null;revealed:()=>void}) {
   const scroll=useRef<HTMLDivElement>(null),space=useRef<HTMLDivElement>(null),frame=useRef(0);
   const [width,setWidth]=useState(600);
   const [box,setBox]=useState<{left:number;top:number;width:number;height:number}|null>(null);
@@ -92,6 +94,26 @@ function VirtualFiles(props:{items:Item[];backend:Backend;selected:number[];list
   const columns=props.list?1:Math.max(1,Math.floor(width/(props.size+40)));
   const rowHeight=props.list?44:props.size+80;
   const virtual=useVirtualizer({count:Math.ceil(props.items.length/columns),getScrollElement:()=>scroll.current,estimateSize:()=>rowHeight,overscan:2,useFlushSync:false});
+  const nextRow=virtual.range?virtual.range.endIndex+1:null;
+  useEffect(()=>{
+    if(props.paused||virtual.isScrolling||nextRow===null)return;
+    const items=props.items.slice(nextRow*columns,(nextRow+1)*columns).filter(item=>item.status==="normal"&&images.includes(item.kind)).sort((first,second)=>Number(second.tags.includes("精选"))-Number(first.tags.includes("精选")));
+    if(!items.length)return;
+    const controller=new AbortController();
+    let idle:number|undefined,remaining=3,timer:number;
+    const preload=()=>{
+      if(controller.signal.aborted||document.hidden)return;
+      if(!mayPrefetch()){if(remaining-->0)timer=window.setTimeout(schedule,250);return;}
+      void (async()=>{for(const item of items){if(!mayPrefetch()||controller.signal.aborted)break;await queueThumbnail(props.backend,item,controller.signal,true);}})().catch(()=>{});
+    };
+    const schedule=()=>{if(typeof requestIdleCallback==="function")idle=requestIdleCallback(deadline=>{if(deadline.timeRemaining()>4)preload();});else preload();};
+    const stop=()=>{controller.abort();clearTimeout(timer);if(idle!==undefined)cancelIdleCallback(idle);};
+    const hide=()=>{if(document.hidden)stop();};
+    timer=window.setTimeout(schedule,250);
+    document.addEventListener("visibilitychange",hide);
+    return ()=>{document.removeEventListener("visibilitychange",hide);stop();};
+  },[props.items,props.backend,props.paused,virtual.isScrolling,nextRow,columns]);
+  const itemIds=useMemo(()=>props.items.map(item=>item.id),[props.items]);
   useEffect(()=>virtual.measure(),[virtual,props.list,props.size,columns]);
   useEffect(()=>{if(props.revealItem===null)return;const index=props.items.findIndex(i=>i.id===props.revealItem);if(index<0)return;virtual.scrollToIndex(Math.floor(index/columns),{align:"center"});props.revealed();},[props.revealItem,props.items,columns,virtual]);
   function updateBox(){
@@ -109,7 +131,7 @@ function VirtualFiles(props:{items:Item[];backend:Backend;selected:number[];list
   function finishBox(cancel=false){const start=gesture.current;if(!start)return;gesture.current=null;cancelAnimationFrame(frame.current);setBox(null);if(cancel)props.marquee(start.base);else if(!start.moved && start.mode==="replace")props.marquee([]);}
   useEffect(()=>{const cancel=()=>finishBox(true);window.addEventListener("blur",cancel);return()=>{window.removeEventListener("blur",cancel);cancelAnimationFrame(frame.current);};},[]);
   useEffect(()=>{finishBox(true);},[props.items,props.list,props.size,columns]);
-  return <SortableContext items={props.items.map(i=>i.id)} strategy={rectSortingStrategy}><div ref={scroll} className="file-scroll" data-testid="file-scroll" tabIndex={0} aria-label="文件内容"
+  return <SortableContext items={itemIds} strategy={rectSortingStrategy}><div ref={scroll} className="file-scroll" data-testid="file-scroll" tabIndex={0} aria-label="文件内容"
     onPointerDown={e=>{
       // React portal menus bubble here; only the actual file-area DOM may start a box.
       if(e.button!==0 || e.pointerType!=="mouse" || !e.currentTarget.contains(e.target as Node) || (e.target as HTMLElement).closest('[data-item-id],button,input,select'))return;
@@ -121,7 +143,7 @@ function VirtualFiles(props:{items:Item[];backend:Backend;selected:number[];list
     onPointerMove={e=>{const start=gesture.current;if(!start)return;if(!(e.buttons&1)){finishBox();return;}start.clientX=e.clientX;start.clientY=e.clientY;updateBox();}}
     onPointerUp={()=>finishBox()} onPointerCancel={()=>finishBox(true)} onLostPointerCapture={()=>finishBox(true)} onKeyDown={e=>{if(e.key==="Escape" && gesture.current){e.preventDefault();e.stopPropagation();finishBox(true);}}}>
     <div ref={space} className="virtual-space" style={{height:virtual.getTotalSize()}}>{virtual.getVirtualItems().map(row=><div className="virtual-row" key={row.key} style={{transform:`translateY(${row.start}px)`,height:row.size,gridTemplateColumns:`repeat(${columns},minmax(0,1fr))`}}>
-    {props.items.slice(row.index*columns,(row.index+1)*columns).map(item=><Asset key={item.id} item={item} backend={props.backend} list={props.list} size={props.size} selected={props.selected.includes(item.id)} disabled={props.disabled} bound={props.bound} select={keys=>props.select(item.id,keys)} inspect={()=>props.inspect(item.id)} open={()=>props.open(item.id)} drag={()=>props.drag(item.id)} tag={()=>props.tag(item)} remove={()=>props.remove(item.id)}/>)}
+    {props.items.slice(row.index*columns,(row.index+1)*columns).map(item=><Asset key={item.id} item={item} backend={props.backend} paused={props.paused} list={props.list} size={props.size} selected={props.selected.includes(item.id)} disabled={props.disabled} bound={props.bound} select={keys=>props.select(item.id,keys)} inspect={()=>props.inspect(item.id)} open={()=>props.open(item.id)} drag={()=>props.drag(item.id)} tag={()=>props.tag(item)} remove={()=>props.remove(item.id)}/>)}
   </div>)}{box && <div className="selection-marquee" data-testid="selection-marquee" aria-hidden="true" style={box}/>}</div></div></SortableContext>;
 }
 export default function App({backend,native,detachedShelfId}:{backend:Backend;native:boolean;detachedShelfId?:number}) {
@@ -135,7 +157,17 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   const [displayOptions,setDisplayOptions]=useState(false),[moreOpen,setMoreOpen]=useState(false);
   const [chatOpen,setChatOpen]=useState(false);
   const [chatLoaded,setChatLoaded]=useState(false);
-  const [transferLoaded,setTransferLoaded]=useState(false),[transfer,setTransfer]=useState<{open:boolean;mode:"send"|"receive";selection:TransferSelection}>({open:false,mode:"receive",selection:{shelf_id:0,files:[]}});
+  const [transferLoaded,setTransferLoaded]=useState(false),[transfer,setTransfer]=useState<{open:boolean;mode:TransferMode;selection:TransferSelection;showAccount?:boolean}>({open:false,mode:"receive",selection:{shelf_id:0,files:[]}});
+  useEffect(() => {
+    if (!native || detachedShelfId !== undefined || !backend.transfer?.roomAvailable) return;
+    let active = true;
+    void invoke<boolean>("station_account_return_to_room").then(returnToRoom => {
+      if (!active || !returnToRoom) return;
+      setTransferLoaded(true);
+      setTransfer({open:true,mode:"room",showAccount:true,selection:{shelf_id:0,files:[]}});
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, [native, detachedShelfId, backend.transfer]);
   const [revealItem,setRevealItem]=useState<number|null>(null);
   const searchInput=useRef<HTMLInputElement>(null),moreButton=useRef<HTMLButtonElement>(null);
   const [shaping,setShaping]=useState(false);
@@ -212,8 +244,8 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   const shelf=data.shelves.find(s=>s.id===shelfId),bound=shelf?.kind==="bound";
   const items=useMemo(()=>data.items.filter(item=>item.shelf_id===shelfId),[data.items,shelfId]);
   const visible=useMemo(()=>sortItems(filterItems(items,query,filters),sort),[items,query,filters,sort]);
-  const kinds=[...new Set([...items.map(i=>i.kind),filters.kind].filter(Boolean))].sort((a,b)=>a.localeCompare(b,"zh-CN"));
-  const tags=[...new Set([...items.flatMap(i=>i.tags),filters.tag].filter(Boolean))].sort((a,b)=>a.localeCompare(b,"zh-CN"));
+  const kinds=useMemo(()=>[...new Set([...items.map(i=>i.kind),filters.kind].filter(Boolean))].sort((a,b)=>a.localeCompare(b,"zh-CN")),[items,filters.kind]);
+  const tags=useMemo(()=>[...new Set([...items.flatMap(i=>i.tags),filters.tag].filter(Boolean))].sort((a,b)=>a.localeCompare(b,"zh-CN")),[items,filters.tag]);
   const selectedIds=useMemo(()=>new Set(selection.ids),[selection.ids]);
   const chosen=useMemo(()=>visible.filter(i=>selectedIds.has(i.id)),[visible,selectedIds]);
   const selectionKey=`${shelfId}:${chosen.map(i=>i.id).join(",")}`;
@@ -387,7 +419,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   return <DraftScope.Provider value={draftScope}><div className={`workstation ${hover?"drop-active":""}`}><ScrollActivity/>
     <GlobalSearch backend={backend} revision={data} scoped={detachedShelfId!==undefined}/>
     {backend.chat&&chatLoaded&&<Suspense fallback={null}><ChatPanel backend={backend.chat} open={chatOpen} onOpenChange={setChatOpen}/></Suspense>}
-    {backend.transfer&&transferLoaded&&<Suspense fallback={null}><TransferPanel backend={backend.transfer} open={transfer.open} initialMode={transfer.mode} selection={transfer.selection} shelves={data.shelves} chooseReceiveFolder={detachedShelfId===undefined?async()=>{const id=await backend.chooseFolder();if(id!==null)await refresh();return id;}:undefined} onOpenChange={open=>setTransfer(value=>({...value,open}))}/></Suspense>}
+    {backend.transfer&&transferLoaded&&<Suspense fallback={null}><TransferPanel backend={backend.transfer} open={transfer.open} initialMode={transfer.mode} showAccount={transfer.showAccount} selection={transfer.selection} shelves={data.shelves} thumbnail={backend.thumbnail} chooseReceiveFolder={detachedShelfId===undefined?async()=>{const id=await backend.chooseFolder();if(id!==null)await refresh();return id;}:undefined} onOpenChange={open=>setTransfer(value=>({...value,open}))}/></Suspense>}
     <SystemRecycle backend={backend} ids={systemRecycleIds} onClose={()=>setSystemRecycleIds(null)} onChanged={refresh}/>
     <RecycleDrawer backend={backend} open={recycleOpen} onOpenChange={setRecycleOpen} shelfId={shelfId} onChanged={refresh}/>
 
@@ -403,10 +435,18 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
       <Button variant="ghost" size="icon" aria-label="重做" title={history?.redo?`重做 ${history.redo}`:"重做"} disabled={!history?.redo||historyBusy||busy||hover||!!dragging} onClick={()=>void perform(()=>applyHistory(true))}><Redo2 size={16}/></Button>
       {detachedShelfId===undefined&&<><Button variant="ghost" size="icon" aria-label="拆出当前文件架" title="拆出当前文件架" disabled={!native||busy||!shelf||(childWindows.length>=9&&!detachedIds.includes(shelfId))} onClick={()=>void perform(()=>backend.desktopDetach(shelfId))}><CopyPlus size={16}/></Button><Button variant="ghost" size="icon" aria-label="全部收回子窗口" title="全部收回子窗口" disabled={!native||busy||!childWindows.length} onClick={()=>void perform(async()=>{for(const w of childWindows)await backend.desktopMerge(w.shelf_id);})}><PanelsTopLeft size={16}/></Button></>}
       <Button variant="ghost" size="icon" disabled={!native||loading||!shelf||busy||!!running} aria-label="刷新当前文件架" title="刷新当前文件架" onClick={()=>void perform(async()=>{await refresh();})}><RefreshCw size={16}/></Button>
-      <ShelfMenu label="更多操作" centered settings={<><HistoryCapacity capacity={history?.capacity??100} onSave={backend.historyCapacity?async capacity=>{setHistory(await backend.historyCapacity!(capacity));}:undefined}/>        <DropdownMenu.Label>应用主题</DropdownMenu.Label><DropdownMenu.RadioGroup value={theme} onValueChange={value=>setTheme(value as Theme)}>{Object.entries(themes).map(([key,label])=><DropdownMenu.RadioItem key={key} value={key}>{label}主题<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>)}</DropdownMenu.RadioGroup></>} open={moreOpen} onOpenChange={open=>{if(open)setDisplayOptions(true);setMoreOpen(open);}} trigger={<Button variant="ghost" size="icon" ref={moreButton} aria-label="更多操作" title="更多操作"><MoreHorizontal size={18}/></Button>}>
+      <ShelfMenu label="更多操作" centered account={detachedShelfId===undefined&&backend.transfer?.roomAvailable?()=>{
+        setTransferLoaded(true);
+        setTransfer({open:true,mode:"room",showAccount:true,selection:{shelf_id:shelfId,files:[]}});
+      }:undefined} settings={<><HistoryCapacity capacity={history?.capacity??100} onSave={backend.historyCapacity?async capacity=>{setHistory(await backend.historyCapacity!(capacity));}:undefined}/>        <DropdownMenu.Label>应用主题</DropdownMenu.Label><DropdownMenu.RadioGroup value={theme} onValueChange={value=>setTheme(value as Theme)}>{Object.entries(themes).map(([key,label])=><DropdownMenu.RadioItem key={key} value={key}>{label}主题<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>)}</DropdownMenu.RadioGroup></>} open={moreOpen} onOpenChange={open=>{if(open)setDisplayOptions(true);setMoreOpen(open);}} trigger={<Button variant="ghost" size="icon" ref={moreButton} aria-label="更多操作" title="更多操作"><MoreHorizontal size={18}/></Button>}>
         <DropdownMenu.Group aria-label="收集与搜索"><DropdownMenu.Item disabled={!native||loading||!shelf||busy||!!running} onSelect={()=>void perform(async()=>receive(await backend.chooseFiles()))}><Plus size={16}/><span>添加文件</span></DropdownMenu.Item>
 <DropdownMenu.Item onSelect={()=>openGlobalSearch(moreButton.current)}><Search size={16}/><span>{detachedShelfId!==undefined?"搜索当前文件架":"跨文件架搜索"}</span><kbd aria-hidden="true">Ctrl+K</kbd></DropdownMenu.Item>
 <DropdownMenu.Item disabled={!native || loading || !shelf || busy || !!running || !backend.clipboardFiles} aria-description="粘贴资源管理器中复制的文件；截图请按 Ctrl+V" onSelect={()=>void pasteFiles()}><ClipboardPaste size={16}/><span>粘贴文件</span><kbd aria-hidden="true">Ctrl+V</kbd></DropdownMenu.Item>
+{backend.transfer?.roomAvailable&&<DropdownMenu.Item onSelect={()=>{
+  const files=chosen.every(item=>item.status==="normal"&&item.kind!=="folder")?chosen.map(({id,name,bytes})=>({id,name,bytes})):[];
+  setTransferLoaded(true);
+  setTransfer({open:true,mode:"room",selection:{shelf_id:shelfId,files}});
+}}>临时互传区</DropdownMenu.Item>}
 </DropdownMenu.Group>
         {chosen.length>0&&<><DropdownMenu.Separator/><DropdownMenu.Group aria-label="选中文件">
 {backend.transfer&&chosen.length>0&&<DropdownMenu.Item disabled={chosen.length>16||chosen.some(item=>item.status!=="normal"||item.kind==="folder")} onSelect={()=>{setTransferLoaded(true);setTransfer({open:true,mode:"send",selection:{shelf_id:shelfId,files:chosen.map(({id,name})=>({id,name}))}});}}>发送到设备</DropdownMenu.Item>}
@@ -419,8 +459,9 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
 
 {displayOptions&&<DropdownMenu.Group id="shelf-display-options" aria-label="显示与排序">
         <DropdownMenu.RadioGroup value={list?"list":"grid"} onValueChange={v=>setView({list:v==="list"})}><DropdownMenu.RadioItem value="grid" onSelect={e=>e.preventDefault()}><Grid2X2 size={16}/>网格视图</DropdownMenu.RadioItem><DropdownMenu.RadioItem value="list" onSelect={e=>e.preventDefault()}><List size={16}/>详细列表</DropdownMenu.RadioItem></DropdownMenu.RadioGroup>
+        <DropdownMenu.Separator className="display-divider"/>
         <DropdownMenu.RadioGroup value={sort} onValueChange={v=>{if(isSortMode(v))setView({sort:v});}}>{sortOptions.map(option=><DropdownMenu.RadioItem key={option.value} value={option.value} onSelect={e=>e.preventDefault()}>{option.label}</DropdownMenu.RadioItem>)}</DropdownMenu.RadioGroup>
-        <DropdownMenu.Separator className="thumbnail-divider"/>
+        <DropdownMenu.Separator className="display-divider"/>
         <DropdownMenu.Label className="menu-label">缩略图大小</DropdownMenu.Label><DropdownMenu.RadioGroup className="thumbnail-choices" aria-label="缩略图大小" value={String(size)} onValueChange={v=>setView({size:v==="60"?60:v==="120"?120:80})}>{[[60,"小"],[80,"中"],[120,"大"]].map(([v,label])=><DropdownMenu.RadioItem key={v} aria-label={label+"缩略图"} value={String(v)} onSelect={e=>e.preventDefault()}>{label}</DropdownMenu.RadioItem>)}</DropdownMenu.RadioGroup>
         <DropdownMenu.Separator/>
 
@@ -462,7 +503,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
         if(from<0 || to<0) return;
         void perform(async()=>{await backend.reorder(shelfId,arrayMove(ids,from,to));await refresh();setMessage("手动顺序已保存，磁盘文件保持不变。");});
       }}>
-        {visible.length?<VirtualFiles revealItem={revealItem} revealed={()=>setRevealItem(null)} items={visible} backend={backend} selected={chosen.map(i=>i.id)} list={list} size={size} disabled={sort!=="manual" || !!query || filtered} bound={!!bound} select={select} marquee={marquee} inspect={id=>{if(!chosen.some(i=>i.id===id))setSelected(id);setDetails(true);}} open={id=>void open(id)} drag={drag} tag={item=>void tag(item)} remove={id=>void remove(id)}/>:<div className="empty-state"><Folder size={32}/><h2>{!shelf?"主窗口暂无文件架":query || filtered?"没有匹配的文件":bound?"拖入文件，安全复制":"拖入文件，添加引用"}</h2><p>{!shelf?"可从左上菜单新建文件架，或将独立文件架合并回来":filtered?"更改筛选或搜索名称":query?"试试其他名称":bound?"重名自动编号，保留原文件":"拖入文件或从菜单添加"}</p>{!shelf&&<div className="empty-actions"><Button onClick={()=>{openShelfForm();}}>新建文件架</Button><Button variant="outline" onClick={()=>setRecycleOpen(true)}>从回收站恢复</Button></div>}{(query || filtered) && <Button variant="outline" onClick={()=>{setQuery("");setFilters(defaultFilters);}}>{filtered?query?"清除筛选和搜索":"清除筛选":"清除搜索"}</Button>}</div>}
+        {visible.length?<VirtualFiles revealItem={revealItem} revealed={()=>setRevealItem(null)} items={visible} backend={backend} paused={preview||(shaping&&shapeClosing.current)} selected={chosen.map(i=>i.id)} list={list} size={size} disabled={sort!=="manual" || !!query || filtered} bound={!!bound} select={select} marquee={marquee} inspect={id=>{if(!chosen.some(i=>i.id===id))setSelected(id);setDetails(true);}} open={id=>void open(id)} drag={drag} tag={item=>void tag(item)} remove={id=>void remove(id)}/>:<div className="empty-state"><Folder size={32}/><h2>{!shelf?"主窗口暂无文件架":query || filtered?"没有匹配的文件":bound?"拖入文件，安全复制":"拖入文件，添加引用"}</h2><p>{!shelf?"可从左上菜单新建文件架，或将独立文件架合并回来":filtered?"更改筛选或搜索名称":query?"试试其他名称":bound?"重名自动编号，保留原文件":"拖入文件或从菜单添加"}</p>{!shelf&&<div className="empty-actions"><Button onClick={()=>{openShelfForm();}}>新建文件架</Button><Button variant="outline" onClick={()=>setRecycleOpen(true)}>从回收站恢复</Button></div>}{(query || filtered) && <Button variant="outline" onClick={()=>{setQuery("");setFilters(defaultFilters);}}>{filtered?query?"清除筛选和搜索":"清除筛选":"清除搜索"}</Button>}</div>}
         <DragOverlay>{dragItem && <div className="drag-preview" data-testid="drag-preview"><Thumb item={dragItem} backend={backend} size={45}/><span>{dragItem.name}</span><small>调整引用顺序</small></div>}</DragOverlay>
       </DndContext>}
     </main>{inline && current && <aside className="inspector"><header><h2>文件详情</h2><Button variant="ghost" size="icon" aria-label="关闭详情" onClick={()=>setDetails(false)}><X size={15}/></Button></header>{detail}</aside>}</div><div className="window-status-strip" aria-hidden="true"/>

@@ -1111,6 +1111,212 @@ mod direct_event_tests {
         guard.0.integrity_check().unwrap();
     }
     #[test]
+    fn abandoned_upload_releases_unstarted_files_for_a_fresh_request() {
+        let destination = tempfile::tempdir().unwrap();
+        let (cert, private_key) = keypair().unwrap();
+        let fingerprint = digest(&cert);
+        let config = ServerConfig::builder()
+            .with_no_client_auth()
+            .with_single_cert(vec![CertificateDer::from(cert)], key(&private_key))
+            .unwrap();
+        let (phases, events) = std::sync::mpsc::channel();
+        let receiver = ningmao_transfer_receiver::Receiver::start(
+            "127.0.0.1:0".parse().unwrap(),
+            destination.path(),
+            Arc::new(config),
+            Arc::new(move |event| {
+                phases.send(event.phase)?;
+                Ok(())
+            }),
+            Arc::new(|_, _| true),
+        )
+        .unwrap();
+        let client = LoopbackClient::pinned(receiver.address, &fingerprint).unwrap();
+        let filename = "fixture.bin";
+        let bytes = vec![71; CHUNK * 3];
+        let manifest = json!({
+            "first": {"fileName":filename,"size":bytes.len(),"sha256":digest(&bytes)},
+            "later": {"fileName":"later.txt","size":0,"sha256":digest(b"")},
+        });
+        let (status, plan) = client.prepare(manifest.clone()).unwrap();
+        assert_eq!(status, 200);
+        let first = client.upload_with_progress(
+            plan["sessionId"].as_str().unwrap(),
+            "first",
+            plan["files"]["first"].as_str().unwrap(),
+            bytes.len() as u64,
+            &mut io::Cursor::new(&bytes),
+            |sent| {
+                if sent >= CHUNK as u64 {
+                    Err("simulated loss of sender".into())
+                } else {
+                    Ok(())
+                }
+            },
+        );
+        assert!(first.is_err());
+        let mut count = 0;
+        loop {
+            let phase = events.recv_timeout(Duration::from_secs(5)).unwrap();
+            if phase == ningmao_transfer_contract::Phase::Receiving {
+                count += 1;
+            }
+            if phase.terminal()
+                || (count >= 2 && fs::read_dir(destination.path()).unwrap().count() == 0)
+            {
+                break;
+            }
+        }
+        assert_eq!(fs::read_dir(destination.path()).unwrap().count(), 0);
+        let (status, retry) = client.prepare(manifest).unwrap();
+        assert_eq!(status, 200);
+        let upload = |plan: &Value, id: &str, bytes: &[u8]| {
+            client
+                .upload(
+                    plan["sessionId"].as_str().unwrap(),
+                    id,
+                    plan["files"][id].as_str().unwrap(),
+                    bytes.len() as u64,
+                    &mut io::Cursor::new(bytes),
+                )
+                .unwrap()
+                .0
+        };
+        assert_eq!(upload(&plan, "later", b""), 403);
+        assert_eq!(upload(&retry, "first", &bytes), 200);
+        assert_eq!(upload(&retry, "later", b""), 200);
+        assert_eq!(fs::read(destination.path().join(filename)).unwrap(), bytes);
+        assert!(
+            fs::read(destination.path().join("later.txt"))
+                .unwrap()
+                .is_empty()
+        );
+        receiver.stop().unwrap();
+    }
+
+    #[test]
+    fn two_pinned_receivers_finish_overlapping_uploads_without_overwriting() {
+        use std::sync::mpsc::{Receiver as Started, Sender, channel};
+
+        let setup = |directory: &Path| {
+            fs::write(directory.join("shared.bin"), b"original").unwrap();
+            let (cert, private_key) = keypair().unwrap();
+            let fingerprint = digest(&cert);
+            let config = ServerConfig::builder()
+                .with_no_client_auth()
+                .with_single_cert(vec![CertificateDer::from(cert)], key(&private_key))
+                .unwrap();
+            let receiver = ningmao_transfer_receiver::Receiver::start(
+                "127.0.0.1:0".parse().unwrap(),
+                directory,
+                Arc::new(config),
+                Arc::new(|_| Ok(())),
+                Arc::new(|_, _| true),
+            )
+            .unwrap();
+            let client = LoopbackClient::pinned(receiver.address, &fingerprint).unwrap();
+            (receiver, client)
+        };
+        let send = |client: LoopbackClient,
+                    bytes: &[u8],
+                    started: Sender<()>,
+                    peer: Started<()>| {
+            let (status, plan) = client
+                .prepare(json!({"f":{"fileName":"shared.bin","size":bytes.len(),"sha256":digest(bytes)}}))
+                .unwrap();
+            assert_eq!(status, 200);
+            let mut first = true;
+            let (status, _) = client
+                .upload_with_progress(
+                    plan["sessionId"].as_str().unwrap(),
+                    "f",
+                    plan["files"]["f"].as_str().unwrap(),
+                    bytes.len() as u64,
+                    &mut io::Cursor::new(bytes),
+                    |sent| {
+                        if first && sent >= CHUNK as u64 {
+                            first = false;
+                            started.send(())?;
+                            peer.recv_timeout(Duration::from_secs(5))?;
+                        }
+                        Ok(())
+                    },
+                )
+                .unwrap();
+            assert_eq!(status, 200);
+        };
+        let a = tempfile::tempdir().unwrap();
+        let b = tempfile::tempdir().unwrap();
+        let (receiver_a, to_a) = setup(a.path());
+        let (receiver_b, to_b) = setup(b.path());
+        let from_a = vec![0x2a; CHUNK * 20 + 71];
+        let from_b = vec![0x4f; CHUNK * 20 + 127];
+        let (a_started, saw_a) = channel();
+        let (b_started, saw_b) = channel();
+        std::thread::scope(|scope| {
+            scope.spawn(|| send(to_b, &from_a, a_started, saw_b));
+            scope.spawn(|| send(to_a, &from_b, b_started, saw_a));
+        });
+        assert_eq!(fs::read(a.path().join("shared.bin")).unwrap(), b"original");
+        assert_eq!(fs::read(b.path().join("shared.bin")).unwrap(), b"original");
+        assert_eq!(
+            hash_file(&a.path().join("shared (1).bin")).unwrap(),
+            digest(&from_b)
+        );
+        assert_eq!(
+            hash_file(&b.path().join("shared (1).bin")).unwrap(),
+            digest(&from_a)
+        );
+        receiver_a.stop().unwrap();
+        receiver_b.stop().unwrap();
+    }
+
+    #[test]
+    fn desktop_upload_waits_for_slow_receiver_receipt() {
+        let destination = tempfile::tempdir().unwrap();
+        let (cert, private_key) = keypair().unwrap();
+        let fingerprint = digest(&cert);
+        let config = ServerConfig::builder()
+            .with_no_client_auth()
+            .with_single_cert(vec![CertificateDer::from(cert)], key(&private_key))
+            .unwrap();
+        let receiver = ningmao_transfer_receiver::Receiver::start(
+            "127.0.0.1:0".parse().unwrap(),
+            destination.path(),
+            Arc::new(config),
+            Arc::new(|event| {
+                if event.phase == ningmao_transfer_contract::Phase::Completed {
+                    std::thread::sleep(Duration::from_secs(7));
+                }
+                Ok(())
+            }),
+            Arc::new(|_, _| true),
+        )
+        .unwrap();
+        let client = LoopbackClient::pinned(receiver.address, &fingerprint).unwrap();
+        let bytes = b"synthetic delayed receipt";
+        let (status, plan) = client
+            .prepare(
+                json!({"f":{"fileName":"receipt.txt","size":bytes.len(),"sha256":digest(bytes)}}),
+            )
+            .unwrap();
+        assert_eq!(status, 200);
+        let response = client.upload(
+            plan["sessionId"].as_str().unwrap(),
+            "f",
+            plan["files"]["f"].as_str().unwrap(),
+            bytes.len() as u64,
+            &mut io::Cursor::new(bytes),
+        );
+        receiver.stop().unwrap();
+        assert_eq!(
+            fs::read(destination.path().join("receipt.txt")).unwrap(),
+            bytes
+        );
+        assert_eq!(response.unwrap().0, 200);
+    }
+
+    #[test]
     fn actual_loopback_receiver_persists_direct_events_before_reporting_success() {
         let temp = tempfile::tempdir().unwrap();
         let root = temp.path().join("synthetic-only");

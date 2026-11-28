@@ -3,6 +3,7 @@ import {useEffect,useRef,useState} from "react";
 import {X} from "lucide-react";
 import {DesktopWebInbox} from "./DesktopWebInbox";
 import {DesktopWebOutbox} from "./DesktopWebOutbox";
+import {TemporaryRoomPanel,type RoomSession} from "./TemporaryRoomPanel";
 import {Button} from "./ui/button";
 import {Input} from "./ui/input";
 import {Tabs,TabsList,TabsTrigger,TabsContent} from "./ui/tabs";
@@ -13,12 +14,16 @@ import type {NearbyDevice,TransferBackend,TransferProgress,TransferResult,Transf
 const empty:TransferView={receiving:false,address:null,fingerprint:null,shelf_id:null,pending:null,sending:false};
 const sizes=(n:number)=>n>=1024*1024?`${(n/1024/1024).toFixed(1)} MB`:n>=1024?`${(n/1024).toFixed(1)} KB`:`${n} B`;
 const phases:Record<string,string>={preparing:"准备中",waiting:"等待接收确认",sending:"发送中",terminal:"正在核对结果"};
-const statuses:Record<string,string>={completed:"已完成",cancelled:"已取消",partial:"部分完成",failed:"发送失败",interrupted:"传输中断，需核对接收结果",rejected:"已拒绝",not_sent:"未发送"};
-export type TransferSelection={shelf_id:number;files:{id:number;name:string}[]};
+const statuses:Record<string,string>={completed:"已完成",cancelled:"已取消",partial:"部分完成",failed:"发送失败",interrupted:"传输中断，需核对接收结果",rejected:"已拒绝",not_sent:"未发送",unconfirmed:"接收结果未确认"};
+export type TransferSelection={shelf_id:number;files:{id:number;name:string;bytes?:number}[]};
+export type TransferMode="send"|"receive"|"room";
+type SendBatchResult={selection:TransferSelection;fingerprint:string;last:TransferResult;statuses:Partial<Record<number,string>>};
 
-export function TransferPanel({backend,open,onOpenChange,initialMode,selection,shelves,chooseReceiveFolder}:{backend:TransferBackend;open:boolean;onOpenChange:(value:boolean)=>void;initialMode:"send"|"receive";selection:TransferSelection;shelves:Shelf[];chooseReceiveFolder?:()=>Promise<number|null>}){
+export function TransferPanel({backend,open,onOpenChange,initialMode,showAccount,selection,shelves,chooseReceiveFolder,thumbnail}:{backend:TransferBackend;open:boolean;onOpenChange:(value:boolean)=>void;initialMode:TransferMode;showAccount?:boolean;selection:TransferSelection;shelves:Shelf[];chooseReceiveFolder?:()=>Promise<number|null>;thumbnail?:(id:number)=>Promise<string|null>}){
   const [mode,setMode]=useState(initialMode),[view,setView]=useState(empty),[error,setError]=useState("");
+  const [roomSession,setRoomSession]=useState<RoomSession>({link:"",name:"",station:"",recovery:"",room:null,admission:null,shelf:0,saved:{}});
   const content=useRef<HTMLDivElement>(null);
+  const connectionInput=useRef<HTMLInputElement>(null);
   useEffect(()=>{if(open&&mode==="receive")content.current?.scrollTo(0,0);},[open,mode,view.receiving]);
   // The fixed error band reduces the viewport; keep the correction field visible.
   useEffect(()=>{if(error)content.current?.querySelector<HTMLElement>(":focus")?.scrollIntoView({block:"nearest"});},[error]);
@@ -32,7 +37,7 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
   useEffect(()=>{if(open&&mode==="send"&&hasFiles)void findDevices();},[open,mode,hasFiles]);
   function importConnection(text:string){
     setConnection(text);setDeviceName("");setError("");
-    if(!text.trim())return;
+    if(!text.trim()){setAddress("");setFingerprint("");return;}
     try{const url=new URL(text.trim());const addr=url.searchParams.get("address")??"",pin=url.searchParams.get("fingerprint")??"";
       if(url.protocol!=="ningmao:"||url.hostname!=="receive"||!addr||addr.length>80||!/^[a-fA-F0-9]{64}$/.test(pin))throw Error();
       setAddress(addr);setFingerprint(pin);
@@ -107,7 +112,7 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
   useEffect(()=>{if(!open||!backend.browserAvailable)return;let live=true;void backend.browserAvailable().then(value=>{if(live)setBrowserReady(value);}).catch(()=>{if(live)setBrowserReady(false);});return()=>{live=false;};},[backend,open]);
   async function browserShare(){if(browserBusy||!backend.browserSend)return;const code=crypto.randomUUID();setBrowserCode(code);setBrowserBusy(true);setBrowserStatus("等待浏览器接收；最长十分钟，断线会提前结束");setError("");try{const result=await backend.browserSend(selection.shelf_id,selection.files.map(file=>file.id),code);setBrowserStatus(result.status==="completed"?"对方已确认内容校验":result.status==="cancelled"?"已停止，来源保留":"未确认完成，请核对接收结果");}catch(e){setError(String(e));setBrowserCode("");}finally{setBrowserBusy(false);}}
   const [address,setAddress,,addressWarning]=useDraftState("transfer-address",""),[fingerprint,setFingerprint,,fingerprintWarning]=useDraftState("transfer-fingerprint",""),[bindAddress,setBindAddress,,bindAddressWarning]=useDraftState("transfer-bind",""),[target,setTarget,,targetWarning]=useDraftState("transfer-target",0);
-  const [working,setWorking]=useState(false),[sending,setSending]=useState(false),[cancelling,setCancelling]=useState(false),[progress,setProgress]=useState<TransferProgress|null>(null),[result,setResult]=useState<TransferResult|null>(null);
+  const [working,setWorking]=useState(false),[sending,setSending]=useState(false),[cancelling,setCancelling]=useState(false),[progress,setProgress]=useState<TransferProgress|null>(null),[result,setResult]=useState<SendBatchResult|null>(null);
   const pendingId=useRef<string|null>(null),live=useRef(true),show=useRef(onOpenChange);show.current=onOpenChange;
   const bound=shelves.filter(s=>s.kind==="bound"&&s.available);
   useEffect(()=>{live.current=true;return()=>{live.current=false;};},[]);
@@ -116,15 +121,51 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
   async function chooseFolder(){if(!chooseReceiveFolder||working)return;setWorking(true);setError("");try{const id=await chooseReceiveFolder();if(id!==null)setTarget(id);}catch(e){setError(String(e));}finally{setWorking(false);}}
   async function action(run:()=>Promise<void>){if(working)return;setWorking(true);setError("");try{await run();setView(await backend.view());}catch(e){setError(String(e));}finally{if(live.current)setWorking(false);}}
   async function copy(value:string,label:string){try{await navigator.clipboard.writeText(value);setCopied(`已复制${label}`);setError("");}catch{setError(`复制${label}失败，请手动选中文本复制。`);}}
-  async function send(){if(sending||view.sending)return;setSending(true);setCancelling(false);setProgress(null);setResult(null);setError("");try{if(deviceName&&!known.includes(fingerprint)&&backend.pair){await backend.pair(deviceName,address.trim(),fingerprint.trim());setKnown(value=>[...value,fingerprint]);}const outcome=await backend.send(selection.shelf_id,selection.files.map(file=>file.id),address.trim(),fingerprint.trim());if(live.current)setResult(outcome);}catch(e){if(live.current)setError(String(e));}finally{if(live.current){setSending(false);setCancelling(false);void backend.view().then(setView).catch(e=>setError(String(e)));}}}
   const activeSend=sending||view.sending;
+  const destination=address.trim(),pin=fingerprint.trim().toLowerCase();
+  const currentResult=result&&result.fingerprint===pin&&result.selection.shelf_id===selection.shelf_id&&
+    result.selection.files.length===selection.files.length&&
+    selection.files.every(file=>result.selection.files.some(sent=>sent.id===file.id))?result:null;
+  const retryFiles=currentResult?.selection.files.filter(file=>{
+    const status=currentResult.statuses[file.id];
+    return status==="not_sent"||status==="cancelled";
+  })??[];
+  const hasUnconfirmed=currentResult?.selection.files.some(file=>["unconfirmed","failed",undefined].includes(currentResult.statuses[file.id]));
+  const batchComplete=currentResult?.selection.files.every(file=>currentResult.statuses[file.id]==="completed");
+  const lastStatus=currentResult?.last.status;
+  const batchStatus=lastStatus==="completed"&&!batchComplete?"partial":lastStatus;
+  const sendLabel=deviceName&&!known.includes(pin)?"确认设备并发送":"发送文件";
+  async function send(){
+    const files=currentResult?retryFiles:selection.files;
+    if(activeSend||working||!destination||!pin||files.length===0||files.length>16)return;
+    const batch=currentResult?.selection??selection;
+    setSending(true);setCancelling(false);setProgress(null);setError("");
+    try{
+      if(deviceName&&!known.includes(pin)&&backend.pair){
+        await backend.pair(deviceName,destination,pin);
+        setKnown(value=>[...value,pin]);
+      }
+      const outcome=await backend.send(batch.shelf_id,files.map(file=>file.id),destination,pin);
+      const fileStatuses={...currentResult?.statuses};
+      for(const file of outcome.files){
+        const submitted=files[file.index];
+        if(submitted)fileStatuses[submitted.id]=file.status;
+      }
+      if(live.current)setResult({selection:batch,fingerprint:pin,last:outcome,statuses:fileStatuses});
+    }catch(e){if(live.current)setError(String(e));}
+    finally{
+      if(live.current){setSending(false);setCancelling(false);void backend.view().then(setView).catch(e=>setError(String(e)));}
+    }
+  }
   return <Sheet protect open={open} onOpenChange={onOpenChange}><SheetContent className="transfer-panel" showCloseButton={false}>
     {(draftWarning||webEndpointWarning||addressWarning||fingerprintWarning||bindAddressWarning||targetWarning)&&<p role="alert">草稿暂时无法保存，请保留当前窗口。</p>}<SheetHeader><SheetTitle>文件互传</SheetTitle></SheetHeader>
     <Button className="transfer-close" variant="ghost" size="icon" aria-label="关闭文件互传" onClick={()=>onOpenChange(false)}><X size={16}/></Button>
     {error&&<p className="transfer-error" role="alert">{error}</p>}
-    <Tabs className="transfer-workspace" value={mode} onValueChange={value=>setMode(value as "send"|"receive")}>
-    <TabsList className="transfer-tabs" aria-label="互传方向"><TabsTrigger value="send">发送文件</TabsTrigger><TabsTrigger value="receive">接收文件</TabsTrigger></TabsList>
+    <Tabs className="transfer-workspace" value={mode} onValueChange={value=>setMode(value as TransferMode)}>
+    <TabsList className="transfer-tabs" aria-label="互传方向"><TabsTrigger value="send">发送文件</TabsTrigger><TabsTrigger value="receive">接收文件</TabsTrigger>{backend.roomAvailable&&<TabsTrigger value="room">临时互传区</TabsTrigger>}</TabsList>
     <TabsContent ref={content} value={mode} className="transfer-content">
+    {mode==="room"?<TemporaryRoomPanel selection={selection} shelves={bound} session={roomSession} setSession={setRoomSession}
+      showAccount={showAccount} chooseReceiveFolder={chooseReceiveFolder} thumbnail={thumbnail} returnToShelf={()=>onOpenChange(false)} />:<>
     {mode==="send"?<>
       <strong>1. 选择文件</strong><p className="transfer-note">已选 {selection.files.length} 项{selection.files.length>16?"，一次最多发送16项":""}</p>
       {!selection.files.length&&<p className="capability-hint">先在文件架选择文件，再使用“发送到设备”。<Button variant="outline" onClick={()=>onOpenChange(false)}>返回文件架选文件</Button></p>}
@@ -144,16 +185,33 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
       {browserReady&&<details className="transfer-experiment"><summary>浏览器分享测试（仅本机）</summary><section className="connection-fields" aria-label="浏览器本机验证"><strong>浏览器分享 本机验证</strong><p className="muted">仅当前电脑可用，尚不支持跨设备。创建后复制接收链接，在本机浏览器打开即可接收；链接含临时分享凭证。</p>{browserCode&&browserBusy&&<><Input aria-label="浏览器接收链接" readOnly value={`http://127.0.0.1:53323/#receive?${new URLSearchParams({code:browserCode})}`}/><Button variant="outline" onClick={()=>void copy(`http://127.0.0.1:53323/#receive?${new URLSearchParams({code:browserCode})}`,"接收链接")}>复制接收链接</Button></>}<p role="status">{browserStatus}</p>{browserBusy?<Button variant="outline" onClick={()=>void backend.browserCancel?.().catch(e=>setError(String(e)))}>停止浏览器分享</Button>:<Button disabled={activeSend||!selection.files.length||selection.files.length>16} onClick={()=>void browserShare()}>创建浏览器分享</Button>}</section></details>}
       <form className="transfer-form" onSubmit={e=>{e.preventDefault();void send();}}>
         <fieldset className="connection-fields"><legend>2. 选择接收设备</legend>
-        {backend.devices&&<section aria-label="附近设备"><Button type="button" variant="outline" disabled={finding||activeSend} onClick={()=>void findDevices()}>{finding?"正在查找附近电脑…":"刷新附近设备"}</Button>{!finding&&!devices.length&&<p className="capability-hint">未发现设备？请对方在同一 Wi-Fi 下打开“接收文件”，选择保存位置并开启接收。</p>}{devices.map(device=><Button type="button" variant={address===device.address?"default":"outline"} key={device.fingerprint} disabled={activeSend} onClick={()=>{setAddress(device.address);setFingerprint(device.fingerprint);setDeviceName(device.name);setConnection("");}}>{device.name} {device.fingerprint.slice(0,6).toUpperCase()}{known.includes(device.fingerprint)?" 已配对":""}</Button>)}{deviceName&&<p role="status">{known.includes(fingerprint)?`已配对 ${deviceName}，可直接发送。`:`首次连接 ${deviceName}，请与对方核对六位设备码；确认发送后记住此设备。`}</p>}</section>}<p className="capability-hint">也可以请对方点击“复制连接信息”，在下面粘贴一次连接。</p>
-        <label>粘贴对方的连接信息<Input aria-label="粘贴对方的连接信息" placeholder="ningmao://receive?…" value={connection} disabled={activeSend} onChange={e=>importConnection(e.target.value)}/></label>
-        <details><summary>手动连接 / 查看设备信息</summary><label>接收方地址<Input aria-label="接收方地址" placeholder="192.168.1.20:53317" value={address} disabled={activeSend} onChange={e=>setAddress(e.target.value)} maxLength={80}/></label>
-        <label>证书指纹<textarea aria-label="证书指纹" placeholder="接收方显示的64位 SHA256 指纹" value={fingerprint} disabled={activeSend} onChange={e=>setFingerprint(e.target.value)} maxLength={64} rows={2}/></label>
+        {backend.devices&&<section aria-label="附近设备">
+          <Button type="button" variant="outline" disabled={finding||activeSend} onClick={()=>void findDevices()}>{finding?"正在查找附近电脑…":"刷新附近设备"}</Button>
+          {!finding&&!devices.length&&<p className="capability-hint">请对方在同一局域网开启接收。仍找不到时，请对方复制连接信息。<Button type="button" variant="outline" disabled={activeSend} onClick={()=>connectionInput.current?.focus()}>使用连接信息</Button></p>}
+          {devices.map(device=><Button type="button" variant={address===device.address&&pin===device.fingerprint?"default":"outline"} key={device.fingerprint} disabled={activeSend} onClick={()=>{setAddress(device.address);setFingerprint(device.fingerprint);setDeviceName(device.name);setConnection("");}}>{device.name} {device.fingerprint.slice(0,6).toUpperCase()}{known.includes(device.fingerprint)?" 已配对":""}</Button>)}
+          {deviceName&&<p role="status">{known.includes(pin)?`已配对 ${deviceName}，可直接发送。`:`首次连接 ${deviceName}，请与对方核对六位设备码。`}</p>}
+        </section>}
+        <label>粘贴对方的连接信息<Input ref={connectionInput} aria-label="粘贴对方的连接信息" placeholder="ningmao://receive?…" value={connection} disabled={activeSend} onChange={e=>importConnection(e.target.value)}/></label>
+        <details><summary>手动连接 / 查看设备信息</summary><label>接收方地址<Input aria-label="接收方地址" placeholder="192.168.1.20:53317" value={address} disabled={activeSend} onChange={e=>{setAddress(e.target.value);setDeviceName("");setConnection("");}} maxLength={80}/></label>
+        <label>证书指纹<textarea aria-label="证书指纹" placeholder="接收方显示的64位 SHA256 指纹" value={fingerprint} disabled={activeSend} onChange={e=>{setFingerprint(e.target.value);setDeviceName("");setConnection("");}} maxLength={64} rows={2}/></label>
         <p className="muted">指纹用于确认没有连错电脑。请与对方核对；只需复制粘贴，不用手动输入。</p></details>
         </fieldset>
         <p className="capability-hint">3. 点击发送后，等待对方点击“接受文件”。进度会显示在这里。</p>
-        {activeSend?<Button type="button" variant="outline" disabled={cancelling} onClick={()=>{setCancelling(true);void backend.cancelSend().catch(e=>{setError(String(e));setCancelling(false);});}}>{cancelling?"正在取消…":"取消发送"}</Button>:<Button type="submit" disabled={!selection.files.length||selection.files.length>16||!address.trim()||!fingerprint.trim()||working}>{deviceName&&!known.includes(fingerprint)?"确认设备并发送":"发送文件"}</Button>}
+        {activeSend?
+          <Button type="button" variant="outline" disabled={cancelling} onClick={()=>{setCancelling(true);void backend.cancelSend().catch(e=>{setError(String(e));setCancelling(false);});}}>{cancelling?"正在取消…":"取消发送"}</Button>
+          :currentResult&&!retryFiles.length?
+          <Button type="button" variant="outline" onClick={()=>{setResult(null);onOpenChange(false);}}>返回文件架</Button>
+          :<Button type="submit" disabled={!selection.files.length||selection.files.length>16||!destination||!pin||working}>{currentResult?`重试未送达文件（${retryFiles.length}）`:sendLabel}</Button>}
       </form>
-      <div className="transfer-status" role="status">{activeSend?<>{cancelling?"正在取消，等待安全结束":phases[progress?.phase??""]??"正在连接…"}{progress&&<><progress aria-label="发送进度" value={progress.bytes} max={progress.total||1}/><span>{sizes(progress.bytes)} / {sizes(progress.total)} {progress.file_index+1}/{progress.file_count}项</span></>}</>:result?<><strong>{statuses[result.status]??result.status}</strong><p>{result.message}</p><ul>{result.files.map(file=><li key={file.index}>{selection.files[file.index]?.name??`文件 ${file.index+1}`} {statuses[file.status]??file.status}</li>)}</ul></>:null}</div>
+      <div className="transfer-status" role="status">{activeSend?<>{cancelling?"正在取消，等待安全结束":phases[progress?.phase??""]??"正在连接…"}{progress&&<><progress aria-label="发送进度" value={progress.bytes} max={progress.total||1}/><span>{sizes(progress.bytes)} / {sizes(progress.total)} {progress.file_index+1}/{progress.file_count}项</span></>}</>:currentResult?<>
+        <strong>{hasUnconfirmed?"请核对接收结果":statuses[batchStatus??""]??batchStatus}</strong>
+        <p>{currentResult.last.message}</p>
+        {hasUnconfirmed&&<p>请对方先核对接收目录，避免重复接收。</p>}
+        <ul>{currentResult.selection.files.map(file=>{
+          const status=currentResult.statuses[file.id];
+          return <li key={file.id}>{file.name} {status?(statuses[status]??status):"请核对"}</li>;
+        })}</ul>
+      </>:null}</div>
       </>}
     </>:<>
       {view.receiving?<section className="transfer-listening">
@@ -200,6 +258,7 @@ export function TransferPanel({backend,open,onOpenChange,initialMode,selection,s
     {mode==="receive"&&webDevice?.signal_online&&backend.webDeviceSignal&&backend.subscribeWebSignals&&backend.webDeviceSetReceiving&&
       <DesktopWebInbox backend={backend} open={open} online={webDevice.signal_online}
         peers={webDevice.online_devices} shelves={bound}/>}
+    </>}
 </TabsContent></Tabs>
   </SheetContent></Sheet>;
 }

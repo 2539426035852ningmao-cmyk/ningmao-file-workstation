@@ -16,6 +16,7 @@ pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + S
 const MAX_CONTROL: usize = 64 * 1024;
 const MAX_FILE: u64 = 512 * 1024 * 1024;
 const CHUNK: usize = 64 * 1024;
+const UPLOAD_RECEIPT_TIMEOUT: Duration = Duration::from_secs(30);
 
 fn key(bytes: &[u8]) -> PrivateKeyDer<'static> {
     PrivatePkcs8KeyDer::from(bytes.to_vec()).into()
@@ -265,6 +266,10 @@ fn request_with_progress(
     }
     stream.flush()?;
     progress(length)?;
+    if expect {
+        // The receiver verifies and commits the file before it can acknowledge the upload.
+        stream.sock.set_read_timeout(Some(UPLOAD_RECEIPT_TIMEOUT))?;
+    }
     read_response(&mut stream)
 }
 

@@ -73,6 +73,7 @@ pub struct Item {
     pub kind: String,
     pub bytes: u64,
     pub modified: u64,
+    pub thumbnail_stamp: Option<String>,
     pub status: String,
     pub tags: Vec<String>,
 }
@@ -1133,15 +1134,17 @@ impl Store {
             .filter(|(_, id, _, _, _)| allowed.contains(id))
             .map(|(id, shelf_id, path, name, tags)| {
                 let meta = fs::symlink_metadata(&path);
+                let modified_time = meta
+                    .as_ref()
+                    .ok()
+                    .filter(|m| !is_link(m))
+                    .and_then(|m| m.modified().ok())
+                    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok());
                 let (status, bytes, modified, kind) = match meta {
                     Ok(m) if !is_link(&m) => (
                         "normal",
                         m.len(),
-                        m.modified()
-                            .ok()
-                            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-                            .map(|d| d.as_secs())
-                            .unwrap_or(0),
+                        modified_time.map(|d| d.as_secs()).unwrap_or(0),
                         if m.is_dir() {
                             "folder".into()
                         } else {
@@ -1172,6 +1175,7 @@ impl Store {
                     kind,
                     bytes,
                     modified,
+                    thumbnail_stamp: modified_time.map(|d| d.as_nanos().to_string()),
                     status: status.into(),
                     tags: serde_json::from_str(&tags).map_err(err)?,
                 })
@@ -1242,7 +1246,7 @@ impl Store {
         let changed = self
             .db
             .execute(
-                "UPDATE jobs SET status=?1,message=?2 WHERE id=?3 AND shelf_id=?4 AND status IN ('queued','copying')",
+                "UPDATE jobs SET status=?1,message=?2,staging=NULL WHERE id=?3 AND shelf_id=?4 AND status IN ('queued','copying')",
                 params![status, message, id, shelf],
             )
             .map_err(err)?;
@@ -1518,8 +1522,25 @@ pub fn image_preview(path: &Path, size: u32) -> Result<Option<String>> {
     small
         .write_to(&mut bytes, image::ImageFormat::Png)
         .map_err(err)?;
+    let mut bytes = bytes.into_inner();
+    let mut mime = "image/png";
+    if size <= 320 && bytes.len() > 120 * 1024 {
+        if small.color().has_alpha() {
+            bytes.clear();
+            small
+                .thumbnail(128, 128)
+                .write_to(&mut Cursor::new(&mut bytes), image::ImageFormat::Png)
+                .map_err(err)?;
+        } else {
+            bytes.clear();
+            image::codecs::jpeg::JpegEncoder::new_with_quality(&mut bytes, 82)
+                .encode_image(&small)
+                .map_err(err)?;
+            mime = "image/jpeg";
+        }
+    }
     Ok(Some(format!(
-        "data:image/png;base64,{}",
-        base64::engine::general_purpose::STANDARD.encode(bytes.into_inner())
+        "data:{mime};base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(bytes)
     )))
 }

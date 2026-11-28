@@ -1,5 +1,17 @@
 # P3–P4 开源项目复用与风险研究（2026-10-26）
 
+## 2026-11-20 互传体验复核
+
+近期使用反馈常提到网页免安装、同网发现失败与跨网速度差异。反馈用于选测试场景，操作规则以协议、源码和实测为准。[PairDrop 用户讨论](https://www.reddit.com/r/MacOSApps/comments/1w7vsbe/) · [LocalSend 防火墙问题记录](https://github.com/localsend/localsend/issues/3172)
+
+| 项目 | 在柠猫里怎么用 |
+| --- | --- |
+| LocalSend（Apache-2.0） | 直接复用仓库已有的官方 Rust 客户端回环实验，锁定 `cfd699125f2aa4c69f48fd274cf4bb1876a5e08d`。产品继续使用现有原生实现，沿用准备、接收确认、逐文件上传和取消的协议流程。设备发现失败时引导用户粘贴连接信息。官方客户端双机互通仍须独立验收。[协议](https://github.com/localsend/protocol) · [复测步骤](../../experiments/p3-official-client/README.md) |
+| PairDrop（GPL-3.0） | 参考免安装、邀请进房和连接失败提示。使用柠猫现有网页、WebRTC/WSS 和自建临时互传区。把直连、临时暂存与中继状态讲清楚，先做不同网络的实测，再选回退方案。[项目与许可证](https://github.com/schlagmichdoch/PairDrop) · [连接说明](https://github.com/schlagmichdoch/PairDrop/blob/master/docs/faq.md) |
+| Syncthing（MPL-2.0） | 持续同步阶段用它的冲突副本和版本恢复规则设计验收数据，先明确同时修改、删除和重新上线时的预期结果。[同步冲突说明](https://docs.syncthing.net/users/syncing.html) · [版本保留说明](https://docs.syncthing.net/users/versioning.html) |
+
+本轮界面改动沿用柠猫现有控件和原生命令，仓库依赖无新增。锁定版本的 LocalSend 官方客户端回环复测通过已知长度文件、哈希、同名保留和接收端取消终态。未知长度流仍返回 HTTP 400。此结果用于协议实验，不扩大到原生双机互通。
+
 > 2026-11-04 增量核对：[LocalSend](https://github.com/localsend/localsend) `main` 提交 `92e133aa43869e94d394fd04fa70c50a0f796a64`，仓库许可证标记 Apache-2.0；[协议 v2.2](https://github.com/localsend/protocol/blob/main/README.md) 将 HTTPS 证书 SHA256 指纹及可配置地址列为连接信息。柠猫接收页据此补充地址、指纹独立复制入口；仅学习交互信息呈现，未复制上游代码或素材，未宣称官方客户端互通。
 
 > 状态：**研究完成 / 候选待验证（非技术选型最终批准、非功能交付）**。

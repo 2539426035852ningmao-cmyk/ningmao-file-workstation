@@ -1,6 +1,6 @@
-# M1-06 预览安装包说明
+# Windows 预览打包说明
 
-这是 0.1.0 x64 **未签名 Debug 验证包**，不是正式 Release，不代表整个 M1 或原生文件操作已验收。不要在工作时自动运行本目录内的 MSI 或 EXE。
+当前交付见 [交付记录](execution/ACTIVE-DELIVERY.md)。以下为 Windows x64 **未签名 Debug 候选**打包和结构核验流程；试用优先使用便携包。
 
 ## 内容和边界
 
@@ -10,7 +10,7 @@
 - 标准 WiX MSI 为 per-machine 安装，用户日后主动安装时可能需要管理员权限。标准完成页有启动选项；只有用户方便且明确安排验收时才操作。
 - 此包要求系统已有 Microsoft Edge WebView2 Runtime；不附带或执行安装引导程序。正式发行前另行确定运行库分发方案。
 - 未增加开机自启、提权更新任务、系统右键注册或用户数据删除动作；检查脚本不属于通用恶意安装包扫描。
-- EXE 与 MSI 使用预览配置重新构建；与 M1-05 的原候选是不同文件，不能继承旧哈希的原生验收结果。EXE 不宣称便携模式；直接运行时也使用预览标识的数据目录。
+- EXE 与 MSI 使用预览配置构建，每批原生证据绑定实际应用源码及哈希。便携目录用启动脚本选择工作区；参见[试用说明](first-preview-quickstart.md)。
 - SHA256SUMS.txt 覆盖其余全部交付文件；build-manifest.json 保存实际构建源码提交。GitHub PR 构建提交可能是 head 与 base 的临时合并提交。
 - 上传前强制运行 verify-preview-package.ps1：核对 9 文件白名单、全部校验条目、PE32+ x64 与产品/版本、未签名状态、构建身份、MSI 载荷大小及保存检查结果一致，并再次核对检查后文件字节未变。相应夹具拒绝篡改、遗漏、重复、路径越界和额外载荷；不提取 CAB 字节，因此不冒充嵌入文件逐字节证明。验证矩阵见 docs/research/M1-06-validation-matrix.md。
 
@@ -27,6 +27,7 @@ THIRD_PARTY_NOTICES.txt 归集 Windows normal Cargo 运行依赖（排除 build 
 ```powershell
 ./scripts/build-desktop.ps1 -Native
 ./scripts/build-preview-package.ps1
+./scripts/build-portable-preview.ps1 -PackageDirectory apps/desktop/preview-package -OutputDirectory apps/desktop/portable-preview
 # 对已存在的预览交付目录仅做只读核验，不重新构建或运行程序：
 ./scripts/verify-preview-package.ps1 -Directory <已有预览交付目录>
 ```

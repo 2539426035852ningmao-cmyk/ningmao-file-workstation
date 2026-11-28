@@ -99,9 +99,9 @@ impl ReceiverTask {
         Ok(())
     }
     /// Called only after the staging object has been published or dropped.
-    pub fn finish(&mut self, published: bool) -> Result<()> {
+    pub fn finish(&mut self, published: bool, abandoned: u32) -> Result<()> {
         self.active -= 1;
-        self.settled += 1;
+        self.settled += 1 + abandoned;
         self.event.completed += u32::from(published);
         let phase = if self.cancelling {
             if self.active == 0 {
@@ -127,6 +127,19 @@ impl ReceiverTask {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_active_file_can_finish_after_other_files_are_abandoned() {
+        let mut task = ReceiverTask::new(Arc::new(|_| Ok(())), 3, 100).unwrap();
+        task.start().unwrap();
+        task.start().unwrap();
+        task.finish(false, 1).unwrap();
+        assert_eq!(task.event.phase, Phase::Receiving);
+        task.finish(true, 0).unwrap();
+        assert_eq!(task.event.phase, Phase::Partial);
+        assert_eq!(task.event.completed, 1);
+    }
+
     #[test]
     fn active_cancel_waits_for_cleanup_and_late_cancel_preserves_success() {
         let dir = tempfile::tempdir().unwrap();
@@ -137,7 +150,7 @@ mod tests {
         task.advance(30).unwrap();
         task.cancel().unwrap();
         assert_eq!(task.event.phase, Phase::Cancelling);
-        task.finish(false).unwrap();
+        task.finish(false, 0).unwrap();
         assert_eq!(task.event.phase, Phase::Cancelled);
         let seq = task.event.sequence;
         task.cancel().unwrap();
@@ -145,7 +158,7 @@ mod tests {
         let mut task = ReceiverTask::new(journal, 1, 0).unwrap();
         task.start().unwrap();
         task.verifying().unwrap();
-        task.finish(true).unwrap();
+        task.finish(true, 0).unwrap();
         task.cancel().unwrap();
         assert_eq!(task.event.phase, Phase::Completed);
         let events: Vec<TaskEvent> = std::fs::read_to_string(path)
@@ -177,7 +190,7 @@ mod sink_tests {
         task.advance(1).unwrap();
         task.verifying().unwrap();
         fail.store(true, Ordering::SeqCst);
-        assert!(task.finish(true).is_err());
+        assert!(task.finish(true, 0).is_err());
         assert_eq!(task.event.phase, Phase::Verifying);
     }
 }
