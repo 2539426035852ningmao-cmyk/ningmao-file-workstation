@@ -184,7 +184,10 @@ test("电脑显示的二维码可解出原邀请，手机视口使用同一地�
 
     const reply = "手机回传.png";
     const image = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+tF1sAAAAASUVORK5CYII=", "base64");
-    await phone.getByLabel("选择文件").setInputFiles({ name: reply, mimeType: "image/png", buffer: image });
+    const picker = phone.waitForEvent("filechooser");
+    await phone.getByRole("button", { name: "选择文件", exact: true }).click();
+    await (await picker).setFiles({ name: reply, mimeType: "image/png", buffer: image });
+    await expect(phone.getByRole("group", { name: "所选文件" }).getByText(reply, { exact: true })).toBeVisible();
     await phone.getByRole("button", { name: "发给全区 2 人" }).click();
     const incoming = host.locator("article").filter({ hasText: reply });
     const saveReply = incoming.getByRole("button", { name: `保存 ${reply}`, exact: true });

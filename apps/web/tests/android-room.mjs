@@ -81,11 +81,11 @@ async function installTestCa(ca, name) {
 }
 
 async function selectDeviceFile(page, name) {
-  const input = page.locator('input[type="file"]');
-  await input.click();
+  const selection = page.getByRole("group", { name: "所选文件" }).getByText(name, { exact: true });
+  await page.getByRole("button", { name: "选择文件", exact: true }).click();
   const used = new Set();
   await expect.poll(async () => {
-    if (await input.evaluate(element => element.files?.[0]?.name) === name) return "Selected " + name;
+    if (await selection.isVisible()) return "Selected " + name;
     const nodes = pickerNodes();
     const find = value => nodes.find(node => (node.text === value || node.description === value) && node.bounds);
     const selected = find(name);
@@ -99,7 +99,7 @@ async function selectDeviceFile(page, name) {
     }
     return nodes.map(node => node.text || node.description).filter(Boolean).join(" / ");
   }, { timeout: 75_000, intervals: [700] }).toBe("Selected " + name);
-  await expect(page.getByText(name, { exact: false })).toBeVisible();
+  await expect(selection).toBeVisible();
 }
 
 const sha = data => createHash("sha256").update(data).digest("hex");
