@@ -47,8 +47,13 @@ test("网页上传中断后从已确认偏移续传，接收端校验后实际�
     await hostPage.route(/\/bulk\/[a-f0-9]{32}$/, async route => {
       const offset = Number(route.request().headers()["x-offset"]);
       offsets.push(offset);
-      if (!interrupted && offset > 0) { interrupted = true; await route.abort(); }
-      else await route.continue();
+      if (!interrupted && offset > 0) {
+        interrupted = true;
+        try {
+          await expect(hostPage.getByRole("progressbar", { name: "上传", exact: true }))
+            .toHaveAttribute("value", String(offset));
+        } finally { await route.abort(); }
+      } else await route.continue();
     });
     await hostPage.getByLabel("选择文件").setInputFiles({ name: "分块.txt", mimeType: "text/plain", buffer: source });
     await send.click();

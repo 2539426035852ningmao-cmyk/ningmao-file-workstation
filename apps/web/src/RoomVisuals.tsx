@@ -1,27 +1,40 @@
 import { File, FileArchive, FileAudio, FileImage, FileVideo, UserRound } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { classifyFile } from "./file-utils.mjs";
 
 const icons = { image: FileImage, video: FileVideo, audio: FileAudio, archive: FileArchive, document: File };
+const roomHues = [220, 22, 158, 280, 54];
 
-export function RoomAvatar({ id }: { id?: string }) {
-  const hue = id && /^[a-f0-9]{24}$/.test(id) ? parseInt(id.slice(0, 4), 16) % 360 : 225;
+export function RoomAvatar({ id, slot }: { id?: string; slot?: number }) {
+  const fallbackHue = id && /^[a-f0-9]{24}$/.test(id) ? parseInt(id.slice(0, 4), 16) % 360 : 225;
+  const hue = slot === undefined ? fallbackHue : roomHues[slot % roomHues.length];
   return <span className="room-avatar" aria-hidden="true"
     style={{ backgroundColor: `hsl(${hue} 72% 87%)`, color: `hsl(${hue} 68% 25%)` }}>
     <UserRound size={15} fill="currentColor" />
   </span>;
 }
 
-export function RoomFileIcon({ name, thumbnail }: { name: string; thumbnail?: string | null }) {
-  const [failed, setFailed] = useState(false);
+export function RoomFileIcon({ name, file, alt = "" }: { name: string; file?: File | null; alt?: string }) {
+  const [preview, setPreview] = useState<{ file: File; url: string }>();
+  const [failedUrl, setFailedUrl] = useState("");
+  useEffect(() => {
+    if (!file || file.size > 12 * 1024 ** 2 || !/\.(png|jpe?g|webp|gif|avif)$/i.test(name)) {
+      setPreview(undefined);
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    setPreview({ file, url });
+    return () => URL.revokeObjectURL(url);
+  }, [file, name]);
+  const thumbnail = preview && preview.file === file ? preview.url : undefined;
   const Icon = icons[classifyFile(name)];
   return <span className="room-file-icon">
-    {thumbnail && !failed ? <img src={thumbnail} alt="所选文件的缩略图" onError={() => setFailed(true)} />
+    {thumbnail && thumbnail !== failedUrl ? <img src={thumbnail} alt={alt} onError={() => setFailedUrl(thumbnail)} />
       : <Icon size={19} aria-hidden="true" />}
   </span>;
 }
 
-type Recipient = { id: string; name: string };
+type Recipient = { id: string; name: string; avatarSlot: number };
 
 export function RoomRecipients({ members, recipients, select, enabled, disabled }: {
   members: Recipient[];
@@ -43,7 +56,7 @@ export function RoomRecipients({ members, recipients, select, enabled, disabled 
           <input type="checkbox" checked={recipients.includes(member.id)}
             onChange={event => select(event.target.checked
               ? [...recipients, member.id] : recipients.filter(id => id !== member.id))} />
-          <RoomAvatar id={member.id} /><span>{member.name}</span>
+          <RoomAvatar id={member.id} slot={member.avatarSlot} /><span>{member.name}</span>
         </label>)}
       </div>
       {!enabled ? <p>当前站点暂不支持指定收件人。</p>
