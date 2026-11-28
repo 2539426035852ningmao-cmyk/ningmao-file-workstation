@@ -6,7 +6,7 @@ import { nativeWebReceiver, saveAcceptedWebFile } from "../webReceiveBackend";
 import { nativeWebTransferSource } from "../webTransferBackend";
 import { WEB_MAX_FILE_BYTES } from "../webFileRules";
 import { RoomAvatar, RoomFileIcon, RoomRecipients } from "./RoomVisuals";
-import { StationAccountPanel } from "./StationAccountPanel";
+import { StationAccountPanel, type RoomAccount } from "./StationAccountPanel";
 import { StationChat } from "./StationSocialPanel";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -29,11 +29,12 @@ type CreatedRoom = { invitation: string; recovery: string };
 type StationView = { available: boolean; running: boolean; folder: string | null; quota_mib: number; address: string | null };
 export type RoomSession = { link: string; name: string; station: string; recovery: string; room: Room | null; admission: Admission | null; shelf: number; saved: Record<string, string> };
 
-export function TemporaryRoomPanel({ selection, shelves, session, setSession, chooseReceiveFolder, thumbnail, returnToShelf }: {
+export function TemporaryRoomPanel({ selection, shelves, session, setSession, showAccount, chooseReceiveFolder, thumbnail, returnToShelf }: {
   selection: TransferSelection;
   shelves: Shelf[];
   session: RoomSession;
   setSession: Dispatch<SetStateAction<RoomSession>>;
+  showAccount?: boolean;
   chooseReceiveFolder?: () => Promise<number | null>;
   thumbnail?: (id: number) => Promise<string | null>;
   returnToShelf: () => void;
@@ -52,11 +53,15 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
   const [offline, setOffline] = useState(false);
   const [departure, setDeparture] = useState<{ invitation: string; member?: RoomMember } | null>(null);
   const [host, setHost] = useState<StationView>();
+  const [account, setAccount] = useState<RoomAccount | null>(null);
   const [quota, setQuota] = useState(512);
   const hostPanel = useRef<HTMLDetailsElement>(null);
   const hostRunning = host?.running === true;
   const invitation = link.trim();
   const inviteUrl = URL.canParse(invitation) ? new URL(invitation) : null;
+  const createStation = station || account?.station || "";
+  const entryAddress = (entry === "create" ? createStation : draftLink).trim();
+  const usesAccount = account && URL.canParse(entryAddress) && new URL(entryAddress).origin === account.station;
   const mobileInvite = inviteUrl?.protocol === "https:"
     && !/^(?:(?:.+\.)?localhost\.?$|127\.|\[::1\]$)/i.test(inviteUrl.hostname);
   const shelf = shelves.some(item => item.id === session.shelf) ? session.shelf : 0;
@@ -171,7 +176,7 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
   }, [admission, applyView, busy, changingRoom, invitation]);
 
   async function createRoom() {
-    const created = await invoke<CreatedRoom>("room_create", { station: station.trim(), name, approval });
+    const created = await invoke<CreatedRoom>("room_create", { station: createStation.trim(), name: usesAccount ? "" : name, approval });
     setSession(current => ({ ...current, link: created.invitation, recovery: created.recovery, room: null, admission: null, saved: {} }));
     setRecipients(null);
     setFileQuery("");
@@ -312,7 +317,18 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
 
   return <section className="room-desktop" aria-label="临时互传区">
     {offline && !changingRoom && <p className="room-caption" role="status">站点暂时无法连接，恢复后自动更新。</p>}
-    <StationAccountPanel defaultStation={station || host?.address || ""} openRoom={async target => {
+    <StationAccountPanel initiallyOpen={showAccount} defaultStation={host?.address || station} onAccount={setAccount}
+      onLocalStation={host?.available && !hostRunning ? () => {
+        if (!hostPanel.current) return;
+        hostPanel.current.open = true;
+        hostPanel.current.querySelector("summary")?.focus();
+      } : undefined} onGuest={address => {
+      const suffix = crypto.randomUUID().slice(0, 4).toUpperCase();
+      setSession(current => ({ ...current, station: address || current.station, name: current.name || `游客-${suffix}` }));
+      if (!draftLink && address) setEntry("create");
+      setFailed(false);
+      setReport("正在以游客身份互传。");
+    }} openRoom={async target => {
       const next = await invoke<RoomView>("room_view", { invitation: target });
       if ("status" in next) throw new Error("文件群尚未批准加入。");
       setDraftLink(target);
@@ -365,24 +381,24 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
       </div>
       {entry === "join" ? <label>邀请链接<Input disabled={busy} value={draftLink} placeholder="粘贴对方发来的邀请链接" onChange={event => {
         setDraftLink(event.target.value); setReport("");
-      }} /></label> : <label>互传站点地址<Input disabled={busy} value={station} placeholder="粘贴自托管站点的 HTTPS 地址" onChange={event => {
+      }} /></label> : <label>互传站点地址<Input disabled={busy} value={createStation} placeholder="粘贴自托管站点的 HTTPS 地址" onChange={event => {
         const next = event.target.value;
         setSession(current => ({ ...current, station: next }));
       }} /></label>}
-      <label>显示名称<Input disabled={busy} value={name} maxLength={100} onChange={event => {
+      {usesAccount ? <p className="room-caption">使用账号 {account.username}</p> : <label>显示名称<Input disabled={busy} value={name} maxLength={100} onChange={event => {
         const next = event.target.value;
         setSession(current => ({ ...current, name: next }));
-      }} /></label>
+      }} /></label>}
       {entry === "create" && <label className="transfer-room-approval">
         <input type="checkbox" checked={approval} disabled={busy} onChange={event => setApproval(event.target.checked)} />
         入区需批准
       </label>}
       <div className="transfer-receive-actions">
-        {entry === "create" ? <Button disabled={busy || !station.trim() || !name.trim()}
-          onClick={() => void run(createRoom)}>创建互传区</Button> : <Button disabled={busy || !draftLink.trim() || !name.trim() || (admission === "pending" && draftLink.trim() === invitation)}
+        {entry === "create" ? <Button disabled={busy || !createStation.trim() || (!usesAccount && !name.trim())}
+          onClick={() => void run(createRoom)}>创建互传区</Button> : <Button disabled={busy || !draftLink.trim() || (!usesAccount && !name.trim()) || (admission === "pending" && draftLink.trim() === invitation)}
           onClick={() => void run(async () => {
             const target = draftLink.trim();
-            await invoke("room_join", { invitation: target, name });
+            await invoke("room_join", { invitation: target, name: usesAccount ? "" : name });
             if (target !== invitation) {
               setRecipients(null);
               setFileQuery("");
@@ -408,6 +424,11 @@ export function TemporaryRoomPanel({ selection, shelves, session, setSession, ch
         <div className="transfer-receive-actions">
           {!room.direct && <Button variant="outline" size="sm" disabled={busy} aria-label="复制邀请链接"
             onClick={() => void copy(invitation, "邀请链接")}>复制邀请</Button>}
+          {inviteUrl && (account?.station === inviteUrl.origin || !room.fixed) && <Button
+            variant="ghost" size="sm" disabled={busy || offline} onClick={() => void run(async () => {
+              await invoke("station_open_browser", { station: inviteUrl.origin, invitation });
+              setReport("已请求打开默认浏览器。");
+            })}>在浏览器打开</Button>}
           <Button variant="ghost" size="sm" disabled={busy} aria-label="刷新互传区"
             onClick={() => void run(refresh)}>刷新</Button>
           <Button variant="ghost" size="sm" disabled={busy} aria-label="切换互传区" onClick={() => {

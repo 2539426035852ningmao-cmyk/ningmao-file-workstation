@@ -1,12 +1,15 @@
 use crate::{
-    Runtime, error, main_only, prepare_clean_exit, store::Result, temporary_room,
+    Runtime, error, main_only, prepare_clean_exit, room_station, store::Result, temporary_room,
     transfer_identity, trusted_native_origin,
 };
 use reqwest::{Url, header};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sha2::{Digest, Sha256};
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    time::Duration,
+};
 use tauri::Manager;
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -26,12 +29,16 @@ struct Login {
 pub(crate) struct AccountWorkspaces {
     current: Option<Login>,
     original_owner: Option<String>,
+    saved_station: Option<String>,
+    saved_username: Option<String>,
 }
 
 #[derive(Serialize)]
 pub(crate) struct View {
     username: Option<String>,
     station: Option<String>,
+    saved_station: Option<String>,
+    saved_username: Option<String>,
     can_associate: bool,
 }
 
@@ -105,6 +112,8 @@ impl AccountWorkspaces {
                 .as_ref()
                 .map(|login| login.identity.username.clone()),
             station: self.current.as_ref().map(|login| login.origin.clone()),
+            saved_station: self.saved_station.clone(),
+            saved_username: self.saved_username.clone(),
             can_associate: self.current.is_none() && self.original_owner.is_none(),
         }
     }
@@ -121,8 +130,14 @@ impl AccountWorkspaces {
             }
             self.original_owner = Some(owner);
         }
-        self.current = Some(login);
+        self.remember(login);
         Ok(())
+    }
+
+    fn remember(&mut self, login: Login) {
+        self.saved_station = Some(login.origin.clone());
+        self.saved_username = Some(login.identity.username.clone());
+        self.current = Some(login);
     }
 }
 
@@ -169,6 +184,14 @@ fn cookie_name(origin: &Url) -> &'static str {
     } else {
         "ningmao_account"
     }
+}
+
+fn checked_station(value: &str) -> Result<Url> {
+    let address = temporary_room::station_url(value)?;
+    if address.query().is_some() {
+        return Err("请输入互传站点地址。".into());
+    }
+    Url::parse(&address.origin().ascii_serialization()).map_err(error)
 }
 
 pub(crate) fn header_for(origin: &Url, state: &Runtime) -> Result<Option<String>> {
@@ -244,6 +267,90 @@ pub(crate) fn station_account_view(
 }
 
 #[tauri::command]
+pub(crate) fn station_account_return_to_room(
+    window: tauri::WebviewWindow,
+    state: tauri::State<'_, Runtime>,
+) -> Result<bool> {
+    permitted(&window)?;
+    Ok(state.return_to_room)
+}
+
+#[tauri::command]
+pub(crate) async fn station_account_check(
+    window: tauri::WebviewWindow,
+    app: tauri::AppHandle,
+) -> Result<Option<String>> {
+    permitted(&window)?;
+    let state = app.state::<Runtime>();
+    let settings = AccountWorkspaces::load(&state.workspace_root)?;
+    let Some(login) = settings.current else {
+        return Ok(None);
+    };
+    let origin = checked_station(&login.origin)?;
+    let Some(cookie) = header_for(&origin, &state)? else {
+        return Ok(None);
+    };
+    let response = temporary_room::send(
+        temporary_room::client()?
+            .get(origin.join("api/account").map_err(error)?)
+            .timeout(Duration::from_secs(4))
+            .header(header::COOKIE, cookie),
+    )
+    .await?;
+    let body = temporary_room::reply(response).await?;
+    if body["account"]["id"].as_str() != Some(login.identity.id.as_str()) {
+        return Ok(None);
+    }
+    Ok(body["account"]["username"].as_str().map(str::to_owned))
+}
+
+#[tauri::command]
+pub(crate) async fn station_open_browser(
+    window: tauri::WebviewWindow,
+    app: tauri::AppHandle,
+    station: String,
+    invitation: Option<String>,
+) -> Result<()> {
+    permitted(&window)?;
+    let origin = checked_station(&station)?;
+    let invitation = invitation
+        .as_deref()
+        .map(temporary_room::Invitation::parse)
+        .transpose()?;
+    if invitation
+        .as_ref()
+        .is_some_and(|target| target.origin != origin)
+    {
+        return Err("邀请链接与互传站点不同。".into());
+    }
+    let state = app.state::<Runtime>();
+    let mut url = origin.join("rooms").map_err(error)?;
+    if let Some(cookie) = header_for(&origin, &state)? {
+        let response = temporary_room::send(
+            temporary_room::client()?
+                .post(origin.join("api/account/browser-link").map_err(error)?)
+                .timeout(Duration::from_secs(8))
+                .header(header::COOKIE, cookie)
+                .json(&json!({})),
+        )
+        .await?;
+        let body = temporary_room::reply(response).await?;
+        let code = body["code"]
+            .as_str()
+            .filter(|value| temporary_room::hex(value, 64))
+            .ok_or("站点未返回有效网页授权。")?;
+        url.set_path("/account");
+        if let Some(target) = invitation {
+            url.query_pairs_mut().append_pair("room", &target.code);
+        }
+        url.set_fragment(Some(&format!("open={code}")));
+    } else if let Some(target) = invitation {
+        url.query_pairs_mut().append_pair("code", &target.code);
+    }
+    open::that_detached(url.as_str()).map_err(|_| "无法打开默认浏览器。".into())
+}
+
+#[tauri::command]
 pub(crate) async fn station_account_login(
     window: tauri::WebviewWindow,
     app: tauri::AppHandle,
@@ -251,22 +358,34 @@ pub(crate) async fn station_account_login(
     username: String,
     password: String,
     associate: bool,
+    register: Option<bool>,
 ) -> Result<()> {
     permitted(&window)?;
-    let address = temporary_room::station_url(&station)?;
-    if address.query().is_some() || username.len() > 256 || password.len() > 512 {
+    let origin = checked_station(&station)?;
+    if username.len() > 256 || password.len() > 512 {
         return Err("请检查站点地址、账号名和密码。".into());
     }
-    let origin = Url::parse(&address.origin().ascii_serialization()).map_err(error)?;
+    let register = register.unwrap_or(false);
     let state = app.state::<Runtime>();
     let _guard = state.account_switch.lock().await;
     let mut settings = AccountWorkspaces::load(&state.workspace_root)?;
-    if settings.current.is_some() {
+    if settings.current.as_ref().is_some_and(|login| {
+        register || associate || login.origin != origin.origin().ascii_serialization()
+    }) {
         return Err("请先退出当前账号。".into());
     }
+    if settings.current.is_none() {
+        crate::lifecycle_idle(&app)?;
+    }
+    let endpoint = if register {
+        "api/account/register"
+    } else {
+        "api/account/login"
+    };
     let response = temporary_room::send(
         temporary_room::client()?
-            .post(origin.join("api/account/login").map_err(error)?)
+            .post(origin.join(endpoint).map_err(error)?)
+            .timeout(Duration::from_secs(12))
             .json(&json!({ "username": username, "password": password })),
     )
     .await?;
@@ -288,24 +407,24 @@ pub(crate) async fn station_account_login(
     {
         return Err("站点未返回有效账号。".into());
     }
-    settings.activate(
-        &state.workspace_root,
-        Login {
-            origin: origin.origin().ascii_serialization(),
-            identity,
-            session: session.ok_or("站点未返回有效会话。")?,
-        },
-        associate,
-    )?;
+    let login = Login {
+        origin: origin.origin().ascii_serialization(),
+        identity,
+        session: session.ok_or("站点未返回有效会话。")?,
+    };
+    if let Some(current) = &settings.current {
+        if current.identity.id != login.identity.id {
+            return Err("请登录当前工作区的账号。切换账号前请先退出。".into());
+        }
+        settings.remember(login);
+        return settings.save(&state.workspace_root);
+    }
+    settings.activate(&state.workspace_root, login, associate)?;
     AccountWorkspaces::check_isolation(
         &state.workspace_root,
         &settings.data_root(&state.workspace_root),
     )?;
-    prepare_clean_exit(&app)?;
-    settings.save(&state.workspace_root)?;
-    state._process_lock.unlock().map_err(error)?;
-    app.request_restart();
-    Ok(())
+    restart(&app, &state, &settings)
 }
 
 #[tauri::command]
@@ -335,14 +454,20 @@ pub(crate) async fn station_account_logout(
     } else {
         return Ok(());
     }
-    prepare_clean_exit(&app)?;
     settings.current = None;
     AccountWorkspaces::check_isolation(
         &state.workspace_root,
         &settings.data_root(&state.workspace_root),
     )?;
+    restart(&app, &state, &settings)
+}
+
+fn restart(app: &tauri::AppHandle, state: &Runtime, settings: &AccountWorkspaces) -> Result<()> {
+    let keep_station = state.room_station.is_running()?;
+    prepare_clean_exit(app)?;
     settings.save(&state.workspace_root)?;
     state._process_lock.unlock().map_err(error)?;
+    room_station::remember_account_switch(keep_station);
     app.request_restart();
     Ok(())
 }

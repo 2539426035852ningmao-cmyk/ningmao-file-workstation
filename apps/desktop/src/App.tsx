@@ -1,4 +1,5 @@
 import {AudioWaveform} from "./components/AudioWaveform";
+import {invoke} from "@tauri-apps/api/core";
 import {DraftScope,readDraft,saveDraft,clearDraft} from "./drafts";
 import {HistoryCapacity} from "./components/HistoryCapacity";
 import {FilePreview} from "./components/FilePreview";
@@ -156,7 +157,17 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   const [displayOptions,setDisplayOptions]=useState(false),[moreOpen,setMoreOpen]=useState(false);
   const [chatOpen,setChatOpen]=useState(false);
   const [chatLoaded,setChatLoaded]=useState(false);
-  const [transferLoaded,setTransferLoaded]=useState(false),[transfer,setTransfer]=useState<{open:boolean;mode:TransferMode;selection:TransferSelection}>({open:false,mode:"receive",selection:{shelf_id:0,files:[]}});
+  const [transferLoaded,setTransferLoaded]=useState(false),[transfer,setTransfer]=useState<{open:boolean;mode:TransferMode;selection:TransferSelection;showAccount?:boolean}>({open:false,mode:"receive",selection:{shelf_id:0,files:[]}});
+  useEffect(() => {
+    if (!native || detachedShelfId !== undefined || !backend.transfer?.roomAvailable) return;
+    let active = true;
+    void invoke<boolean>("station_account_return_to_room").then(returnToRoom => {
+      if (!active || !returnToRoom) return;
+      setTransferLoaded(true);
+      setTransfer({open:true,mode:"room",showAccount:true,selection:{shelf_id:0,files:[]}});
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, [native, detachedShelfId, backend.transfer]);
   const [revealItem,setRevealItem]=useState<number|null>(null);
   const searchInput=useRef<HTMLInputElement>(null),moreButton=useRef<HTMLButtonElement>(null);
   const [shaping,setShaping]=useState(false);
@@ -408,7 +419,7 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
   return <DraftScope.Provider value={draftScope}><div className={`workstation ${hover?"drop-active":""}`}><ScrollActivity/>
     <GlobalSearch backend={backend} revision={data} scoped={detachedShelfId!==undefined}/>
     {backend.chat&&chatLoaded&&<Suspense fallback={null}><ChatPanel backend={backend.chat} open={chatOpen} onOpenChange={setChatOpen}/></Suspense>}
-    {backend.transfer&&transferLoaded&&<Suspense fallback={null}><TransferPanel backend={backend.transfer} open={transfer.open} initialMode={transfer.mode} selection={transfer.selection} shelves={data.shelves} thumbnail={backend.thumbnail} chooseReceiveFolder={detachedShelfId===undefined?async()=>{const id=await backend.chooseFolder();if(id!==null)await refresh();return id;}:undefined} onOpenChange={open=>setTransfer(value=>({...value,open}))}/></Suspense>}
+    {backend.transfer&&transferLoaded&&<Suspense fallback={null}><TransferPanel backend={backend.transfer} open={transfer.open} initialMode={transfer.mode} showAccount={transfer.showAccount} selection={transfer.selection} shelves={data.shelves} thumbnail={backend.thumbnail} chooseReceiveFolder={detachedShelfId===undefined?async()=>{const id=await backend.chooseFolder();if(id!==null)await refresh();return id;}:undefined} onOpenChange={open=>setTransfer(value=>({...value,open}))}/></Suspense>}
     <SystemRecycle backend={backend} ids={systemRecycleIds} onClose={()=>setSystemRecycleIds(null)} onChanged={refresh}/>
     <RecycleDrawer backend={backend} open={recycleOpen} onOpenChange={setRecycleOpen} shelfId={shelfId} onChanged={refresh}/>
 
@@ -424,7 +435,10 @@ export default function App({backend,native,detachedShelfId}:{backend:Backend;na
       <Button variant="ghost" size="icon" aria-label="重做" title={history?.redo?`重做 ${history.redo}`:"重做"} disabled={!history?.redo||historyBusy||busy||hover||!!dragging} onClick={()=>void perform(()=>applyHistory(true))}><Redo2 size={16}/></Button>
       {detachedShelfId===undefined&&<><Button variant="ghost" size="icon" aria-label="拆出当前文件架" title="拆出当前文件架" disabled={!native||busy||!shelf||(childWindows.length>=9&&!detachedIds.includes(shelfId))} onClick={()=>void perform(()=>backend.desktopDetach(shelfId))}><CopyPlus size={16}/></Button><Button variant="ghost" size="icon" aria-label="全部收回子窗口" title="全部收回子窗口" disabled={!native||busy||!childWindows.length} onClick={()=>void perform(async()=>{for(const w of childWindows)await backend.desktopMerge(w.shelf_id);})}><PanelsTopLeft size={16}/></Button></>}
       <Button variant="ghost" size="icon" disabled={!native||loading||!shelf||busy||!!running} aria-label="刷新当前文件架" title="刷新当前文件架" onClick={()=>void perform(async()=>{await refresh();})}><RefreshCw size={16}/></Button>
-      <ShelfMenu label="更多操作" centered settings={<><HistoryCapacity capacity={history?.capacity??100} onSave={backend.historyCapacity?async capacity=>{setHistory(await backend.historyCapacity!(capacity));}:undefined}/>        <DropdownMenu.Label>应用主题</DropdownMenu.Label><DropdownMenu.RadioGroup value={theme} onValueChange={value=>setTheme(value as Theme)}>{Object.entries(themes).map(([key,label])=><DropdownMenu.RadioItem key={key} value={key}>{label}主题<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>)}</DropdownMenu.RadioGroup></>} open={moreOpen} onOpenChange={open=>{if(open)setDisplayOptions(true);setMoreOpen(open);}} trigger={<Button variant="ghost" size="icon" ref={moreButton} aria-label="更多操作" title="更多操作"><MoreHorizontal size={18}/></Button>}>
+      <ShelfMenu label="更多操作" centered account={detachedShelfId===undefined&&backend.transfer?.roomAvailable?()=>{
+        setTransferLoaded(true);
+        setTransfer({open:true,mode:"room",showAccount:true,selection:{shelf_id:shelfId,files:[]}});
+      }:undefined} settings={<><HistoryCapacity capacity={history?.capacity??100} onSave={backend.historyCapacity?async capacity=>{setHistory(await backend.historyCapacity!(capacity));}:undefined}/>        <DropdownMenu.Label>应用主题</DropdownMenu.Label><DropdownMenu.RadioGroup value={theme} onValueChange={value=>setTheme(value as Theme)}>{Object.entries(themes).map(([key,label])=><DropdownMenu.RadioItem key={key} value={key}>{label}主题<DropdownMenu.ItemIndicator><Check size={14}/></DropdownMenu.ItemIndicator></DropdownMenu.RadioItem>)}</DropdownMenu.RadioGroup></>} open={moreOpen} onOpenChange={open=>{if(open)setDisplayOptions(true);setMoreOpen(open);}} trigger={<Button variant="ghost" size="icon" ref={moreButton} aria-label="更多操作" title="更多操作"><MoreHorizontal size={18}/></Button>}>
         <DropdownMenu.Group aria-label="收集与搜索"><DropdownMenu.Item disabled={!native||loading||!shelf||busy||!!running} onSelect={()=>void perform(async()=>receive(await backend.chooseFiles()))}><Plus size={16}/><span>添加文件</span></DropdownMenu.Item>
 <DropdownMenu.Item onSelect={()=>openGlobalSearch(moreButton.current)}><Search size={16}/><span>{detachedShelfId!==undefined?"搜索当前文件架":"跨文件架搜索"}</span><kbd aria-hidden="true">Ctrl+K</kbd></DropdownMenu.Item>
 <DropdownMenu.Item disabled={!native || loading || !shelf || busy || !!running || !backend.clipboardFiles} aria-description="粘贴资源管理器中复制的文件；截图请按 Ctrl+V" onSelect={()=>void pasteFiles()}><ClipboardPaste size={16}/><span>粘贴文件</span><kbd aria-hidden="true">Ctrl+V</kbd></DropdownMenu.Item>

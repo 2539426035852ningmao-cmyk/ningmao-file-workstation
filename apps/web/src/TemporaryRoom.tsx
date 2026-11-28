@@ -259,7 +259,7 @@ export function TemporaryRoom() {
     <header className="room-header">
       <strong><FolderUp size={21} aria-hidden /> 柠猫文件工作站</strong>
       <div className="room-row">
-        <a className="room-nav-link" href={code ? `/account?room=${encodeURIComponent(code)}` : "/account"}>账号</a>
+        <a className="room-nav-link" aria-label="账号" href={code ? `/account?room=${encodeURIComponent(code)}` : "/account"}>{account || "账号"}</a>
         {account && <a className="room-nav-link" href="/social">好友与文件群</a>}
         <label>主题 <select value={theme} onChange={event => setTheme(event.target.value as Theme)}>
           <option value="light">浅白</option><option value="dark">深蓝</option><option value="blue">亮蓝</option>

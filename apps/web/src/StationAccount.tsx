@@ -4,6 +4,7 @@ import "./rooms.css";
 
 type Account = { id: string; username: string };
 type AccountAction = "/login" | "/register" | "/logout" | "/username" | "/password";
+type BrowserLogin = { username: string; confirm: true } | { account: Account };
 const accountEndpoint = "/api/account";
 
 class AccountRequestError extends Error {
@@ -14,7 +15,7 @@ class AccountRequestError extends Error {
   }
 }
 
-async function accountRequest(action = "", input?: Record<string, string>, signal?: AbortSignal) {
+async function accountRequest<T = { account: Account | null }>(action = "", input?: object, signal?: AbortSignal): Promise<T> {
   const response = await fetch(accountEndpoint + action, {
     method: input ? "POST" : "GET",
     ...(input ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) } : {}),
@@ -25,8 +26,12 @@ async function accountRequest(action = "", input?: Record<string, string>, signa
   }
   const body = await response.json();
   if (!response.ok) throw new AccountRequestError(response.status, typeof body === "string" ? body : "账号操作未完成，请重试。");
-  return body.account as Account | null;
+  return body as T;
 }
+
+const browserCode = location.pathname === "/account" && /^#open=([a-f0-9]{64})$/.exec(location.hash)?.[1];
+if (browserCode) history.replaceState(null, "", location.pathname + location.search);
+let browserLogin: Promise<BrowserLogin> | undefined;
 
 export function StationAccount() {
   const [account, setAccount] = useState<Account | null>();
@@ -35,25 +40,56 @@ export function StationAccount() {
   const [problem, setProblem] = useState("");
   const [message, setMessage] = useState("");
   const [loadAttempt, setLoadAttempt] = useState(0);
+  const [browserName, setBrowserName] = useState("");
   const room = new URLSearchParams(location.search).get("room") ?? "";
   const returnToRoom = /^[a-f0-9]{32}$/i.test(room) ? `/rooms?code=${room.toLowerCase()}` : "/rooms";
   useEffect(() => {
     document.documentElement.dataset.theme ??= "light";
     const controller = new AbortController();
     setProblem("");
-    accountRequest("", undefined, controller.signal).then(setAccount).catch(error => {
-      if (controller.signal.aborted) return;
-      setProblem(error instanceof TypeError ? "站点暂时无法连接。" : error.message);
-    });
+    async function load() {
+      if (browserCode && loadAttempt === 0) {
+        try {
+          browserLogin ??= accountRequest<BrowserLogin>("/browser-login", { code: browserCode });
+          const result = await browserLogin;
+          if (controller.signal.aborted) return;
+          if ("confirm" in result) setBrowserName(result.username);
+          else location.replace(returnToRoom);
+          return;
+        } catch (error) {
+          if (controller.signal.aborted) return;
+          setProblem(error instanceof Error ? error.message : "打开网页的授权不可用。");
+        }
+      }
+      try {
+        const result = await accountRequest("", undefined, controller.signal);
+        if (!controller.signal.aborted) setAccount(result.account);
+      } catch (error) {
+        if (!controller.signal.aborted) setProblem(error instanceof TypeError ? "站点暂时无法连接。" : (error as Error).message);
+      }
+    }
+    void load();
     return () => controller.abort();
-  }, [loadAttempt]);
+  }, [loadAttempt, returnToRoom]);
+
+  async function finishBrowserLogin() {
+    setBusy(true);
+    setProblem("");
+    try {
+      await accountRequest<BrowserLogin>("/browser-login", { code: browserCode, confirm: true });
+      location.replace(returnToRoom);
+    } catch (error) {
+      setBusy(false);
+      setProblem(error instanceof Error ? error.message : "登录未完成，请从软件重新打开。");
+    }
+  }
 
   async function perform(action: AccountAction, data: Record<string, string>, success: string) {
     setBusy(true);
     setProblem("");
     setMessage("");
     try {
-      setAccount(await accountRequest(action, data));
+      setAccount((await accountRequest(action, data)).account);
       setMessage(success);
       return true;
     } catch (error) {
@@ -91,10 +127,13 @@ export function StationAccount() {
       <strong><UserRound size={20} aria-hidden /> 柠猫文件工作站</strong>
       <a className="room-nav-link" href={returnToRoom}><ArrowLeft size={16} aria-hidden /> 返回互传区</a>
     </header>
-    <h1>{account ? "账号设置" : "站点账号"}</h1>
+    <h1>{browserName ? "使用桌面账号" : account ? "账号设置" : "站点账号"}</h1>
     {problem && <p className="room-feedback" role="alert">{problem}</p>}
     {message && <p className="room-feedback" role="status">{message}</p>}
-    {account === undefined ? problem
+    {browserName ? <section className="room-card account-summary">
+      <strong>{browserName}</strong>
+      <button type="button" className="room-primary" disabled={busy} onClick={() => void finishBrowserLogin()}>继续使用桌面账号</button>
+    </section> : account === undefined ? problem
       ? <button type="button" onClick={() => setLoadAttempt(attempt => attempt + 1)}>重新检查</button>
       : <p className="room-note" role="status">正在确认登录状态…</p> : !account ?
       <section className="room-card">

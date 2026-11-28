@@ -38,6 +38,7 @@ export function createAccountHandler(db, { secure, readJson, requireValue }) {
   const cookie = secure ? "__Host-ningmao_account" : "ningmao_account";
   const cookiePattern = new RegExp(`(?:^|;\\s*)${cookie}=([a-f0-9]{64})(?:;|$)`);
   const attempts = new Map();
+  const browserLinks = new Map();
   let minute = 0, total = 0, hashing = 0;
 
   function usernameOf(value) {
@@ -113,6 +114,7 @@ export function createAccountHandler(db, { secure, readJson, requireValue }) {
 
   async function handle(request, response, pathname, json) {
     requireValue(accountTransport(request), 403, "请用 HTTPS 或本机站点访问账号。");
+    response.setHeader("Cache-Control", "no-store");
     const action = pathname.slice(accountApi.length);
     const secret = tokenFor(request);
     const session = secret ? digest(secret) : null;
@@ -121,13 +123,37 @@ export function createAccountHandler(db, { secure, readJson, requireValue }) {
       const account = getAccount();
       return json(200, { account: account ? publicAccount(account) : null });
     }
-    requireValue(request.method === "POST" && ["/register", "/login", "/logout", "/username", "/password"].includes(action),
+    requireValue(request.method === "POST" && ["/register", "/login", "/logout", "/username", "/password", "/browser-link", "/browser-login"].includes(action),
       404, "账号操作不存在。");
     const input = await readJson(request);
     if (action === "/logout") {
       if (session) endSession.run(session);
       sessionCookie(response, "", 0);
       return json(200, { account: null });
+    }
+    if (action === "/browser-link") {
+      requireValue(getAccount(), 401, "登录已失效，请重新登录。");
+      const now = Date.now();
+      for (const [key, link] of browserLinks) {
+        if (link.expires <= now || link.session === session) browserLinks.delete(key);
+      }
+      requireValue(browserLinks.size < 128, 429, "打开网页的请求过多，请稍后重试。");
+      const code = hex(randomBytes(32));
+      browserLinks.set(digest(code), { session, expires: now + 120_000 });
+      return json(200, { code });
+    }
+    if (action === "/browser-login") {
+      const key = typeof input.code === "string" && /^[a-f0-9]{64}$/.test(input.code) ? digest(input.code) : "";
+      const link = browserLinks.get(key);
+      const now = Date.now();
+      const account = link?.expires > now && bySession.get(link.session, now);
+      requireValue(account, 401, "打开网页的授权已失效，请从软件重新打开。");
+      const signedIn = getAccount();
+      requireValue(!signedIn || signedIn.id === account.id, 409, "浏览器已登录其他账号。可继续使用当前账号，或先退出再从软件打开。");
+      if (!signedIn && input.confirm !== true) return json(200, { username: account.username, confirm: true });
+      if (!signedIn) sessionCookie(response, transaction(() => issueSession(account.id)));
+      browserLinks.delete(key);
+      return json(200, { account: publicAccount(account) });
     }
     limitAttempts(request.socket.remoteAddress);
     if (action === "/register") {

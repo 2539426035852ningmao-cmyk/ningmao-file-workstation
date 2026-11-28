@@ -20,6 +20,8 @@ const ADDRESS: &str = "http://127.0.0.1:5192/rooms";
 const QUOTAS: [u32; 4] = [512, 2048, 8192, 20480];
 const FOLDER_NAME: &str = "柠猫互传暂存";
 const MARKER: &str = ".ningmao-room-station";
+#[cfg(windows)]
+const RESUME: &str = "NINGMAO_RESUME_ROOM_STATION";
 
 #[derive(Default)]
 pub struct RoomStation(Mutex<Option<Child>>);
@@ -196,6 +198,65 @@ impl RoomStation {
         }
         Ok(())
     }
+
+    pub(crate) fn is_running(&self) -> Result<bool> {
+        running(&mut *self.0.lock().map_err(error)?)
+    }
+
+    fn start(&self, path: &Path, quota_mib: u32) -> Result<StationView> {
+        {
+            let mut child = self.0.lock().map_err(error)?;
+            if !running(&mut child)? {
+                let files = StationFiles::packaged()
+                    .ok_or("请使用带站点的柠猫版本，并确认已安装 Node.js 24。")?;
+                let mut selected = Settings::load(path)?;
+                let parent = selected
+                    .folder
+                    .as_deref()
+                    .and_then(Path::parent)
+                    .ok_or("请先选择暂存位置。")?;
+                let folder = claim_folder(parent)?;
+                selected.quota_mib = quota_mib;
+                transfer_identity::save(path, &selected)?;
+                *child = Some(start_process(files, &folder, quota_mib, PORT)?);
+            }
+        }
+        self.view(path)
+    }
+}
+
+pub(crate) fn remember_account_switch(running: bool) {
+    #[cfg(windows)]
+    {
+        // Limit the opt-in to the immediately restarted process.
+        unsafe { std::env::set_var(RESUME, if running { "1" } else { "0" }) };
+    }
+    #[cfg(not(windows))]
+    let _ = running;
+}
+
+pub(crate) fn take_account_switch() -> Option<bool> {
+    #[cfg(windows)]
+    {
+        let value = std::env::var(RESUME).ok()?;
+        unsafe { std::env::remove_var(RESUME) };
+        match value.as_str() {
+            "1" => Some(true),
+            "0" => Some(false),
+            _ => None,
+        }
+    }
+    #[cfg(not(windows))]
+    None
+}
+
+pub(crate) fn resume_after_switch(state: &Runtime) {
+    let path = settings(state);
+    if let Ok(saved) = Settings::load(&path)
+        && QUOTAS.contains(&saved.quota_mib)
+    {
+        let _ = state.room_station.start(&path, saved.quota_mib);
+    }
 }
 
 fn permit(window: &WebviewWindow) -> Result<()> {
@@ -262,26 +323,7 @@ pub async fn room_station_start(
     }
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<Runtime>();
-        let station = &state.room_station;
-        let path = settings(&state);
-        {
-            let mut child = station.0.lock().map_err(error)?;
-            if !running(&mut child)? {
-                let files = StationFiles::packaged()
-                    .ok_or("请使用互传测试包，并确认已安装 Node.js 24。")?;
-                let mut selected = Settings::load(&path)?;
-                let parent = selected
-                    .folder
-                    .as_deref()
-                    .and_then(Path::parent)
-                    .ok_or("请先选择暂存位置。")?;
-                let folder = claim_folder(parent)?;
-                selected.quota_mib = quota_mib;
-                transfer_identity::save(&path, &selected)?;
-                *child = Some(start_process(files, &folder, quota_mib, PORT)?);
-            }
-        }
-        station.view(&path)
+        state.room_station.start(&settings(&state), quota_mib)
     })
     .await
     .map_err(error)?

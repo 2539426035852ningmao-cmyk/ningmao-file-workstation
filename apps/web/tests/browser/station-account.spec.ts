@@ -82,3 +82,57 @@ test("网页站点账号可独立注册、改名改密，退出后按新凭据�
     await rm(data, { recursive: true, force: true });
   }
 });
+
+test("桌面授权打开网页后自动登录，独立网页账号仍可自行建区", async ({ browser }) => {
+  const data = await mkdtemp(join(tmpdir(), "ningmao-account-handoff-"));
+  const station = createRoomServer(data).listen(0, "127.0.0.1");
+  await once(station, "listening");
+  const origin = `http://127.0.0.1:${(station.address() as { port: number }).port}`;
+  const desktop = await browser.newContext();
+  const clean = await browser.newContext();
+  const independent = await browser.newContext();
+  const password = "Synthetic handoff passphrase";
+  const api = origin + "/api/account";
+  try {
+    for (const [context, username] of [[desktop, "桌面正式账号"], [independent, "独立网页账号"]] as const) {
+      expect((await context.request.post(api + "/register", { data: { username, password } })).status()).toBe(201);
+    }
+    async function issue() {
+      const response = await desktop.request.post(api + "/browser-link", { data: {} });
+      expect(response.status()).toBe(200);
+      return (await response.json()).code as string;
+    }
+    const code = await issue();
+    const first = await clean.newPage();
+    await first.goto(origin + "/account#open=" + code);
+    await expect(first.getByText("桌面正式账号", { exact: true })).toBeVisible();
+    expect((await (await clean.request.get(api)).json()).account).toBeNull();
+    await first.getByRole("button", { name: "继续使用桌面账号" }).click();
+    await expect(first).toHaveURL(origin + "/rooms");
+    await expect(first.getByText("使用账号 桌面正式账号")).toBeVisible();
+    await first.goto(origin + "/account#open=" + await issue());
+    await expect(first).toHaveURL(origin + "/rooms");
+    await expect(first.getByText("使用账号 桌面正式账号")).toBeVisible();
+    expect((await clean.request.post(api + "/browser-login", { data: { code } })).status()).toBe(401);
+
+    const second = await independent.newPage();
+    await second.goto(origin + "/account#open=" + await issue());
+    await expect(second.getByRole("alert")).toContainText("浏览器已登录其他账号");
+    expect(new URL(second.url()).hash).toBe("");
+    await second.goto(origin);
+    await expect(second.getByText("使用账号 独立网页账号")).toBeVisible();
+    await second.getByRole("button", { name: "创建互传区" }).click();
+    await expect(second.getByRole("heading", { name: "共享文件" })).toBeVisible();
+    expect(new URL(second.url()).searchParams.get("code")).toMatch(/^[a-f0-9]{32}$/);
+    expect((await (await desktop.request.get(api)).json()).account.username).toBe("桌面正式账号");
+
+    const revoked = await issue();
+    expect((await desktop.request.post(api + "/logout", { data: {} })).status()).toBe(200);
+    expect((await clean.request.post(api + "/browser-login", { data: { code: revoked } })).status()).toBe(401);
+  } finally {
+    await Promise.all([desktop.close(), clean.close(), independent.close()]);
+    station.closeAllConnections();
+    await new Promise<void>(resolve => station.close(() => resolve()));
+    await rm(data, { recursive: true, force: true });
+  }
+});

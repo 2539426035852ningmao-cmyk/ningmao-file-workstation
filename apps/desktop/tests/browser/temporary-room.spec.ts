@@ -9,6 +9,10 @@ test("本机站点需显式启停，启动后将地址填入建区入口", async
       invoke: async (command: string, args: Record<string, unknown>) => {
         if (command === "station_account_view") return { username: null, station: null, can_associate: true };
         if (command === "station_account_login") {
+          if (args.register === true) {
+            if (args.username !== "合成新账号" || args.associate !== false || args.station !== address) throw new Error("意外创建参数");
+            throw new Error("合成账号已被使用");
+          }
           if (args.username !== "合成账号" || args.associate !== true || args.station !== address) throw new Error("意外账号参数");
           throw new Error("合成站点要求重试");
         }
@@ -26,8 +30,9 @@ test("本机站点需显式启停，启动后将地址填入建区入口", async
   });
   await page.goto("/tests/harness.html?temporary-room");
   await page.getByRole("button", { name: "更多操作", exact: true }).click();
-  await page.getByRole("menuitem", { name: "临时互传区", exact: true }).click();
-  await page.getByText("本机互传站点", { exact: false }).click();
+  await page.getByRole("menuitem", { name: "账户", exact: true }).click();
+  await expect(page.getByRole("button", { name: "创建账号", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "设置本机站点", exact: true }).click();
   await expect(page.getByText("已停止", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "启动站点" })).toBeDisabled();
   await page.getByRole("button", { name: "选择暂存位置" }).click();
@@ -36,7 +41,6 @@ test("本机站点需显式启停，启动后将地址填入建区入口", async
   await quota.selectOption("2048");
   await page.getByRole("button", { name: "启动站点" }).click();
   await expect(page.getByLabel("互传站点地址", { exact: true })).toHaveValue("http://127.0.0.1:5192/rooms");
-  await page.getByText("站点账号", { exact: true }).click();
   await expect(page.getByLabel("账号站点")).toHaveValue("http://127.0.0.1:5192/rooms");
   await expect(page.getByLabel("本机工作区")).toHaveValue("separate");
   await page.getByLabel("本机工作区").selectOption("associate");
@@ -44,6 +48,17 @@ test("本机站点需显式启停，启动后将地址填入建区入口", async
   await page.getByLabel("密码", { exact: true }).fill("synthetic credentials only");
   await page.getByRole("button", { name: "登录并切换工作区" }).click();
   await expect(page.getByRole("alert")).toHaveText("Error: 合成站点要求重试");
+  await page.getByRole("button", { name: "创建账号", exact: true }).click();
+  await page.getByLabel("账号名", { exact: true }).fill("合成新账号");
+  await page.getByLabel("密码", { exact: true }).fill("synthetic credentials only");
+  await page.getByLabel("再输入一次密码").fill("mismatch");
+  await page.getByRole("button", { name: "创建并登录" }).click();
+  await expect(page.getByRole("alert")).toHaveText("两次输入的密码不一致。");
+  await page.getByLabel("再输入一次密码").fill("synthetic credentials only");
+  await page.getByRole("button", { name: "创建并登录" }).click();
+  await expect(page.getByRole("alert")).toHaveText("Error: 合成账号已被使用");
+  await page.getByRole("button", { name: "以游客继续" }).click();
+  await expect(page.getByLabel("显示名称")).toHaveValue(/^游客-[A-F0-9]{4}$/);
   await expect(page.getByRole("button", { name: "停止站点" })).toBeHidden();
   await page.getByText("本机互传站点", { exact: false }).click();
   await expect(quota).toBeDisabled();

@@ -16,9 +16,9 @@ pub struct Rooms {
     joining: Mutex<()>,
 }
 
-struct Invitation {
-    origin: Url,
-    code: String,
+pub(crate) struct Invitation {
+    pub(crate) origin: Url,
+    pub(crate) code: String,
 }
 
 pub(crate) fn hex(value: &str, size: usize) -> bool {
@@ -44,7 +44,7 @@ pub(crate) fn station_url(value: &str) -> Result<Url> {
 }
 
 impl Invitation {
-    fn parse(value: &str) -> Result<Self> {
+    pub(crate) fn parse(value: &str) -> Result<Self> {
         let parsed = station_url(value).map_err(|_| "请粘贴互传区的 HTTPS 邀请链接。")?;
         let mut params = parsed.query_pairs();
         let (name, code) = params.next().ok_or("邀请链接缺少邀请码。")?;

@@ -77,6 +77,7 @@ struct Runtime {
     web_device: web_device::WebDeviceControl,
     rooms: temporary_room::Rooms,
     room_station: room_station::RoomStation,
+    return_to_room: bool,
     chat: chat::ChatControl,
     store: Mutex<Store>,
     active: Mutex<Option<(i64, Arc<AtomicBool>)>>,
@@ -2106,6 +2107,7 @@ async fn recover_desktop_windows(
     shelf_windows::recover_visible(&app)
 }
 pub fn run() {
+    let account_switch = room_station::take_account_switch();
     let explicit_root = std::env::var_os("NINGMAO_DATA_DIR").map(PathBuf::from);
     let registry = std::env::var_os("NINGMAO_WORKSPACE_REGISTRY")
         .map(PathBuf::from)
@@ -2205,6 +2207,7 @@ pub fn run() {
                 web_device: Default::default(),
                 rooms: Default::default(),
                 room_station: Default::default(),
+                return_to_room: account_switch.is_some(),
                 chat: Default::default(),
                 store: Mutex::new(
                     Store::open(&root.join("workstation.sqlite3"))
@@ -2227,6 +2230,9 @@ pub fn run() {
                 search_control: Default::default(),
                 _process_lock: lock,
             });
+            if account_switch == Some(true) {
+                room_station::resume_after_switch(&app.state::<Runtime>());
+            }
             desktop_runtime::setup(app.handle(), &root).map_err(std::io::Error::other)?;
             // Explicit test/data roots never register with the user's launcher.
             if (explicit_root.is_none() || std::env::var_os("NINGMAO_WORKSPACE_REGISTRY").is_some()) && let Some(registry) = &registry {
@@ -2238,6 +2244,9 @@ pub fn run() {
                 if desktop_runtime::view(app.handle()).map_err(std::io::Error::other)?.layout.expanded {
                     main.show()?;
                 }
+            }
+            if account_switch.is_some() {
+                let _ = shelf_windows::show_main(app.handle());
             }
             wake_shortcut::setup(app.handle(), &root);
             let show = tauri::menu::MenuItem::with_id(
@@ -2383,8 +2392,11 @@ pub fn run() {
             room_station::room_station_start,
             room_station::room_station_stop,
             station_account::station_account_view,
+            station_account::station_account_return_to_room,
+            station_account::station_account_check,
             station_account::station_account_login,
             station_account::station_account_logout,
+            station_account::station_open_browser,
             station_account::station_social_request,
             temporary_room::room_join,
             temporary_room::room_decide,

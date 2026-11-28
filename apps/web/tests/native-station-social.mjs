@@ -29,17 +29,17 @@ const invoke = (page, command, args = {}) => page.evaluate(({ command, args }) =
 
 try {
   const account = username => web.request.post(origin + "/api/account/register", { data: { username, password: passphrase } });
-  assert.equal((await account("Native_A")).status(), 201);
   const pageAccount = (await (await account("Web_B")).json()).account;
   const probe = createServer().listen(0, "127.0.0.1");
   await once(probe, "listening");
   const port = probe.address().port;
   await new Promise(resolve => probe.close(resolve));
   const debug = `http://127.0.0.1:${port}`;
-  child = spawn(exe, { windowsHide: true, stdio: "ignore", env: {
+  const launch = () => spawn(exe, { windowsHide: true, stdio: "ignore", env: {
     ...process.env, NINGMAO_DATA_DIR: join(root, "workspace"), WEBVIEW2_USER_DATA_FOLDER: join(root, "webview"),
     WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port} --remote-debugging-address=127.0.0.1`,
   } });
+  child = launch();
   async function nativePage(username) {
     const deadline = Date.now() + 24_000;
     let session;
@@ -59,10 +59,25 @@ try {
     throw new Error("Native account workspace did not appear.");
   }
   let native = await nativePage(null);
+  const guest = await browser.newPage();
+  await guest.goto(origin);
+  await guest.getByLabel("显示名称").fill("网页游客群主");
+  await guest.getByLabel("入区需批准").check();
+  await guest.getByRole("button", { name: "创建互传区" }).click();
+  await guest.getByRole("heading", { name: "共享文件" }).waitFor();
+  const guestInvite = guest.url();
+  await invoke(native, "room_join", { invitation: guestInvite, name: "桌面游客" });
+  await guest.getByRole("button", { name: "批准", exact: true }).click();
+  assert.equal((await invoke(native, "room_view", { invitation: guestInvite })).member.name, "桌面游客");
+  await guest.close();
+
   await invoke(native, "station_account_login", {
-    station: origin, username: "Native_A", password: passphrase, associate: false,
+    station: origin, username: "Native_A", password: passphrase, associate: false, register: true,
   }).catch(() => {});
   native = await nativePage("Native_A");
+  assert.equal(await invoke(native, "station_account_check"), "Native_A");
+  assert.equal(await invoke(native, "station_account_return_to_room"), true);
+  await native.getByRole("tab", { name: "临时互传区", exact: true }).waitFor({ timeout: 10000 });
   const social = (action, input, room) => invoke(native, "station_social_request", { action, input, room });
   await social("request", { username: "Web_B" });
   const incoming = await web.request.get(origin + "/api/social");
@@ -110,7 +125,18 @@ try {
   assert.deepEqual(await readFile(await downloaded.path()), nativeBytes);
   assert.deepEqual(await readFile(nativeSource), nativeBytes);
   await invoke(native, "quit").catch(() => {});
-  console.log(JSON.stringify({ windowsLogin: true, friendConfirmation: true, groupTextBothWays: true,
+  for (let attempt = 0; attempt < 30; attempt++) {
+    try { await fetch(debug + "/json/version", { signal: AbortSignal.timeout(200) }); }
+    catch { break; }
+    await pause(100);
+  }
+  child = launch();
+  native = await nativePage("Native_A");
+  assert.equal(await invoke(native, "station_account_check"), "Native_A");
+  assert.equal(await invoke(native, "station_account_return_to_room"), false);
+  await invoke(native, "quit").catch(() => {});
+  console.log(JSON.stringify({ windowsGuest: true, browserCreated: true, windowsRegistered: true,
+    windowsAutoLogin: true, friendConfirmation: true, groupTextBothWays: true,
     windowsReceivedBytes: bytes.length, browserReceivedBytes: nativeBytes.length, sourcePreserved: true }));
 } finally {
   await browser.close();
