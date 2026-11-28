@@ -1,17 +1,17 @@
 import { QRCodeCanvas } from "qrcode.react";
 import { useEffect, useRef, useState } from "react";
-import { ArrowDownToLine, Check, Clipboard, Clock3, FolderOpen, FolderUp, Search, Send, X } from "lucide-react";
+import { ArrowDownToLine, ArrowRight, Check, Clipboard, Clock3, FolderOpen, FolderUp, Link2, LogIn, Search, Send, UsersRound, X } from "lucide-react";
 import { MAX_BROWSER_TRANSFER_BYTES } from "./file-preparation.mjs";
 import { downloadBulk, FILE_MAX, uploadBulk } from "./bulkTransfer";
 import { RoomAvatar, RoomFileIcon, RoomRecipients } from "./RoomVisuals";
 import { RoomPeerSources } from "./roomPeerSources";
-import { RoomChat } from "./StationSocial";
+import { RoomChat, socialRequest } from "./StationSocial";
+import { StationConversationLink, StationHeader, type StationConversation } from "./StationChrome";
 import "./rooms.css";
 
 type Member = { id: string; name: string; role: "owner" | "admin" | "member"; status: "active" | "pending" };
 type RoomFile = { id: string; sender: string; name: string; size: number; digest: string; expires: number; retain_until: number; chunked?: number; directed?: number };
 type Room = { code: string; member: Member; members: Member[]; files: RoomFile[]; inviteExpires: number | null; memberLimit?: number; bulk?: boolean; directed?: boolean; fixed?: boolean; direct?: boolean; title?: string; management?: { standby: string | null; active: number } };
-type Theme = "light" | "dark" | "blue";
 type TransferProgress = { id: string | null; label: string; bytes: number; total: number };
 const day = 24 * 60 * 60 * 1000;
 const retentionHours = (size: number) => size >= 10_000_000_000 ? 6 : 24;
@@ -69,9 +69,10 @@ export function TemporaryRoom() {
   const [code, setCode] = useState(() => new URLSearchParams(location.search).get("code") ?? "");
   const [draftCode, setDraftCode] = useState(code);
   const [entry, setEntry] = useState<"create" | "join">(code ? "join" : "create");
-  const [theme, setTheme] = useState<Theme>("light");
   const [name, setName] = useState("");
-  const [account, setAccount] = useState("");
+  const [signedIn, setSignedIn] = useState<{ id: string; username: string } | null>(null);
+  const account = signedIn?.username ?? "";
+  const [recentGroups, setRecentGroups] = useState<StationConversation[] | null>();
   const [requireApproval, setRequireApproval] = useState(false);
   const [room, setRoom] = useState<Room | null>(null);
   const [membership, setMembership] = useState("");
@@ -101,15 +102,22 @@ export function TemporaryRoom() {
   const tooLarge = !!file && file.size > (room?.bulk ? FILE_MAX : MAX_BROWSER_TRANSFER_BYTES);
   const remoteBlocked = busy || stationOffline;
 
-  useEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
   useEffect(() => {
     const controller = new AbortController();
     void fetch("/api/account", { signal: controller.signal, cache: "no-store" })
       .then(response => response.ok ? response.json() : null)
-      .then(value => { if (!controller.signal.aborted) setAccount(value?.account?.username ?? ""); })
+      .then(value => { if (!controller.signal.aborted) setSignedIn(value?.account ?? null); })
       .catch(() => {});
     return () => controller.abort();
   }, []);
+  useEffect(() => {
+    if (!account || code) return;
+    const controller = new AbortController();
+    void socialRequest<{ rooms: StationConversation[] }>("", undefined, controller.signal).then(value => {
+      if (!controller.signal.aborted) setRecentGroups(value.rooms.filter(item => !item.direct).slice(0, 4));
+    }).catch(() => { if (!controller.signal.aborted) setRecentGroups(null); });
+    return () => controller.abort();
+  }, [account, code]);
   useEffect(() => {
     if (!copied) return;
     const timer = window.setTimeout(() => setCopied(false), 2400);
@@ -288,37 +296,35 @@ export function TemporaryRoom() {
     });
   }
 
-  return <main className={room ? "room-page room-page-active" : "room-page"}>
-    <header className="room-header">
-      <strong><FolderUp size={21} aria-hidden /> 柠猫文件工作站</strong>
-      <div className="room-row">
-        <a className="room-nav-link" aria-label="账号" href={code ? `/account?room=${encodeURIComponent(code)}` : "/account"}>{account || "账号"}</a>
-        {account && <a className="room-nav-link" href="/social">好友与文件群</a>}
-        <label>主题 <select value={theme} onChange={event => setTheme(event.target.value as Theme)}>
-          <option value="light">浅白</option><option value="dark">深蓝</option><option value="blue">亮蓝</option>
-        </select></label>
-      </div>
-    </header>
-    <h1>{room?.title ?? "临时互传区"}</h1>
+  const accountHref = code ? `/account?room=${encodeURIComponent(code)}` : "/account";
+  return <main className={room ? "room-page station-page room-page-active" : "room-page station-page"}>
+    <StationHeader page="room" account={account} accountHref={accountHref} />
+    <div className="station-heading"><h1>{room?.title ?? "临时互传区"}</h1></div>
     {stationOffline && <p className="room-feedback" role="alert">互传站点暂时无法连接，恢复后会自动刷新。</p>}
     {problem && <p className="room-feedback" role="alert">{problem}</p>}
     {message && <p className={transfer || (copied && message === "邀请链接已复制。")
       ? "room-feedback room-visually-hidden" : "room-feedback"} role="status">{message}</p>}
-    {!room ? <section className="room-card">
+    {!room ? <div className={code ? "station-entry-context" : "station-layout station-home-layout"}>
+    <section className="room-card station-entry" aria-labelledby="station-entry-title">
+      <h2 id="station-entry-title" className="station-title"><FolderUp size={19} aria-hidden />快速互传</h2>
       {membership === "pending" && <p role="status">等待群主或管理员批准加入。</p>}
       {membership === "denied" && <p role="status">加入申请未获批准。</p>}
       {membership === "left" && <p role="status">你已退出文件群，可使用邀请重新加入。</p>}
       {membership === "removed" && <p role="status">你已被移出这个文件群。</p>}
       {membership === "missing" && <p role="status">找不到这个互传区，请检查邀请码。</p>}
-      {membership === "sign-in" && <p role="status">请先登录账号，再打开这个文件群。</p>}
+      {membership === "sign-in" && <div className="station-entry-signin">
+        <p role="status">请先登录账号，再打开这个文件群。</p>
+        <a className="room-nav-link" href={accountHref}>登录后返回 <ArrowRight size={15} aria-hidden /></a>
+      </div>}
       <fieldset disabled={busy}>
-        <div className="room-entry-tabs" role="group" aria-label="进入方式">
-          <button type="button" aria-pressed={entry === "create"} onClick={() => setEntry("create")}>发起新区</button>
-          <button type="button" aria-pressed={entry === "join"} onClick={() => setEntry("join")}>有邀请链接</button>
+        <div className="station-switch" role="group" aria-label="进入方式">
+          <button type="button" aria-pressed={entry === "create"} onClick={() => setEntry("create")}><FolderOpen size={17} aria-hidden />发起新区</button>
+          <button type="button" aria-pressed={entry === "join"} onClick={() => setEntry("join")}><Link2 size={17} aria-hidden />有邀请链接</button>
         </div>
-        {account ? <p className="room-note">使用账号 {account}</p>
-          : <label>显示名称 <input value={name} maxLength={100} onChange={event => setName(event.target.value)} /></label>}
-        {entry === "create" ? <form onSubmit={event => {
+        <p className="room-note station-entry-note">{entry === "create" ? "建区后，复制邀请或让对方扫码加入。" : "使用对方发来的本站邀请加入。"}</p>
+        {account ? <p className="station-entry-account"><UsersRound size={16} aria-hidden />使用账号 {account}</p>
+          : <label className="station-entry-name">显示名称 <input value={name} placeholder="对方会在互传区看到这个名字" autoComplete="nickname" maxLength={100} onChange={event => setName(event.target.value)} /></label>}
+        {entry === "create" ? <form className="station-form" onSubmit={event => {
           event.preventDefault();
           void perform(async () => {
             const created = await jsonPost<{ code: string; recovery: string }>(api, { name, approval: requireApproval });
@@ -327,9 +333,9 @@ export function TemporaryRoom() {
           });
         }}>
           <label className="room-choice"><input type="checkbox" checked={requireApproval} onChange={event => setRequireApproval(event.target.checked)} /> 入区需批准</label>
-          <button type="submit" className="room-primary" disabled={!account && !name.trim()}>创建互传区</button>
+          <button type="submit" className="room-primary station-action" disabled={!account && !name.trim()}>创建互传区<ArrowRight size={16} aria-hidden /></button>
         </form> : <>
-        <form onSubmit={event => {
+        <form className="station-form" onSubmit={event => {
           event.preventDefault();
           void perform(async () => {
             const target = navigate(draftCode);
@@ -338,8 +344,8 @@ export function TemporaryRoom() {
             await refresh(`${api}/${target}`);
           });
         }}>
-          <label>邀请链接或邀请码 <input value={draftCode} maxLength={2048} onChange={event => setDraftCode(event.target.value)} /></label>
-          <button type="submit" className="room-primary" disabled={(!account && !name.trim()) || !draftCode.trim() || (membership === "pending" && draftCode === code)}>加入互传区</button>
+          <label>邀请链接或邀请码 <input value={draftCode} placeholder="粘贴邀请链接或完整邀请码" autoCapitalize="none" spellCheck={false} maxLength={2048} onChange={event => setDraftCode(event.target.value)} /></label>
+          <button type="submit" className="room-primary station-action" disabled={(!account && !name.trim()) || !draftCode.trim() || (membership === "pending" && draftCode === code)}>加入互传区<ArrowRight size={16} aria-hidden /></button>
         </form>
         <details><summary>恢复群主管理权限</summary><form onSubmit={event => {
           event.preventDefault();
@@ -354,7 +360,19 @@ export function TemporaryRoom() {
           <button type="submit" disabled={!draftCode || !recoveryInput}>恢复管理权限</button>
         </form></details></>}
       </fieldset>
-    </section> : <>
+    </section>
+    {!code && (account ? <section className="room-card station-recent" aria-labelledby="station-recent-title">
+      <h2 id="station-recent-title" className="station-title"><UsersRound size={18} aria-hidden />最近文件群</h2>
+      {recentGroups?.length ? <ul className="station-conversation-list">{recentGroups.map(item =>
+        <li key={item.code}><StationConversationLink room={item} showKind={false} /></li>)}</ul>
+        : <p className="room-note">{recentGroups === undefined ? "正在加载文件群…" : recentGroups === null ? "暂时无法加载文件群。" : "固定文件群会出现在这里。"}</p>}
+      <a className="room-nav-link station-panel-link" href="/social">查看全部会话<ArrowRight size={15} aria-hidden /></a>
+    </section> : <section className="room-card station-recent">
+      <h2 className="station-title"><UsersRound size={18} aria-hidden />好友与固定文件群</h2>
+      <p className="room-note">登录后可添加好友、打开私聊和固定文件群。</p>
+      <a className="room-nav-link station-panel-link" href="/account"><LogIn size={16} aria-hidden />登录站点账号</a>
+    </section>)}
+    </div> : <>
       <section className="room-card room-context">
         <div className="room-context-bar">
           <h2 className="room-identity"><RoomAvatar id={room.member.id} slot={roomMembers.get(room.member.id)?.avatarSlot} /> <span>{room.member.name} <small>{room.member.role === "owner" ? "群主" : room.member.role === "admin" ? "管理员" : "成员"}</small></span></h2>
@@ -601,7 +619,7 @@ export function TemporaryRoom() {
           })}
         </section>
       </div>
-      {room.fixed && <RoomChat key={room.code} code={room.code} />}
+      {room.fixed && <RoomChat key={room.code} code={room.code} accountId={signedIn?.id} />}
     </>}
   </main>;
 }

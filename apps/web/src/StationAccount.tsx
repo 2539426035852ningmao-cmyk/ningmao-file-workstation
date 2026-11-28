@@ -1,5 +1,6 @@
-import { ArrowLeft, UserRound } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, KeyRound, Laptop, LockKeyhole, LogOut, UserRound, UsersRound } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
+import { StationHeader } from "./StationChrome";
 import "./rooms.css";
 
 type Account = { id: string; username: string };
@@ -41,10 +42,10 @@ export function StationAccount() {
   const [message, setMessage] = useState("");
   const [loadAttempt, setLoadAttempt] = useState(0);
   const [browserName, setBrowserName] = useState("");
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const room = new URLSearchParams(location.search).get("room") ?? "";
   const returnToRoom = /^[a-f0-9]{32}$/i.test(room) ? `/rooms?code=${room.toLowerCase()}` : "/rooms";
   useEffect(() => {
-    document.documentElement.dataset.theme ??= "light";
     const controller = new AbortController();
     setProblem("");
     async function load() {
@@ -113,56 +114,88 @@ export function StationAccount() {
       return;
     }
     delete input.repeat;
-    if (await perform(action, input, success)) form.reset();
+    if (await perform(action, input, success)) {
+      form.reset();
+      setPasswordVisible(false);
+    }
   }
 
   function switchEntry(toRegister: boolean) {
     setRegister(toRegister);
+    setPasswordVisible(false);
     setProblem("");
     setMessage("");
   }
 
-  return <main className="room-page account-page">
-    <header className="room-header">
-      <strong><UserRound size={20} aria-hidden /> 柠猫文件工作站</strong>
-      <a className="room-nav-link" href={returnToRoom}><ArrowLeft size={16} aria-hidden /> 返回互传区</a>
-    </header>
-    <h1>{browserName ? "使用桌面账号" : account ? "账号设置" : "站点账号"}</h1>
+  const feedback = <>
     {problem && <p className="room-feedback" role="alert">{problem}</p>}
     {message && <p className="room-feedback" role="status">{message}</p>}
-    {browserName ? <section className="room-card account-summary">
-      <strong>{browserName}</strong>
-      <button type="button" className="room-primary" disabled={busy} onClick={() => void finishBrowserLogin()}>继续使用桌面账号</button>
-    </section> : account === undefined ? problem
-      ? <button type="button" onClick={() => setLoadAttempt(attempt => attempt + 1)}>重新检查</button>
-      : <p className="room-note" role="status">正在确认登录状态…</p> : !account ?
-      <section className="room-card">
-        <div className="room-entry-tabs" role="group" aria-label="账号入口">
+  </>;
+
+  return <main className="room-page station-page">
+    <StationHeader page="account" returnToRoom={returnToRoom} />
+    {!account || browserName ? <section className="room-card station-login">
+      <span className="station-page-icon">{browserName ? <Laptop size={24} aria-hidden /> : <LockKeyhole size={24} aria-hidden />}</span>
+      <h1>{browserName ? "使用桌面账号" : register ? "创建站点账号" : "登录站点账号"}</h1>
+      {browserName ? <p className="room-note">核对下面的账号名，继续打开互传区。</p>
+        : <p className="room-note">{register ? "创建后会自动登录，账号可用于此站点的网页和软件端。" : "登录后可使用好友与固定文件群。"}</p>}
+      {feedback}
+      {browserName ? <div className="station-handoff">
+        <div className="station-identity"><UserRound size={18} aria-hidden /><strong>{browserName}</strong></div>
+        <button type="button" className="room-primary station-action" disabled={busy}
+          onClick={() => void finishBrowserLogin()}>继续使用桌面账号<ArrowRight size={16} aria-hidden /></button>
+      </div> : account === undefined ? problem
+        ? <button type="button" onClick={() => setLoadAttempt(attempt => attempt + 1)}>重新检查</button>
+        : <p className="room-note station-loading" role="status">正在确认登录状态…</p>
+      : <>
+        <div className="station-switch" role="group" aria-label="账号入口">
           <button type="button" disabled={busy} aria-pressed={!register} onClick={() => switchEntry(false)}>登录账号</button>
           <button type="button" disabled={busy} aria-pressed={register} onClick={() => switchEntry(true)}>注册新账号</button>
         </div>
-        <form key={String(register)} onSubmit={event => void submit(event, register ? "/register" : "/login", register ? "账号已创建。" : "已登录。")}>
-          <fieldset disabled={busy}>
+        <form className="station-form" key={String(register)}
+          onSubmit={event => void submit(event, register ? "/register" : "/login", register ? "账号已创建。" : "已登录。")}>
+          <fieldset className="station-fields" disabled={busy}>
             <label>账号名<input name="username" autoComplete="username" autoCapitalize="none" spellCheck={false} maxLength={64} required /></label>
-            <label>密码<input name="password" type="password" autoComplete={register ? "new-password" : "current-password"} maxLength={256} required /></label>
+            <div className="station-password">
+              <label htmlFor="station-entry-password">密码</label>
+              <div className="station-password-input">
+                <input id="station-entry-password" name="password" type={passwordVisible ? "text" : "password"}
+                  autoComplete={register ? "new-password" : "current-password"} maxLength={256} spellCheck={false} autoCapitalize="none" required />
+                <button type="button" aria-label={passwordVisible ? "隐藏密码" : "显示密码"} onClick={() => setPasswordVisible(value => !value)}>
+                  {passwordVisible ? <EyeOff size={18} aria-hidden /> : <Eye size={18} aria-hidden />}
+                </button>
+              </div>
+            </div>
             {register && <label>再输入一次密码<input name="repeat" type="password" autoComplete="new-password" maxLength={256} required /></label>}
-            {register && <p className="room-note">账号名用 2 到 32 个字母、数字、下划线或连字符。密码须为 15 到 128 个字符。</p>}
-            <button type="submit" className="room-primary">{register ? "创建账号" : "登录"}</button>
+            {register && <p className="room-note">账号名用 2 到 32 个字符，支持中文、字母、数字、下划线和连字符。密码须为 15 到 128 个字符。</p>}
+            <button type="submit" className="room-primary station-action">
+              {busy ? (register ? "正在创建…" : "正在登录…") : register ? "创建账号" : "登录"}<ArrowRight size={16} aria-hidden />
+            </button>
           </fieldset>
         </form>
-      </section> : <>
-        <section className="room-card account-summary" aria-label="当前账号">
-          <div><p className="room-note">当前登录</p><strong>{account.username}</strong></div>
-          <a className="room-nav-link" href="/social">好友与文件群</a>
-          <button type="button" disabled={busy} onClick={() => {
+        <footer className="station-login-footer"><a className="room-nav-link" href={returnToRoom}>{room ? "返回邀请" : "以访客使用临时互传"}</a></footer>
+      </>}
+    </section> : <div className="station-settings">
+      <div className="station-heading"><h1>账号设置</h1></div>
+      {feedback}
+      <section className="room-card station-profile" aria-label="当前账号">
+        <div className="station-identity"><span className="station-page-icon"><UserRound size={22} aria-hidden /></span>
+          <div><small>当前登录</small><strong>{account.username}</strong></div>
+        </div>
+        <div className="room-row">
+          {room && <a className="room-nav-link" href={returnToRoom}>返回邀请 <ArrowRight size={16} aria-hidden /></a>}
+          <a className="room-nav-link" href="/social"><UsersRound size={16} aria-hidden />好友与文件群</a>
+          <button type="button" className="station-inline" disabled={busy} onClick={() => {
             setRegister(false);
             void perform("/logout", {}, "已退出登录。");
-          }}>退出登录</button>
-        </section>
+          }}><LogOut size={16} aria-hidden />退出登录</button>
+        </div>
+      </section>
+      <div className="station-settings-grid">
         <section className="room-card" aria-labelledby="account-name-heading">
-          <h2 id="account-name-heading">修改账号名</h2>
-          <form key={account.username} onSubmit={event => void submit(event, "/username", "账号名已更新。")}>
-            <fieldset disabled={busy}>
+          <h2 id="account-name-heading" className="station-title"><UserRound size={17} aria-hidden />修改账号名</h2>
+          <form className="station-form" key={account.username} onSubmit={event => void submit(event, "/username", "账号名已更新。")}>
+            <fieldset className="station-fields" disabled={busy}>
               <label>新账号名<input name="username" defaultValue={account.username} autoComplete="username" autoCapitalize="none" spellCheck={false} maxLength={64} required /></label>
               <label>当前密码<input name="password" type="password" autoComplete="current-password" maxLength={256} required /></label>
               <button type="submit">保存账号名</button>
@@ -170,9 +203,9 @@ export function StationAccount() {
           </form>
         </section>
         <section className="room-card" aria-labelledby="account-password-heading">
-          <h2 id="account-password-heading">修改密码</h2>
-          <form onSubmit={event => void submit(event, "/password", "密码已更新，其他会话已退出。")}>
-            <fieldset disabled={busy}>
+          <h2 id="account-password-heading" className="station-title"><KeyRound size={17} aria-hidden />修改密码</h2>
+          <form className="station-form" onSubmit={event => void submit(event, "/password", "密码已更新，其他会话已退出。")}>
+            <fieldset className="station-fields" disabled={busy}>
               <label>当前密码<input name="password" type="password" autoComplete="current-password" maxLength={256} required /></label>
               <label>新密码<input name="newPassword" type="password" autoComplete="new-password" maxLength={256} required /></label>
               <label>再输入一次新密码<input name="repeat" type="password" autoComplete="new-password" maxLength={256} required /></label>
@@ -181,6 +214,7 @@ export function StationAccount() {
             </fieldset>
           </form>
         </section>
-      </>}
+      </div>
+    </div>}
   </main>;
 }
