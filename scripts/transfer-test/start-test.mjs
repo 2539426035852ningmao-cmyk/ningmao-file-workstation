@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { access, appendFile, mkdir, writeFile } from "node:fs/promises";
+import { access, appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -8,16 +8,34 @@ const root = fileURLToPath(new URL(".", import.meta.url));
 const data = join(root, "test-data");
 await mkdir(data, { recursive: true });
 const log = message => appendFile(join(data, "launch.log"), `${new Date().toISOString()} ${message}\n`);
-const origin = "http://127.0.0.1:5186";
+let origin = "http://127.0.0.1:5186";
 let station, desktop;
 const desktopOnly = process.argv.includes("--desktop-only");
 const stationOnly = process.argv.includes("--station-only");
 
 async function startStation() {
+  const portFile = join(data, "account-station-port.txt");
+  const savedPort = stationOnly ? await readFile(portFile, "utf8").then(Number).catch(error => {
+    if (error.code !== "ENOENT") throw error;
+  }) : undefined;
+  if (savedPort !== undefined && (!Number.isInteger(savedPort) || savedPort < 1024 || savedPort > 65535)) {
+    throw new Error("The saved account station address is invalid.");
+  }
   const { createRoomServer } = await import("./web/selfhost/server.mjs");
   station = createRoomServer(join(data, "station"), undefined, 512 * 1024 * 1024);
-  station.listen(5186, "127.0.0.1");
-  await once(station, "listening");
+  async function listen(port) {
+    station.listen(port, "127.0.0.1");
+    await once(station, "listening");
+  }
+  try {
+    await listen(savedPort ?? 5186);
+  } catch (error) {
+    if (!stationOnly || savedPort !== undefined || error.code !== "EADDRINUSE") throw error;
+    await listen(0);
+  }
+  const port = station.address().port;
+  if (stationOnly && savedPort === undefined) await writeFile(portFile, String(port), { flag: "wx" });
+  origin = `http://127.0.0.1:${port}`;
   await log("Station listening at " + origin + "/rooms");
 }
 
@@ -67,11 +85,11 @@ async function runDesktop() {
 try {
   if (stationOnly) {
     await startStation();
-    console.log("Open " + origin + "/account. Press Ctrl+C to stop the test station.");
+    console.log("Open " + origin + " in your browser. Press Ctrl+C to stop the test station.");
     await new Promise(resolve => process.once("SIGINT", resolve));
   } else await runDesktop();
 } catch (error) {
-  await log(error.code === "EADDRINUSE" ? "Port 5186 is in use. Check whether the transfer preview is already open." : String(error));
+  await log(error.code === "EADDRINUSE" ? `Port ${error.port} is in use. Check whether the transfer preview is already open.` : String(error));
   process.exitCode = 1;
 } finally {
   if (desktop && desktop.exitCode === null && desktop.pid) desktop.kill();

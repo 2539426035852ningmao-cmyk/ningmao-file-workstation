@@ -1,6 +1,6 @@
 # 项目状态
 
-互传与同步开发以「工作01」已验收的 D15（`459558c1aad1861f418b244002f76630bcc7ff6c`）为桌面基线，从 `codex/d15-transfer-baseline` 接续。2026-11-22 核对 GitHub，`develop` 仍记录 D13，[D15 交接 PR #103](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/103)与[互传 PR #111](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/111)均处于草稿，互传 PR 以 D15 的头分支为基底。D13 的包、源码和检查结果见[当前交付](execution/ACTIVE-DELIVERY.md)。
+互传开发以「工作01」已验收的 D15（`459558c1aad1861f418b244002f76630bcc7ff6c`）为桌面基线。桌面、互传和账号的最新整合版本见 [PR #132](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/132)。[D15 交接 PR #103](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/103)与[互传 PR #111](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/111)保留前置记录，D13 归档见[当前交付](execution/ACTIVE-DELIVERY.md)。
 
 | 能力 | 实际状态 |
 | --- | --- |

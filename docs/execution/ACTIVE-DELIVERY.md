@@ -1,6 +1,10 @@
-# 当前交付 · D13
+# 当前交付 · D15 互传与账号整合
 
-本页记录 `develop` 的 D13 交付。已验收的 D15 和互传分支见[项目状态](../project-status.md)与[开发接续](../codex-start-here.md)。
+D15 桌面验收源码为 `459558c1aad1861f418b244002f76630bcc7ff6c`。互传、账号、固定文件群和网页独立入口集中进 [整合 PR #132](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/132)。确切的包、提交、校验值、验收范围及合并状态见该 PR。
+
+账号和互传入口见[网页使用说明](../../apps/web/README.md#自托管临时互传区)。Windows 独立站点测试包可在启动软件前打开网页并发起互传。所有已知能力与验证边界见[项目状态](../project-status.md)。UI、UX、图标与动效重构从已合并的整合版本接续，先确认参考和高频动线，再进入设计稿与实施。
+
+## D13 历史交付
 
 开发基线：`develop`。应用源 `01f99f273e4011f34c39b3b2b288bb24935ee672`，基于 D12。审查及 CI 入口：[PR #102](https://github.com/2539426035852ningmao-cmyk/ningmao-file-workstation/pull/102)。文档更新提交不会冒充应用构建提交。
 
