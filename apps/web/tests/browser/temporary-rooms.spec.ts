@@ -41,6 +41,7 @@ test("两份独立浏览器配置经自托管站点双向收发并校验落盘",
     });
     await hostPage.getByRole("button", { name: "复制邀请链接" }).click();
     expect(await hostPage.evaluate(() => sessionStorage.getItem("room-invitation-copy"))).toBe(invitation);
+    await expect(hostPage.getByRole("button", { name: "已复制" })).toBeFocused();
     await guestPage.goto(new URL("/rooms", invitation).href);
     await guestPage.getByRole("button", { name: "有邀请链接" }).click();
     await guestPage.getByLabel("邀请链接或邀请码").fill(invitation);
@@ -53,17 +54,38 @@ test("两份独立浏览器配置经自托管站点双向收发并校验落盘",
     await expect(guestPage.getByRole("heading", { name: "共享文件" })).toBeVisible();
     await expect(guestPage.getByText("文件群成员 2 / 5 人")).toBeVisible();
     await expect(guestPage.getByRole("heading", { name: "乙 成员" }).locator(".room-avatar")).toBeVisible();
+    await hostPage.getByRole("button", { name: "移除所选文件" }).click();
+    await expect(preview).toHaveCount(0);
+    await expect(hostPage.getByRole("button", { name: "选择文件" })).toBeFocused();
 
     for (const [sender, recipient, name] of [
       [hostPage, guestPage, "甲到乙.txt"],
       [guestPage, hostPage, "乙到甲.txt"],
     ] as const) {
       const source = Buffer.from(`合成文件 ${name}`);
-      await sender.getByLabel("选择文件").setInputFiles({ name, mimeType: "text/plain", buffer: source });
+      if (sender === hostPage) {
+        const data = await sender.evaluateHandle(({ name, text }) => {
+          const transfer = new DataTransfer();
+          transfer.items.add(new File([text], name, { type: "text/plain" }));
+          return transfer;
+        }, { name, text: source.toString() });
+        await sender.getByRole("region", { name: "发送文件" }).getByRole("button", { name: "选择文件" })
+          .dispatchEvent("drop", { dataTransfer: data });
+        await data.dispose();
+        await expect(sender.getByRole("group", { name: "所选文件" })).toContainText(name);
+      } else {
+        await sender.getByLabel("选择文件").setInputFiles({ name, mimeType: "text/plain", buffer: source });
+      }
       await sender.getByRole("button", { name: "发给全区 2 人" }).click();
       const received = recipient.locator("article").filter({ hasText: name });
+      await expect(received.getByText("待领取", { exact: true })).toBeVisible();
       await expect(received.getByText(sender === hostPage ? "发件人 甲" : "发件人 乙", { exact: true })).toBeVisible();
       await expect(sender.locator("article").filter({ hasText: name }).getByText("我发送的", { exact: true })).toBeVisible();
+      const color = await received.locator(".room-avatar").evaluate(avatar => getComputedStyle(avatar).backgroundColor);
+      const senderColor = await sender.locator(".room-context-bar .room-avatar").evaluate(avatar => getComputedStyle(avatar).backgroundColor);
+      const recipientColor = await recipient.locator(".room-context-bar .room-avatar").evaluate(avatar => getComputedStyle(avatar).backgroundColor);
+      expect(color).toBe(senderColor);
+      expect(color).not.toBe(recipientColor);
       const download = recipient.waitForEvent("download");
       await recipient.getByRole("button", { name: `保存 ${name}` }).click();
       const saved = await download;
@@ -73,6 +95,7 @@ test("两份独立浏览器配置经自托管站点双向收发并校验落盘",
       const bytes = await readFile(path);
       expect(bytes.byteLength).toBe(source.byteLength);
       expect(createHash("sha256").update(bytes).digest("hex")).toBe(createHash("sha256").update(source).digest("hex"));
+      await expect(received.getByText("已交给浏览器保存", { exact: true })).toBeVisible();
       sender.once("dialog", dialog => dialog.accept());
       await sender.locator("article").filter({ hasText: name }).getByRole("button", { name: "撤回" }).click();
       await expect(recipient.getByRole("button", { name: `保存 ${name}` })).toHaveCount(0);
@@ -150,11 +173,31 @@ test("电脑显示的二维码可解出原邀请，手机视口使用同一地�
     await host.getByRole("button", { name: "发给全区 2 人" }).click();
     await phone.getByRole("button", { name: `准备保存 ${mobileFile}`, exact: true }).click();
     await expect(phone.getByRole("status")).toHaveText("文件校验通过，请点击保存。");
+    const received = phone.locator("article").filter({ hasText: mobileFile });
+    await expect(received.getByText("已校验，待保存", { exact: true })).toBeVisible();
     const download = phone.waitForEvent("download");
     await phone.getByRole("button", { name: `保存 ${mobileFile}`, exact: true }).click();
     const saved = await download;
     await expect(phone.getByRole("status")).toHaveText("校验通过，已交给浏览器保存。");
+    await expect(received.getByText("已交给浏览器保存", { exact: true })).toBeVisible();
     expect(await readFile(await saved.path())).toEqual(bytes);
+
+    const reply = "手机回传.png";
+    const image = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+tF1sAAAAASUVORK5CYII=", "base64");
+    const picker = phone.waitForEvent("filechooser");
+    await phone.getByRole("button", { name: "选择文件", exact: true }).click();
+    await (await picker).setFiles({ name: reply, mimeType: "image/png", buffer: image });
+    await expect(phone.getByRole("group", { name: "所选文件" }).getByText(reply, { exact: true })).toBeVisible();
+    await phone.getByRole("button", { name: "发给全区 2 人" }).click();
+    const incoming = host.locator("article").filter({ hasText: reply });
+    const saveReply = incoming.getByRole("button", { name: `保存 ${reply}`, exact: true });
+    await expect(saveReply).toBeVisible();
+    await expect(phone.locator("article").filter({ hasText: reply }).locator("img")).toBeVisible();
+    await expect(incoming.locator("img")).toHaveCount(0);
+    const replied = host.waitForEvent("download");
+    await saveReply.click();
+    expect(await readFile(await (await replied).path())).toEqual(image);
+    await expect(incoming.locator("img")).toBeVisible();
   } finally {
     await browser?.close();
     await new Promise<void>(resolve => server.close(() => resolve()));

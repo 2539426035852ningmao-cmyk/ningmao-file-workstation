@@ -22,7 +22,9 @@ test("网页站点账号可独立注册、改名改密，退出后按新凭据�
     await page.route(accountRoute, route => route.fulfill({ status: 503, json: "站点暂时无法连接。" }));
     const invite = "a".repeat(32);
     await page.goto(origin + "/rooms?code=" + invite);
+    await page.getByLabel("主题").selectOption("dark");
     await page.getByRole("link", { name: "账号", exact: true }).click();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
     await expect(page.getByRole("link", { name: "返回互传区" })).toHaveAttribute("href", "/rooms?code=" + invite);
     await expect(page.getByRole("alert")).toHaveText("站点暂时无法连接。");
     await expect(page.getByRole("button", { name: "登录账号" })).toHaveCount(0);
@@ -31,6 +33,12 @@ test("网页站点账号可独立注册、改名改密，退出后按新凭据�
     await page.getByRole("button", { name: "注册新账号" }).click();
     await page.getByLabel("账号名", { exact: true }).fill("测试账号");
     await page.getByLabel("密码", { exact: true }).fill(password);
+    const firstPassword = page.getByLabel("密码", { exact: true });
+    await page.getByRole("button", { name: "显示密码", exact: true }).click();
+    await expect(firstPassword).toHaveAttribute("type", "text");
+    await page.getByRole("button", { name: "隐藏密码", exact: true }).click();
+    await expect(firstPassword).toHaveAttribute("type", "password");
+    await expect(firstPassword).toHaveValue(password);
     await page.getByLabel("再输入一次密码", { exact: true }).fill("故意输错");
     await page.getByRole("button", { name: "创建账号" }).click();
     await expect(page.getByRole("alert")).toHaveText("两次输入的密码不一致。");
@@ -38,10 +46,12 @@ test("网页站点账号可独立注册、改名改密，退出后按新凭据�
     await page.getByRole("button", { name: "创建账号" }).click();
     const profile = page.getByRole("region", { name: "当前账号" });
     await expect(profile).toContainText("测试账号");
+    await expect(profile.getByRole("link", { name: "返回邀请" })).toHaveAttribute("href", "/rooms?code=" + invite);
     await page.reload();
     await expect(profile).toContainText("测试账号");
 
-    await visitor.goto(origin + "/account");
+    await visitor.goto(origin + "/social");
+    await visitor.getByRole("link", { name: "打开账号" }).click();
     await expect(visitor.getByRole("heading", { name: "站点账号" })).toBeVisible();
     await expect(visitor.getByRole("region", { name: "当前账号" })).toHaveCount(0);
     async function signInVisitor(username: string, secret: string) {

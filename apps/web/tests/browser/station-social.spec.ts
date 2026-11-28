@@ -45,7 +45,9 @@ test("好友确认后可私聊、固定文件群可来回查看文字及收发�
     const groupLink = a.url();
     const groupCode = new URL(groupLink).searchParams.get("code");
     expect((await outsider.request.get(origin + "/api/rooms/" + groupCode)).status()).toBe(403);
-    await b.goto(groupLink);
+    await b.goto(origin + "/rooms");
+    await b.getByRole("region", { name: "最近文件群" }).getByRole("link", { name: "合成设计群" }).click();
+    await expect(b).toHaveURL(groupLink);
     await expect(b.getByRole("heading", { level: 1, name: "合成设计群" })).toBeVisible();
     const bytes = Buffer.from("synthetic group design file");
     await a.getByLabel("选择文件").setInputFiles({ name: "群样本.txt", mimeType: "text/plain", buffer: bytes });
